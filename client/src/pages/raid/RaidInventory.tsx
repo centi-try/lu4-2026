@@ -179,6 +179,8 @@ export default function RaidInventory({ raidAccess }: Props) {
 
   // Modal de confirmación — se abre cuando los datos pasan validación
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Modal de confirmación de cierre de ciclo
+  const [closeCycleOpen, setCloseCycleOpen] = useState(false);
 
   // Validación del form. Retorna los drops válidos si todo está OK, o null si
   // faltan datos (y ya mostró el toast correspondiente).
@@ -325,15 +327,7 @@ export default function RaidInventory({ raidAccess }: Props) {
 
             {canAdmin && (
               <button
-                onClick={() => {
-                  if (
-                    confirm(
-                      `¿Cerrar el ciclo "${currentCycle.label}"? Se consolidará el resumen y se reseteará el contador de ganancias.`
-                    )
-                  ) {
-                    closeCycle.mutate({ cycleId: Number(currentCycle.id) });
-                  }
-                }}
+                onClick={() => setCloseCycleOpen(true)}
                 disabled={closeCycle.isPending}
                 className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all"
                 style={{
@@ -860,6 +854,109 @@ export default function RaidInventory({ raidAccess }: Props) {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmación de cierre de ciclo */}
+      {closeCycleOpen && currentCycle && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => {
+            if (!closeCycle.isPending) setCloseCycleOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.3)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <StopCircle className="h-5 w-5" style={{ color: '#ef4444' }} />
+                  <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                    Cerrar ciclo de raids
+                  </h3>
+                </div>
+                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Esta acción consolida el resumen y resetea el contador de ganancias. No se puede deshacer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCloseCycleOpen(false)}
+                disabled={closeCycle.isPending}
+                className="rounded-lg p-1.5 transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.6)',
+                }}
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div
+              className="rounded-xl p-3 mb-4"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Ciclo actual
+              </div>
+              <div className="font-semibold mt-0.5" style={{ color: '#7bf1d6' }}>
+                {currentCycle.label}
+              </div>
+              <div className="text-[11px] font-mono mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                #{currentCycle.id}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCloseCycleOpen(false)}
+                disabled={closeCycle.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.75)',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeCycle.mutate(
+                    { cycleId: Number(currentCycle.id) },
+                    { onSuccess: () => setCloseCycleOpen(false) }
+                  );
+                }}
+                disabled={closeCycle.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: 'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(232,121,249,0.9))',
+                  border: '1px solid rgba(239,68,68,0.5)',
+                  color: '#fff',
+                  opacity: closeCycle.isPending ? 0.6 : 1,
+                }}
+              >
+                <StopCircle className="h-4 w-4" />
+                {closeCycle.isPending ? 'Cerrando…' : 'Sí, cerrar ciclo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmación de registro de evento */}
       {confirmOpen && (() => {

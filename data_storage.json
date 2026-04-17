@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-17T23:09:02.575Z",
-      "lastSignedIn": "2026-04-17T23:09:02.575Z"
+      "updatedAt": "2026-04-17T23:28:05.907Z",
+      "lastSignedIn": "2026-04-17T23:28:05.907Z"
     },
     {
       "id": 581030,
@@ -1343,8 +1343,77 @@
       "id": 59639888,
       "label": "Ciclo de Raids #7",
       "type": "DIARIO",
-      "status": "OPEN",
+      "status": "CLOSED",
       "startedAt": "2026-04-17T22:35:14.249Z",
+      "closedAt": "2026-04-17T23:27:23.297Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 2,
+      "totalEvents": 2,
+      "totalRevenue": 0,
+      "clansParticipated": [
+        {
+          "clanId": 107476,
+          "clanName": "Dragon Fangs",
+          "eventsParticipated": 1,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 107708,
+          "clanName": "Iron Brigade",
+          "eventsParticipated": 1,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 765309,
+          "clanName": "Valhalla",
+          "eventsParticipated": 1,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 128350,
+          "clanName": "Shadow Wolves",
+          "eventsParticipated": 2,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 898429,
+          "clanName": "Moon Archers",
+          "eventsParticipated": 1,
+          "revenueShare": 0
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 300420,
+          "bossName": "Antharas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+          "kills": 1
+        },
+        {
+          "bossId": 771969,
+          "bossName": "Baium",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5f/Baium.jpg",
+          "kills": 1
+        }
+      ],
+      "summary": {
+        "events": 2,
+        "drops": 2,
+        "bosses": 2,
+        "clans": 5,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T22:35:14.249Z",
+      "updatedAt": "2026-04-17T23:27:23.297Z"
+    },
+    {
+      "id": 517468966,
+      "label": "Ciclo de Raids #8",
+      "type": "DIARIO",
+      "status": "OPEN",
+      "startedAt": "2026-04-17T23:27:24.752Z",
       "closedAt": null,
       "closedBy": null,
       "totalBosses": 0,
@@ -1354,8 +1423,8 @@
       "bossesKilled": [],
       "summary": null,
       "createdBy": 1,
-      "createdAt": "2026-04-17T22:35:14.249Z",
-      "updatedAt": "2026-04-17T22:35:14.249Z"
+      "createdAt": "2026-04-17T23:27:24.752Z",
+      "updatedAt": "2026-04-17T23:27:24.752Z"
     }
   ],
   "raidEvents": [
@@ -3998,7 +4067,7 @@
       "price": 0,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZl4OUTQJpAyDswvTXkt0BsbLwdc4_eEyhlg&s",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4313,6 +4382,56 @@
         "dropsCount": 1
       },
       "createdAt": "2026-04-17T23:07:16.912Z"
+    },
+    {
+      "id": 188043207,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 793120242,
+        "bossId": 101021,
+        "bossName": "Anakim",
+        "clanIds": [
+          107708
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-17T23:26:35.428Z"
+    },
+    {
+      "id": 555993307,
+      "userId": 1,
+      "action": "RAID_EVENT_DELETED",
+      "details": {
+        "eventId": 793120242
+      },
+      "createdAt": "2026-04-17T23:26:45.969Z"
+    },
+    {
+      "id": 500097681,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 59639888,
+        "label": "Ciclo de Raids #7",
+        "events": 2,
+        "drops": 2,
+        "bosses": 2,
+        "clans": 5,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T23:27:23.298Z"
+    },
+    {
+      "id": 722276940,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 517468966,
+        "label": "Ciclo de Raids #8"
+      },
+      "createdAt": "2026-04-17T23:27:24.753Z"
     }
   ],
   "raidSettings": [],
