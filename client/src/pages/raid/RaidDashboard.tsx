@@ -3,6 +3,7 @@ import { LayoutDashboard, Skull, Flag, Swords, TrendingUp, Package, Coins, Image
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
+import EventsGroupedByCycle from './EventsGroupedByCycle';
 import {
   BarChart,
   Bar,
@@ -20,8 +21,10 @@ interface Props {
 export default function RaidDashboard({ raidAccess: _raidAccess }: Props) {
   const metricsQ = trpc.raid.dashboard.useQuery();
   const eventsQ = trpc.raid.events.list.useQuery({});
+  const cyclesListQ = trpc.raid.cycles.list.useQuery();
   const m = metricsQ.data;
   const allEvents = eventsQ.data || [];
+  const allCycles = cyclesListQ.data || [];
 
   if (metricsQ.isLoading || !m) {
     return (
@@ -296,11 +299,11 @@ export default function RaidDashboard({ raidAccess: _raidAccess }: Props) {
             Aún no hay eventos registrados.
           </p>
         ) : (
-          <div className="space-y-3">
-            {allEvents.map((e: any) => (
-              <DashboardEventCard key={e.id} event={e} />
-            ))}
-          </div>
+          <EventsGroupedByCycle
+            events={allEvents}
+            cycles={allCycles}
+            renderEvent={(e: any) => <DashboardEventCard key={e.id} event={e} />}
+          />
         )}
       </div>
     </AppShell>

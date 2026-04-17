@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle, Upload } from 'lucide-react';
+import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle, Upload, ChevronDown, ChevronUp, Archive, Calendar } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
+import EventsGroupedByCycle from './EventsGroupedByCycle';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
@@ -47,6 +48,7 @@ export default function RaidInventory({ raidAccess }: Props) {
   const bossesQ = trpc.raid.bosses.list.useQuery();
   const clansQ = trpc.raid.clans.list.useQuery();
   const currentCycleQ = trpc.raid.cycles.current.useQuery();
+  const cyclesListQ = trpc.raid.cycles.list.useQuery();
   const eventsQ = trpc.raid.events.list.useQuery({});
   const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery();
 
@@ -834,8 +836,10 @@ export default function RaidInventory({ raidAccess }: Props) {
             Aún no hay eventos registrados. Registrá el primero arriba.
           </p>
         ) : (
-          <div className="space-y-3">
-            {events.map((e: any) => (
+          <EventsGroupedByCycle
+            events={events}
+            cycles={cyclesListQ.data || []}
+            renderEvent={(e: any) => (
               <EventCard
                 key={e.id}
                 event={e}
@@ -850,8 +854,8 @@ export default function RaidInventory({ raidAccess }: Props) {
                   sellDrop.mutate({ id: dropId, quantity: qty });
                 }}
               />
-            ))}
-          </div>
+            )}
+          />
         )}
       </div>
 
