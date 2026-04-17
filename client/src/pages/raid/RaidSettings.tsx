@@ -1,0 +1,805 @@
+import React, { useState } from 'react';
+import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save } from 'lucide-react';
+import { AppShell } from '../../components/layout/AppShell';
+import { trpc } from '../../lib/trpc';
+import { toast } from 'sonner';
+import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
+
+interface Props {
+  raidAccess?: RaidAccessInfo;
+}
+
+export default function RaidSettings({ raidAccess }: Props) {
+  const utils = trpc.useUtils();
+  const bossesQ = trpc.raid.bosses.list.useQuery();
+  const clansQ = trpc.raid.clans.list.useQuery();
+
+  const createBoss = trpc.raid.bosses.create.useMutation({
+    onSuccess: () => {
+      toast.success('Raid Boss creado');
+      utils.raid.bosses.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateBoss = trpc.raid.bosses.update.useMutation({
+    onSuccess: () => {
+      toast.success('Raid Boss actualizado');
+      utils.raid.bosses.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteBoss = trpc.raid.bosses.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Raid Boss eliminado');
+      utils.raid.bosses.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const createClan = trpc.raid.clans.create.useMutation({
+    onSuccess: () => {
+      toast.success('Clan creado');
+      utils.raid.clans.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateClan = trpc.raid.clans.update.useMutation({
+    onSuccess: () => {
+      toast.success('Clan actualizado');
+      utils.raid.clans.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteClan = trpc.raid.clans.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Clan eliminado');
+      utils.raid.clans.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // ---- Boss form ----
+  const [bossName, setBossName] = useState('');
+  const [bossImage, setBossImage] = useState('');
+  const [bossLevel, setBossLevel] = useState('');
+  const [bossNotes, setBossNotes] = useState('');
+  const [editingBossId, setEditingBossId] = useState<number | null>(null);
+
+  const resetBossForm = () => {
+    setBossName('');
+    setBossImage('');
+    setBossLevel('');
+    setBossNotes('');
+    setEditingBossId(null);
+  };
+
+  const submitBoss = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bossName.trim()) {
+      toast.error('El nombre del boss es obligatorio');
+      return;
+    }
+    const payload = {
+      name: bossName.trim(),
+      officialImageUrl: bossImage.trim() || null,
+      level: bossLevel.trim() ? Number(bossLevel) : null,
+      notes: bossNotes.trim() || null,
+    };
+    if (editingBossId) {
+      updateBoss.mutate({ id: editingBossId, ...payload }, { onSuccess: resetBossForm });
+    } else {
+      createBoss.mutate(payload, { onSuccess: resetBossForm });
+    }
+  };
+
+  const editBoss = (b: any) => {
+    setEditingBossId(Number(b.id));
+    setBossName(b.name || '');
+    setBossImage(b.officialImageUrl || '');
+    setBossLevel(b.level ? String(b.level) : '');
+    setBossNotes(b.notes || '');
+  };
+
+  // ---- Clan form ----
+  const [clanName, setClanName] = useState('');
+  const [clanTag, setClanTag] = useState('');
+  const [clanDesc, setClanDesc] = useState('');
+  const [editingClanId, setEditingClanId] = useState<number | null>(null);
+
+  const resetClanForm = () => {
+    setClanName('');
+    setClanTag('');
+    setClanDesc('');
+    setEditingClanId(null);
+  };
+
+  const submitClan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clanName.trim()) {
+      toast.error('El nombre del clan es obligatorio');
+      return;
+    }
+    const payload = {
+      name: clanName.trim(),
+      tag: clanTag.trim() || null,
+      description: clanDesc.trim() || null,
+    };
+    if (editingClanId) {
+      updateClan.mutate({ id: editingClanId, ...payload }, { onSuccess: resetClanForm });
+    } else {
+      createClan.mutate(payload, { onSuccess: resetClanForm });
+    }
+  };
+
+  const editClan = (c: any) => {
+    setEditingClanId(Number(c.id));
+    setClanName(c.name || '');
+    setClanTag(c.tag || '');
+    setClanDesc(c.description || '');
+  };
+
+  const bosses = bossesQ.data || [];
+  const clans = clansQ.data || [];
+  const canAdminClans = !!raidAccess?.canAdmin;
+
+  return (
+    <AppShell>
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Crown className="h-5 w-5" style={{ color: '#fbbf24' }} />
+          <h2 className="text-2xl font-bold text-gradient">Configuración Raid</h2>
+        </div>
+        <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Gestión del catálogo de Raid Bosses (solo Super Admin) y de Clanes. Estos catálogos
+          alimentan los formularios del módulo Raid.
+        </p>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* ===== Raid Bosses ===== */}
+        <div className="card-glass rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Skull className="h-5 w-5" style={{ color: '#e879f9' }} />
+              <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Catálogo de Raid Bosses
+              </h3>
+            </div>
+            <span
+              className="rounded-full px-2 py-0.5 text-xs font-medium"
+              style={{
+                background: 'rgba(232,121,249,0.12)',
+                color: '#e879f9',
+                border: '1px solid rgba(232,121,249,0.25)',
+              }}
+            >
+              {bosses.length} registrados
+            </span>
+          </div>
+
+          <form onSubmit={submitBoss} className="space-y-3 mb-4">
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Nombre del boss *
+              </label>
+              <input
+                type="text"
+                value={bossName}
+                onChange={(e) => setBossName(e.target.value)}
+                placeholder="Antharas, Baium, etc."
+                className="w-full rounded-xl px-3 py-2 text-sm"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.9)',
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Nivel
+                </label>
+                <input
+                  type="number"
+                  value={bossLevel}
+                  onChange={(e) => setBossLevel(e.target.value)}
+                  placeholder="85"
+                  className="w-full rounded-xl px-3 py-2 text-sm"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.9)',
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Imagen oficial (URL)
+                </label>
+                <input
+                  type="text"
+                  value={bossImage}
+                  onChange={(e) => setBossImage(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-xl px-3 py-2 text-sm"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.9)',
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Notas
+              </label>
+              <textarea
+                value={bossNotes}
+                onChange={(e) => setBossNotes(e.target.value)}
+                rows={2}
+                placeholder="Estrategia, drops típicos..."
+                className="w-full rounded-xl px-3 py-2 text-sm resize-none"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.9)',
+                }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={createBoss.isPending || updateBoss.isPending}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(167,139,250,0.25))',
+                  border: '1px solid rgba(232,121,249,0.3)',
+                  color: '#e879f9',
+                }}
+              >
+                {editingBossId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {editingBossId ? 'Guardar cambios' : 'Crear Boss'}
+              </button>
+              {editingBossId && (
+                <button
+                  type="button"
+                  onClick={resetBossForm}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.7)',
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {bosses.length === 0 ? (
+              <p
+                className="text-xs text-center py-6"
+                style={{ color: 'rgba(255,255,255,0.3)' }}
+              >
+                No hay raid bosses registrados. Creá el primero arriba.
+              </p>
+            ) : (
+              bosses.map((b: any) => (
+                <div
+                  key={b.id}
+                  className="flex items-center gap-3 rounded-xl p-2.5"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <div
+                    className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+                    style={{
+                      background: 'rgba(232,121,249,0.1)',
+                      border: '1px solid rgba(232,121,249,0.25)',
+                    }}
+                  >
+                    {b.officialImageUrl ? (
+                      <img
+                        src={b.officialImageUrl}
+                        alt={b.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Skull className="h-5 w-5" style={{ color: '#e879f9' }} />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-sm font-medium truncate"
+                      style={{ color: 'rgba(255,255,255,0.9)' }}
+                    >
+                      {b.name}
+                    </p>
+                    <p
+                      className="text-xs truncate"
+                      style={{ color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {b.level ? `Lv ${b.level} · ` : ''}
+                      {b.notes || 'Sin notas'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => editBoss(b)}
+                    className="rounded-lg p-1.5 transition-all hover:bg-white/5"
+                    style={{ color: 'rgba(255,255,255,0.5)' }}
+                    title="Editar"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`¿Eliminar el boss "${b.name}"?`)) {
+                        deleteBoss.mutate({ id: Number(b.id) });
+                      }
+                    }}
+                    className="rounded-lg p-1.5 transition-all hover:bg-red-500/10"
+                    style={{ color: 'rgba(255,120,120,0.7)' }}
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ===== Clanes ===== */}
+        <div className="card-glass rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Flag className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+              <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Catálogo de Clanes
+              </h3>
+            </div>
+            <span
+              className="rounded-full px-2 py-0.5 text-xs font-medium"
+              style={{
+                background: 'rgba(123,241,214,0.12)',
+                color: '#7bf1d6',
+                border: '1px solid rgba(123,241,214,0.25)',
+              }}
+            >
+              {clans.length} clanes
+            </span>
+          </div>
+
+          {canAdminClans ? (
+            <form onSubmit={submitClan} className="space-y-3 mb-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Nombre del clan *
+                  </label>
+                  <input
+                    type="text"
+                    value={clanName}
+                    onChange={(e) => setClanName(e.target.value)}
+                    placeholder="Dragon Slayers"
+                    className="w-full rounded-xl px-3 py-2 text-sm"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'rgba(255,255,255,0.9)',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Tag
+                  </label>
+                  <input
+                    type="text"
+                    value={clanTag}
+                    onChange={(e) => setClanTag(e.target.value)}
+                    placeholder="DRG"
+                    maxLength={20}
+                    className="w-full rounded-xl px-3 py-2 text-sm"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'rgba(255,255,255,0.9)',
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Descripción
+                </label>
+                <textarea
+                  value={clanDesc}
+                  onChange={(e) => setClanDesc(e.target.value)}
+                  rows={2}
+                  placeholder="Descripción del clan..."
+                  className="w-full rounded-xl px-3 py-2 text-sm resize-none"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.9)',
+                  }}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={createClan.isPending || updateClan.isPending}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(167,139,250,0.25))',
+                    border: '1px solid rgba(123,241,214,0.3)',
+                    color: '#7bf1d6',
+                  }}
+                >
+                  {editingClanId ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {editingClanId ? 'Guardar cambios' : 'Crear Clan'}
+                </button>
+                {editingClanId && (
+                  <button
+                    type="button"
+                    onClick={resetClanForm}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.7)',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </form>
+          ) : (
+            <p
+              className="text-xs text-center py-3 mb-3"
+              style={{ color: 'rgba(255,255,255,0.4)' }}
+            >
+              Solo raid_admin o Super Admin pueden crear/editar clanes.
+            </p>
+          )}
+
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {clans.length === 0 ? (
+              <p
+                className="text-xs text-center py-6"
+                style={{ color: 'rgba(255,255,255,0.3)' }}
+              >
+                No hay clanes registrados. Creá el primero arriba.
+              </p>
+            ) : (
+              clans.map((c: any) => (
+                <div
+                  key={c.id}
+                  className="flex items-center gap-3 rounded-xl p-2.5"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <div
+                    className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center"
+                    style={{
+                      background: 'rgba(123,241,214,0.1)',
+                      border: '1px solid rgba(123,241,214,0.25)',
+                    }}
+                  >
+                    <Flag className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-sm font-medium truncate"
+                      style={{ color: 'rgba(255,255,255,0.9)' }}
+                    >
+                      {c.name}{' '}
+                      {c.tag && (
+                        <span className="text-xs" style={{ color: '#7bf1d6' }}>
+                          [{c.tag}]
+                        </span>
+                      )}
+                    </p>
+                    <p
+                      className="text-xs truncate"
+                      style={{ color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {c.description || 'Sin descripción'}
+                    </p>
+                  </div>
+                  {canAdminClans && (
+                    <>
+                      <button
+                        onClick={() => editClan(c)}
+                        className="rounded-lg p-1.5 transition-all hover:bg-white/5"
+                        style={{ color: 'rgba(255,255,255,0.5)' }}
+                        title="Editar"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Eliminar el clan "${c.name}"?`)) {
+                            deleteClan.mutate({ id: Number(c.id) });
+                          }
+                        }}
+                        className="rounded-lg p-1.5 transition-all hover:bg-red-500/10"
+                        style={{ color: 'rgba(255,120,120,0.7)' }}
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== Gestión de Accesos Raid (super admin only) ===== */}
+      {raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
+    </AppShell>
+  );
+}
+
+// ============================================================================
+// Sección: asignación de accesos raid a usuarios
+// ============================================================================
+
+function RaidAccessSection() {
+  const utils = trpc.useUtils();
+  const usersQ = trpc.raid.access.listAll.useQuery();
+  const setAccess = trpc.raid.access.set.useMutation({
+    onSuccess: () => {
+      toast.success('Acceso actualizado');
+      utils.raid.access.listAll.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const setBulk = trpc.raid.access.setBulk.useMutation({
+    onSuccess: (d) => {
+      toast.success(`Acceso actualizado para ${d.results.length} usuarios`);
+      setSelectedIds([]);
+      utils.raid.access.listAll.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkLevel, setBulkLevel] = useState<
+    'raid_admin' | 'raid_mapper' | 'raid_user' | 'viewer_only' | 'revoke'
+  >('raid_user');
+
+  const users = usersQ.data || [];
+  const filteredUsers = users.filter((u: any) => u.role !== 'super_admin');
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const applyBulk = () => {
+    if (selectedIds.length === 0) {
+      toast.error('Seleccioná al menos un usuario');
+      return;
+    }
+    const level = bulkLevel === 'revoke' ? null : bulkLevel;
+    setBulk.mutate({ userIds: selectedIds, accessLevel: level });
+  };
+
+  const levelLabel = (lvl: string | null | undefined) => {
+    if (!lvl) return 'Sin acceso';
+    if (lvl === 'raid_admin') return 'Raid Admin';
+    if (lvl === 'raid_mapper') return 'Raid Mapper';
+    if (lvl === 'raid_user') return 'Raid User';
+    if (lvl === 'viewer_only') return 'Solo lectura';
+    return lvl;
+  };
+
+  const levelColor = (lvl: string | null | undefined) => {
+    if (!lvl) return 'rgba(255,255,255,0.3)';
+    if (lvl === 'raid_admin') return '#fbbf24';
+    if (lvl === 'raid_mapper') return '#7bf1d6';
+    if (lvl === 'raid_user') return '#a78bfa';
+    if (lvl === 'viewer_only') return '#e879f9';
+    return 'rgba(255,255,255,0.5)';
+  };
+
+  return (
+    <div className="card-glass rounded-2xl p-5 mt-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Crown className="h-5 w-5" style={{ color: '#fbbf24' }} />
+          <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+            Gestión de Accesos al Módulo Raid
+          </h3>
+        </div>
+        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Asignar roles raid a usuarios del sistema (sin afectar su rol principal).
+        </span>
+      </div>
+
+      <div
+        className="flex flex-wrap items-center gap-3 mb-4 rounded-xl p-3"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          Acción masiva ({selectedIds.length} seleccionados):
+        </span>
+        <select
+          value={bulkLevel}
+          onChange={(e) => setBulkLevel(e.target.value as any)}
+          className="rounded-lg px-2 py-1 text-xs"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.9)',
+          }}
+        >
+          <option value="raid_admin">Raid Admin</option>
+          <option value="raid_mapper">Raid Mapper</option>
+          <option value="raid_user">Raid User</option>
+          <option value="viewer_only">Solo lectura (viewer_only)</option>
+          <option value="revoke">Revocar acceso</option>
+        </select>
+        <button
+          onClick={applyBulk}
+          disabled={selectedIds.length === 0 || setBulk.isPending}
+          className="rounded-lg px-3 py-1 text-xs font-semibold transition-all"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(232,121,249,0.2))',
+            border: '1px solid rgba(251,191,36,0.3)',
+            color: '#fbbf24',
+          }}
+        >
+          Aplicar
+        </button>
+      </div>
+
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        <table className="w-full text-sm">
+          <thead style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <tr>
+              <th className="p-3 w-10"></th>
+              <th
+                className="p-3 text-left text-xs uppercase tracking-wider"
+                style={{ color: 'rgba(255,255,255,0.4)' }}
+              >
+                Usuario
+              </th>
+              <th
+                className="p-3 text-left text-xs uppercase tracking-wider"
+                style={{ color: 'rgba(255,255,255,0.4)' }}
+              >
+                Rol principal
+              </th>
+              <th
+                className="p-3 text-left text-xs uppercase tracking-wider"
+                style={{ color: 'rgba(255,255,255,0.4)' }}
+              >
+                Acceso Raid
+              </th>
+              <th
+                className="p-3 text-left text-xs uppercase tracking-wider"
+                style={{ color: 'rgba(255,255,255,0.4)' }}
+              >
+                Acción
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="p-6 text-center text-xs"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                >
+                  No hay usuarios para asignar acceso.
+                </td>
+              </tr>
+            )}
+            {filteredUsers.map((u: any) => (
+              <tr
+                key={u.id}
+                className="border-t"
+                style={{ borderColor: 'rgba(255,255,255,0.04)' }}
+              >
+                <td className="p-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(Number(u.id))}
+                    onChange={() => toggleSelect(Number(u.id))}
+                    className="accent-amber-400"
+                  />
+                </td>
+                <td className="p-3">
+                  <p
+                    className="text-sm font-medium"
+                    style={{ color: 'rgba(255,255,255,0.9)' }}
+                  >
+                    {u.name || u.email}
+                  </p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {u.email}
+                  </p>
+                </td>
+                <td className="p-3">
+                  <span
+                    className="text-xs rounded-full px-2 py-0.5"
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      color: 'rgba(255,255,255,0.6)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    {u.role}
+                  </span>
+                </td>
+                <td className="p-3">
+                  <span
+                    className="text-xs rounded-full px-2 py-0.5"
+                    style={{
+                      color: levelColor(u.raidAccess?.accessLevel),
+                      border: `1px solid ${levelColor(u.raidAccess?.accessLevel)}40`,
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    {levelLabel(u.raidAccess?.accessLevel)}
+                  </span>
+                </td>
+                <td className="p-3">
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={u.raidAccess?.accessLevel || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAccess.mutate({
+                          userId: Number(u.id),
+                          accessLevel: val === '' ? null : (val as any),
+                        });
+                      }}
+                      className="rounded-lg px-2 py-1 text-xs"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                      }}
+                    >
+                      <option value="">Sin acceso</option>
+                      <option value="viewer_only">Solo lectura</option>
+                      <option value="raid_user">Raid User</option>
+                      <option value="raid_mapper">Raid Mapper</option>
+                      <option value="raid_admin">Raid Admin</option>
+                    </select>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

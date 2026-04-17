@@ -17,6 +17,12 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
+import RaidProtectedRoute from "./components/RaidProtectedRoute";
+import RaidDashboard from "./pages/raid/RaidDashboard";
+import RaidInventory from "./pages/raid/RaidInventory";
+import RaidClans from "./pages/raid/RaidClans";
+import RaidCycles from "./pages/raid/RaidCycles";
+import RaidSettings from "./pages/raid/RaidSettings";
 
 function Router() {
   return (
@@ -32,6 +38,11 @@ function Router() {
       <Route path="/images" component={() => <ProtectedRoute component={Images} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
+      <Route path="/raids" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidDashboard} required="view" />} />} />
+      <Route path="/raids/inventory" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidInventory} required="view" />} />} />
+      <Route path="/raids/clans" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidClans} required="view" />} />} />
+      <Route path="/raids/cycles" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidCycles} required="view" />} />} />
+      <Route path="/raids/settings" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidSettings} required="admin" />} />} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

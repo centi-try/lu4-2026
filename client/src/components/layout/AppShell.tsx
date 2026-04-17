@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, ImageIcon, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, ImageIcon, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { trpc } from '../../lib/trpc';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, desc: 'Vista general y KPIs' },
@@ -19,6 +20,17 @@ const adminNavItems = [
   { href: '/admin/users', label: 'Gestión de Usuarios', icon: Users, desc: 'Administrar cuentas y roles' },
 ];
 
+const raidNavItems = [
+  { href: '/raids', label: 'Raid Dashboard', icon: LayoutDashboard, desc: 'Métricas y KPIs de raids' },
+  { href: '/raids/inventory', label: 'Raid Inventario', icon: Swords, desc: 'Drops y eventos raid' },
+  { href: '/raids/clans', label: 'Clanes', icon: Flag, desc: 'Ranking y stats por clan' },
+  { href: '/raids/cycles', label: 'Ciclos de Raids', icon: Skull, desc: 'Apertura y cierre de ciclos' },
+];
+
+const raidAdminNavItems = [
+  { href: '/raids/settings', label: 'Config. Raids', icon: Crown, desc: 'Catálogo de bosses y clanes' },
+];
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,6 +39,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { logout, user: authUser } = useAuth();
 
   const isAuthSuperAdmin = authUser?.role === 'super_admin' || authUser?.role === 'SUPER_ADMIN';
+
+  // Raid module access — silently hidden if user has no access
+  const { data: raidAccess } = trpc.raid.myAccess.useQuery(undefined, {
+    enabled: !!authUser,
+    retry: false,
+  });
+  const canSeeRaidModule = !!raidAccess?.canAccess;
+  const canSeeRaidAdmin = !!raidAccess?.canAdmin;
   const isCurrentSuperAdmin = currentUser && (
     (currentUser.role as string) === 'SUPER_ADMIN' ||
     (currentUser.role as string) === 'super_admin'
@@ -104,6 +124,51 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               })}
             </>
           )}
+
+          {canSeeRaidModule && (
+            <>
+              <div className="px-3 py-3 mt-4 flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#e879f9' }}>RAID BOSSES</p>
+                {!raidAccess?.canInteract && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9', border: '1px solid rgba(232,121,249,0.3)' }}>
+                    solo lectura
+                  </span>
+                )}
+              </div>
+              {raidNavItems.map(item => {
+                const Icon = item.icon;
+                const isActive = location === item.href;
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <a className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                      style={{ color: isActive ? '#e879f9' : 'rgba(255,255,255,0.5)' }}>
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">{item.label}</p>
+                        <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
+                      </div>
+                    </a>
+                  </Link>
+                );
+              })}
+              {(isAuthSuperAdmin || canSeeRaidAdmin) && raidAdminNavItems.map(item => {
+                const Icon = item.icon;
+                const isActive = location === item.href;
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <a className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                      style={{ color: isActive ? '#e879f9' : 'rgba(255,255,255,0.5)' }}>
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">{item.label}</p>
+                        <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
+                      </div>
+                    </a>
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="border-t px-3 py-4 space-y-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -166,7 +231,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <div className="max-h-72 overflow-y-auto space-y-0.5">
                       {originalUserChar && currentUser?.id !== originalUserChar.id && (
                         <button
-                          onClick={() => { setCurrentUser(originalUserChar); setUserMenuOpen(false); }}
+                          onClick={() => { setCurrentUser(originalUserChar as any); setUserMenuOpen(false); }}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all hover:bg-white/5 border-b mb-1 pb-3"
                           style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                           <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${originalUserChar.avatar} text-xs font-bold text-white`}>

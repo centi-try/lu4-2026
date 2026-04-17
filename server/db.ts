@@ -18,6 +18,18 @@ interface DatabaseSchema {
   auditLogs: any[];
   purchases: any[];
   settings: any[];
+  // ============================================================
+  // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
+  // ============================================================
+  raidBosses: any[];
+  clans: any[];
+  raidCycles: any[];
+  raidEvents: any[];
+  raidEventClans: any[];      // M:N evento-clanes
+  raidDropItems: any[];        // items dropeados por evento
+  userRaidAccess: any[];       // acceso al módulo raid por usuario
+  raidAuditLogs: any[];
+  raidSettings: any[];
 }
 
 const initialSchema: DatabaseSchema = {
@@ -27,7 +39,16 @@ const initialSchema: DatabaseSchema = {
   salesCycles: [],
   auditLogs: [],
   purchases: [],
-  settings: []
+  settings: [],
+  raidBosses: [],
+  clans: [],
+  raidCycles: [],
+  raidEvents: [],
+  raidEventClans: [],
+  raidDropItems: [],
+  userRaidAccess: [],
+  raidAuditLogs: [],
+  raidSettings: [],
 };
 
 function hashLocalPassword(password: string): string {
@@ -122,6 +143,18 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     auditLogs: ensureArray(data?.auditLogs),
     purchases: ensureArray(data?.purchases),
     settings: Array.isArray(data?.settings) ? data.settings : (data?.settings ? [data.settings] : []),
+    // ============================================================
+    // Raid module collections
+    // ============================================================
+    raidBosses: ensureArray(data?.raidBosses),
+    clans: ensureArray(data?.clans),
+    raidCycles: ensureArray(data?.raidCycles),
+    raidEvents: ensureArray(data?.raidEvents),
+    raidEventClans: ensureArray(data?.raidEventClans),
+    raidDropItems: ensureArray(data?.raidDropItems),
+    userRaidAccess: ensureArray(data?.userRaidAccess),
+    raidAuditLogs: ensureArray(data?.raidAuditLogs),
+    raidSettings: ensureArray(data?.raidSettings),
   };
 }
 
@@ -656,4 +689,803 @@ export const updateUserPassword = async (userId: number, passwordHash: string) =
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], passwordHash, updatedAt: new Date() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
+};
+
+// ============================================================================
+// ============================================================================
+// MÓDULO RAID BOSS — persistencia aislada (no interfiere con el sistema viejo)
+// ============================================================================
+// ============================================================================
+
+// Tipos del nivel de acceso al módulo raid. Solo 3 roles nuevos + viewer_only.
+export type RaidAccessLevel = 'raid_admin' | 'raid_mapper' | 'raid_user' | 'viewer_only';
+
+const VALID_RAID_ACCESS_LEVELS: RaidAccessLevel[] = ['raid_admin', 'raid_mapper', 'raid_user', 'viewer_only'];
+
+function genId(): number {
+  return Math.floor(Math.random() * 1_000_000_000) + Date.now() % 1_000_000;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+// ---------- Raid Bosses (catálogo - solo super admin) -----------------------
+
+export const getRaidBosses = async () => {
+  return (dbInstance.raidBosses || []).slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getRaidBossById = async (id: number) => {
+  return (dbInstance.raidBosses || []).find(b => Number(b.id) === Number(id));
+};
+
+export const createRaidBoss = async (data: {
+  name: string;
+  officialImageUrl?: string | null;
+  level?: number | null;
+  notes?: string | null;
+}) => {
+  const newBoss = {
+    id: genId(),
+    name: data.name.trim(),
+    officialImageUrl: data.officialImageUrl || null,
+    level: data.level ?? null,
+    notes: data.notes || null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.raidBosses.push(newBoss);
+  saveDb(dbInstance);
+  return newBoss;
+};
+
+export const updateRaidBoss = async (id: number, data: Partial<{
+  name: string;
+  officialImageUrl: string | null;
+  level: number | null;
+  notes: string | null;
+}>) => {
+  const idx = dbInstance.raidBosses.findIndex(b => Number(b.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.raidBosses[idx] = {
+    ...dbInstance.raidBosses[idx],
+    ...data,
+    updatedAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.raidBosses[idx];
+};
+
+export const deleteRaidBoss = async (id: number) => {
+  const boss = dbInstance.raidBosses.find(b => Number(b.id) === Number(id));
+  if (!boss) return null;
+  dbInstance.raidBosses = dbInstance.raidBosses.filter(b => Number(b.id) !== Number(id));
+  saveDb(dbInstance);
+  return boss;
+};
+
+// ---------- Clanes (catálogo - super admin / raid_admin) --------------------
+
+export const getClans = async () => {
+  return (dbInstance.clans || []).slice().sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getClanById = async (id: number) => {
+  return (dbInstance.clans || []).find(c => Number(c.id) === Number(id));
+};
+
+export const createClan = async (data: {
+  name: string;
+  tag?: string | null;
+  description?: string | null;
+}) => {
+  const newClan = {
+    id: genId(),
+    name: data.name.trim(),
+    tag: data.tag || null,
+    description: data.description || null,
+    totalRaidEarnings: 0,
+    currentCycleEarnings: 0,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.clans.push(newClan);
+  saveDb(dbInstance);
+  return newClan;
+};
+
+export const updateClan = async (id: number, data: Partial<{
+  name: string;
+  tag: string | null;
+  description: string | null;
+  totalRaidEarnings: number;
+  currentCycleEarnings: number;
+}>) => {
+  const idx = dbInstance.clans.findIndex(c => Number(c.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.clans[idx] = {
+    ...dbInstance.clans[idx],
+    ...data,
+    updatedAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.clans[idx];
+};
+
+export const deleteClan = async (id: number) => {
+  const clan = dbInstance.clans.find(c => Number(c.id) === Number(id));
+  if (!clan) return null;
+  dbInstance.clans = dbInstance.clans.filter(c => Number(c.id) !== Number(id));
+  // Limpiar asociaciones en raidEventClans
+  dbInstance.raidEventClans = (dbInstance.raidEventClans || []).filter(ec => Number(ec.clanId) !== Number(id));
+  saveDb(dbInstance);
+  return clan;
+};
+
+// ---------- Acceso al módulo raid por usuario -------------------------------
+
+export const getUserRaidAccess = async (userId: number) => {
+  return (dbInstance.userRaidAccess || []).find(a => Number(a.userId) === Number(userId));
+};
+
+export const listUserRaidAccess = async () => {
+  return dbInstance.userRaidAccess || [];
+};
+
+export const setUserRaidAccess = async (
+  userId: number,
+  accessLevel: RaidAccessLevel | null,
+  grantedByUserId?: number
+) => {
+  if (!VALID_RAID_ACCESS_LEVELS.includes(accessLevel as RaidAccessLevel) && accessLevel !== null) {
+    throw new Error(`Nivel de acceso raid inválido: ${accessLevel}`);
+  }
+
+  // Si accessLevel es null, se revoca el acceso
+  if (accessLevel === null) {
+    dbInstance.userRaidAccess = (dbInstance.userRaidAccess || []).filter(a => Number(a.userId) !== Number(userId));
+    saveDb(dbInstance);
+    return null;
+  }
+
+  const existingIdx = (dbInstance.userRaidAccess || []).findIndex(a => Number(a.userId) === Number(userId));
+  const record = {
+    id: existingIdx >= 0 ? dbInstance.userRaidAccess[existingIdx].id : genId(),
+    userId: Number(userId),
+    accessLevel,
+    grantedBy: grantedByUserId || null,
+    grantedAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  if (existingIdx >= 0) {
+    dbInstance.userRaidAccess[existingIdx] = { ...dbInstance.userRaidAccess[existingIdx], ...record };
+  } else {
+    if (!dbInstance.userRaidAccess) dbInstance.userRaidAccess = [];
+    dbInstance.userRaidAccess.push(record);
+  }
+  saveDb(dbInstance);
+  return record;
+};
+
+// Bulk: asigna el mismo accessLevel a múltiples usuarios de una sola vez.
+export const setBulkUserRaidAccess = async (
+  userIds: number[],
+  accessLevel: RaidAccessLevel | null,
+  grantedByUserId?: number
+) => {
+  const results: any[] = [];
+  for (const userId of userIds) {
+    const res = await setUserRaidAccess(userId, accessLevel, grantedByUserId);
+    results.push({ userId, access: res });
+  }
+  return results;
+};
+
+// Determina si un usuario puede ver el módulo raid.
+// Reglas:
+//   - super_admin del sistema viejo → siempre puede (admin total).
+//   - usuario con userRaidAccess registrado → puede (nivel según accessLevel).
+//   - cualquier otro → no puede.
+export const canUserAccessRaidModule = async (user: any): Promise<{
+  canAccess: boolean;
+  canInteract: boolean;
+  canAdmin: boolean;
+  accessLevel: RaidAccessLevel | 'super_admin' | null;
+}> => {
+  if (!user) return { canAccess: false, canInteract: false, canAdmin: false, accessLevel: null };
+  const role = String(user.role || '').toLowerCase();
+  if (role === 'super_admin') {
+    return { canAccess: true, canInteract: true, canAdmin: true, accessLevel: 'super_admin' };
+  }
+  const access = await getUserRaidAccess(Number(user.id));
+  if (!access) return { canAccess: false, canInteract: false, canAdmin: false, accessLevel: null };
+  const level = access.accessLevel as RaidAccessLevel;
+  const canInteract = level === 'raid_admin' || level === 'raid_mapper';
+  const canAdmin = level === 'raid_admin';
+  return { canAccess: true, canInteract, canAdmin, accessLevel: level };
+};
+
+// ---------- Raid Cycles (uno solo abierto a la vez, como salesCycles) -------
+
+export const getRaidCycles = async () => {
+  return (dbInstance.raidCycles || []).slice().sort((a, b) => {
+    const sa = String(a.createdAt || a.startedAt || '');
+    const sb = String(b.createdAt || b.startedAt || '');
+    return sb.localeCompare(sa);
+  });
+};
+
+export const getCurrentRaidCycle = async () => {
+  return (dbInstance.raidCycles || []).find(c => c.status === 'OPEN') || null;
+};
+
+export const createRaidCycle = async (data: {
+  label?: string | null;
+  type?: 'DIARIO' | 'SEMANAL';
+  createdByUserId?: number;
+}) => {
+  // Enforcar: solo un ciclo raid abierto a la vez
+  const existingOpen = await getCurrentRaidCycle();
+  if (existingOpen) {
+    throw new Error('Ya existe un ciclo de raid abierto. Ciérralo antes de abrir uno nuevo.');
+  }
+  const closedCount = (dbInstance.raidCycles || []).filter(c => c.status === 'CLOSED').length;
+  const cycle = {
+    id: genId(),
+    label: data.label || `Ciclo de Raids #${closedCount + 1}`,
+    type: data.type || 'DIARIO',
+    status: 'OPEN',
+    startedAt: nowIso(),
+    closedAt: null,
+    closedBy: null,
+    totalBosses: 0,
+    totalEvents: 0,
+    totalRevenue: 0,
+    clansParticipated: [],
+    bossesKilled: [],
+    summary: null,
+    createdBy: data.createdByUserId || null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  if (!dbInstance.raidCycles) dbInstance.raidCycles = [];
+  dbInstance.raidCycles.push(cycle);
+  saveDb(dbInstance);
+  return cycle;
+};
+
+export const closeRaidCycle = async (cycleId: number, closedByUser: any) => {
+  const idx = dbInstance.raidCycles.findIndex(c => Number(c.id) === Number(cycleId));
+  if (idx === -1) return null;
+  const cycle = dbInstance.raidCycles[idx];
+  if (cycle.status !== 'OPEN') {
+    throw new Error('El ciclo no está abierto.');
+  }
+
+  // Agregar eventos del ciclo
+  const eventsInCycle = (dbInstance.raidEvents || []).filter(e => Number(e.cycleId) === Number(cycleId));
+  const eventIds = eventsInCycle.map(e => Number(e.id));
+
+  // Drop items del ciclo
+  const dropsInCycle = (dbInstance.raidDropItems || []).filter(d => eventIds.includes(Number(d.eventId)));
+
+  // Clanes participantes en el ciclo
+  const clanLinksInCycle = (dbInstance.raidEventClans || []).filter(l => eventIds.includes(Number(l.eventId)));
+  const clanIdsSet = new Set<number>(clanLinksInCycle.map(l => Number(l.clanId)));
+
+  const clans = dbInstance.clans || [];
+  const clansParticipated = Array.from(clanIdsSet).map(clanId => {
+    const clan = clans.find((c: any) => Number(c.id) === Number(clanId));
+    return {
+      clanId: Number(clanId),
+      clanName: clan?.name || `Clan #${clanId}`,
+      eventsParticipated: clanLinksInCycle.filter(l => Number(l.clanId) === Number(clanId)).length,
+      revenueShare: Number(clan?.currentCycleEarnings) || 0,
+    };
+  });
+
+  // Bosses matados en el ciclo (por nombre + conteo)
+  const bossCountMap = new Map<number, number>();
+  for (const ev of eventsInCycle) {
+    const k = Number(ev.raidBossId);
+    bossCountMap.set(k, (bossCountMap.get(k) || 0) + 1);
+  }
+  const bossesKilled = Array.from(bossCountMap.entries()).map(([bossId, count]) => {
+    const boss = (dbInstance.raidBosses || []).find((b: any) => Number(b.id) === Number(bossId));
+    return {
+      bossId: Number(bossId),
+      bossName: boss?.name || `Boss #${bossId}`,
+      officialImageUrl: boss?.officialImageUrl || null,
+      kills: count,
+    };
+  });
+
+  const totalRevenue = dropsInCycle.reduce(
+    (acc, d) => acc + (Number(d.price) || 0) * (Number(d.quantitySoldInCycle) || 0),
+    0
+  );
+  const totalPotentialValue = dropsInCycle.reduce(
+    (acc, d) => acc + (Number(d.price) || 0) * (Number(d.quantity) || 0),
+    0
+  );
+
+  const summary = {
+    events: eventsInCycle.length,
+    drops: dropsInCycle.length,
+    bosses: bossesKilled.reduce((a, b) => a + b.kills, 0),
+    clans: clansParticipated.length,
+    totalRevenue,
+    totalPotentialValue,
+  };
+
+  dbInstance.raidCycles[idx] = {
+    ...cycle,
+    status: 'CLOSED',
+    closedAt: nowIso(),
+    closedBy: closedByUser?.characterName || closedByUser?.name || closedByUser?.email || 'Super Admin',
+    totalBosses: summary.bosses,
+    totalEvents: summary.events,
+    totalRevenue,
+    clansParticipated,
+    bossesKilled,
+    summary,
+    updatedAt: nowIso(),
+  };
+
+  // Reset quantitySoldInCycle de los drops del ciclo para que el siguiente ciclo empiece limpio
+  // (respetamos quantitySold histórico)
+  if (dbInstance.raidDropItems) {
+    dbInstance.raidDropItems = dbInstance.raidDropItems.map(d => {
+      if (eventIds.includes(Number(d.eventId))) {
+        return { ...d, quantitySoldInCycle: 0 };
+      }
+      return d;
+    });
+  }
+
+  // Reset currentCycleEarnings en los clanes
+  if (dbInstance.clans) {
+    dbInstance.clans = dbInstance.clans.map(c => ({
+      ...c,
+      totalRaidEarnings: (Number(c.totalRaidEarnings) || 0) + (Number(c.currentCycleEarnings) || 0),
+      currentCycleEarnings: 0,
+    }));
+  }
+
+  saveDb(dbInstance);
+  await createRaidAuditLog({
+    userId: closedByUser?.id || 0,
+    action: 'RAID_CYCLE_CLOSED',
+    details: {
+      cycleId: Number(cycleId),
+      label: cycle.label,
+      ...summary,
+    },
+  });
+  return dbInstance.raidCycles[idx];
+};
+
+// ---------- Raid Events (un "kill" de un boss con evidencia) ----------------
+
+export const getRaidEvents = async (filter?: { cycleId?: number; bossId?: number }) => {
+  const events = dbInstance.raidEvents || [];
+  let filtered = events;
+  if (filter?.cycleId) {
+    filtered = filtered.filter(e => Number(e.cycleId) === Number(filter.cycleId));
+  }
+  if (filter?.bossId) {
+    filtered = filtered.filter(e => Number(e.raidBossId) === Number(filter.bossId));
+  }
+  return filtered.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+};
+
+export const getRaidEventById = async (id: number) => {
+  return (dbInstance.raidEvents || []).find(e => Number(e.id) === Number(id));
+};
+
+export const createRaidEvent = async (data: {
+  raidBossId: number;
+  cycleId: number;
+  evidenceImageUrl?: string | null;
+  reportedByUserId: number;
+  notes?: string | null;
+  clanIds?: number[];
+  dropItems?: Array<{
+    name: string;
+    category: string;
+    price: number;
+    quantity: number;
+    imageUrl?: string | null;
+  }>;
+}) => {
+  const event = {
+    id: genId(),
+    raidBossId: Number(data.raidBossId),
+    cycleId: Number(data.cycleId),
+    evidenceImageUrl: data.evidenceImageUrl || null,
+    reportedByUserId: Number(data.reportedByUserId),
+    notes: data.notes || null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.raidEvents.push(event);
+
+  // Clanes asociados
+  const clanIds = Array.isArray(data.clanIds) ? data.clanIds.map(Number) : [];
+  if (!dbInstance.raidEventClans) dbInstance.raidEventClans = [];
+  for (const clanId of clanIds) {
+    dbInstance.raidEventClans.push({
+      id: genId(),
+      eventId: event.id,
+      clanId: Number(clanId),
+      createdAt: nowIso(),
+    });
+  }
+
+  // Drop items (inventario raid)
+  const dropItems = Array.isArray(data.dropItems) ? data.dropItems : [];
+  const createdDropItems: any[] = [];
+  if (!dbInstance.raidDropItems) dbInstance.raidDropItems = [];
+  for (const di of dropItems) {
+    const drop = {
+      id: genId(),
+      eventId: event.id,
+      raidBossId: Number(data.raidBossId),
+      cycleId: Number(data.cycleId),
+      name: String(di.name || '').trim(),
+      category: String(di.category || 'DROP').trim(),
+      price: Number(di.price) || 0,
+      quantity: Number(di.quantity) || 1,
+      quantitySold: 0,
+      quantitySoldInCycle: 0,
+      imageUrl: di.imageUrl || null,
+      status: 'EN_REGISTRO',
+      associatedClanIds: clanIds,
+      reportedByUserId: Number(data.reportedByUserId),
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    dbInstance.raidDropItems.push(drop);
+    createdDropItems.push(drop);
+  }
+
+  saveDb(dbInstance);
+  return { event, clanIds, dropItems: createdDropItems };
+};
+
+export const updateRaidEvent = async (id: number, data: Partial<{
+  evidenceImageUrl: string | null;
+  notes: string | null;
+  clanIds: number[];
+}>) => {
+  const idx = dbInstance.raidEvents.findIndex(e => Number(e.id) === Number(id));
+  if (idx === -1) return null;
+  const updateObj: any = { updatedAt: nowIso() };
+  if (data.evidenceImageUrl !== undefined) updateObj.evidenceImageUrl = data.evidenceImageUrl;
+  if (data.notes !== undefined) updateObj.notes = data.notes;
+  dbInstance.raidEvents[idx] = { ...dbInstance.raidEvents[idx], ...updateObj };
+
+  if (Array.isArray(data.clanIds)) {
+    dbInstance.raidEventClans = (dbInstance.raidEventClans || []).filter(ec => Number(ec.eventId) !== Number(id));
+    for (const clanId of data.clanIds) {
+      dbInstance.raidEventClans.push({
+        id: genId(),
+        eventId: Number(id),
+        clanId: Number(clanId),
+        createdAt: nowIso(),
+      });
+    }
+    // Reflejar en drops del evento
+    dbInstance.raidDropItems = (dbInstance.raidDropItems || []).map(d =>
+      Number(d.eventId) === Number(id) ? { ...d, associatedClanIds: data.clanIds!.map(Number) } : d
+    );
+  }
+
+  saveDb(dbInstance);
+  return dbInstance.raidEvents[idx];
+};
+
+export const deleteRaidEvent = async (id: number) => {
+  const event = await getRaidEventById(id);
+  if (!event) return null;
+  dbInstance.raidEvents = dbInstance.raidEvents.filter(e => Number(e.id) !== Number(id));
+  dbInstance.raidEventClans = (dbInstance.raidEventClans || []).filter(ec => Number(ec.eventId) !== Number(id));
+  dbInstance.raidDropItems = (dbInstance.raidDropItems || []).filter(d => Number(d.eventId) !== Number(id));
+  saveDb(dbInstance);
+  return event;
+};
+
+export const getRaidEventClans = async (eventId: number) => {
+  const links = (dbInstance.raidEventClans || []).filter(ec => Number(ec.eventId) === Number(eventId));
+  const clanIds = links.map(l => Number(l.clanId));
+  return (dbInstance.clans || []).filter(c => clanIds.includes(Number(c.id)));
+};
+
+// ---------- Raid Drop Items (inventario del módulo raid) --------------------
+
+export const getRaidDropItems = async (filter?: { eventId?: number; cycleId?: number; clanId?: number }) => {
+  let drops = dbInstance.raidDropItems || [];
+  if (filter?.eventId) drops = drops.filter(d => Number(d.eventId) === Number(filter.eventId));
+  if (filter?.cycleId) drops = drops.filter(d => Number(d.cycleId) === Number(filter.cycleId));
+  if (filter?.clanId) drops = drops.filter(d => {
+    const ids = Array.isArray(d.associatedClanIds) ? d.associatedClanIds.map(Number) : [];
+    return ids.includes(Number(filter.clanId));
+  });
+  return drops.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+};
+
+export const getRaidDropItemById = async (id: number) => {
+  return (dbInstance.raidDropItems || []).find(d => Number(d.id) === Number(id));
+};
+
+export const updateRaidDropItem = async (id: number, data: Partial<{
+  name: string;
+  category: string;
+  price: number;
+  quantity: number;
+  imageUrl: string | null;
+  status: string;
+  associatedClanIds: number[];
+}>) => {
+  const idx = dbInstance.raidDropItems.findIndex(d => Number(d.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.raidDropItems[idx] = {
+    ...dbInstance.raidDropItems[idx],
+    ...data,
+    updatedAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.raidDropItems[idx];
+};
+
+export const deleteRaidDropItem = async (id: number) => {
+  const drop = await getRaidDropItemById(id);
+  if (!drop) return null;
+  dbInstance.raidDropItems = dbInstance.raidDropItems.filter(d => Number(d.id) !== Number(id));
+  saveDb(dbInstance);
+  return drop;
+};
+
+export const sellRaidDropItem = async (
+  id: number,
+  quantityToSell: number,
+  soldByUser: any
+) => {
+  const drop = await getRaidDropItemById(id);
+  if (!drop) throw new Error('Drop item no encontrado.');
+  const qty = Number(drop.quantity) || 0;
+  const sold = Number(drop.quantitySold) || 0;
+  const available = qty - sold;
+  if (quantityToSell > available) {
+    throw new Error(`Sólo hay ${available} unidades disponibles.`);
+  }
+  const newSold = sold + quantityToSell;
+  const newSoldInCycle = (Number(drop.quantitySoldInCycle) || 0) + quantityToSell;
+  const fullySold = newSold >= qty && qty > 0;
+  const revenue = (Number(drop.price) || 0) * quantityToSell;
+
+  await updateRaidDropItem(id, {
+    quantitySold: newSold,
+    quantitySoldInCycle: newSoldInCycle,
+    status: fullySold ? 'VENDIDO' : drop.status,
+  } as any);
+
+  // Distribuir ingresos a los clanes asociados
+  const clanIds: number[] = Array.isArray(drop.associatedClanIds) ? drop.associatedClanIds.map(Number) : [];
+  const associatedCount = clanIds.length || 1;
+  const earningsPerClan = Math.floor(revenue / associatedCount);
+  if (dbInstance.clans && clanIds.length > 0) {
+    dbInstance.clans = dbInstance.clans.map(c => {
+      if (clanIds.includes(Number(c.id))) {
+        return {
+          ...c,
+          currentCycleEarnings: (Number(c.currentCycleEarnings) || 0) + earningsPerClan,
+        };
+      }
+      return c;
+    });
+  }
+  saveDb(dbInstance);
+
+  await createRaidAuditLog({
+    userId: soldByUser?.id || 0,
+    action: 'RAID_DROP_SOLD',
+    details: {
+      dropItemId: Number(id),
+      itemName: drop.name,
+      quantitySold: quantityToSell,
+      revenue,
+      clansShared: clanIds,
+    },
+  });
+
+  return { revenue, earningsPerClan, clanIds };
+};
+
+// ---------- Raid Audit Logs -------------------------------------------------
+
+export const createRaidAuditLog = async (data: {
+  userId: number;
+  action: string;
+  details?: any;
+}) => {
+  const log = {
+    id: genId(),
+    userId: Number(data.userId),
+    action: data.action,
+    details: data.details || null,
+    createdAt: nowIso(),
+  };
+  if (!dbInstance.raidAuditLogs) dbInstance.raidAuditLogs = [];
+  dbInstance.raidAuditLogs.push(log);
+  saveDb(dbInstance);
+  return log;
+};
+
+export const getRaidAuditLogs = async (limit = 100) => {
+  const logs = (dbInstance.raidAuditLogs || []).slice().sort((a, b) =>
+    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  );
+  return logs.slice(0, limit);
+};
+
+// ---------- Raid Dashboard Metrics ------------------------------------------
+
+export const getRaidDashboardMetrics = async () => {
+  const bosses = dbInstance.raidBosses || [];
+  const clans = dbInstance.clans || [];
+  const events = dbInstance.raidEvents || [];
+  const drops = dbInstance.raidDropItems || [];
+  const cycles = dbInstance.raidCycles || [];
+  const links = dbInstance.raidEventClans || [];
+
+  const currentCycle = cycles.find(c => c.status === 'OPEN') || null;
+  const closedCycles = cycles.filter(c => c.status === 'CLOSED');
+  const lastClosedCycle = closedCycles
+    .slice()
+    .sort((a, b) => String(b.closedAt || '').localeCompare(String(a.closedAt || '')))[0] || null;
+
+  const eventsInCurrentCycle = currentCycle
+    ? events.filter(e => Number(e.cycleId) === Number(currentCycle.id))
+    : [];
+
+  const dropsInCurrentCycle = currentCycle
+    ? drops.filter(d => Number(d.cycleId) === Number(currentCycle.id))
+    : [];
+
+  // Valor total drops en ciclo (precio * quantity)
+  const totalPotentialValue = dropsInCurrentCycle.reduce(
+    (acc, d) => acc + (Number(d.price) || 0) * (Number(d.quantity) || 0),
+    0
+  );
+  const totalRevenue = dropsInCurrentCycle.reduce(
+    (acc, d) => acc + (Number(d.price) || 0) * (Number(d.quantitySoldInCycle) || 0),
+    0
+  );
+
+  // Top 5 bosses más cazados en el ciclo actual (o histórico si no hay ciclo)
+  const eventsForRanking = eventsInCurrentCycle.length > 0 ? eventsInCurrentCycle : events;
+  const bossKillMap = new Map<number, number>();
+  for (const e of eventsForRanking) {
+    const k = Number(e.raidBossId);
+    bossKillMap.set(k, (bossKillMap.get(k) || 0) + 1);
+  }
+  const topBosses = Array.from(bossKillMap.entries())
+    .map(([bossId, kills]) => {
+      const b = bosses.find((x: any) => Number(x.id) === Number(bossId));
+      return {
+        bossId: Number(bossId),
+        bossName: b?.name || `Boss #${bossId}`,
+        officialImageUrl: b?.officialImageUrl || null,
+        kills,
+      };
+    })
+    .sort((a, b) => b.kills - a.kills)
+    .slice(0, 5);
+
+  // Top 5 clanes más activos (eventos participados en el ciclo actual o histórico)
+  const currentEventIds = new Set(eventsForRanking.map(e => Number(e.id)));
+  const linksForRanking = links.filter(l => currentEventIds.has(Number(l.eventId)));
+  const clanParticipationMap = new Map<number, number>();
+  for (const l of linksForRanking) {
+    const k = Number(l.clanId);
+    clanParticipationMap.set(k, (clanParticipationMap.get(k) || 0) + 1);
+  }
+  const topClans = Array.from(clanParticipationMap.entries())
+    .map(([clanId, events]) => {
+      const c = clans.find((x: any) => Number(x.id) === Number(clanId));
+      return {
+        clanId: Number(clanId),
+        clanName: c?.name || `Clan #${clanId}`,
+        events,
+        currentCycleEarnings: Number(c?.currentCycleEarnings) || 0,
+      };
+    })
+    .sort((a, b) => b.events - a.events)
+    .slice(0, 5);
+
+  // Timeline del ciclo actual (últimos 20 eventos)
+  const timeline = eventsInCurrentCycle
+    .slice()
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .slice(0, 20)
+    .map(e => {
+      const b = bosses.find((x: any) => Number(x.id) === Number(e.raidBossId));
+      const evDrops = drops.filter(d => Number(d.eventId) === Number(e.id));
+      return {
+        eventId: Number(e.id),
+        bossName: b?.name || `Boss #${e.raidBossId}`,
+        bossImageUrl: b?.officialImageUrl || null,
+        evidenceImageUrl: e.evidenceImageUrl || null,
+        dropsCount: evDrops.length,
+        createdAt: e.createdAt,
+      };
+    });
+
+  // Comparativa con ciclo anterior
+  const comparison = lastClosedCycle
+    ? {
+        previousLabel: lastClosedCycle.label,
+        previousBosses: Number(lastClosedCycle.totalBosses) || 0,
+        previousRevenue: Number(lastClosedCycle.totalRevenue) || 0,
+        previousEvents: Number(lastClosedCycle.totalEvents) || 0,
+        currentBosses: eventsInCurrentCycle.length,
+        currentRevenue: totalRevenue,
+        currentEvents: eventsInCurrentCycle.length,
+      }
+    : null;
+
+  return {
+    currentCycle,
+    totalBossesCatalogued: bosses.length,
+    totalClans: clans.length,
+    totalEventsCurrentCycle: eventsInCurrentCycle.length,
+    totalDropsCurrentCycle: dropsInCurrentCycle.length,
+    totalRevenue,
+    totalPotentialValue,
+    topBosses,
+    topClans,
+    timeline,
+    comparison,
+    closedCyclesCount: closedCycles.length,
+  };
+};
+
+// ---------- Clan stats (ranking de clanes) ----------------------------------
+
+export const getClanStats = async () => {
+  const clans = dbInstance.clans || [];
+  const links = dbInstance.raidEventClans || [];
+  const drops = dbInstance.raidDropItems || [];
+
+  return clans.map(c => {
+    const clanId = Number(c.id);
+    const eventsParticipated = links.filter(l => Number(l.clanId) === clanId).length;
+    const clanDrops = drops.filter(d => {
+      const ids = Array.isArray(d.associatedClanIds) ? d.associatedClanIds.map(Number) : [];
+      return ids.includes(clanId);
+    });
+    const dropItemsAssociated = clanDrops.length;
+    const potentialValue = clanDrops.reduce(
+      (acc, d) => acc + (Number(d.price) || 0) * (Number(d.quantity) || 0),
+      0
+    );
+    return {
+      id: clanId,
+      name: c.name,
+      tag: c.tag || null,
+      description: c.description || null,
+      totalRaidEarnings: Number(c.totalRaidEarnings) || 0,
+      currentCycleEarnings: Number(c.currentCycleEarnings) || 0,
+      eventsParticipated,
+      dropItemsAssociated,
+      potentialValue,
+      createdAt: c.createdAt,
+    };
+  }).sort((a, b) => b.totalRaidEarnings + b.currentCycleEarnings - (a.totalRaidEarnings + a.currentCycleEarnings));
 };
