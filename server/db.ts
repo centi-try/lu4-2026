@@ -30,6 +30,7 @@ interface DatabaseSchema {
   userRaidAccess: any[];       // acceso al módulo raid por usuario
   raidAuditLogs: any[];
   raidSettings: any[];
+  raidCategoryIcons: any[];    // iconos por categoría de drop (seteados por super admin)
 }
 
 const initialSchema: DatabaseSchema = {
@@ -49,6 +50,7 @@ const initialSchema: DatabaseSchema = {
   userRaidAccess: [],
   raidAuditLogs: [],
   raidSettings: [],
+  raidCategoryIcons: [],
 };
 
 function hashLocalPassword(password: string): string {
@@ -155,6 +157,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     userRaidAccess: ensureArray(data?.userRaidAccess),
     raidAuditLogs: ensureArray(data?.raidAuditLogs),
     raidSettings: ensureArray(data?.raidSettings),
+    raidCategoryIcons: ensureArray(data?.raidCategoryIcons),
   };
 }
 
@@ -1305,6 +1308,54 @@ export const sellRaidDropItem = async (
   });
 
   return { revenue, earningsPerClan, clanIds };
+};
+
+// ---------- Raid Category Icons (iconos por categoría de drop, super admin) -
+
+// Categorías válidas — deben coincidir con src/lib/category-meta.ts
+export const RAID_DROP_CATEGORIES = [
+  'ARMADURA', 'ARMA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA',
+] as const;
+
+export const getRaidCategoryIcons = async (): Promise<Array<{
+  category: string;
+  imageUrl: string;
+  updatedAt: string;
+}>> => {
+  return (dbInstance.raidCategoryIcons || []).slice();
+};
+
+export const setRaidCategoryIcon = async (category: string, imageUrl: string) => {
+  const cat = String(category || '').trim().toUpperCase();
+  if (!cat) throw new Error('Categoría vacía.');
+  const url = String(imageUrl || '').trim();
+  if (!url) throw new Error('URL/archivo de imagen vacío.');
+  if (!dbInstance.raidCategoryIcons) dbInstance.raidCategoryIcons = [];
+  const idx = dbInstance.raidCategoryIcons.findIndex(
+    (x: any) => String(x.category || '').toUpperCase() === cat
+  );
+  const payload = {
+    id: idx === -1 ? genId() : dbInstance.raidCategoryIcons[idx].id,
+    category: cat,
+    imageUrl: url,
+    updatedAt: nowIso(),
+  };
+  if (idx === -1) dbInstance.raidCategoryIcons.push(payload);
+  else dbInstance.raidCategoryIcons[idx] = payload;
+  saveDb(dbInstance);
+  return payload;
+};
+
+export const deleteRaidCategoryIcon = async (category: string) => {
+  const cat = String(category || '').trim().toUpperCase();
+  if (!dbInstance.raidCategoryIcons) return null;
+  const before = dbInstance.raidCategoryIcons.length;
+  dbInstance.raidCategoryIcons = dbInstance.raidCategoryIcons.filter(
+    (x: any) => String(x.category || '').toUpperCase() !== cat
+  );
+  if (dbInstance.raidCategoryIcons.length === before) return null;
+  saveDb(dbInstance);
+  return { category: cat };
 };
 
 // ---------- Raid Audit Logs -------------------------------------------------

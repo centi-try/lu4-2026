@@ -7,18 +7,9 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
 
-// Imagen por defecto por categoría — se usa para autocompletar el campo imagen
-// del drop cuando el mapper selecciona una categoría. Reutilizamos las mismas
-// URLs que el inventario viejo sin importar ese archivo (para no acoplar).
-const DEFAULT_CATEGORY_IMAGES: Record<string, string> = {
-  ARMADURA:   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=80&q=80',
-  ARMA:       'https://images.unsplash.com/photo-1589656966895-2f33e7653819?auto=format&fit=crop&w=80&q=80',
-  KEY:        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=80&q=80',
-  RECIPE:     'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=80&q=80',
-  MATERIALES: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=80&q=80',
-  QUEST:      'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=80&q=80',
-  ADENA:      'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=80&q=80',
-};
+// Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
+// carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
+// las lee vía trpc.raid.categoryIcons.list. Ver CategoryIconsSection.
 
 const MAX_EVIDENCE_BYTES = 3 * 1024 * 1024; // 3 MB
 
@@ -57,6 +48,13 @@ export default function RaidInventory({ raidAccess }: Props) {
   const clansQ = trpc.raid.clans.list.useQuery();
   const currentCycleQ = trpc.raid.cycles.current.useQuery();
   const eventsQ = trpc.raid.events.list.useQuery({});
+  const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery();
+
+  // Mapa categoría → imageUrl (seteado por super admin en /raids/settings).
+  const categoryIconMap: Record<string, string> = {};
+  (categoryIconsQ.data || []).forEach((r: any) => {
+    categoryIconMap[String(r.category).toUpperCase()] = r.imageUrl;
+  });
 
   const canInteract = !!raidAccess?.canInteract;
   const canAdmin = !!raidAccess?.canAdmin;
@@ -164,13 +162,11 @@ export default function RaidInventory({ raidAccess }: Props) {
       prev.map((d, i) => {
         if (i !== idx) return d;
         const next = { ...d, [key]: value };
-        // Al elegir categoría, si la imagen está vacía o es el default de otra
-        // categoría, autocompletamos con el icono default de la categoría nueva.
+        // Al elegir categoría, la imagen del drop se setea SIEMPRE al icono
+        // configurado por el super admin para esa categoría. El mapper no
+        // puede editarla manualmente.
         if (key === 'category') {
-          const defaults = Object.values(DEFAULT_CATEGORY_IMAGES);
-          if (!next.imageUrl || defaults.includes(next.imageUrl)) {
-            next.imageUrl = DEFAULT_CATEGORY_IMAGES[value] || next.imageUrl;
-          }
+          next.imageUrl = categoryIconMap[String(value).toUpperCase()] || '';
         }
         return next;
       })
@@ -726,7 +722,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                           />
                         </div>
 
-                        {/* Imagen (auto-llenada desde categoría) */}
+                        {/* Imagen (solo preview - se asigna automáticamente por categoría) */}
                         <div className="sm:col-span-2">
                           <label
                             className="mb-1 block text-xs font-medium"
@@ -734,46 +730,46 @@ export default function RaidInventory({ raidAccess }: Props) {
                           >
                             Imagen
                           </label>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-9 w-9 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
-                              style={{
-                                background: 'rgba(255,255,255,0.04)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                              }}
-                            >
-                              {d.imageUrl ? (
+                          <div
+                            className="h-9 rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px dashed rgba(255,255,255,0.08)',
+                            }}
+                            title={
+                              d.imageUrl
+                                ? 'Asignada automáticamente por categoría'
+                                : 'Elegí una categoría para asignar el icono'
+                            }
+                          >
+                            {d.imageUrl ? (
+                              <>
                                 <img
                                   src={d.imageUrl}
                                   alt=""
-                                  className="h-full w-full object-cover"
+                                  className="h-7 w-7 rounded object-cover shrink-0"
                                 />
-                              ) : (
+                                <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                  auto · {catOk ? d.category : ''}
+                                </span>
+                              </>
+                            ) : (
+                              <>
                                 <ImageIcon
-                                  className="h-4 w-4"
-                                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                                  className="h-4 w-4 shrink-0"
+                                  style={{ color: 'rgba(255,255,255,0.25)' }}
                                 />
-                              )}
-                            </div>
-                            <input
-                              type="text"
-                              value={d.imageUrl}
-                              onChange={(e) => updateDrop(idx, 'imageUrl', e.target.value)}
-                              placeholder="auto por categoría"
-                              className="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
-                              style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                color: 'rgba(255,255,255,0.9)',
-                              }}
-                            />
+                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                  elegí categoría
+                                </span>
+                              </>
+                            )}
                           </div>
-                          <p
-                            className="text-[10px] mt-1"
-                            style={{ color: 'rgba(255,255,255,0.3)' }}
-                          >
-                            Se autocompleta con el icono de la categoría. Podés sobrescribir con otra URL.
-                          </p>
+                          {catOk && !d.imageUrl && (
+                            <p className="text-[10px] mt-1" style={{ color: '#f59e0b' }}>
+                              El super admin no configuró icono para esta categoría.
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

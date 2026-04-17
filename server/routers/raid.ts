@@ -6,6 +6,8 @@ import {
   getRaidBosses, createRaidBoss, updateRaidBoss, deleteRaidBoss, getRaidBossById,
   // clans
   getClans, createClan, updateClan, deleteClan, getClanById,
+  // category icons (super admin)
+  getRaidCategoryIcons, setRaidCategoryIcon, deleteRaidCategoryIcon, RAID_DROP_CATEGORIES,
   // access
   getUserRaidAccess, listUserRaidAccess, setUserRaidAccess, setBulkUserRaidAccess,
   canUserAccessRaidModule,
@@ -235,6 +237,43 @@ export const raidRouter = router({
           userId: ctx.user.id,
           action: 'CLAN_DELETED',
           details: { clanId: input.id, name: clan.name },
+        });
+        return { success: true };
+      }),
+  }),
+
+  // ---------------- Category Icons (super admin) ---------------------------
+  // Iconos por categoría de drop — el super admin los setea una vez y se usan
+  // como imagen automática en el formulario de eventos de raid.
+  categoryIcons: router({
+    list: raidViewerProcedure.query(async () => {
+      return await getRaidCategoryIcons();
+    }),
+    set: raidSuperAdminProcedure
+      .input(z.object({
+        category: z.enum(RAID_DROP_CATEGORIES as unknown as [string, ...string[]]),
+        imageUrl: z.string().min(1).max(10 * 1024 * 1024), // permite data URLs grandes
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const saved = await setRaidCategoryIcon(input.category, input.imageUrl);
+        await createRaidAuditLog({
+          userId: ctx.user.id,
+          action: 'RAID_CATEGORY_ICON_SET',
+          details: { category: saved.category },
+        });
+        return { success: true, icon: saved };
+      }),
+    delete: raidSuperAdminProcedure
+      .input(z.object({
+        category: z.enum(RAID_DROP_CATEGORIES as unknown as [string, ...string[]]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const removed = await deleteRaidCategoryIcon(input.category);
+        if (!removed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Icono de categoría no encontrado.' });
+        await createRaidAuditLog({
+          userId: ctx.user.id,
+          action: 'RAID_CATEGORY_ICON_DELETED',
+          details: { category: removed.category },
         });
         return { success: true };
       }),

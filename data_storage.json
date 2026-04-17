@@ -15,15 +15,659 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-13T16:16:05.954Z",
-      "lastSignedIn": "2026-04-13T16:16:05.954Z"
+      "updatedAt": "2026-04-17T22:58:20.998Z",
+      "lastSignedIn": "2026-04-17T22:58:20.998Z"
+    },
+    {
+      "id": 581030,
+      "email": "superadmin@inventory.com",
+      "openId": "local-lucia.admin@inventory.com",
+      "name": "Lucía Admin",
+      "characterName": "Lucía Admin",
+      "displayName": "Lucía Admin",
+      "username": "lucia.admin@inventory.com",
+      "role": "super_admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 620324,
+      "email": "superadmin@inventory.com",
+      "openId": "local-mateo.admin@inventory.com",
+      "name": "Mateo Admin",
+      "characterName": "Mateo Admin",
+      "displayName": "Mateo Admin",
+      "username": "mateo.admin@inventory.com",
+      "role": "super_admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 689563,
+      "email": "sofia.mapper@inventory.com",
+      "openId": "local-sofia.mapper@inventory.com",
+      "name": "Sofía Mapper",
+      "characterName": "Sofía Mapper",
+      "displayName": "Sofía Mapper",
+      "username": "sofia.mapper@inventory.com",
+      "role": "mapper",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 831008,
+      "email": "tomas.mapper@inventory.com",
+      "openId": "local-tomas.mapper@inventory.com",
+      "name": "Tomás Mapper",
+      "characterName": "Tomás Mapper",
+      "displayName": "Tomás Mapper",
+      "username": "tomas.mapper@inventory.com",
+      "role": "mapper",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 871224,
+      "email": "valeria.mapper@inventory.com",
+      "openId": "local-valeria.mapper@inventory.com",
+      "name": "Valeria Mapper",
+      "characterName": "Valeria Mapper",
+      "displayName": "Valeria Mapper",
+      "username": "valeria.mapper@inventory.com",
+      "role": "mapper",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 849181,
+      "email": "diego.user@inventory.com",
+      "openId": "local-diego.user@inventory.com",
+      "name": "Diego Usuario",
+      "characterName": "Diego Usuario",
+      "displayName": "Diego Usuario",
+      "username": "diego.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": false,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:49:06.629Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 193339,
+      "email": "camila.user@inventory.com",
+      "openId": "local-camila.user@inventory.com",
+      "name": "Camila Usuario",
+      "characterName": "Camila Usuario",
+      "displayName": "Camila Usuario",
+      "username": "camila.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 356166,
+      "email": "santiago.user@inventory.com",
+      "openId": "local-santiago.user@inventory.com",
+      "name": "Santiago Usuario",
+      "characterName": "Santiago Usuario",
+      "displayName": "Santiago Usuario",
+      "username": "santiago.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": false,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:49:14.156Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 310328,
+      "email": "paula.user@inventory.com",
+      "openId": "local-paula.user@inventory.com",
+      "name": "Paula Usuario",
+      "characterName": "Paula Usuario",
+      "displayName": "Paula Usuario",
+      "username": "paula.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 477495,
+      "email": "bruno.user@inventory.com",
+      "openId": "local-bruno.user@inventory.com",
+      "name": "Bruno Usuario",
+      "characterName": "Bruno Usuario",
+      "displayName": "Bruno Usuario",
+      "username": "bruno.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
     }
   ],
-  "characters": [],
-  "items": [],
+  "characters": [
+    {
+      "id": 793539,
+      "name": "Sofía Mapper",
+      "userId": 689563,
+      "profitPerCycle": 0,
+      "totalProfit": 833,
+      "currentCycleEarnings": 833,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 161722,
+      "name": "Tomás Mapper",
+      "userId": 831008,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 153267,
+      "name": "Valeria Mapper",
+      "userId": 871224,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 483702,
+      "name": "Diego User",
+      "userId": 849181,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 150360,
+      "name": "Camila User",
+      "userId": 193339,
+      "profitPerCycle": 0,
+      "totalProfit": 120,
+      "currentCycleEarnings": 120,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 922616,
+      "name": "Santiago User",
+      "userId": 356166,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 420418,
+      "name": "Paula User",
+      "userId": 310328,
+      "profitPerCycle": 0,
+      "totalProfit": 833,
+      "currentCycleEarnings": 833,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 789410,
+      "name": "Bruno User",
+      "userId": 477495,
+      "profitPerCycle": 0,
+      "totalProfit": 900,
+      "currentCycleEarnings": 900,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 875140,
+      "name": "Guild Storage A",
+      "userId": 581030,
+      "profitPerCycle": 0,
+      "totalProfit": 1500,
+      "currentCycleEarnings": 1500,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 841502,
+      "name": "Guild Storage B",
+      "userId": 620324,
+      "profitPerCycle": 0,
+      "totalProfit": 1733,
+      "currentCycleEarnings": 1733,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    }
+  ],
+  "items": [
+    {
+      "id": 280963,
+      "name": "Espada de Hielo +7",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1500,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T22:53:43.695Z"
+    },
+    {
+      "id": 619629,
+      "name": "Arco Élfico +5",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1200,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        153267,
+        483702
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 927720,
+      "name": "Daga de Obsidiana",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 900,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 4,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        922616,
+        789410,
+        420418
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 233088,
+      "name": "Maza Rúnica",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1100,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        161722
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 576277,
+      "name": "Bastón del Oráculo",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1700,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        161722,
+        420418
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 894583,
+      "name": "Armadura de Dragón",
+      "category": "ARMADURA",
+      "status": "VENDIDO",
+      "price": 2500,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        793539,
+        420418,
+        841502
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 421397,
+      "name": "Coraza de Mithril",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 2100,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 655475,
+      "name": "Casco de Guerra",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 800,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        922616,
+        161722
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 406150,
+      "name": "Guanteletes Rúnicos",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 950,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        841502,
+        789410,
+        922616
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 481440,
+      "name": "Escudo de Acero",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 700,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 4,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        420418
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 129921,
+      "name": "Anillo de Poder",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 1800,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        789410,
+        841502
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 654358,
+      "name": "Amuleto del Sabio",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 1400,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        922616,
+        153267,
+        483702
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 775092,
+      "name": "Capa del Viento",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 850,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 492820,
+      "name": "Botas Aladas",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 1000,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        789410,
+        922616
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 210593,
+      "name": "Poción de Vida Mayor",
+      "category": "CONSUMIBLE",
+      "status": "CONFIRMED",
+      "price": 150,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 20,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140,
+        153267,
+        483702
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 463706,
+      "name": "Poción de Maná",
+      "category": "CONSUMIBLE",
+      "status": "CONFIRMED",
+      "price": 120,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 25,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        150360
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 109875,
+      "name": "Elixir de Fuerza",
+      "category": "CONSUMIBLE",
+      "status": "CONFIRMED",
+      "price": 300,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 10,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        153267,
+        841502
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 462272,
+      "name": "Lingote de Adamantium",
+      "category": "MATERIAL",
+      "status": "CONFIRMED",
+      "price": 600,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 8,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        153267,
+        875140,
+        793539
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 399991,
+      "name": "Cristal Arcano",
+      "category": "MATERIAL",
+      "status": "CONFIRMED",
+      "price": 450,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 12,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        793539
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 720105,
+      "name": "Piel de Grifo",
+      "category": "MATERIAL",
+      "status": "CONFIRMED",
+      "price": 550,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 6,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        483702,
+        150360
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    }
+  ],
   "salesCycles": [],
   "purchases": [],
-  "auditLogs": [],
+  "auditLogs": [
+    {
+      "userId": 1,
+      "action": "USER_DEACTIVATED",
+      "details": {
+        "targetUserId": 849181,
+        "targetEmail": "diego.user@inventory.com",
+        "performedBy": "superadmin@inventory.com"
+      },
+      "id": 986534,
+      "createdAt": "2026-04-17T21:49:06.630Z"
+    },
+    {
+      "userId": 1,
+      "action": "USER_DEACTIVATED",
+      "details": {
+        "targetUserId": 356166,
+        "targetEmail": "santiago.user@inventory.com",
+        "performedBy": "superadmin@inventory.com"
+      },
+      "id": 397956,
+      "createdAt": "2026-04-17T21:49:14.156Z"
+    }
+  ],
   "images": [],
   "rules": {
     "allowMapperToCreateItems": true,
@@ -35,5 +679,3480 @@
     {
       "cycleCounter": 1
     }
-  ]
+  ],
+  "raidBosses": [
+    {
+      "id": 300420,
+      "name": "Antharas",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+      "level": 85,
+      "notes": "Boss Antharas nivel 85",
+      "createdAt": "2026-04-10T21:54:54.186Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 109746,
+      "name": "Valakas",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/a/ab/Valakas.jpg",
+      "level": 85,
+      "notes": "Boss Valakas nivel 85",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 771969,
+      "name": "Baium",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5f/Baium.jpg",
+      "level": 80,
+      "notes": "Boss Baium nivel 80",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 531086,
+      "name": "Queen Ant",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/4/48/Queen_Ant.jpg",
+      "level": 40,
+      "notes": "Boss Queen Ant nivel 40",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 552458,
+      "name": "Orfen",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/0/0d/Orfen.jpg",
+      "level": 50,
+      "notes": "Boss Orfen nivel 50",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 960587,
+      "name": "Core",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+      "level": 50,
+      "notes": "Boss Core nivel 50",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 216511,
+      "name": "Frintezza",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+      "level": 85,
+      "notes": "Boss Frintezza nivel 85",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 395084,
+      "name": "Zaken",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+      "level": 60,
+      "notes": "Boss Zaken nivel 60",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 246346,
+      "name": "Lilith",
+      "officialImageUrl": "https://picsum.photos/seed/lilith/400/400",
+      "level": 80,
+      "notes": "Boss Lilith nivel 80",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 101021,
+      "name": "Anakim",
+      "officialImageUrl": "https://picsum.photos/seed/anakim/400/400",
+      "level": 80,
+      "notes": "Boss Anakim nivel 80",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 692840,
+      "name": "Beleth",
+      "officialImageUrl": "https://picsum.photos/seed/beleth/400/400",
+      "level": 84,
+      "notes": "Boss Beleth nivel 84",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 347552,
+      "name": "Tauti",
+      "officialImageUrl": "https://picsum.photos/seed/tauti/400/400",
+      "level": 85,
+      "notes": "Boss Tauti nivel 85",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 183028,
+      "name": "Octavis",
+      "officialImageUrl": "https://picsum.photos/seed/octavis/400/400",
+      "level": 85,
+      "notes": "Boss Octavis nivel 85",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 127185,
+      "name": "Istina",
+      "officialImageUrl": "https://picsum.photos/seed/istina/400/400",
+      "level": 95,
+      "notes": "Boss Istina nivel 95",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 732607,
+      "name": "Balok",
+      "officialImageUrl": "https://picsum.photos/seed/balok/400/400",
+      "level": 95,
+      "notes": "Boss Balok nivel 95",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 773777,
+      "name": "Ekimus",
+      "officialImageUrl": "https://picsum.photos/seed/ekimus/400/400",
+      "level": 83,
+      "notes": "Boss Ekimus nivel 83",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 814047,
+      "name": "Freya",
+      "officialImageUrl": "https://picsum.photos/seed/freya/400/400",
+      "level": 83,
+      "notes": "Boss Freya nivel 83",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 296750,
+      "name": "Trasken",
+      "officialImageUrl": "https://picsum.photos/seed/trasken/400/400",
+      "level": 83,
+      "notes": "Boss Trasken nivel 83",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 532972,
+      "name": "Spezion",
+      "officialImageUrl": "https://picsum.photos/seed/spezion/400/400",
+      "level": 83,
+      "notes": "Boss Spezion nivel 83",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 159535,
+      "name": "Kelbim",
+      "officialImageUrl": "https://picsum.photos/seed/kelbim/400/400",
+      "level": 85,
+      "notes": "Boss Kelbim nivel 85",
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    }
+  ],
+  "clans": [
+    {
+      "id": 765309,
+      "name": "Valhalla",
+      "tag": "VLH",
+      "description": "Clan principal de asalto",
+      "totalRaidEarnings": 108790,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 128350,
+      "name": "Shadow Wolves",
+      "tag": "SHW",
+      "description": "Clan de apoyo PvE",
+      "totalRaidEarnings": 77796,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 107476,
+      "name": "Dragon Fangs",
+      "tag": "DRF",
+      "description": "Clan veterano top-tier",
+      "totalRaidEarnings": 101042,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 107708,
+      "name": "Iron Brigade",
+      "tag": "IRB",
+      "description": "Clan de tanques y curación",
+      "totalRaidEarnings": 103352,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    },
+    {
+      "id": 898429,
+      "name": "Moon Archers",
+      "tag": "MNA",
+      "description": "Clan de arqueros y magos",
+      "totalRaidEarnings": 116893,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-10T21:54:54.187Z",
+      "updatedAt": "2026-04-10T21:54:54.187Z"
+    }
+  ],
+  "raidCycles": [
+    {
+      "id": 872118,
+      "label": "Ciclo de Raids #1",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-13T21:54:54.187Z",
+      "closedAt": "2026-04-14T21:54:54.187Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 15,
+      "totalEvents": 15,
+      "totalRevenue": 219840,
+      "clansParticipated": [
+        {
+          "clanId": 128350,
+          "clanName": "Shadow Wolves",
+          "eventsParticipated": 7,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 107476,
+          "clanName": "Dragon Fangs",
+          "eventsParticipated": 7,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 898429,
+          "clanName": "Moon Archers",
+          "eventsParticipated": 8,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 765309,
+          "clanName": "Valhalla",
+          "eventsParticipated": 5,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 107708,
+          "clanName": "Iron Brigade",
+          "eventsParticipated": 3,
+          "revenueShare": 0
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 300420,
+          "bossName": "Antharas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+          "kills": 1
+        },
+        {
+          "bossId": 109746,
+          "bossName": "Valakas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/a/ab/Valakas.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 771969,
+          "bossName": "Baium",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5f/Baium.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 531086,
+          "bossName": "Queen Ant",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/4/48/Queen_Ant.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 552458,
+          "bossName": "Orfen",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/0/0d/Orfen.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 960587,
+          "bossName": "Core",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 216511,
+          "bossName": "Frintezza",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 395084,
+          "bossName": "Zaken",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 246346,
+          "bossName": "Lilith",
+          "officialImageUrl": "https://picsum.photos/seed/lilith/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 101021,
+          "bossName": "Anakim",
+          "officialImageUrl": "https://picsum.photos/seed/anakim/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 692840,
+          "bossName": "Beleth",
+          "officialImageUrl": "https://picsum.photos/seed/beleth/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 347552,
+          "bossName": "Tauti",
+          "officialImageUrl": "https://picsum.photos/seed/tauti/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 183028,
+          "bossName": "Octavis",
+          "officialImageUrl": "https://picsum.photos/seed/octavis/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 127185,
+          "bossName": "Istina",
+          "officialImageUrl": "https://picsum.photos/seed/istina/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 732607,
+          "bossName": "Balok",
+          "officialImageUrl": "https://picsum.photos/seed/balok/400/400",
+          "kills": 1
+        }
+      ],
+      "summary": {
+        "events": 15,
+        "drops": 36,
+        "bosses": 15,
+        "clans": 5,
+        "totalRevenue": 219840,
+        "totalPotentialValue": 293910
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-13T21:54:54.187Z",
+      "updatedAt": "2026-04-14T21:54:54.187Z"
+    },
+    {
+      "id": 276726,
+      "label": "Ciclo de Raids #2",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-16T21:54:54.187Z",
+      "closedAt": "2026-04-17T22:00:49.680Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 20,
+      "totalEvents": 20,
+      "totalRevenue": 288040,
+      "clansParticipated": [
+        {
+          "clanId": 128350,
+          "clanName": "Shadow Wolves",
+          "eventsParticipated": 6,
+          "revenueShare": 39150
+        },
+        {
+          "clanId": 898429,
+          "clanName": "Moon Archers",
+          "eventsParticipated": 7,
+          "revenueShare": 41245
+        },
+        {
+          "clanId": 107476,
+          "clanName": "Dragon Fangs",
+          "eventsParticipated": 8,
+          "revenueShare": 55233
+        },
+        {
+          "clanId": 765309,
+          "clanName": "Valhalla",
+          "eventsParticipated": 8,
+          "revenueShare": 71258
+        },
+        {
+          "clanId": 107708,
+          "clanName": "Iron Brigade",
+          "eventsParticipated": 10,
+          "revenueShare": 81153
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 300420,
+          "bossName": "Antharas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+          "kills": 1
+        },
+        {
+          "bossId": 109746,
+          "bossName": "Valakas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/a/ab/Valakas.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 771969,
+          "bossName": "Baium",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5f/Baium.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 531086,
+          "bossName": "Queen Ant",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/4/48/Queen_Ant.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 552458,
+          "bossName": "Orfen",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/0/0d/Orfen.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 960587,
+          "bossName": "Core",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 216511,
+          "bossName": "Frintezza",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 395084,
+          "bossName": "Zaken",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 246346,
+          "bossName": "Lilith",
+          "officialImageUrl": "https://picsum.photos/seed/lilith/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 101021,
+          "bossName": "Anakim",
+          "officialImageUrl": "https://picsum.photos/seed/anakim/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 692840,
+          "bossName": "Beleth",
+          "officialImageUrl": "https://picsum.photos/seed/beleth/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 347552,
+          "bossName": "Tauti",
+          "officialImageUrl": "https://picsum.photos/seed/tauti/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 183028,
+          "bossName": "Octavis",
+          "officialImageUrl": "https://picsum.photos/seed/octavis/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 127185,
+          "bossName": "Istina",
+          "officialImageUrl": "https://picsum.photos/seed/istina/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 732607,
+          "bossName": "Balok",
+          "officialImageUrl": "https://picsum.photos/seed/balok/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 773777,
+          "bossName": "Ekimus",
+          "officialImageUrl": "https://picsum.photos/seed/ekimus/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 814047,
+          "bossName": "Freya",
+          "officialImageUrl": "https://picsum.photos/seed/freya/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 296750,
+          "bossName": "Trasken",
+          "officialImageUrl": "https://picsum.photos/seed/trasken/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 532972,
+          "bossName": "Spezion",
+          "officialImageUrl": "https://picsum.photos/seed/spezion/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 159535,
+          "bossName": "Kelbim",
+          "officialImageUrl": "https://picsum.photos/seed/kelbim/400/400",
+          "kills": 1
+        }
+      ],
+      "summary": {
+        "events": 20,
+        "drops": 50,
+        "bosses": 20,
+        "clans": 5,
+        "totalRevenue": 288040,
+        "totalPotentialValue": 370340
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-16T21:54:54.187Z",
+      "updatedAt": "2026-04-17T22:00:49.680Z"
+    },
+    {
+      "id": 441542812,
+      "label": "Ciclo de Raids #3",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T22:01:16.137Z",
+      "closedAt": "2026-04-17T22:18:45.991Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T22:01:16.137Z",
+      "updatedAt": "2026-04-17T22:18:45.991Z"
+    },
+    {
+      "id": 28623061,
+      "label": "aaa",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T22:21:04.421Z",
+      "closedAt": "2026-04-17T22:21:12.104Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T22:21:04.421Z",
+      "updatedAt": "2026-04-17T22:21:12.104Z"
+    },
+    {
+      "id": 334929994,
+      "label": "Ciclo de Raids #5",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T22:26:25.193Z",
+      "closedAt": "2026-04-17T22:26:31.690Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T22:26:25.194Z",
+      "updatedAt": "2026-04-17T22:26:31.690Z"
+    },
+    {
+      "id": 690880258,
+      "label": "Ciclo de Raids #6",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T22:35:06.020Z",
+      "closedAt": "2026-04-17T22:35:12.026Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T22:35:06.020Z",
+      "updatedAt": "2026-04-17T22:35:12.026Z"
+    },
+    {
+      "id": 59639888,
+      "label": "Ciclo de Raids #7",
+      "type": "DIARIO",
+      "status": "OPEN",
+      "startedAt": "2026-04-17T22:35:14.249Z",
+      "closedAt": null,
+      "closedBy": null,
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": null,
+      "createdBy": 1,
+      "createdAt": "2026-04-17T22:35:14.249Z",
+      "updatedAt": "2026-04-17T22:35:14.249Z"
+    }
+  ],
+  "raidEvents": [
+    {
+      "id": 939200,
+      "raidBossId": 300420,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-antharas-1/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 1: Antharas caído con 1 clan(es)",
+      "createdAt": "2026-04-13T22:54:54.187Z",
+      "updatedAt": "2026-04-13T22:54:54.187Z"
+    },
+    {
+      "id": 224829,
+      "raidBossId": 109746,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-valakas-2/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 2: Valakas caído con 2 clan(es)",
+      "createdAt": "2026-04-13T23:54:54.187Z",
+      "updatedAt": "2026-04-13T23:54:54.187Z"
+    },
+    {
+      "id": 927261,
+      "raidBossId": 771969,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-baium-3/800/500",
+      "reportedByUserId": 620324,
+      "notes": "Evento 3: Baium caído con 3 clan(es)",
+      "createdAt": "2026-04-14T00:54:54.187Z",
+      "updatedAt": "2026-04-14T00:54:54.187Z"
+    },
+    {
+      "id": 591657,
+      "raidBossId": 531086,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-queen-ant-4/800/500",
+      "reportedByUserId": 689563,
+      "notes": "Evento 4: Queen Ant caído con 1 clan(es)",
+      "createdAt": "2026-04-14T01:54:54.187Z",
+      "updatedAt": "2026-04-14T01:54:54.187Z"
+    },
+    {
+      "id": 101364,
+      "raidBossId": 552458,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-orfen-5/800/500",
+      "reportedByUserId": 831008,
+      "notes": "Evento 5: Orfen caído con 2 clan(es)",
+      "createdAt": "2026-04-14T02:54:54.187Z",
+      "updatedAt": "2026-04-14T02:54:54.187Z"
+    },
+    {
+      "id": 618170,
+      "raidBossId": 960587,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-core-6/800/500",
+      "reportedByUserId": 871224,
+      "notes": "Evento 6: Core caído con 3 clan(es)",
+      "createdAt": "2026-04-14T03:54:54.187Z",
+      "updatedAt": "2026-04-14T03:54:54.187Z"
+    },
+    {
+      "id": 606394,
+      "raidBossId": 216511,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-frintezza-7/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 7: Frintezza caído con 1 clan(es)",
+      "createdAt": "2026-04-14T04:54:54.187Z",
+      "updatedAt": "2026-04-14T04:54:54.187Z"
+    },
+    {
+      "id": 125031,
+      "raidBossId": 395084,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-zaken-8/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 8: Zaken caído con 2 clan(es)",
+      "createdAt": "2026-04-14T05:54:54.188Z",
+      "updatedAt": "2026-04-14T05:54:54.188Z"
+    },
+    {
+      "id": 842358,
+      "raidBossId": 246346,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-lilith-9/800/500",
+      "reportedByUserId": 620324,
+      "notes": "Evento 9: Lilith caído con 3 clan(es)",
+      "createdAt": "2026-04-14T06:54:54.188Z",
+      "updatedAt": "2026-04-14T06:54:54.188Z"
+    },
+    {
+      "id": 378093,
+      "raidBossId": 101021,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-anakim-10/800/500",
+      "reportedByUserId": 689563,
+      "notes": "Evento 10: Anakim caído con 1 clan(es)",
+      "createdAt": "2026-04-14T07:54:54.188Z",
+      "updatedAt": "2026-04-14T07:54:54.188Z"
+    },
+    {
+      "id": 455491,
+      "raidBossId": 692840,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-beleth-11/800/500",
+      "reportedByUserId": 831008,
+      "notes": "Evento 11: Beleth caído con 2 clan(es)",
+      "createdAt": "2026-04-14T08:54:54.188Z",
+      "updatedAt": "2026-04-14T08:54:54.188Z"
+    },
+    {
+      "id": 510671,
+      "raidBossId": 347552,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-tauti-12/800/500",
+      "reportedByUserId": 871224,
+      "notes": "Evento 12: Tauti caído con 3 clan(es)",
+      "createdAt": "2026-04-14T09:54:54.188Z",
+      "updatedAt": "2026-04-14T09:54:54.188Z"
+    },
+    {
+      "id": 123147,
+      "raidBossId": 183028,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-octavis-13/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 13: Octavis caído con 1 clan(es)",
+      "createdAt": "2026-04-14T10:54:54.188Z",
+      "updatedAt": "2026-04-14T10:54:54.188Z"
+    },
+    {
+      "id": 891972,
+      "raidBossId": 127185,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-istina-14/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 14: Istina caído con 2 clan(es)",
+      "createdAt": "2026-04-14T11:54:54.188Z",
+      "updatedAt": "2026-04-14T11:54:54.188Z"
+    },
+    {
+      "id": 363704,
+      "raidBossId": 732607,
+      "cycleId": 872118,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-balok-15/800/500",
+      "reportedByUserId": 620324,
+      "notes": "Evento 15: Balok caído con 3 clan(es)",
+      "createdAt": "2026-04-14T12:54:54.188Z",
+      "updatedAt": "2026-04-14T12:54:54.188Z"
+    },
+    {
+      "id": 402400,
+      "raidBossId": 300420,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-antharas-1/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 1: Antharas caído con 1 clan(es)",
+      "createdAt": "2026-04-16T22:54:54.188Z",
+      "updatedAt": "2026-04-16T22:54:54.188Z"
+    },
+    {
+      "id": 703993,
+      "raidBossId": 109746,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-valakas-2/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 2: Valakas caído con 2 clan(es)",
+      "createdAt": "2026-04-16T23:54:54.188Z",
+      "updatedAt": "2026-04-16T23:54:54.188Z"
+    },
+    {
+      "id": 269541,
+      "raidBossId": 771969,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-baium-3/800/500",
+      "reportedByUserId": 620324,
+      "notes": "Evento 3: Baium caído con 3 clan(es)",
+      "createdAt": "2026-04-17T00:54:54.188Z",
+      "updatedAt": "2026-04-17T00:54:54.188Z"
+    },
+    {
+      "id": 608911,
+      "raidBossId": 531086,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-queen-ant-4/800/500",
+      "reportedByUserId": 689563,
+      "notes": "Evento 4: Queen Ant caído con 1 clan(es)",
+      "createdAt": "2026-04-17T01:54:54.188Z",
+      "updatedAt": "2026-04-17T01:54:54.188Z"
+    },
+    {
+      "id": 199478,
+      "raidBossId": 552458,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-orfen-5/800/500",
+      "reportedByUserId": 831008,
+      "notes": "Evento 5: Orfen caído con 2 clan(es)",
+      "createdAt": "2026-04-17T02:54:54.188Z",
+      "updatedAt": "2026-04-17T02:54:54.188Z"
+    },
+    {
+      "id": 251033,
+      "raidBossId": 960587,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-core-6/800/500",
+      "reportedByUserId": 871224,
+      "notes": "Evento 6: Core caído con 3 clan(es)",
+      "createdAt": "2026-04-17T03:54:54.188Z",
+      "updatedAt": "2026-04-17T03:54:54.188Z"
+    },
+    {
+      "id": 512157,
+      "raidBossId": 216511,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-frintezza-7/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 7: Frintezza caído con 1 clan(es)",
+      "createdAt": "2026-04-17T04:54:54.188Z",
+      "updatedAt": "2026-04-17T04:54:54.188Z"
+    },
+    {
+      "id": 446938,
+      "raidBossId": 395084,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-zaken-8/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 8: Zaken caído con 2 clan(es)",
+      "createdAt": "2026-04-17T05:54:54.188Z",
+      "updatedAt": "2026-04-17T05:54:54.188Z"
+    },
+    {
+      "id": 845008,
+      "raidBossId": 246346,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-lilith-9/800/500",
+      "reportedByUserId": 620324,
+      "notes": "Evento 9: Lilith caído con 3 clan(es)",
+      "createdAt": "2026-04-17T06:54:54.188Z",
+      "updatedAt": "2026-04-17T06:54:54.188Z"
+    },
+    {
+      "id": 493571,
+      "raidBossId": 101021,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-anakim-10/800/500",
+      "reportedByUserId": 689563,
+      "notes": "Evento 10: Anakim caído con 1 clan(es)",
+      "createdAt": "2026-04-17T07:54:54.188Z",
+      "updatedAt": "2026-04-17T07:54:54.188Z"
+    },
+    {
+      "id": 932165,
+      "raidBossId": 692840,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-beleth-11/800/500",
+      "reportedByUserId": 831008,
+      "notes": "Evento 11: Beleth caído con 2 clan(es)",
+      "createdAt": "2026-04-17T08:54:54.188Z",
+      "updatedAt": "2026-04-17T08:54:54.188Z"
+    },
+    {
+      "id": 807529,
+      "raidBossId": 347552,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-tauti-12/800/500",
+      "reportedByUserId": 871224,
+      "notes": "Evento 12: Tauti caído con 3 clan(es)",
+      "createdAt": "2026-04-17T09:54:54.188Z",
+      "updatedAt": "2026-04-17T09:54:54.188Z"
+    },
+    {
+      "id": 761223,
+      "raidBossId": 183028,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-octavis-13/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 13: Octavis caído con 1 clan(es)",
+      "createdAt": "2026-04-17T10:54:54.188Z",
+      "updatedAt": "2026-04-17T10:54:54.188Z"
+    },
+    {
+      "id": 188181,
+      "raidBossId": 127185,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-istina-14/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 14: Istina caído con 2 clan(es)",
+      "createdAt": "2026-04-17T11:54:54.188Z",
+      "updatedAt": "2026-04-17T11:54:54.188Z"
+    },
+    {
+      "id": 363161,
+      "raidBossId": 732607,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-balok-15/800/500",
+      "reportedByUserId": 620324,
+      "notes": "Evento 15: Balok caído con 3 clan(es)",
+      "createdAt": "2026-04-17T12:54:54.188Z",
+      "updatedAt": "2026-04-17T12:54:54.188Z"
+    },
+    {
+      "id": 451144,
+      "raidBossId": 773777,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-ekimus-16/800/500",
+      "reportedByUserId": 689563,
+      "notes": "Evento 16: Ekimus caído con 1 clan(es)",
+      "createdAt": "2026-04-17T13:54:54.188Z",
+      "updatedAt": "2026-04-17T13:54:54.188Z"
+    },
+    {
+      "id": 677080,
+      "raidBossId": 814047,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-freya-17/800/500",
+      "reportedByUserId": 831008,
+      "notes": "Evento 17: Freya caído con 2 clan(es)",
+      "createdAt": "2026-04-17T14:54:54.188Z",
+      "updatedAt": "2026-04-17T14:54:54.188Z"
+    },
+    {
+      "id": 610599,
+      "raidBossId": 296750,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-trasken-18/800/500",
+      "reportedByUserId": 871224,
+      "notes": "Evento 18: Trasken caído con 3 clan(es)",
+      "createdAt": "2026-04-17T15:54:54.188Z",
+      "updatedAt": "2026-04-17T15:54:54.188Z"
+    },
+    {
+      "id": 194819,
+      "raidBossId": 532972,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-spezion-19/800/500",
+      "reportedByUserId": 1,
+      "notes": "Evento 19: Spezion caído con 1 clan(es)",
+      "createdAt": "2026-04-17T16:54:54.188Z",
+      "updatedAt": "2026-04-17T16:54:54.188Z"
+    },
+    {
+      "id": 358578,
+      "raidBossId": 159535,
+      "cycleId": 276726,
+      "evidenceImageUrl": "https://picsum.photos/seed/evid-kelbim-20/800/500",
+      "reportedByUserId": 581030,
+      "notes": "Evento 20: Kelbim caído con 2 clan(es)",
+      "createdAt": "2026-04-17T17:54:54.188Z",
+      "updatedAt": "2026-04-17T17:54:54.188Z"
+    }
+  ],
+  "raidEventClans": [
+    {
+      "id": 129406,
+      "eventId": 939200,
+      "clanId": 128350,
+      "createdAt": "2026-04-13T22:54:54.187Z"
+    },
+    {
+      "id": 991200,
+      "eventId": 224829,
+      "clanId": 107476,
+      "createdAt": "2026-04-13T23:54:54.187Z"
+    },
+    {
+      "id": 399494,
+      "eventId": 224829,
+      "clanId": 898429,
+      "createdAt": "2026-04-13T23:54:54.187Z"
+    },
+    {
+      "id": 872187,
+      "eventId": 927261,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T00:54:54.187Z"
+    },
+    {
+      "id": 190296,
+      "eventId": 927261,
+      "clanId": 765309,
+      "createdAt": "2026-04-14T00:54:54.187Z"
+    },
+    {
+      "id": 424047,
+      "eventId": 927261,
+      "clanId": 107476,
+      "createdAt": "2026-04-14T00:54:54.187Z"
+    },
+    {
+      "id": 921303,
+      "eventId": 591657,
+      "clanId": 128350,
+      "createdAt": "2026-04-14T01:54:54.187Z"
+    },
+    {
+      "id": 672127,
+      "eventId": 101364,
+      "clanId": 765309,
+      "createdAt": "2026-04-14T02:54:54.187Z"
+    },
+    {
+      "id": 931280,
+      "eventId": 101364,
+      "clanId": 107708,
+      "createdAt": "2026-04-14T02:54:54.187Z"
+    },
+    {
+      "id": 595550,
+      "eventId": 618170,
+      "clanId": 107708,
+      "createdAt": "2026-04-14T03:54:54.187Z"
+    },
+    {
+      "id": 745382,
+      "eventId": 618170,
+      "clanId": 765309,
+      "createdAt": "2026-04-14T03:54:54.187Z"
+    },
+    {
+      "id": 273083,
+      "eventId": 618170,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T03:54:54.187Z"
+    },
+    {
+      "id": 400640,
+      "eventId": 606394,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T04:54:54.188Z"
+    },
+    {
+      "id": 776073,
+      "eventId": 125031,
+      "clanId": 107476,
+      "createdAt": "2026-04-14T05:54:54.188Z"
+    },
+    {
+      "id": 291804,
+      "eventId": 125031,
+      "clanId": 128350,
+      "createdAt": "2026-04-14T05:54:54.188Z"
+    },
+    {
+      "id": 775495,
+      "eventId": 842358,
+      "clanId": 765309,
+      "createdAt": "2026-04-14T06:54:54.188Z"
+    },
+    {
+      "id": 140670,
+      "eventId": 842358,
+      "clanId": 107476,
+      "createdAt": "2026-04-14T06:54:54.188Z"
+    },
+    {
+      "id": 839746,
+      "eventId": 842358,
+      "clanId": 128350,
+      "createdAt": "2026-04-14T06:54:54.188Z"
+    },
+    {
+      "id": 683451,
+      "eventId": 378093,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T07:54:54.188Z"
+    },
+    {
+      "id": 379141,
+      "eventId": 455491,
+      "clanId": 107476,
+      "createdAt": "2026-04-14T08:54:54.188Z"
+    },
+    {
+      "id": 275556,
+      "eventId": 455491,
+      "clanId": 128350,
+      "createdAt": "2026-04-14T08:54:54.188Z"
+    },
+    {
+      "id": 389705,
+      "eventId": 510671,
+      "clanId": 107476,
+      "createdAt": "2026-04-14T09:54:54.188Z"
+    },
+    {
+      "id": 871641,
+      "eventId": 510671,
+      "clanId": 128350,
+      "createdAt": "2026-04-14T09:54:54.188Z"
+    },
+    {
+      "id": 687974,
+      "eventId": 510671,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T09:54:54.188Z"
+    },
+    {
+      "id": 171919,
+      "eventId": 123147,
+      "clanId": 128350,
+      "createdAt": "2026-04-14T10:54:54.188Z"
+    },
+    {
+      "id": 948460,
+      "eventId": 891972,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T11:54:54.188Z"
+    },
+    {
+      "id": 228873,
+      "eventId": 891972,
+      "clanId": 107476,
+      "createdAt": "2026-04-14T11:54:54.188Z"
+    },
+    {
+      "id": 530470,
+      "eventId": 363704,
+      "clanId": 765309,
+      "createdAt": "2026-04-14T12:54:54.188Z"
+    },
+    {
+      "id": 813701,
+      "eventId": 363704,
+      "clanId": 107708,
+      "createdAt": "2026-04-14T12:54:54.188Z"
+    },
+    {
+      "id": 253380,
+      "eventId": 363704,
+      "clanId": 898429,
+      "createdAt": "2026-04-14T12:54:54.188Z"
+    },
+    {
+      "id": 885922,
+      "eventId": 402400,
+      "clanId": 128350,
+      "createdAt": "2026-04-16T22:54:54.188Z"
+    },
+    {
+      "id": 409348,
+      "eventId": 703993,
+      "clanId": 898429,
+      "createdAt": "2026-04-16T23:54:54.188Z"
+    },
+    {
+      "id": 517166,
+      "eventId": 703993,
+      "clanId": 107476,
+      "createdAt": "2026-04-16T23:54:54.188Z"
+    },
+    {
+      "id": 656298,
+      "eventId": 269541,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T00:54:54.188Z"
+    },
+    {
+      "id": 165508,
+      "eventId": 269541,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T00:54:54.188Z"
+    },
+    {
+      "id": 760284,
+      "eventId": 269541,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T00:54:54.188Z"
+    },
+    {
+      "id": 532146,
+      "eventId": 608911,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T01:54:54.188Z"
+    },
+    {
+      "id": 789167,
+      "eventId": 199478,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T02:54:54.188Z"
+    },
+    {
+      "id": 939967,
+      "eventId": 199478,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T02:54:54.188Z"
+    },
+    {
+      "id": 306028,
+      "eventId": 251033,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T03:54:54.188Z"
+    },
+    {
+      "id": 330079,
+      "eventId": 251033,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T03:54:54.188Z"
+    },
+    {
+      "id": 185554,
+      "eventId": 251033,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T03:54:54.188Z"
+    },
+    {
+      "id": 683533,
+      "eventId": 512157,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T04:54:54.188Z"
+    },
+    {
+      "id": 960766,
+      "eventId": 446938,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T05:54:54.188Z"
+    },
+    {
+      "id": 712465,
+      "eventId": 446938,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T05:54:54.188Z"
+    },
+    {
+      "id": 850007,
+      "eventId": 845008,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T06:54:54.188Z"
+    },
+    {
+      "id": 239857,
+      "eventId": 845008,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T06:54:54.188Z"
+    },
+    {
+      "id": 309769,
+      "eventId": 845008,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T06:54:54.188Z"
+    },
+    {
+      "id": 601925,
+      "eventId": 493571,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T07:54:54.188Z"
+    },
+    {
+      "id": 819799,
+      "eventId": 932165,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T08:54:54.188Z"
+    },
+    {
+      "id": 863168,
+      "eventId": 932165,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T08:54:54.188Z"
+    },
+    {
+      "id": 629033,
+      "eventId": 807529,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T09:54:54.188Z"
+    },
+    {
+      "id": 548690,
+      "eventId": 807529,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T09:54:54.188Z"
+    },
+    {
+      "id": 690066,
+      "eventId": 807529,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T09:54:54.188Z"
+    },
+    {
+      "id": 912666,
+      "eventId": 761223,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T10:54:54.188Z"
+    },
+    {
+      "id": 457756,
+      "eventId": 188181,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T11:54:54.188Z"
+    },
+    {
+      "id": 981192,
+      "eventId": 188181,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T11:54:54.188Z"
+    },
+    {
+      "id": 853124,
+      "eventId": 363161,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T12:54:54.188Z"
+    },
+    {
+      "id": 640729,
+      "eventId": 363161,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T12:54:54.188Z"
+    },
+    {
+      "id": 663242,
+      "eventId": 363161,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T12:54:54.188Z"
+    },
+    {
+      "id": 467611,
+      "eventId": 451144,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T13:54:54.188Z"
+    },
+    {
+      "id": 825708,
+      "eventId": 677080,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T14:54:54.188Z"
+    },
+    {
+      "id": 315744,
+      "eventId": 677080,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T14:54:54.188Z"
+    },
+    {
+      "id": 420806,
+      "eventId": 610599,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T15:54:54.188Z"
+    },
+    {
+      "id": 890687,
+      "eventId": 610599,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T15:54:54.188Z"
+    },
+    {
+      "id": 334642,
+      "eventId": 610599,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T15:54:54.188Z"
+    },
+    {
+      "id": 663544,
+      "eventId": 194819,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T16:54:54.188Z"
+    },
+    {
+      "id": 556589,
+      "eventId": 358578,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T17:54:54.188Z"
+    },
+    {
+      "id": 728502,
+      "eventId": 358578,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T17:54:54.188Z"
+    }
+  ],
+  "raidDropItems": [
+    {
+      "id": 596189,
+      "eventId": 939200,
+      "raidBossId": 300420,
+      "cycleId": 872118,
+      "name": "Vesper Retributer",
+      "category": "ARMA",
+      "price": 6900,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/vesper-retributer-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-13T22:54:54.187Z",
+      "updatedAt": "2026-04-13T22:54:54.187Z"
+    },
+    {
+      "id": 839712,
+      "eventId": 224829,
+      "raidBossId": 109746,
+      "cycleId": 872118,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        898429
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-13T23:54:54.187Z",
+      "updatedAt": "2026-04-13T23:54:54.187Z"
+    },
+    {
+      "id": 937123,
+      "eventId": 224829,
+      "raidBossId": 109746,
+      "cycleId": 872118,
+      "name": "Infinity Wing",
+      "category": "ARMA",
+      "price": 7800,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/infinity-wing-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        898429
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-13T23:55:54.187Z",
+      "updatedAt": "2026-04-13T23:55:54.187Z"
+    },
+    {
+      "id": 313428,
+      "eventId": 927261,
+      "raidBossId": 771969,
+      "cycleId": 872118,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429,
+        765309,
+        107476
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T00:54:54.187Z",
+      "updatedAt": "2026-04-14T00:54:54.187Z"
+    },
+    {
+      "id": 228931,
+      "eventId": 927261,
+      "raidBossId": 771969,
+      "cycleId": 872118,
+      "name": "Major Arcana Robe",
+      "category": "ARMADURA",
+      "price": 6300,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/major-arcana-robe-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429,
+        765309,
+        107476
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T00:55:54.187Z",
+      "updatedAt": "2026-04-14T00:55:54.187Z"
+    },
+    {
+      "id": 156070,
+      "eventId": 927261,
+      "raidBossId": 771969,
+      "cycleId": 872118,
+      "name": "Valakas Necklace",
+      "category": "ACCESORIO",
+      "price": 5000,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/valakas-necklace-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        898429,
+        765309,
+        107476
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T00:56:54.187Z",
+      "updatedAt": "2026-04-14T00:56:54.187Z"
+    },
+    {
+      "id": 871503,
+      "eventId": 591657,
+      "raidBossId": 531086,
+      "cycleId": 872118,
+      "name": "Giant Codex",
+      "category": "MATERIAL",
+      "price": 250,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/giant-codex-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-14T01:54:54.187Z",
+      "updatedAt": "2026-04-14T01:54:54.187Z"
+    },
+    {
+      "id": 159210,
+      "eventId": 591657,
+      "raidBossId": 531086,
+      "cycleId": 872118,
+      "name": "Infinity Wing",
+      "category": "ARMA",
+      "price": 7800,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/infinity-wing-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-14T01:55:54.187Z",
+      "updatedAt": "2026-04-14T01:55:54.187Z"
+    },
+    {
+      "id": 649426,
+      "eventId": 591657,
+      "raidBossId": 531086,
+      "cycleId": 872118,
+      "name": "Blessed Enchant Armor",
+      "category": "MATERIAL",
+      "price": 350,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-armor-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-14T01:56:54.187Z",
+      "updatedAt": "2026-04-14T01:56:54.187Z"
+    },
+    {
+      "id": 444976,
+      "eventId": 591657,
+      "raidBossId": 531086,
+      "cycleId": 872118,
+      "name": "Core Ring",
+      "category": "ACCESORIO",
+      "price": 1100,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/core-ring-3/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-14T01:57:54.187Z",
+      "updatedAt": "2026-04-14T01:57:54.187Z"
+    },
+    {
+      "id": 619436,
+      "eventId": 101364,
+      "raidBossId": 552458,
+      "cycleId": 872118,
+      "name": "Frintezza Necklace",
+      "category": "ACCESORIO",
+      "price": 4200,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/frintezza-necklace-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107708
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-14T02:54:54.187Z",
+      "updatedAt": "2026-04-14T02:54:54.187Z"
+    },
+    {
+      "id": 192394,
+      "eventId": 618170,
+      "raidBossId": 960587,
+      "cycleId": 872118,
+      "name": "Imperial Crusader",
+      "category": "ARMADURA",
+      "price": 6500,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/imperial-crusader-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        765309,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-14T03:54:54.187Z",
+      "updatedAt": "2026-04-14T03:54:54.187Z"
+    },
+    {
+      "id": 631578,
+      "eventId": 618170,
+      "raidBossId": 960587,
+      "cycleId": 872118,
+      "name": "Icarus Hammer",
+      "category": "ARMA",
+      "price": 5600,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/icarus-hammer-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708,
+        765309,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-14T03:55:54.187Z",
+      "updatedAt": "2026-04-14T03:55:54.187Z"
+    },
+    {
+      "id": 504791,
+      "eventId": 606394,
+      "raidBossId": 216511,
+      "cycleId": 872118,
+      "name": "Major Arcana Robe",
+      "category": "ARMADURA",
+      "price": 6300,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/major-arcana-robe-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-14T04:54:54.188Z",
+      "updatedAt": "2026-04-14T04:54:54.188Z"
+    },
+    {
+      "id": 729171,
+      "eventId": 606394,
+      "raidBossId": 216511,
+      "cycleId": 872118,
+      "name": "Frintezza Necklace",
+      "category": "ACCESORIO",
+      "price": 4200,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/frintezza-necklace-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-14T04:55:54.188Z",
+      "updatedAt": "2026-04-14T04:55:54.188Z"
+    },
+    {
+      "id": 288898,
+      "eventId": 606394,
+      "raidBossId": 216511,
+      "cycleId": 872118,
+      "name": "Vesper Retributer",
+      "category": "ARMA",
+      "price": 6900,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/vesper-retributer-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-14T04:56:54.188Z",
+      "updatedAt": "2026-04-14T04:56:54.188Z"
+    },
+    {
+      "id": 376168,
+      "eventId": 125031,
+      "raidBossId": 395084,
+      "cycleId": 872118,
+      "name": "Queen Ant Ring",
+      "category": "ACCESORIO",
+      "price": 1200,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/queen-ant-ring-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-14T05:54:54.188Z",
+      "updatedAt": "2026-04-14T05:54:54.188Z"
+    },
+    {
+      "id": 932396,
+      "eventId": 125031,
+      "raidBossId": 395084,
+      "cycleId": 872118,
+      "name": "Zaken Earring",
+      "category": "ACCESORIO",
+      "price": 2200,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/zaken-earring-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-14T05:55:54.188Z",
+      "updatedAt": "2026-04-14T05:55:54.188Z"
+    },
+    {
+      "id": 282720,
+      "eventId": 125031,
+      "raidBossId": 395084,
+      "cycleId": 872118,
+      "name": "Red Soul Stone",
+      "category": "MATERIAL",
+      "price": 120,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/red-soul-stone-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-14T05:56:54.188Z",
+      "updatedAt": "2026-04-14T05:56:54.188Z"
+    },
+    {
+      "id": 186009,
+      "eventId": 125031,
+      "raidBossId": 395084,
+      "cycleId": 872118,
+      "name": "Giant Codex",
+      "category": "MATERIAL",
+      "price": 250,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/giant-codex-3/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-14T05:57:54.188Z",
+      "updatedAt": "2026-04-14T05:57:54.188Z"
+    },
+    {
+      "id": 892131,
+      "eventId": 842358,
+      "raidBossId": 246346,
+      "cycleId": 872118,
+      "name": "Dynasty Sword",
+      "category": "ARMA",
+      "price": 4800,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-sword-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309,
+        107476,
+        128350
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T06:54:54.188Z",
+      "updatedAt": "2026-04-14T06:54:54.188Z"
+    },
+    {
+      "id": 806976,
+      "eventId": 378093,
+      "raidBossId": 101021,
+      "cycleId": 872118,
+      "name": "Core Ring",
+      "category": "ACCESORIO",
+      "price": 1100,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/core-ring-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-14T07:54:54.188Z",
+      "updatedAt": "2026-04-14T07:54:54.188Z"
+    },
+    {
+      "id": 557783,
+      "eventId": 378093,
+      "raidBossId": 101021,
+      "cycleId": 872118,
+      "name": "Queen Ant Ring",
+      "category": "ACCESORIO",
+      "price": 1200,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/queen-ant-ring-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-14T07:55:54.188Z",
+      "updatedAt": "2026-04-14T07:55:54.188Z"
+    },
+    {
+      "id": 706365,
+      "eventId": 455491,
+      "raidBossId": 692840,
+      "cycleId": 872118,
+      "name": "Core Ring",
+      "category": "ACCESORIO",
+      "price": 1100,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/core-ring-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-14T08:54:54.188Z",
+      "updatedAt": "2026-04-14T08:54:54.188Z"
+    },
+    {
+      "id": 628706,
+      "eventId": 455491,
+      "raidBossId": 692840,
+      "cycleId": 872118,
+      "name": "Top Grade Life Stone",
+      "category": "MATERIAL",
+      "price": 450,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/top-grade-life-stone-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-14T08:55:54.188Z",
+      "updatedAt": "2026-04-14T08:55:54.188Z"
+    },
+    {
+      "id": 151370,
+      "eventId": 455491,
+      "raidBossId": 692840,
+      "cycleId": 872118,
+      "name": "Dynasty Breastplate",
+      "category": "ARMADURA",
+      "price": 5000,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-breastplate-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-14T08:56:54.188Z",
+      "updatedAt": "2026-04-14T08:56:54.188Z"
+    },
+    {
+      "id": 735302,
+      "eventId": 510671,
+      "raidBossId": 347552,
+      "cycleId": 872118,
+      "name": "Dynasty Sword",
+      "category": "ARMA",
+      "price": 4800,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-sword-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-14T09:54:54.188Z",
+      "updatedAt": "2026-04-14T09:54:54.188Z"
+    },
+    {
+      "id": 520603,
+      "eventId": 510671,
+      "raidBossId": 347552,
+      "cycleId": 872118,
+      "name": "Icarus Hammer",
+      "category": "ARMA",
+      "price": 5600,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/icarus-hammer-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-14T09:55:54.188Z",
+      "updatedAt": "2026-04-14T09:55:54.188Z"
+    },
+    {
+      "id": 613114,
+      "eventId": 510671,
+      "raidBossId": 347552,
+      "cycleId": 872118,
+      "name": "Imperial Crusader",
+      "category": "ARMADURA",
+      "price": 6500,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/imperial-crusader-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        128350,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-14T09:56:54.188Z",
+      "updatedAt": "2026-04-14T09:56:54.188Z"
+    },
+    {
+      "id": 686939,
+      "eventId": 510671,
+      "raidBossId": 347552,
+      "cycleId": 872118,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-3/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107476,
+        128350,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-14T09:57:54.188Z",
+      "updatedAt": "2026-04-14T09:57:54.188Z"
+    },
+    {
+      "id": 562041,
+      "eventId": 123147,
+      "raidBossId": 183028,
+      "cycleId": 872118,
+      "name": "Red Soul Stone",
+      "category": "MATERIAL",
+      "price": 120,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/red-soul-stone-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-14T10:54:54.188Z",
+      "updatedAt": "2026-04-14T10:54:54.188Z"
+    },
+    {
+      "id": 197891,
+      "eventId": 891972,
+      "raidBossId": 127185,
+      "cycleId": 872118,
+      "name": "Elegia Bow",
+      "category": "ARMA",
+      "price": 7200,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/elegia-bow-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        898429,
+        107476
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-14T11:54:54.188Z",
+      "updatedAt": "2026-04-14T11:54:54.188Z"
+    },
+    {
+      "id": 860052,
+      "eventId": 891972,
+      "raidBossId": 127185,
+      "cycleId": 872118,
+      "name": "Vorpal Leather",
+      "category": "ARMADURA",
+      "price": 5200,
+      "quantity": 2,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/vorpal-leather-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429,
+        107476
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-14T11:55:54.188Z",
+      "updatedAt": "2026-04-14T11:55:54.188Z"
+    },
+    {
+      "id": 401059,
+      "eventId": 363704,
+      "raidBossId": 732607,
+      "cycleId": 872118,
+      "name": "Giant Codex",
+      "category": "MATERIAL",
+      "price": 250,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/giant-codex-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107708,
+        898429
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T12:54:54.188Z",
+      "updatedAt": "2026-04-14T12:54:54.188Z"
+    },
+    {
+      "id": 236073,
+      "eventId": 363704,
+      "raidBossId": 732607,
+      "cycleId": 872118,
+      "name": "Infinity Wing",
+      "category": "ARMA",
+      "price": 7800,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/infinity-wing-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107708,
+        898429
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T12:55:54.188Z",
+      "updatedAt": "2026-04-14T12:55:54.188Z"
+    },
+    {
+      "id": 996629,
+      "eventId": 363704,
+      "raidBossId": 732607,
+      "cycleId": 872118,
+      "name": "Elegia Bow",
+      "category": "ARMA",
+      "price": 7200,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/elegia-bow-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107708,
+        898429
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-14T12:56:54.188Z",
+      "updatedAt": "2026-04-14T12:56:54.188Z"
+    },
+    {
+      "id": 821382,
+      "eventId": 402400,
+      "raidBossId": 300420,
+      "cycleId": 276726,
+      "name": "Draconic Leather Armor",
+      "category": "ARMADURA",
+      "price": 6800,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/draconic-leather-armor-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-16T22:54:54.188Z",
+      "updatedAt": "2026-04-16T22:54:54.188Z"
+    },
+    {
+      "id": 489356,
+      "eventId": 703993,
+      "raidBossId": 109746,
+      "cycleId": 276726,
+      "name": "Dynasty Breastplate",
+      "category": "ARMADURA",
+      "price": 5000,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-breastplate-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        898429,
+        107476
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-16T23:54:54.188Z",
+      "updatedAt": "2026-04-16T23:54:54.188Z"
+    },
+    {
+      "id": 196855,
+      "eventId": 703993,
+      "raidBossId": 109746,
+      "cycleId": 276726,
+      "name": "Core Ring",
+      "category": "ACCESORIO",
+      "price": 1100,
+      "quantity": 2,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/core-ring-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429,
+        107476
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-16T23:55:54.188Z",
+      "updatedAt": "2026-04-16T23:55:54.188Z"
+    },
+    {
+      "id": 256058,
+      "eventId": 269541,
+      "raidBossId": 771969,
+      "cycleId": 276726,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        128350,
+        898429,
+        107476
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T00:54:54.188Z",
+      "updatedAt": "2026-04-17T00:54:54.188Z"
+    },
+    {
+      "id": 533166,
+      "eventId": 269541,
+      "raidBossId": 771969,
+      "cycleId": 276726,
+      "name": "Top Grade Life Stone",
+      "category": "MATERIAL",
+      "price": 450,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/top-grade-life-stone-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350,
+        898429,
+        107476
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T00:55:54.188Z",
+      "updatedAt": "2026-04-17T00:55:54.188Z"
+    },
+    {
+      "id": 772489,
+      "eventId": 269541,
+      "raidBossId": 771969,
+      "cycleId": 276726,
+      "name": "Giant Codex",
+      "category": "MATERIAL",
+      "price": 250,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/giant-codex-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350,
+        898429,
+        107476
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T00:56:54.188Z",
+      "updatedAt": "2026-04-17T00:56:54.188Z"
+    },
+    {
+      "id": 194931,
+      "eventId": 608911,
+      "raidBossId": 531086,
+      "cycleId": 276726,
+      "name": "Core Ring",
+      "category": "ACCESORIO",
+      "price": 1100,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/core-ring-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T01:54:54.188Z",
+      "updatedAt": "2026-04-17T01:54:54.188Z"
+    },
+    {
+      "id": 283293,
+      "eventId": 608911,
+      "raidBossId": 531086,
+      "cycleId": 276726,
+      "name": "Baium Ring",
+      "category": "ACCESORIO",
+      "price": 3800,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/baium-ring-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T01:55:54.188Z",
+      "updatedAt": "2026-04-17T01:55:54.188Z"
+    },
+    {
+      "id": 916324,
+      "eventId": 608911,
+      "raidBossId": 531086,
+      "cycleId": 276726,
+      "name": "Draconic Leather Armor",
+      "category": "ARMADURA",
+      "price": 6800,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/draconic-leather-armor-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T01:56:54.188Z",
+      "updatedAt": "2026-04-17T01:56:54.188Z"
+    },
+    {
+      "id": 904853,
+      "eventId": 608911,
+      "raidBossId": 531086,
+      "cycleId": 276726,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-3/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T01:57:54.188Z",
+      "updatedAt": "2026-04-17T01:57:54.188Z"
+    },
+    {
+      "id": 921508,
+      "eventId": 199478,
+      "raidBossId": 552458,
+      "cycleId": 276726,
+      "name": "Dynasty Breastplate",
+      "category": "ARMADURA",
+      "price": 5000,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-breastplate-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        765309
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-17T02:54:54.188Z",
+      "updatedAt": "2026-04-17T02:54:54.188Z"
+    },
+    {
+      "id": 388222,
+      "eventId": 251033,
+      "raidBossId": 960587,
+      "cycleId": 276726,
+      "name": "Blessed Enchant Armor",
+      "category": "MATERIAL",
+      "price": 350,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-armor-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708,
+        128350,
+        107476
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T03:54:54.188Z",
+      "updatedAt": "2026-04-17T03:54:54.188Z"
+    },
+    {
+      "id": 205866,
+      "eventId": 251033,
+      "raidBossId": 960587,
+      "cycleId": 276726,
+      "name": "Imperial Crusader",
+      "category": "ARMADURA",
+      "price": 6500,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/imperial-crusader-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708,
+        128350,
+        107476
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T03:55:54.188Z",
+      "updatedAt": "2026-04-17T03:55:54.188Z"
+    },
+    {
+      "id": 661269,
+      "eventId": 512157,
+      "raidBossId": 216511,
+      "cycleId": 276726,
+      "name": "Antharas Earring",
+      "category": "ACCESORIO",
+      "price": 4500,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/antharas-earring-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T04:54:54.188Z",
+      "updatedAt": "2026-04-17T04:54:54.188Z"
+    },
+    {
+      "id": 298775,
+      "eventId": 512157,
+      "raidBossId": 216511,
+      "cycleId": 276726,
+      "name": "Zaken Earring",
+      "category": "ACCESORIO",
+      "price": 2200,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/zaken-earring-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T04:55:54.188Z",
+      "updatedAt": "2026-04-17T04:55:54.188Z"
+    },
+    {
+      "id": 779172,
+      "eventId": 512157,
+      "raidBossId": 216511,
+      "cycleId": 276726,
+      "name": "Major Arcana Robe",
+      "category": "ARMADURA",
+      "price": 6300,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/major-arcana-robe-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T04:56:54.188Z",
+      "updatedAt": "2026-04-17T04:56:54.188Z"
+    },
+    {
+      "id": 501598,
+      "eventId": 446938,
+      "raidBossId": 395084,
+      "cycleId": 276726,
+      "name": "Orfen Earring",
+      "category": "ACCESORIO",
+      "price": 1500,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/orfen-earring-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        107708
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T05:54:54.188Z",
+      "updatedAt": "2026-04-17T05:54:54.188Z"
+    },
+    {
+      "id": 326451,
+      "eventId": 446938,
+      "raidBossId": 395084,
+      "cycleId": 276726,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        107708
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T05:55:54.188Z",
+      "updatedAt": "2026-04-17T05:55:54.188Z"
+    },
+    {
+      "id": 240867,
+      "eventId": 446938,
+      "raidBossId": 395084,
+      "cycleId": 276726,
+      "name": "Zaken Earring",
+      "category": "ACCESORIO",
+      "price": 2200,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/zaken-earring-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        107708
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T05:56:54.188Z",
+      "updatedAt": "2026-04-17T05:56:54.188Z"
+    },
+    {
+      "id": 598847,
+      "eventId": 446938,
+      "raidBossId": 395084,
+      "cycleId": 276726,
+      "name": "Imperial Crusader",
+      "category": "ARMADURA",
+      "price": 6500,
+      "quantity": 2,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/imperial-crusader-3/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107476,
+        107708
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T05:57:54.188Z",
+      "updatedAt": "2026-04-17T05:57:54.188Z"
+    },
+    {
+      "id": 648851,
+      "eventId": 845008,
+      "raidBossId": 246346,
+      "cycleId": 276726,
+      "name": "Major Arcana Robe",
+      "category": "ARMADURA",
+      "price": 6300,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/major-arcana-robe-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        128350,
+        898429,
+        107708
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T06:54:54.188Z",
+      "updatedAt": "2026-04-17T06:54:54.188Z"
+    },
+    {
+      "id": 796075,
+      "eventId": 493571,
+      "raidBossId": 101021,
+      "cycleId": 276726,
+      "name": "Draconic Leather Armor",
+      "category": "ARMADURA",
+      "price": 6800,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/draconic-leather-armor-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107476
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T07:54:54.188Z",
+      "updatedAt": "2026-04-17T07:54:54.188Z"
+    },
+    {
+      "id": 688166,
+      "eventId": 493571,
+      "raidBossId": 101021,
+      "cycleId": 276726,
+      "name": "Orfen Earring",
+      "category": "ACCESORIO",
+      "price": 1500,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/orfen-earring-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107476
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T07:55:54.188Z",
+      "updatedAt": "2026-04-17T07:55:54.188Z"
+    },
+    {
+      "id": 104272,
+      "eventId": 932165,
+      "raidBossId": 692840,
+      "cycleId": 276726,
+      "name": "Imperial Crusader",
+      "category": "ARMADURA",
+      "price": 6500,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/imperial-crusader-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107476
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-17T08:54:54.188Z",
+      "updatedAt": "2026-04-17T08:54:54.188Z"
+    },
+    {
+      "id": 340559,
+      "eventId": 932165,
+      "raidBossId": 692840,
+      "cycleId": 276726,
+      "name": "Infinity Wing",
+      "category": "ARMA",
+      "price": 7800,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/infinity-wing-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107476
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-17T08:55:54.188Z",
+      "updatedAt": "2026-04-17T08:55:54.188Z"
+    },
+    {
+      "id": 592926,
+      "eventId": 932165,
+      "raidBossId": 692840,
+      "cycleId": 276726,
+      "name": "Draconic Leather Armor",
+      "category": "ARMADURA",
+      "price": 6800,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/draconic-leather-armor-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107476
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-17T08:56:54.188Z",
+      "updatedAt": "2026-04-17T08:56:54.188Z"
+    },
+    {
+      "id": 369459,
+      "eventId": 807529,
+      "raidBossId": 347552,
+      "cycleId": 276726,
+      "name": "Frintezza Necklace",
+      "category": "ACCESORIO",
+      "price": 4200,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/frintezza-necklace-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429,
+        765309
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T09:54:54.188Z",
+      "updatedAt": "2026-04-17T09:54:54.188Z"
+    },
+    {
+      "id": 217763,
+      "eventId": 807529,
+      "raidBossId": 347552,
+      "cycleId": 276726,
+      "name": "Antharas Earring",
+      "category": "ACCESORIO",
+      "price": 4500,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/antharas-earring-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429,
+        765309
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T09:55:54.188Z",
+      "updatedAt": "2026-04-17T09:55:54.188Z"
+    },
+    {
+      "id": 400854,
+      "eventId": 807529,
+      "raidBossId": 347552,
+      "cycleId": 276726,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIAL",
+      "price": 900,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429,
+        765309
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T09:56:54.188Z",
+      "updatedAt": "2026-04-17T09:56:54.188Z"
+    },
+    {
+      "id": 938859,
+      "eventId": 807529,
+      "raidBossId": 347552,
+      "cycleId": 276726,
+      "name": "Dynasty Sword",
+      "category": "ARMA",
+      "price": 4800,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-sword-3/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708,
+        898429,
+        765309
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T09:57:54.188Z",
+      "updatedAt": "2026-04-17T09:57:54.188Z"
+    },
+    {
+      "id": 905842,
+      "eventId": 761223,
+      "raidBossId": 183028,
+      "cycleId": 276726,
+      "name": "Vesper Retributer",
+      "category": "ARMA",
+      "price": 6900,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/vesper-retributer-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        898429
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T10:54:54.188Z",
+      "updatedAt": "2026-04-17T10:54:54.188Z"
+    },
+    {
+      "id": 427963,
+      "eventId": 188181,
+      "raidBossId": 127185,
+      "cycleId": 276726,
+      "name": "Dynasty Sword",
+      "category": "ARMA",
+      "price": 4800,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-sword-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        128350
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T11:54:54.188Z",
+      "updatedAt": "2026-04-17T11:54:54.188Z"
+    },
+    {
+      "id": 849982,
+      "eventId": 188181,
+      "raidBossId": 127185,
+      "cycleId": 276726,
+      "name": "Dynasty Breastplate",
+      "category": "ARMADURA",
+      "price": 5000,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-breastplate-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        128350
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T11:55:54.188Z",
+      "updatedAt": "2026-04-17T11:55:54.188Z"
+    },
+    {
+      "id": 554965,
+      "eventId": 363161,
+      "raidBossId": 732607,
+      "cycleId": 276726,
+      "name": "Vorpal Leather",
+      "category": "ARMADURA",
+      "price": 5200,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/vorpal-leather-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107476,
+        107708,
+        765309
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T12:54:54.188Z",
+      "updatedAt": "2026-04-17T12:54:54.188Z"
+    },
+    {
+      "id": 157028,
+      "eventId": 363161,
+      "raidBossId": 732607,
+      "cycleId": 276726,
+      "name": "Elegia Bow",
+      "category": "ARMA",
+      "price": 7200,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/elegia-bow-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        107708,
+        765309
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T12:55:54.188Z",
+      "updatedAt": "2026-04-17T12:55:54.188Z"
+    },
+    {
+      "id": 680814,
+      "eventId": 363161,
+      "raidBossId": 732607,
+      "cycleId": 276726,
+      "name": "Valakas Necklace",
+      "category": "ACCESORIO",
+      "price": 5000,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/valakas-necklace-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        107708,
+        765309
+      ],
+      "reportedByUserId": 620324,
+      "createdAt": "2026-04-17T12:56:54.188Z",
+      "updatedAt": "2026-04-17T12:56:54.188Z"
+    },
+    {
+      "id": 826291,
+      "eventId": 451144,
+      "raidBossId": 773777,
+      "cycleId": 276726,
+      "name": "Antharas Earring",
+      "category": "ACCESORIO",
+      "price": 4500,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/antharas-earring-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T13:54:54.188Z",
+      "updatedAt": "2026-04-17T13:54:54.188Z"
+    },
+    {
+      "id": 380096,
+      "eventId": 451144,
+      "raidBossId": 773777,
+      "cycleId": 276726,
+      "name": "Icarus Hammer",
+      "category": "ARMA",
+      "price": 5600,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/icarus-hammer-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T13:55:54.188Z",
+      "updatedAt": "2026-04-17T13:55:54.188Z"
+    },
+    {
+      "id": 805179,
+      "eventId": 451144,
+      "raidBossId": 773777,
+      "cycleId": 276726,
+      "name": "Queen Ant Ring",
+      "category": "ACCESORIO",
+      "price": 1200,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/queen-ant-ring-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T13:56:54.188Z",
+      "updatedAt": "2026-04-17T13:56:54.188Z"
+    },
+    {
+      "id": 724459,
+      "eventId": 451144,
+      "raidBossId": 773777,
+      "cycleId": 276726,
+      "name": "Major Arcana Robe",
+      "category": "ARMADURA",
+      "price": 6300,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/major-arcana-robe-3/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708
+      ],
+      "reportedByUserId": 689563,
+      "createdAt": "2026-04-17T13:57:54.188Z",
+      "updatedAt": "2026-04-17T13:57:54.188Z"
+    },
+    {
+      "id": 134571,
+      "eventId": 677080,
+      "raidBossId": 814047,
+      "cycleId": 276726,
+      "name": "Top Grade Life Stone",
+      "category": "MATERIAL",
+      "price": 450,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/top-grade-life-stone-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        765309,
+        107708
+      ],
+      "reportedByUserId": 831008,
+      "createdAt": "2026-04-17T14:54:54.188Z",
+      "updatedAt": "2026-04-17T14:54:54.188Z"
+    },
+    {
+      "id": 701748,
+      "eventId": 610599,
+      "raidBossId": 296750,
+      "cycleId": 276726,
+      "name": "Baium Ring",
+      "category": "ACCESORIO",
+      "price": 3800,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/baium-ring-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708,
+        765309,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T15:54:54.188Z",
+      "updatedAt": "2026-04-17T15:54:54.188Z"
+    },
+    {
+      "id": 945685,
+      "eventId": 610599,
+      "raidBossId": 296750,
+      "cycleId": 276726,
+      "name": "Elegia Bow",
+      "category": "ARMA",
+      "price": 7200,
+      "quantity": 3,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/elegia-bow-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        765309,
+        898429
+      ],
+      "reportedByUserId": 871224,
+      "createdAt": "2026-04-17T15:55:54.188Z",
+      "updatedAt": "2026-04-17T15:55:54.188Z"
+    },
+    {
+      "id": 320297,
+      "eventId": 194819,
+      "raidBossId": 532972,
+      "cycleId": 276726,
+      "name": "Dynasty Sword",
+      "category": "ARMA",
+      "price": 4800,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-sword-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T16:54:54.188Z",
+      "updatedAt": "2026-04-17T16:54:54.188Z"
+    },
+    {
+      "id": 779295,
+      "eventId": 194819,
+      "raidBossId": 532972,
+      "cycleId": 276726,
+      "name": "Giant Codex",
+      "category": "MATERIAL",
+      "price": 250,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/giant-codex-1/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T16:55:54.188Z",
+      "updatedAt": "2026-04-17T16:55:54.188Z"
+    },
+    {
+      "id": 973677,
+      "eventId": 194819,
+      "raidBossId": 532972,
+      "cycleId": 276726,
+      "name": "Elegia Bow",
+      "category": "ARMA",
+      "price": 7200,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/elegia-bow-2/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        765309
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T16:56:54.188Z",
+      "updatedAt": "2026-04-17T16:56:54.188Z"
+    },
+    {
+      "id": 811821,
+      "eventId": 358578,
+      "raidBossId": 159535,
+      "cycleId": 276726,
+      "name": "Red Soul Stone",
+      "category": "MATERIAL",
+      "price": 120,
+      "quantity": 2,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/red-soul-stone-0/300/300",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107708,
+        898429
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T17:54:54.188Z",
+      "updatedAt": "2026-04-17T17:54:54.188Z"
+    },
+    {
+      "id": 968525,
+      "eventId": 358578,
+      "raidBossId": 159535,
+      "cycleId": 276726,
+      "name": "Top Grade Life Stone",
+      "category": "MATERIAL",
+      "price": 450,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/top-grade-life-stone-1/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T17:55:54.188Z",
+      "updatedAt": "2026-04-17T17:55:54.188Z"
+    },
+    {
+      "id": 527486,
+      "eventId": 358578,
+      "raidBossId": 159535,
+      "cycleId": 276726,
+      "name": "Dynasty Sword",
+      "category": "ARMA",
+      "price": 4800,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/dynasty-sword-2/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T17:56:54.188Z",
+      "updatedAt": "2026-04-17T17:56:54.188Z"
+    },
+    {
+      "id": 630131,
+      "eventId": 358578,
+      "raidBossId": 159535,
+      "cycleId": 276726,
+      "name": "Queen Ant Ring",
+      "category": "ACCESORIO",
+      "price": 1200,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/queen-ant-ring-3/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429
+      ],
+      "reportedByUserId": 581030,
+      "createdAt": "2026-04-17T17:57:54.188Z",
+      "updatedAt": "2026-04-17T17:57:54.188Z"
+    }
+  ],
+  "userRaidAccess": [
+    {
+      "id": 222818,
+      "userId": 581030,
+      "accessLevel": "raid_admin",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 497204,
+      "userId": 620324,
+      "accessLevel": "raid_admin",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 179919,
+      "userId": 689563,
+      "accessLevel": "raid_mapper",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:50:11.737Z",
+      "updatedAt": "2026-04-17T21:50:11.737Z"
+    },
+    {
+      "id": 972389,
+      "userId": 831008,
+      "accessLevel": "raid_mapper",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 459557,
+      "userId": 849181,
+      "accessLevel": "raid_user",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 391710,
+      "userId": 193339,
+      "accessLevel": "raid_user",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 438271,
+      "userId": 356166,
+      "accessLevel": "viewer_only",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    }
+  ],
+  "raidAuditLogs": [
+    {
+      "id": 304000,
+      "userId": 1,
+      "action": "RAID_CYCLE_CREATED",
+      "details": {
+        "cycleId": 872118,
+        "label": "Ciclo de Raids #1"
+      },
+      "createdAt": "2026-04-13T21:54:54.187Z"
+    },
+    {
+      "id": 169119,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 872118,
+        "label": "Ciclo de Raids #1",
+        "events": 15,
+        "drops": 36,
+        "bosses": 15,
+        "clans": 5,
+        "totalRevenue": 219840,
+        "totalPotentialValue": 293910
+      },
+      "createdAt": "2026-04-14T21:54:54.187Z"
+    },
+    {
+      "id": 822811,
+      "userId": 1,
+      "action": "RAID_CYCLE_CREATED",
+      "details": {
+        "cycleId": 276726,
+        "label": "Ciclo de Raids #2"
+      },
+      "createdAt": "2026-04-16T21:54:54.187Z"
+    },
+    {
+      "id": 515361947,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 276726,
+        "label": "Ciclo de Raids #2",
+        "events": 20,
+        "drops": 50,
+        "bosses": 20,
+        "clans": 5,
+        "totalRevenue": 288040,
+        "totalPotentialValue": 370340
+      },
+      "createdAt": "2026-04-17T22:00:49.681Z"
+    },
+    {
+      "id": 961498073,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 441542812,
+        "label": "Ciclo de Raids #3"
+      },
+      "createdAt": "2026-04-17T22:01:16.138Z"
+    },
+    {
+      "id": 241514128,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 441542812,
+        "label": "Ciclo de Raids #3",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T22:18:45.992Z"
+    },
+    {
+      "id": 303689397,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 28623061,
+        "label": "aaa"
+      },
+      "createdAt": "2026-04-17T22:21:04.421Z"
+    },
+    {
+      "id": 846122847,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 28623061,
+        "label": "aaa",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T22:21:12.106Z"
+    },
+    {
+      "id": 229417015,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 334929994,
+        "label": "Ciclo de Raids #5"
+      },
+      "createdAt": "2026-04-17T22:26:25.195Z"
+    },
+    {
+      "id": 121274426,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 334929994,
+        "label": "Ciclo de Raids #5",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T22:26:31.690Z"
+    },
+    {
+      "id": 954938821,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 690880258,
+        "label": "Ciclo de Raids #6"
+      },
+      "createdAt": "2026-04-17T22:35:06.020Z"
+    },
+    {
+      "id": 488137685,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 690880258,
+        "label": "Ciclo de Raids #6",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T22:35:12.027Z"
+    },
+    {
+      "id": 97071831,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 59639888,
+        "label": "Ciclo de Raids #7"
+      },
+      "createdAt": "2026-04-17T22:35:14.250Z"
+    }
+  ],
+  "raidSettings": [],
+  "raidCategoryIcons": []
 }

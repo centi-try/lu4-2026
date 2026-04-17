@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
-import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
+import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
+
+// Límite para imágenes de iconos (base64 data URL). 2 MB alcanza para un ícono.
+const ICON_MAX_BYTES = 2 * 1024 * 1024;
+
+async function iconFileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  });
+}
 
 interface Props {
   raidAccess?: RaidAccessInfo;
@@ -550,9 +563,237 @@ export default function RaidSettings({ raidAccess }: Props) {
         </div>
       </div>
 
+      {/* ===== Iconos por categoría de drop (super admin only) ===== */}
+      {raidAccess?.accessLevel === 'super_admin' && <CategoryIconsSection />}
+
       {/* ===== Gestión de Accesos Raid (super admin only) ===== */}
       {raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
     </AppShell>
+  );
+}
+
+// ============================================================================
+// Sección: iconos por categoría de drop
+// ============================================================================
+
+function CategoryIconsSection() {
+  const utils = trpc.useUtils();
+  const iconsQ = trpc.raid.categoryIcons.list.useQuery();
+  const setIcon = trpc.raid.categoryIcons.set.useMutation({
+    onSuccess: () => {
+      toast.success('Icono guardado');
+      utils.raid.categoryIcons.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteIcon = trpc.raid.categoryIcons.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Icono eliminado');
+      utils.raid.categoryIcons.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const icons = iconsQ.data || [];
+  const iconByCat: Record<string, string> = {};
+  icons.forEach((r: any) => {
+    iconByCat[String(r.category).toUpperCase()] = r.imageUrl;
+  });
+
+  return (
+    <div className="mt-5 rounded-2xl p-5" style={{
+      background: 'rgba(255,255,255,0.02)',
+      border: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      <div className="flex items-center gap-2 mb-1">
+        <Palette className="h-5 w-5" style={{ color: '#a78bfa' }} />
+        <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+          Iconos por categoría de drop
+        </h3>
+      </div>
+      <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        Estos iconos se asignan automáticamente a los items dropeados según la categoría que
+        elija el raid_mapper al registrar el evento. El mapper no puede cambiarlo manualmente.
+      </p>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {CATEGORIES.map((cat) => {
+          const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+          const current = iconByCat[cat] || '';
+          return (
+            <CategoryIconRow
+              key={cat}
+              category={cat}
+              label={meta.label}
+              emoji={meta.emoji}
+              color={meta.color}
+              currentUrl={current}
+              onSave={(url) => setIcon.mutate({ category: cat, imageUrl: url })}
+              onDelete={() => deleteIcon.mutate({ category: cat })}
+              saving={setIcon.isPending || deleteIcon.isPending}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CategoryIconRow({
+  category,
+  label,
+  emoji,
+  color,
+  currentUrl,
+  onSave,
+  onDelete,
+  saving,
+}: {
+  category: string;
+  label: string;
+  emoji: string;
+  color: string;
+  currentUrl: string;
+  onSave: (url: string) => void;
+  onDelete: () => void;
+  saving: boolean;
+}) {
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [manualUrl, setManualUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('El archivo debe ser una imagen');
+      return;
+    }
+    if (file.size > ICON_MAX_BYTES) {
+      toast.error(`Máximo ${Math.round(ICON_MAX_BYTES / 1024)} KB`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const dataUrl = await iconFileToDataUrl(file);
+      onSave(dataUrl);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch {
+      toast.error('No se pudo leer el archivo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submitUrl = () => {
+    const url = manualUrl.trim();
+    if (!url) {
+      toast.error('Pegá una URL');
+      return;
+    }
+    onSave(url);
+    setManualUrl('');
+  };
+
+  return (
+    <div
+      className="rounded-xl p-3 flex flex-col gap-2"
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${color}22`,
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="h-12 w-12 shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {currentUrl ? (
+            <img src={currentUrl} alt={category} className="h-full w-full object-cover" />
+          ) : (
+            <ImageIcon className="h-5 w-5" style={{ color: 'rgba(255,255,255,0.25)' }} />
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold" style={{ color }}>
+            {emoji} {label}
+          </div>
+          <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            {currentUrl
+              ? currentUrl.startsWith('data:')
+                ? `archivo inline (${Math.round(currentUrl.length / 1024)} KB)`
+                : currentUrl
+              : 'sin icono asignado'}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0] || null)}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={saving || uploading}
+          className="rounded-lg px-2 py-1.5 text-xs flex items-center gap-1 transition-all"
+          style={{
+            background: 'rgba(167,139,250,0.1)',
+            border: '1px solid rgba(167,139,250,0.25)',
+            color: '#a78bfa',
+          }}
+        >
+          <Upload className="h-3 w-3" />
+          {uploading ? 'Subiendo…' : 'Subir archivo'}
+        </button>
+        <input
+          type="text"
+          value={manualUrl}
+          onChange={(e) => setManualUrl(e.target.value)}
+          placeholder="o pegá una URL…"
+          className="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.9)',
+          }}
+        />
+        <button
+          type="button"
+          onClick={submitUrl}
+          disabled={saving || !manualUrl.trim()}
+          className="rounded-lg px-2 py-1.5 text-xs flex items-center gap-1 transition-all"
+          style={{
+            background: 'rgba(123,241,214,0.1)',
+            border: '1px solid rgba(123,241,214,0.25)',
+            color: '#7bf1d6',
+            opacity: saving || !manualUrl.trim() ? 0.4 : 1,
+          }}
+        >
+          <Save className="h-3 w-3" />
+          Guardar
+        </button>
+        {currentUrl && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={saving}
+            className="rounded-lg px-2 py-1.5 text-xs flex items-center transition-all"
+            style={{
+              background: 'rgba(255,120,120,0.08)',
+              border: '1px solid rgba(255,120,120,0.25)',
+              color: 'rgba(255,120,120,0.9)',
+            }}
+            title="Quitar icono"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
