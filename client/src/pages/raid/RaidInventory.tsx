@@ -7,6 +7,7 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
+import RaidDropsTable from './RaidDropsTable';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
@@ -183,6 +184,8 @@ export default function RaidInventory({ raidAccess }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Modal de confirmación de cierre de ciclo
   const [closeCycleOpen, setCloseCycleOpen] = useState(false);
+  // Tab activa: 'register' (form + ciclo + eventos) | 'drops' (tabla consolidada)
+  const [tab, setTab] = useState<'register' | 'drops'>('register');
 
   // Validación del form. Retorna los drops válidos si todo está OK, o null si
   // faltan datos (y ya mostró el toast correspondiente).
@@ -384,7 +387,53 @@ export default function RaidInventory({ raidAccess }: Props) {
         )}
       </div>
 
-      {canInteract && currentCycle && (
+      {/* Tabs: Registrar | Tabla de Drops */}
+      <div
+        className="flex items-center gap-1 mb-5 rounded-xl p-1"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setTab('register')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'register'
+                ? 'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(167,139,250,0.25))'
+                : 'transparent',
+            color: tab === 'register' ? '#e879f9' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'register' ? '1px solid rgba(232,121,249,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          Registrar evento
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('drops')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'drops'
+                ? 'linear-gradient(135deg, rgba(167,139,250,0.25), rgba(123,241,214,0.25))'
+                : 'transparent',
+            color: tab === 'drops' ? '#a78bfa' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'drops' ? '1px solid rgba(167,139,250,0.25)' : '1px solid transparent',
+          }}
+        >
+          <ImageIcon className="h-4 w-4" />
+          Tabla de drops
+        </button>
+      </div>
+
+      {tab === 'drops' && <RaidDropsTable raidAccess={raidAccess} />}
+
+      {tab === 'register' && canInteract && currentCycle && (
         <div className="card-glass rounded-2xl p-5 mb-5">
           <div className="flex items-center gap-2 mb-4">
             <Plus className="h-4 w-4" style={{ color: '#7bf1d6' }} />
@@ -818,6 +867,7 @@ export default function RaidInventory({ raidAccess }: Props) {
       )}
 
       {/* Listado de eventos del ciclo actual */}
+      {tab === 'register' && (
       <div className="card-glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
@@ -858,6 +908,7 @@ export default function RaidInventory({ raidAccess }: Props) {
           />
         )}
       </div>
+      )}
 
       {/* Modal de confirmación de cierre de ciclo */}
       {closeCycleOpen && currentCycle && (

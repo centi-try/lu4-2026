@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-17T23:34:54.433Z",
-      "lastSignedIn": "2026-04-17T23:34:54.433Z"
+      "updatedAt": "2026-04-17T23:59:32.171Z",
+      "lastSignedIn": "2026-04-17T23:59:32.171Z"
     },
     {
       "id": 581030,
@@ -640,6 +640,23 @@
       ],
       "createdAt": "2026-04-17T21:41:39.972Z",
       "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "name": "auto",
+      "category": "ARMA",
+      "status": "EN_REGISTRO",
+      "price": 232131,
+      "mapperId": 1,
+      "imageUrl": null,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "id": 182722,
+      "createdAt": "2026-04-17T23:42:54.411Z",
+      "updatedAt": "2026-04-17T23:42:54.411Z"
     }
   ],
   "salesCycles": [],
@@ -666,6 +683,15 @@
       },
       "id": 397956,
       "createdAt": "2026-04-17T21:49:14.156Z"
+    },
+    {
+      "userId": 1,
+      "action": "CREATE_ITEM",
+      "details": {
+        "itemName": "auto"
+      },
+      "id": 340106,
+      "createdAt": "2026-04-17T23:42:54.412Z"
     }
   ],
   "images": [],
