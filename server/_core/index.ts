@@ -212,6 +212,8 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      // Permitir payloads grandes (evidencias de raid como base64 data URL, hasta ~4MB post-encode)
+      maxBodySize: 8 * 1024 * 1024,
     })
   );
 

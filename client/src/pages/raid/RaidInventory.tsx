@@ -1,9 +1,35 @@
-import React, { useMemo, useState } from 'react';
-import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle, Upload } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
+import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
+import type { ItemCategory } from '../../lib/types';
+
+// Imagen por defecto por categoría — se usa para autocompletar el campo imagen
+// del drop cuando el mapper selecciona una categoría. Reutilizamos las mismas
+// URLs que el inventario viejo sin importar ese archivo (para no acoplar).
+const DEFAULT_CATEGORY_IMAGES: Record<string, string> = {
+  ARMADURA:   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=80&q=80',
+  ARMA:       'https://images.unsplash.com/photo-1589656966895-2f33e7653819?auto=format&fit=crop&w=80&q=80',
+  KEY:        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=80&q=80',
+  RECIPE:     'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=80&q=80',
+  MATERIALES: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=80&q=80',
+  QUEST:      'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=80&q=80',
+  ADENA:      'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=80&q=80',
+};
+
+const MAX_EVIDENCE_BYTES = 3 * 1024 * 1024; // 3 MB
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  });
+}
 
 interface Props {
   raidAccess?: RaidAccessInfo;
@@ -91,24 +117,37 @@ export default function RaidInventory({ raidAccess }: Props) {
   // Form state
   const [raidBossId, setRaidBossId] = useState<number | null>(null);
   const [evidenceUrl, setEvidenceUrl] = useState('');
+  const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const evidenceFileRef = useRef<HTMLInputElement | null>(null);
   const [notes, setNotes] = useState('');
   const [selectedClanIds, setSelectedClanIds] = useState<number[]>([]);
   const [drops, setDrops] = useState<DropItemInput[]>([emptyDrop()]);
 
-  // Autocomplete de categoría basado en drops previos
-  const categorySuggestions = useMemo(() => {
-    const set = new Set<string>();
-    events.forEach((e: any) => {
-      (e.dropItems || []).forEach((d: any) => {
-        if (d.category) set.add(d.category);
-      });
-    });
-    return Array.from(set).sort();
-  }, [events]);
+  const handleEvidenceFile = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('El archivo debe ser una imagen');
+      return;
+    }
+    if (file.size > MAX_EVIDENCE_BYTES) {
+      toast.error(`La imagen no puede superar los ${Math.round(MAX_EVIDENCE_BYTES / (1024 * 1024))} MB`);
+      return;
+    }
+    setEvidenceUploading(true);
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setEvidenceUrl(dataUrl);
+    } catch (err) {
+      toast.error('No se pudo leer el archivo');
+    } finally {
+      setEvidenceUploading(false);
+    }
+  };
 
   const resetForm = () => {
     setRaidBossId(null);
     setEvidenceUrl('');
+    if (evidenceFileRef.current) evidenceFileRef.current.value = '';
     setNotes('');
     setSelectedClanIds([]);
     setDrops([emptyDrop()]);
@@ -121,7 +160,21 @@ export default function RaidInventory({ raidAccess }: Props) {
   };
 
   const updateDrop = (idx: number, key: keyof DropItemInput, value: string) => {
-    setDrops((prev) => prev.map((d, i) => (i === idx ? { ...d, [key]: value } : d)));
+    setDrops((prev) =>
+      prev.map((d, i) => {
+        if (i !== idx) return d;
+        const next = { ...d, [key]: value };
+        // Al elegir categoría, si la imagen está vacía o es el default de otra
+        // categoría, autocompletamos con el icono default de la categoría nueva.
+        if (key === 'category') {
+          const defaults = Object.values(DEFAULT_CATEGORY_IMAGES);
+          if (!next.imageUrl || defaults.includes(next.imageUrl)) {
+            next.imageUrl = DEFAULT_CATEGORY_IMAGES[value] || next.imageUrl;
+          }
+        }
+        return next;
+      })
+    );
   };
 
   const addDrop = () => setDrops((prev) => [...prev, emptyDrop()]);
@@ -404,30 +457,65 @@ export default function RaidInventory({ raidAccess }: Props) {
                 )}
               </div>
 
-              {/* Evidencia */}
+              {/* Evidencia — ahora por carga manual de archivo */}
               <div>
                 <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Imagen de evidencia (URL) *
+                  Imagen de evidencia *
                 </label>
                 <input
-                  type="text"
-                  value={evidenceUrl}
-                  onChange={(e) => setEvidenceUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full rounded-xl px-3 py-2 text-sm"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.9)',
-                  }}
+                  ref={evidenceFileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleEvidenceFile(e.target.files?.[0] || null)}
+                  className="hidden"
                 />
+                <button
+                  type="button"
+                  onClick={() => evidenceFileRef.current?.click()}
+                  disabled={evidenceUploading}
+                  className="w-full rounded-xl px-3 py-2 text-xs flex items-center justify-center gap-2 transition-all"
+                  style={{
+                    background: evidenceUrl
+                      ? 'rgba(123,241,214,0.08)'
+                      : 'rgba(255,255,255,0.03)',
+                    border: `1px dashed ${evidenceUrl ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.15)'}`,
+                    color: evidenceUrl ? '#7bf1d6' : 'rgba(255,255,255,0.6)',
+                  }}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {evidenceUploading
+                    ? 'Cargando…'
+                    : evidenceUrl
+                    ? 'Cambiar imagen de evidencia'
+                    : 'Subir imagen de evidencia (JPG/PNG)'}
+                </button>
+                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  Máx. {Math.round(MAX_EVIDENCE_BYTES / (1024 * 1024))} MB. La imagen se guarda inline en el evento.
+                </p>
                 {evidenceUrl && (
-                  <img
-                    src={evidenceUrl}
-                    alt="evidencia"
-                    className="mt-2 rounded-xl max-h-32"
-                    style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-                  />
+                  <div className="mt-2 relative inline-block">
+                    <img
+                      src={evidenceUrl}
+                      alt="evidencia"
+                      className="rounded-xl max-h-32"
+                      style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEvidenceUrl('');
+                        if (evidenceFileRef.current) evidenceFileRef.current.value = '';
+                      }}
+                      className="absolute -top-2 -right-2 rounded-full h-6 w-6 flex items-center justify-center"
+                      style={{
+                        background: 'rgba(239,68,68,0.9)',
+                        color: 'white',
+                      }}
+                      aria-label="Quitar evidencia"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -507,102 +595,190 @@ export default function RaidInventory({ raidAccess }: Props) {
                 </button>
               </div>
 
-              <div className="space-y-2">
-                {drops.map((d, idx) => (
-                  <div
-                    key={idx}
-                    className="rounded-xl p-3"
-                    style={{
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                    }}
-                  >
-                    <div className="grid gap-2 sm:grid-cols-12">
-                      <input
-                        type="text"
-                        value={d.name}
-                        onChange={(e) => updateDrop(idx, 'name', e.target.value)}
-                        placeholder="Nombre item"
-                        className="rounded-lg px-2 py-1.5 text-xs sm:col-span-3"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                      />
-                      <input
-                        type="text"
-                        value={d.category}
-                        onChange={(e) => updateDrop(idx, 'category', e.target.value)}
-                        placeholder="Categoría"
-                        list="raid-drop-categories"
-                        className="rounded-lg px-2 py-1.5 text-xs sm:col-span-2"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        value={d.price}
-                        onChange={(e) => updateDrop(idx, 'price', e.target.value)}
-                        placeholder="Precio"
-                        className="rounded-lg px-2 py-1.5 text-xs sm:col-span-2"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        value={d.quantity}
-                        onChange={(e) => updateDrop(idx, 'quantity', e.target.value)}
-                        placeholder="Cant."
-                        className="rounded-lg px-2 py-1.5 text-xs sm:col-span-1"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                      />
-                      <input
-                        type="text"
-                        value={d.imageUrl}
-                        onChange={(e) => updateDrop(idx, 'imageUrl', e.target.value)}
-                        placeholder="URL imagen"
-                        className="rounded-lg px-2 py-1.5 text-xs sm:col-span-3"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          color: 'rgba(255,255,255,0.9)',
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeDrop(idx)}
-                        disabled={drops.length <= 1}
-                        className="rounded-lg px-2 py-1.5 text-xs transition-all sm:col-span-1 flex items-center justify-center"
-                        style={{
-                          background: 'rgba(255,120,120,0.05)',
-                          border: '1px solid rgba(255,120,120,0.15)',
-                          color: 'rgba(255,120,120,0.7)',
-                          opacity: drops.length <= 1 ? 0.3 : 1,
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+              <div className="space-y-3">
+                {drops.map((d, idx) => {
+                  const catOk = d.category && CATEGORIES.includes(d.category as ItemCategory);
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded-xl p-3"
+                      style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                          Item #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeDrop(idx)}
+                          disabled={drops.length <= 1}
+                          className="rounded-lg px-2 py-1 text-xs transition-all flex items-center gap-1"
+                          style={{
+                            background: 'rgba(255,120,120,0.05)',
+                            border: '1px solid rgba(255,120,120,0.15)',
+                            color: 'rgba(255,120,120,0.7)',
+                            opacity: drops.length <= 1 ? 0.3 : 1,
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" /> quitar
+                        </button>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-12">
+                        {/* Nombre */}
+                        <div className="sm:col-span-4">
+                          <label
+                            className="mb-1 block text-xs font-medium"
+                            style={{ color: 'rgba(255,255,255,0.55)' }}
+                          >
+                            Nombre del item <span style={{ color: '#f87171' }}>*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={d.name}
+                            onChange={(e) => updateDrop(idx, 'name', e.target.value)}
+                            placeholder="Ej: Dynasty Leather"
+                            className="w-full rounded-lg px-2 py-1.5 text-xs"
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              color: 'rgba(255,255,255,0.9)',
+                            }}
+                          />
+                        </div>
+
+                        {/* Categoría */}
+                        <div className="sm:col-span-3">
+                          <label
+                            className="mb-1 block text-xs font-medium"
+                            style={{ color: 'rgba(255,255,255,0.55)' }}
+                          >
+                            Categoría <span style={{ color: '#f87171' }}>*</span>
+                          </label>
+                          <select
+                            value={catOk ? d.category : ''}
+                            onChange={(e) => updateDrop(idx, 'category', e.target.value)}
+                            className="w-full rounded-lg px-2 py-1.5 text-xs"
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              color: 'rgba(255,255,255,0.9)',
+                            }}
+                          >
+                            <option value="">-- elegí --</option>
+                            {CATEGORIES.map((cat) => {
+                              const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                              return (
+                                <option key={cat} value={cat}>
+                                  {meta.emoji} {meta.label}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+
+                        {/* Precio */}
+                        <div className="sm:col-span-2">
+                          <label
+                            className="mb-1 block text-xs font-medium"
+                            style={{ color: 'rgba(255,255,255,0.55)' }}
+                          >
+                            Precio (Adena)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={d.price}
+                            onChange={(e) => updateDrop(idx, 'price', e.target.value)}
+                            placeholder="0"
+                            className="w-full rounded-lg px-2 py-1.5 text-xs"
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              color: 'rgba(255,255,255,0.9)',
+                            }}
+                          />
+                        </div>
+
+                        {/* Cantidad */}
+                        <div className="sm:col-span-1">
+                          <label
+                            className="mb-1 block text-xs font-medium"
+                            style={{ color: 'rgba(255,255,255,0.55)' }}
+                          >
+                            Cant. *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={d.quantity}
+                            onChange={(e) => updateDrop(idx, 'quantity', e.target.value)}
+                            placeholder="1"
+                            className="w-full rounded-lg px-2 py-1.5 text-xs"
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              color: 'rgba(255,255,255,0.9)',
+                            }}
+                          />
+                        </div>
+
+                        {/* Imagen (auto-llenada desde categoría) */}
+                        <div className="sm:col-span-2">
+                          <label
+                            className="mb-1 block text-xs font-medium"
+                            style={{ color: 'rgba(255,255,255,0.55)' }}
+                          >
+                            Imagen
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-9 w-9 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                              style={{
+                                background: 'rgba(255,255,255,0.04)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                              }}
+                            >
+                              {d.imageUrl ? (
+                                <img
+                                  src={d.imageUrl}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon
+                                  className="h-4 w-4"
+                                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                                />
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              value={d.imageUrl}
+                              onChange={(e) => updateDrop(idx, 'imageUrl', e.target.value)}
+                              placeholder="auto por categoría"
+                              className="flex-1 min-w-0 rounded-lg px-2 py-1.5 text-xs"
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'rgba(255,255,255,0.9)',
+                              }}
+                            />
+                          </div>
+                          <p
+                            className="text-[10px] mt-1"
+                            style={{ color: 'rgba(255,255,255,0.3)' }}
+                          >
+                            Se autocompleta con el icono de la categoría. Podés sobrescribir con otra URL.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <datalist id="raid-drop-categories">
-                  {categorySuggestions.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
+                  );
+                })}
               </div>
             </div>
 
