@@ -1,0 +1,39 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2b$10$rOzJqQZQZQZQZQZQZQZQZeKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+      "displayName": "Super Admin",
+      "role": "super_admin",
+      "characterId": null,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "email": "superadmin@inventory.com",
+      "openId": "local-superadmin@inventory.com",
+      "name": "Super Admin",
+      "characterName": "Super Admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
+      "updatedAt": "2026-04-13T16:16:05.954Z",
+      "lastSignedIn": "2026-04-13T16:16:05.954Z"
+    }
+  ],
+  "characters": [],
+  "items": [],
+  "salesCycles": [],
+  "purchases": [],
+  "auditLogs": [],
+  "images": [],
+  "rules": {
+    "allowMapperToCreateItems": true,
+    "allowMapperToEditPrice": false,
+    "requireImageForItems": false,
+    "maxItemsPerCycle": 100
+  },
+  "settings": [
+    {
+      "cycleCounter": 1
+    }
+  ]
+}

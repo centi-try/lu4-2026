@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1775896817545,
+      "tag": "0000_dear_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1775896975601,
+      "tag": "0001_material_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1775898110997,
+      "tag": "0002_material_madame_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1775898684905,
+      "tag": "0003_little_doomsday",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1775899282240,
+      "tag": "0004_perfect_the_order",
+      "breakpoints": true
+    }
+  ]
+}

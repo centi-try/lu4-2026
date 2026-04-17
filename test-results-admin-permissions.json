@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "tempEmail": "qa.cleanup.1776096593469@inventory.com",
+  "results": [
+    "listado_ok",
+    "rol_ok",
+    "desactivar_ok",
+    "reactivar_ok",
+    "bloqueo_no_super_admin_ok",
+    "eliminar_ok"
+  ]
+}

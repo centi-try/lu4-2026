@@ -1,0 +1,498 @@
+import React, { useState } from 'react';
+import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X } from 'lucide-react';
+import { useApp } from '../../contexts/AppContext';
+import { categoryMeta, statusMeta, CATEGORIES } from '../../lib/category-meta';
+import type { Item, ItemCategory, ItemStatus } from '../../lib/types';
+import { toast } from 'sonner';
+
+interface Props {
+  items?: Item[];
+  compact?: boolean;
+}
+
+export function ItemTable({ items: propItems, compact = false }: Props) {
+  const { items: allItems, currentUser, confirmItem, deleteItem, updateItem, sellItem, characters } = useApp();
+  const items = propItems ?? allItems;
+
+  const [search, setSearch] = useState('');
+  const [catFilter, setCatFilter] = useState<ItemCategory | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL'>('ALL');
+  const [sortKey, setSortKey] = useState<'name' | 'price' | 'createdAt'>('createdAt');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+  // Venta parcial
+  const [sellModalItem, setSellModalItem] = useState<Item | null>(null);
+  const [sellQty, setSellQty] = useState('1');
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
+
+  const filtered = items
+    .filter(i => {
+      const q = search.toLowerCase();
+      return (
+        (!q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)) &&
+        (catFilter === 'ALL' || i.category === catFilter) &&
+        (statusFilter === 'ALL' || i.status === statusFilter)
+      );
+    })
+    .sort((a, b) => {
+      let va: string | number = a[sortKey] ?? '';
+      let vb: string | number = b[sortKey] ?? '';
+      if (sortKey === 'price') { va = a.price ?? 0; vb = b.price ?? 0; }
+      return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    });
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ k }: { k: typeof sortKey }) =>
+    sortKey === k ? (sortDir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : null;
+
+  const handleConfirm = (id: string, name: string) => {
+    confirmItem(id);
+    toast.success(`"${name}" confirmado. Imagen bloqueada para Mapper.`);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (!window.confirm(`¿Eliminar "${name}"?`)) return;
+    deleteItem(id);
+    toast.success(`"${name}" eliminado del inventario.`);
+  };
+
+  const handleEditPrice = (item: Item) => {
+    setEditId(item.id);
+    setEditPrice(String(item.price ?? ''));
+  };
+
+  const handleSavePrice = (item: Item) => {
+    updateItem(item.id, { price: editPrice ? Number(editPrice) : null });
+    toast.success('Precio actualizado');
+    setEditId(null);
+  };
+
+  const openSellModal = (item: Item) => {
+    setSellModalItem(item);
+    setSellQty('1');
+    setSelectedBuyerId('');
+  };
+
+  const handleSell = () => {
+    if (!sellModalItem) return;
+    const qty = parseInt(sellQty);
+    const remaining = sellModalItem.quantity - sellModalItem.quantitySold;
+    if (isNaN(qty) || qty < 1 || qty > remaining) {
+      toast.error(`Cantidad inválida. Máximo disponible: ${remaining}`);
+      return;
+    }
+    if (!selectedBuyerId) {
+      toast.error('Debes seleccionar un comprador');
+      return;
+    }
+
+    const buyer = characters.find(c => String(c.id) === String(selectedBuyerId));
+    if (!buyer) {
+      toast.error('Comprador no encontrado');
+      return;
+    }
+
+    sellItem({ 
+      itemId: sellModalItem.id, 
+      quantityToSell: qty,
+      buyerId: buyer.id,
+      buyerName: buyer.name
+    });
+
+    const newRemaining = remaining - qty;
+    if (newRemaining === 0) {
+      toast.success(`"${sellModalItem.name}" completamente vendido a ${buyer.name}.`);
+    } else {
+      toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" a ${buyer.name}. Quedan ${newRemaining}.`);
+    }
+    setSellModalItem(null);
+  };
+
+  return (
+    <>
+      <div className="card-glass rounded-2xl">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              Inventario de Ítems
+              <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-mono" style={{ background: 'rgba(123,241,214,0.12)', color: '#7bf1d6' }}>
+                {filtered.length}
+              </span>
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
+            </p>
+          </div>
+
+          {!compact && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex h-9 items-center gap-2 rounded-xl border px-3"
+                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                <Search className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar..." className="bg-transparent text-xs outline-none w-32"
+                  style={{ color: 'rgba(255,255,255,0.8)', caretColor: '#7bf1d6' }} />
+              </div>
+              <select value={catFilter} onChange={e => setCatFilter(e.target.value as ItemCategory | 'ALL')}
+                className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
+                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
+                <option value="ALL" className="bg-[#0a0e16]">Todas las categorías</option>
+                {CATEGORIES.map(c => {
+                  const meta = categoryMeta[c] || { emoji: '📦', label: c };
+                  return <option key={c} value={c} className="bg-[#0a0e16]">{meta.emoji} {meta.label}</option>;
+                })}
+              </select>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ItemStatus | 'ALL')}
+                className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
+                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
+                <option value="ALL" className="bg-[#0a0e16]">Todos los estados</option>
+                <option value="CONFIRMADO" className="bg-[#0a0e16]">✅ Confirmado</option>
+                <option value="EN_REGISTRO" className="bg-[#0a0e16]">🟡 En Registro</option>
+                <option value="VENDIDO" className="bg-[#0a0e16]">💰 Vendido</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Table */}
+        <div className="table-scroll">
+          <table className="w-full min-w-[800px]">
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Img</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none" style={{ color: 'rgba(255,255,255,0.3)' }} onClick={() => toggleSort('name')}>
+                  <span className="flex items-center gap-1">Nombre <SortIcon k="name" /></span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none" style={{ color: 'rgba(255,255,255,0.3)' }} onClick={() => toggleSort('price')}>
+                  <span className="flex items-center gap-1">Precio <SortIcon k="price" /></span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Stock</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Estado</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Personajes</th>
+                {!compact && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Acciones</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    No se encontraron ítems con los filtros aplicados
+                  </td>
+                </tr>
+              )}
+              {filtered.map(item => {
+                const catMeta = categoryMeta[item.category] || { label: item.category, badgeClass: 'badge-default', color: '#94a3b8', emoji: '📦' };
+                const stMeta = statusMeta[item.status] || { label: item.status, badgeClass: 'badge-default', color: '#94a3b8' };
+                const canEdit = currentUser && currentUser.role === 'SUPER_ADMIN' || (currentUser && currentUser.role === 'MAPPER' && item.status === 'EN_REGISTRO');
+                const canConfirm = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status === 'EN_REGISTRO';
+                const canDelete = currentUser && currentUser.role === 'SUPER_ADMIN';
+                const canSell = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status !== 'VENDIDO' && item.status === 'CONFIRMADO';
+                const isEditing = editId === item.id;
+                const remaining = item.quantity - item.quantitySold;
+                const assocChars = characters.filter(c => item.associatedCharacterIds.includes(c.id));
+
+                return (
+                  <tr key={item.id} className="table-row-hover border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                    {/* Image */}
+                    <td className="px-4 py-3">
+                      <div className="h-[30px] w-[30px] overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                        {item.image?.publicUrl ? (
+                          <img src={item.image.publicUrl} alt={item.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-white/5">
+                            <ShoppingCart className="h-4 w-4 text-white/20" />
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    {/* Name */}
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
+                    </td>
+                    {/* Category */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${catMeta.badgeClass}`}>
+                        {catMeta.emoji} {catMeta.label}
+                      </span>
+                    </td>
+                    {/* Price */}
+                    <td className="px-4 py-3">
+                      {isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)}
+                            className="input-dark h-8 w-24 text-xs" autoFocus />
+                          <button onClick={() => handleSavePrice(item)} className="btn-primary text-xs px-2 py-1">✓</button>
+                          <button onClick={() => setEditId(null)} className="btn-ghost text-xs px-2 py-1">✕</button>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-mono" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                          {item.price ? `$${item.price.toLocaleString()}` : '—'}
+                        </span>
+                      )}
+                    </td>
+                    {/* Stock */}
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-sm font-mono font-semibold" style={{ color: remaining > 0 ? '#7bf1d6' : '#f87171' }}>
+                          {remaining}/{item.quantity}
+                        </p>
+                        {item.quantitySold > 0 && (
+                          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                            {item.quantitySold} vendido(s)
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${stMeta.badgeClass}`}>
+                        {stMeta.label}
+                      </span>
+                    </td>
+                    {/* Associated Characters */}
+                    <td className="px-4 py-3">
+                      {assocChars.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <div className="flex -space-x-1">
+                            {assocChars.slice(0, 3).map(char => (
+                              <div key={char.id} title={char.name}
+                                className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white border`}
+                                style={{ fontSize: '8px', fontWeight: 'bold', borderColor: 'rgba(10,14,22,0.8)' }}>
+                                {char.name.slice(0, 1).toUpperCase()}
+                              </div>
+                            ))}
+                          </div>
+                          {assocChars.length > 3 && (
+                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>+{assocChars.length - 3}</span>
+                          )}
+                          <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            {assocChars.length}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
+                      )}
+                    </td>
+                    {/* Actions */}
+                    {!compact && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {canEdit && !isEditing && (
+                            <button onClick={() => handleEditPrice(item)} className="btn-ghost p-2" title="Editar precio">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canConfirm && (
+                            <button onClick={() => handleConfirm(item.id, item.name)} className="btn-ghost p-2" title="Confirmar ítem"
+                              style={{ color: '#34d399', borderColor: 'rgba(52,211,153,0.25)', background: 'rgba(52,211,153,0.08)' }}>
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canSell && (
+                            <button onClick={() => openSellModal(item)} className="btn-ghost p-2" title="Vender unidades"
+                              style={{ color: '#a78bfa', borderColor: 'rgba(167,139,250,0.25)', background: 'rgba(167,139,250,0.08)' }}>
+                              <ShoppingCart className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => handleDelete(item.id, item.name)} className="btn-danger p-2" title="Eliminar ítem">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {!canEdit && !canConfirm && !canSell && !canDelete && (
+                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {!compact && filtered.length > 0 && (
+          <div className="flex items-center justify-between border-t px-5 py-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Mostrando {filtered.length} de {items.length} ítems
+            </p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Valor total: <span className="font-mono font-semibold" style={{ color: '#7bf1d6' }}>
+                ${(filtered.reduce((s, i) => s + (i.price ?? 0) * (i.quantity - i.quantitySold), 0) ?? 0).toLocaleString()}
+              </span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de venta parcial */}
+      {sellModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setSellModalItem(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-6"
+            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+                  style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                  <ShoppingCart className="h-5 w-5" style={{ color: '#a78bfa' }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Vender Unidades</h3>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{sellModalItem.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setSellModalItem(null)} className="btn-ghost p-2">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Item info */}
+            <div className="mb-5 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                  {sellModalItem.image?.publicUrl ? (
+                    <img src={sellModalItem.image.publicUrl} alt={sellModalItem.name}
+                      className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-white/5">
+                      <ShoppingCart className="h-6 w-6 text-white/20" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{sellModalItem.name}</p>
+                  <p className="text-xs font-mono" style={{ color: '#a78bfa' }}>
+                    ${sellModalItem.price?.toLocaleString() ?? '—'} por unidad
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(123,241,214,0.08)' }}>
+                  <p className="text-lg font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(251,191,36,0.08)' }}>
+                  <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vendidas</p>
+                </div>
+                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(167,139,250,0.08)' }}>
+                  <p className="text-lg font-bold font-mono" style={{ color: '#a78bfa' }}>
+                    {sellModalItem.quantity - sellModalItem.quantitySold}
+                  </p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Disponibles</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Personajes que recibirán ganancia */}
+            {sellModalItem.associatedCharacterIds.length > 0 && (
+              <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+                <p className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: '#7bf1d6' }}>
+                  <Users className="h-3.5 w-3.5" />
+                  Distribución de ganancias
+                </p>
+                <div className="space-y-1">
+                  {sellModalItem.associatedCharacterIds.map(cid => {
+                    const char = characters.find(c => c.id === cid);
+                    if (!char) return null;
+                    const qty = parseInt(sellQty) || 0;
+                    const totalRev = (sellModalItem.price ?? 0) * qty;
+                    const perChar = Math.floor(totalRev / sellModalItem.associatedCharacterIds.length);
+                    return (
+                      <div key={cid} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                            style={{ fontSize: '8px', fontWeight: 'bold' }}>
+                            {char.name.slice(0, 1).toUpperCase()}
+                          </div>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{char.name}</span>
+                        </div>
+                        <span className="text-xs font-mono" style={{ color: '#7bf1d6' }}>
+                          {qty > 0 ? `+$${perChar.toLocaleString()}` : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Selector de Comprador */}
+            <div className="mb-5">
+              <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                Asignar a Comprador/Cuenta
+              </label>
+              <select
+                value={selectedBuyerId}
+                onChange={e => setSelectedBuyerId(e.target.value)}
+                className="input-dark h-11 w-full text-sm px-3 select-dark"
+                style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+              >
+                <option value="" className="bg-[#0a0e16]">Seleccionar cuenta...</option>
+                {characters.map(char => (
+                  <option key={char.id} value={char.id} className="bg-[#0a0e16]">
+                    {char.name} ({char.class})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Input cantidad */}
+            <div className="mb-5">
+              <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                ¿Cuántas unidades vender?
+              </label>
+              <input
+                type="number"
+                value={sellQty}
+                onChange={e => setSellQty(e.target.value)}
+                min="1"
+                max={sellModalItem.quantity - sellModalItem.quantitySold}
+                className="input-dark h-12 text-lg font-mono w-full text-center"
+              />
+              <p className="mt-1.5 text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Máximo disponible: {sellModalItem.quantity - sellModalItem.quantitySold} unidad(es)
+              </p>
+              {parseInt(sellQty) > 0 && sellModalItem.price && (
+                <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
+                  <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
+                    ${((sellModalItem.price ?? 0) * (parseInt(sellQty) || 0)).toLocaleString()}
+                  </p>
+                  {parseInt(sellQty) < sellModalItem.quantity - sellModalItem.quantitySold && (
+                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - parseInt(sellQty)} unidad(es) activas
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button onClick={() => setSellModalItem(null)} className="btn-ghost flex-1 py-2.5">
+                Cancelar
+              </button>
+              <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
+                <ShoppingCart className="h-4 w-4" />
+                Confirmar Venta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
