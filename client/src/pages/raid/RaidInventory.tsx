@@ -177,44 +177,70 @@ export default function RaidInventory({ raidAccess }: Props) {
   const removeDrop = (idx: number) =>
     setDrops((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Modal de confirmación — se abre cuando los datos pasan validación
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Validación del form. Retorna los drops válidos si todo está OK, o null si
+  // faltan datos (y ya mostró el toast correspondiente).
+  const validateForm = (): DropItemInput[] | null => {
     if (!currentCycle) {
       toast.error('No hay ciclo de raid abierto. Abrí uno arriba para continuar.');
-      return;
+      return null;
     }
     if (!raidBossId) {
       toast.error('Seleccioná el Raid Boss eliminado');
-      return;
+      return null;
     }
     if (selectedClanIds.length === 0) {
       toast.error('Seleccioná al menos un clan asociado');
-      return;
+      return null;
     }
     const validDrops = drops.filter((d) => d.name.trim());
     if (validDrops.length === 0) {
       toast.error('Registrá al menos un item dropeado');
-      return;
+      return null;
     }
     for (const d of validDrops) {
       if (!d.category.trim()) {
         toast.error(`Falta la categoría del item "${d.name}"`);
-        return;
+        return null;
       }
     }
-    createEvent.mutate({
-      raidBossId,
-      evidenceImageUrl: evidenceUrl.trim() || null,
-      notes: notes.trim() || null,
-      clanIds: selectedClanIds,
-      dropItems: validDrops.map((d) => ({
-        name: d.name.trim(),
-        category: d.category.trim(),
-        price: Number(d.price) || 0,
-        quantity: parseInt(d.quantity) || 1,
-        imageUrl: d.imageUrl.trim() || null,
-      })),
-    });
+    return validDrops;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const valid = validateForm();
+    if (!valid) return;
+    // En vez de enviar, abrimos modal de confirmación.
+    setConfirmOpen(true);
+  };
+
+  const confirmAndSubmit = () => {
+    const validDrops = validateForm();
+    if (!validDrops) {
+      setConfirmOpen(false);
+      return;
+    }
+    createEvent.mutate(
+      {
+        raidBossId: raidBossId as number,
+        evidenceImageUrl: evidenceUrl.trim() || null,
+        notes: notes.trim() || null,
+        clanIds: selectedClanIds,
+        dropItems: validDrops.map((d) => ({
+          name: d.name.trim(),
+          category: d.category.trim(),
+          price: Number(d.price) || 0,
+          quantity: parseInt(d.quantity) || 1,
+          imageUrl: d.imageUrl.trim() || null,
+        })),
+      },
+      {
+        onSuccess: () => setConfirmOpen(false),
+      }
+    );
   };
 
   return (
@@ -664,7 +690,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                               color: 'rgba(255,255,255,0.9)',
                             }}
                           >
-                            <option value="">-- elegí --</option>
+                            <option value="">-- Seleccionar --</option>
                             {CATEGORIES.map((cat) => {
                               const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
                               return (
@@ -834,6 +860,220 @@ export default function RaidInventory({ raidAccess }: Props) {
           </div>
         )}
       </div>
+
+      {/* Modal de confirmación de registro de evento */}
+      {confirmOpen && (() => {
+        const boss = bosses.find((b: any) => Number(b.id) === raidBossId);
+        const selectedClans = clans.filter((c: any) => selectedClanIds.includes(Number(c.id)));
+        const previewDrops = drops.filter((d) => d.name.trim());
+        const totalAdena = previewDrops.reduce(
+          (acc, d) => acc + (Number(d.price) || 0) * (parseInt(d.quantity) || 1),
+          0
+        );
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+            onClick={() => {
+              if (!createEvent.isPending) setConfirmOpen(false);
+            }}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+              style={{
+                background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+                border: '1px solid rgba(232,121,249,0.25)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" style={{ color: '#e879f9' }} />
+                    <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                      Confirmar registro de evento
+                    </h3>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Revisá la información antes de confirmar. Esta acción queda registrada en el ciclo actual.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={createEvent.isPending}
+                  className="rounded-lg p-1.5 transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.6)',
+                  }}
+                  aria-label="Cerrar"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                {/* Boss */}
+                <div className="rounded-xl p-3" style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Raid Boss
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {boss?.officialImageUrl && (
+                      <img src={boss.officialImageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                    )}
+                    <div className="font-semibold" style={{ color: '#e879f9' }}>
+                      {boss?.name || '—'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clanes */}
+                <div className="rounded-xl p-3" style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Clanes participantes ({selectedClans.length})
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedClans.map((c: any) => (
+                      <span
+                        key={c.id}
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{
+                          background: 'rgba(123,241,214,0.1)',
+                          border: '1px solid rgba(123,241,214,0.25)',
+                          color: '#7bf1d6',
+                        }}
+                      >
+                        {c.tag ? `${c.tag} ` : ''}{c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Evidencia */}
+                <div className="rounded-xl p-3 flex items-center gap-3" style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div className="text-xs flex-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Evidencia
+                  </div>
+                  {evidenceUrl ? (
+                    <div className="flex items-center gap-2">
+                      <img src={evidenceUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                      <span className="text-xs" style={{ color: '#7bf1d6' }}>Cargada</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      Sin evidencia
+                    </span>
+                  )}
+                </div>
+
+                {/* Drops */}
+                <div className="rounded-xl p-3" style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                  <div className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Items dropeados ({previewDrops.length})
+                  </div>
+                  <div className="space-y-1.5">
+                    {previewDrops.map((d, i) => {
+                      const meta = categoryMeta[d.category] || { emoji: '📦', label: d.category };
+                      const subtotal = (Number(d.price) || 0) * (parseInt(d.quantity) || 1);
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 text-xs"
+                          style={{ color: 'rgba(255,255,255,0.8)' }}
+                        >
+                          {d.imageUrl && (
+                            <img src={d.imageUrl} alt="" className="h-6 w-6 rounded object-cover shrink-0" />
+                          )}
+                          <span className="flex-1 truncate">
+                            <span style={{ color: 'rgba(255,255,255,0.5)' }}>{meta.emoji}</span>{' '}
+                            {d.name}
+                          </span>
+                          <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                            x{parseInt(d.quantity) || 1}
+                          </span>
+                          <span className="font-semibold" style={{ color: '#fbbf24' }}>
+                            {subtotal.toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div
+                    className="mt-2 pt-2 flex justify-between items-center text-xs"
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>Valor total estimado</span>
+                    <span className="font-bold" style={{ color: '#fbbf24' }}>
+                      {totalAdena.toLocaleString()} adena
+                    </span>
+                  </div>
+                </div>
+
+                {notes.trim() && (
+                  <div className="rounded-xl p-3" style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      Notas
+                    </div>
+                    <div className="text-xs" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                      {notes.trim()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={createEvent.isPending}
+                  className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.75)',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmAndSubmit}
+                  disabled={createEvent.isPending}
+                  className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: 'linear-gradient(90deg, rgba(232,121,249,0.9), rgba(167,139,250,0.9))',
+                    border: '1px solid rgba(232,121,249,0.5)',
+                    color: '#fff',
+                    opacity: createEvent.isPending ? 0.6 : 1,
+                  }}
+                >
+                  <Check className="h-4 w-4" />
+                  {createEvent.isPending ? 'Registrando…' : 'Confirmar y registrar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </AppShell>
   );
 }

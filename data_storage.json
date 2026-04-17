@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-17T22:58:20.998Z",
-      "lastSignedIn": "2026-04-17T22:58:20.998Z"
+      "updatedAt": "2026-04-17T23:09:02.575Z",
+      "lastSignedIn": "2026-04-17T23:09:02.575Z"
     },
     {
       "id": 581030,
@@ -1708,6 +1708,26 @@
       "notes": "Evento 20: Kelbim caído con 2 clan(es)",
       "createdAt": "2026-04-17T17:54:54.188Z",
       "updatedAt": "2026-04-17T17:54:54.188Z"
+    },
+    {
+      "id": 178886285,
+      "raidBossId": 300420,
+      "cycleId": 59639888,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-17T23:03:14.797Z",
+      "updatedAt": "2026-04-17T23:03:14.797Z"
+    },
+    {
+      "id": 818933503,
+      "raidBossId": 771969,
+      "cycleId": 59639888,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-17T23:07:16.912Z",
+      "updatedAt": "2026-04-17T23:07:16.912Z"
     }
   ],
   "raidEventClans": [
@@ -2124,6 +2144,42 @@
       "eventId": 358578,
       "clanId": 898429,
       "createdAt": "2026-04-17T17:54:54.188Z"
+    },
+    {
+      "id": 295848276,
+      "eventId": 178886285,
+      "clanId": 107476,
+      "createdAt": "2026-04-17T23:03:14.797Z"
+    },
+    {
+      "id": 289838689,
+      "eventId": 178886285,
+      "clanId": 107708,
+      "createdAt": "2026-04-17T23:03:14.797Z"
+    },
+    {
+      "id": 995987409,
+      "eventId": 178886285,
+      "clanId": 765309,
+      "createdAt": "2026-04-17T23:03:14.797Z"
+    },
+    {
+      "id": 724112274,
+      "eventId": 178886285,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T23:03:14.797Z"
+    },
+    {
+      "id": 61349540,
+      "eventId": 178886285,
+      "clanId": 898429,
+      "createdAt": "2026-04-17T23:03:14.797Z"
+    },
+    {
+      "id": 321574503,
+      "eventId": 818933503,
+      "clanId": 128350,
+      "createdAt": "2026-04-17T23:07:16.912Z"
     }
   ],
   "raidDropItems": [
@@ -3931,6 +3987,50 @@
       "reportedByUserId": 581030,
       "createdAt": "2026-04-17T17:57:54.188Z",
       "updatedAt": "2026-04-17T17:57:54.188Z"
+    },
+    {
+      "id": 735910892,
+      "eventId": 178886285,
+      "raidBossId": 300420,
+      "cycleId": 59639888,
+      "name": "arma de fuego",
+      "category": "ARMA",
+      "price": 0,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZl4OUTQJpAyDswvTXkt0BsbLwdc4_eEyhlg&s",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        107476,
+        107708,
+        765309,
+        128350,
+        898429
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T23:03:14.797Z",
+      "updatedAt": "2026-04-17T23:05:10.190Z"
+    },
+    {
+      "id": 318145297,
+      "eventId": 818933503,
+      "raidBossId": 771969,
+      "cycleId": 59639888,
+      "name": "aaa",
+      "category": "ARMADURA",
+      "price": 0,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": null,
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        128350
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-17T23:07:16.912Z",
+      "updatedAt": "2026-04-17T23:07:16.912Z"
     }
   ],
   "userRaidAccess": [
@@ -4151,8 +4251,77 @@
         "label": "Ciclo de Raids #7"
       },
       "createdAt": "2026-04-17T22:35:14.250Z"
+    },
+    {
+      "id": 150109385,
+      "userId": 1,
+      "action": "RAID_CATEGORY_ICON_SET",
+      "details": {
+        "category": "ARMA"
+      },
+      "createdAt": "2026-04-17T23:02:43.238Z"
+    },
+    {
+      "id": 511904020,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 178886285,
+        "bossId": 300420,
+        "bossName": "Antharas",
+        "clanIds": [
+          107476,
+          107708,
+          765309,
+          128350,
+          898429
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-17T23:03:14.798Z"
+    },
+    {
+      "id": 582592013,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 735910892,
+        "itemName": "arma de fuego",
+        "quantitySold": 1,
+        "revenue": 0,
+        "clansShared": [
+          107476,
+          107708,
+          765309,
+          128350,
+          898429
+        ]
+      },
+      "createdAt": "2026-04-17T23:05:10.192Z"
+    },
+    {
+      "id": 128880322,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 818933503,
+        "bossId": 771969,
+        "bossName": "Baium",
+        "clanIds": [
+          128350
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-17T23:07:16.912Z"
     }
   ],
   "raidSettings": [],
-  "raidCategoryIcons": []
+  "raidCategoryIcons": [
+    {
+      "id": 991072544,
+      "category": "ARMA",
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZl4OUTQJpAyDswvTXkt0BsbLwdc4_eEyhlg&s",
+      "updatedAt": "2026-04-17T23:02:43.236Z"
+    }
+  ]
 }
