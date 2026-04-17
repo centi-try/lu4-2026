@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle } from 'lucide-react';
+import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -33,6 +33,27 @@ export default function RaidInventory({ raidAccess }: Props) {
   const eventsQ = trpc.raid.events.list.useQuery({});
 
   const canInteract = !!raidAccess?.canInteract;
+  const canAdmin = !!raidAccess?.canAdmin;
+
+  const openCycle = trpc.raid.cycles.open.useMutation({
+    onSuccess: () => {
+      toast.success('Ciclo de raid abierto');
+      utils.raid.cycles.current.invalidate();
+      utils.raid.cycles.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const closeCycle = trpc.raid.cycles.close.useMutation({
+    onSuccess: () => {
+      toast.success('Ciclo de raid cerrado');
+      utils.raid.cycles.current.invalidate();
+      utils.raid.cycles.list.invalidate();
+      utils.raid.dashboard.invalidate();
+      utils.raid.events.list.invalidate();
+      utils.raid.clans.stats.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const createEvent = trpc.raid.events.create.useMutation({
     onSuccess: () => {
@@ -110,7 +131,7 @@ export default function RaidInventory({ raidAccess }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentCycle) {
-      toast.error('No hay ciclo de raid abierto. Andá a Ciclos de Raids y abrí uno.');
+      toast.error('No hay ciclo de raid abierto. Abrí uno arriba para continuar.');
       return;
     }
     if (!raidBossId) {
@@ -160,39 +181,136 @@ export default function RaidInventory({ raidAccess }: Props) {
         </p>
       </div>
 
-      {/* Banner de ciclo actual */}
-      <div
-        className="rounded-2xl p-4 mb-5 flex flex-wrap items-center justify-between gap-3"
-        style={{
-          background: currentCycle
-            ? 'linear-gradient(135deg, rgba(123,241,214,0.08), rgba(232,121,249,0.08))'
-            : 'rgba(251,191,36,0.05)',
-          border: currentCycle
-            ? '1px solid rgba(123,241,214,0.2)'
-            : '1px solid rgba(251,191,36,0.25)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          {currentCycle ? (
-            <PlayCircle className="h-5 w-5" style={{ color: '#7bf1d6' }} />
-          ) : (
-            <AlertCircle className="h-5 w-5" style={{ color: '#fbbf24' }} />
-          )}
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              {currentCycle
-                ? `Ciclo activo: ${currentCycle.label}`
-                : 'No hay ciclo de raid abierto'}
-            </p>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {currentCycle
-                ? `Iniciado el ${new Date(
-                    currentCycle.startedAt
-                  ).toLocaleString('es-CL')}`
-                : 'Abrí un ciclo desde "Ciclos de Raids" para registrar eventos.'}
-            </p>
+      {/* Ciclo actual — ahora vive aquí, integrado con el flujo de registro */}
+      <div className="card-glass rounded-2xl p-5 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <PlayCircle className="h-5 w-5" style={{ color: currentCycle ? '#10b981' : '#fbbf24' }} />
+            <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              Ciclo actual
+            </h3>
           </div>
+          {currentCycle && (
+            <span
+              className="rounded-full px-2 py-0.5 text-xs font-medium"
+              style={{
+                background: 'rgba(16,185,129,0.12)',
+                color: '#10b981',
+                border: '1px solid rgba(16,185,129,0.25)',
+              }}
+            >
+              {currentCycle.type} · ABIERTO
+            </span>
+          )}
         </div>
+
+        {currentCycle ? (
+          <div className="space-y-4">
+            <div
+              className="grid gap-3 sm:grid-cols-4 rounded-xl p-4"
+              style={{
+                background:
+                  'linear-gradient(135deg, rgba(123,241,214,0.08), rgba(232,121,249,0.08))',
+                border: '1px solid rgba(123,241,214,0.2)',
+              }}
+            >
+              <div>
+                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Nombre
+                </p>
+                <p className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  {currentCycle.label}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Iniciado
+                </p>
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  {new Date(currentCycle.startedAt).toLocaleString('es-CL')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  Estado
+                </p>
+                <p className="text-sm font-semibold" style={{ color: '#10b981' }}>
+                  ABIERTO
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  ID
+                </p>
+                <p className="text-sm font-mono" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  #{currentCycle.id}
+                </p>
+              </div>
+            </div>
+
+            {canAdmin && (
+              <button
+                onClick={() => {
+                  if (
+                    confirm(
+                      `¿Cerrar el ciclo "${currentCycle.label}"? Se consolidará el resumen y se reseteará el contador de ganancias.`
+                    )
+                  ) {
+                    closeCycle.mutate({ cycleId: Number(currentCycle.id) });
+                  }
+                }}
+                disabled={closeCycle.isPending}
+                className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(239,68,68,0.25))',
+                  border: '1px solid rgba(232,121,249,0.3)',
+                  color: '#e879f9',
+                }}
+              >
+                <StopCircle className="h-4 w-4" />
+                {closeCycle.isPending ? 'Cerrando…' : 'Cerrar Ciclo de Raids'}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div
+              className="rounded-xl p-4 flex items-start gap-3"
+              style={{
+                background: 'rgba(251,191,36,0.05)',
+                border: '1px solid rgba(251,191,36,0.2)',
+              }}
+            >
+              <AlertCircle className="h-5 w-5 shrink-0" style={{ color: '#fbbf24' }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#fbbf24' }}>
+                  No hay ciclo abierto
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  Sin ciclo abierto no podés registrar raid bosses. Abrí uno para comenzar.
+                </p>
+              </div>
+            </div>
+
+            {canAdmin && (
+              <button
+                onClick={() => openCycle.mutate({ type: 'DIARIO' })}
+                disabled={openCycle.isPending}
+                className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(16,185,129,0.25))',
+                  border: '1px solid rgba(123,241,214,0.3)',
+                  color: '#7bf1d6',
+                }}
+              >
+                <PlayCircle className="h-4 w-4" />
+                {openCycle.isPending ? 'Abriendo…' : 'Abrir Ciclo Diario'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {canInteract && currentCycle && (

@@ -1,5 +1,5 @@
-import React from 'react';
-import { LayoutDashboard, Skull, Flag, Swords, TrendingUp, Package, Coins } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, Skull, Flag, Swords, TrendingUp, Package, Coins, Image as ImageIcon } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
@@ -17,9 +17,11 @@ interface Props {
   raidAccess?: RaidAccessInfo;
 }
 
-export default function RaidDashboard({ raidAccess }: Props) {
+export default function RaidDashboard({ raidAccess: _raidAccess }: Props) {
   const metricsQ = trpc.raid.dashboard.useQuery();
+  const eventsQ = trpc.raid.events.list.useQuery({});
   const m = metricsQ.data;
+  const allEvents = eventsQ.data || [];
 
   if (metricsQ.isLoading || !m) {
     return (
@@ -274,7 +276,172 @@ export default function RaidDashboard({ raidAccess }: Props) {
           </div>
         )}
       </div>
+
+      {/* Tabla completa de Eventos registrados — visible para todos los roles raid */}
+      <div className="card-glass rounded-2xl p-5 mt-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Swords className="h-5 w-5" style={{ color: '#e879f9' }} />
+            <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              Eventos registrados
+            </h3>
+          </div>
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {allEvents.length} total
+          </span>
+        </div>
+
+        {allEvents.length === 0 ? (
+          <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            Aún no hay eventos registrados.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {allEvents.map((e: any) => (
+              <DashboardEventCard key={e.id} event={e} />
+            ))}
+          </div>
+        )}
+      </div>
     </AppShell>
+  );
+}
+
+function DashboardEventCard({ event }: { event: any }) {
+  const [open, setOpen] = useState(false);
+  const createdAt = event.createdAt
+    ? new Date(event.createdAt).toLocaleString('es-CL')
+    : '';
+  const drops = event.dropItems || [];
+
+  return (
+    <div
+      className="rounded-xl"
+      style={{
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 p-3 text-left"
+      >
+        <div
+          className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+          style={{
+            background: 'rgba(232,121,249,0.1)',
+            border: '1px solid rgba(232,121,249,0.25)',
+          }}
+        >
+          {event.bossImageUrl ? (
+            <img src={event.bossImageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Skull className="h-6 w-6" style={{ color: '#e879f9' }} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+            {event.bossName}
+          </p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {createdAt} · {event.clans?.length || 0} clan(es) · {drops.length} drop(s)
+          </p>
+        </div>
+        {event.evidenceImageUrl && (
+          <a
+            href={event.evidenceImageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(ev) => ev.stopPropagation()}
+            className="rounded-lg px-2 py-1 text-xs flex items-center gap-1"
+            style={{
+              background: 'rgba(123,241,214,0.08)',
+              color: '#7bf1d6',
+              border: '1px solid rgba(123,241,214,0.25)',
+            }}
+          >
+            <ImageIcon className="h-3 w-3" /> evidencia
+          </a>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className="border-t p-3 space-y-2"
+          style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {(event.clans || []).map((c: any) => (
+              <span
+                key={c.id}
+                className="rounded-full px-2 py-0.5 text-xs"
+                style={{
+                  background: 'rgba(123,241,214,0.08)',
+                  color: '#7bf1d6',
+                  border: '1px solid rgba(123,241,214,0.25)',
+                }}
+              >
+                <Flag className="h-3 w-3 inline mr-1" />
+                {c.name}
+              </span>
+            ))}
+          </div>
+
+          {event.notes && (
+            <p className="text-xs italic" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              "{event.notes}"
+            </p>
+          )}
+
+          {event.evidenceImageUrl && (
+            <img
+              src={event.evidenceImageUrl}
+              alt="evidencia"
+              className="rounded-lg max-h-48"
+              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+            />
+          )}
+
+          <div className="space-y-1.5">
+            {drops.map((d: any) => {
+              const available =
+                (Number(d.quantity) || 0) - (Number(d.quantitySold) || 0);
+              return (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-2 rounded-lg p-2"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <div
+                    className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+                    style={{ background: 'rgba(255,255,255,0.05)' }}
+                  >
+                    {d.imageUrl ? (
+                      <img src={d.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                      {d.name}
+                    </p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      {d.category} · ${Number(d.price).toLocaleString()} · {available}/
+                      {d.quantity} disp.
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

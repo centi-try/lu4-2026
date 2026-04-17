@@ -1,40 +1,16 @@
 import { useState } from 'react';
-import { Skull, PlayCircle, StopCircle, Calendar, ChevronDown, ChevronUp, Flag, Package, TrendingUp } from 'lucide-react';
+import { Skull, Calendar, ChevronDown, ChevronUp, Flag, Package, TrendingUp } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
-import { toast } from 'sonner';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 
 interface Props {
   raidAccess?: RaidAccessInfo;
 }
 
-export default function RaidCycles({ raidAccess }: Props) {
-  const utils = trpc.useUtils();
-  const currentQ = trpc.raid.cycles.current.useQuery();
+export default function RaidCycles({ raidAccess: _raidAccess }: Props) {
   const listQ = trpc.raid.cycles.list.useQuery();
-  const openCycle = trpc.raid.cycles.open.useMutation({
-    onSuccess: () => {
-      toast.success('Ciclo de raid abierto');
-      utils.raid.cycles.current.invalidate();
-      utils.raid.cycles.list.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-  const closeCycle = trpc.raid.cycles.close.useMutation({
-    onSuccess: () => {
-      toast.success('Ciclo de raid cerrado');
-      utils.raid.cycles.current.invalidate();
-      utils.raid.cycles.list.invalidate();
-      utils.raid.dashboard.invalidate();
-      utils.raid.events.list.invalidate();
-      utils.raid.clans.stats.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
 
-  const canAdmin = !!raidAccess?.canAdmin;
-  const current = currentQ.data;
   const allCycles = listQ.data || [];
   const closedCycles = allCycles.filter((c: any) => c.status === 'CLOSED');
 
@@ -43,143 +19,13 @@ export default function RaidCycles({ raidAccess }: Props) {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <Skull className="h-5 w-5" style={{ color: '#e879f9' }} />
-          <h2 className="text-2xl font-bold text-gradient">Ciclos de Raids</h2>
+          <h2 className="text-2xl font-bold text-gradient">Historial de Ciclos</h2>
         </div>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Gestión manual de ciclos de raid. Abrí un ciclo antes de registrar eventos, cerralo al
-          final del día/semana para consolidar resultados y mostrar el resumen.
+          Historial de ciclos cerrados con el resumen consolidado (bosses eliminados, clanes
+          participantes y ganancias). El ciclo activo y la gestión abrir/cerrar ahora vive en
+          <span style={{ color: '#7bf1d6' }}> Raid Inventario</span>.
         </p>
-      </div>
-
-      {/* Ciclo actual */}
-      <div className="card-glass rounded-2xl p-5 mb-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <PlayCircle className="h-5 w-5" style={{ color: current ? '#10b981' : '#fbbf24' }} />
-            <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              Ciclo actual
-            </h3>
-          </div>
-          {current && (
-            <span
-              className="rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{
-                background: 'rgba(16,185,129,0.12)',
-                color: '#10b981',
-                border: '1px solid rgba(16,185,129,0.25)',
-              }}
-            >
-              {current.type} · ABIERTO
-            </span>
-          )}
-        </div>
-
-        {current ? (
-          <div className="space-y-4">
-            <div
-              className="grid gap-3 sm:grid-cols-4 rounded-xl p-4"
-              style={{
-                background:
-                  'linear-gradient(135deg, rgba(123,241,214,0.08), rgba(232,121,249,0.08))',
-                border: '1px solid rgba(123,241,214,0.2)',
-              }}
-            >
-              <div>
-                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Nombre
-                </p>
-                <p className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  {current.label}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Iniciado
-                </p>
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  {new Date(current.startedAt).toLocaleString('es-CL')}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Estado
-                </p>
-                <p className="text-sm font-semibold" style={{ color: '#10b981' }}>
-                  ABIERTO
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  ID
-                </p>
-                <p className="text-sm font-mono" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  #{current.id}
-                </p>
-              </div>
-            </div>
-
-            {canAdmin && (
-              <button
-                onClick={() => {
-                  if (
-                    confirm(
-                      `¿Cerrar el ciclo "${current.label}"? Se consolidará el resumen y se reseteará el contador de ganancias.`
-                    )
-                  ) {
-                    closeCycle.mutate({ cycleId: Number(current.id) });
-                  }
-                }}
-                disabled={closeCycle.isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all"
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(239,68,68,0.25))',
-                  border: '1px solid rgba(232,121,249,0.3)',
-                  color: '#e879f9',
-                }}
-              >
-                <StopCircle className="h-4 w-4" />
-                {closeCycle.isPending ? 'Cerrando…' : 'Cerrar Ciclo de Raids'}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div
-              className="rounded-xl p-4 flex items-start gap-3"
-              style={{
-                background: 'rgba(251,191,36,0.05)',
-                border: '1px solid rgba(251,191,36,0.2)',
-              }}
-            >
-              <div>
-                <p className="text-sm font-semibold" style={{ color: '#fbbf24' }}>
-                  No hay ciclo abierto
-                </p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Sin ciclo abierto no podés registrar eventos. Abrí uno para comenzar.
-                </p>
-              </div>
-            </div>
-
-            {canAdmin && (
-              <button
-                onClick={() => openCycle.mutate({ type: 'DIARIO' })}
-                disabled={openCycle.isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all"
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(16,185,129,0.25))',
-                  border: '1px solid rgba(123,241,214,0.3)',
-                  color: '#7bf1d6',
-                }}
-              >
-                <PlayCircle className="h-4 w-4" />
-                {openCycle.isPending ? 'Abriendo…' : 'Abrir Ciclo Diario'}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Historial de ciclos cerrados */}

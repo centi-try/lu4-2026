@@ -24,7 +24,7 @@ const raidNavItems = [
   { href: '/raids', label: 'Raid Dashboard', icon: LayoutDashboard, desc: 'Métricas y KPIs de raids' },
   { href: '/raids/inventory', label: 'Raid Inventario', icon: Swords, desc: 'Drops y eventos raid' },
   { href: '/raids/clans', label: 'Clanes', icon: Flag, desc: 'Ranking y stats por clan' },
-  { href: '/raids/cycles', label: 'Ciclos de Raids', icon: Skull, desc: 'Apertura y cierre de ciclos' },
+  { href: '/raids/cycles', label: 'Historial de Ciclos', icon: Skull, desc: 'Ciclos cerrados y resúmenes' },
 ];
 
 const raidAdminNavItems = [
