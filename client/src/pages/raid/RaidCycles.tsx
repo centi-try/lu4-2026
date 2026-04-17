@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Skull, PlayCircle, StopCircle, Calendar, ChevronDown, ChevronUp, Flag, Package, TrendingUp } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
@@ -32,9 +32,6 @@ export default function RaidCycles({ raidAccess }: Props) {
     },
     onError: (e) => toast.error(e.message),
   });
-
-  const [label, setLabel] = useState('');
-  const [type, setType] = useState<'DIARIO' | 'SEMANAL'>('DIARIO');
 
   const canAdmin = !!raidAccess?.canAdmin;
   const current = currentQ.data;
@@ -166,52 +163,20 @@ export default function RaidCycles({ raidAccess }: Props) {
             </div>
 
             {canAdmin && (
-              <div className="grid gap-2 sm:grid-cols-12">
-                <input
-                  type="text"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="Etiqueta (ej: Raids 17/04) — opcional"
-                  className="rounded-xl px-3 py-2 text-sm sm:col-span-7"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.9)',
-                  }}
-                />
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as any)}
-                  className="rounded-xl px-3 py-2 text-sm sm:col-span-2"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.9)',
-                  }}
-                >
-                  <option value="DIARIO">Diario</option>
-                  <option value="SEMANAL">Semanal</option>
-                </select>
-                <button
-                  onClick={() => {
-                    openCycle.mutate(
-                      { label: label.trim() || null, type },
-                      { onSuccess: () => setLabel('') }
-                    );
-                  }}
-                  disabled={openCycle.isPending}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition-all sm:col-span-3 flex items-center justify-center gap-2"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(16,185,129,0.25))',
-                    border: '1px solid rgba(123,241,214,0.3)',
-                    color: '#7bf1d6',
-                  }}
-                >
-                  <PlayCircle className="h-4 w-4" />
-                  {openCycle.isPending ? 'Abriendo…' : 'Abrir Ciclo'}
-                </button>
-              </div>
+              <button
+                onClick={() => openCycle.mutate({ type: 'DIARIO' })}
+                disabled={openCycle.isPending}
+                className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(16,185,129,0.25))',
+                  border: '1px solid rgba(123,241,214,0.3)',
+                  color: '#7bf1d6',
+                }}
+              >
+                <PlayCircle className="h-4 w-4" />
+                {openCycle.isPending ? 'Abriendo…' : 'Abrir Ciclo Diario'}
+              </button>
             )}
           </div>
         )}
