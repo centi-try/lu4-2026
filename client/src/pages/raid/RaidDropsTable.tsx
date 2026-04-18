@@ -303,9 +303,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                   <th className="px-3 py-3 font-medium">Boss</th>
                   <th className="px-3 py-3 font-medium">Clanes</th>
                   <th className="px-3 py-3 font-medium text-right">Precio</th>
-                  <th className="px-3 py-3 font-medium text-center">Cant</th>
-                  <th className="px-3 py-3 font-medium text-center">Vend</th>
-                  <th className="px-3 py-3 font-medium text-center">Rest</th>
+                  <th className="px-3 py-3 font-medium text-left">Stock</th>
                   <th className="px-3 py-3 font-medium text-right">Subtotal</th>
                   <th className="px-3 py-3 font-medium text-center">Acciones</th>
                 </tr>
@@ -475,20 +473,28 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                           </span>
                         )}
                       </td>
-                      <td
-                        className="px-3 py-3 text-center font-mono"
-                        style={{ color: 'rgba(255,255,255,0.75)' }}
-                      >
-                        {qty}
-                      </td>
-                      <td className="px-3 py-3 text-center font-mono" style={{ color: '#fbbf24' }}>
-                        {sold}
-                      </td>
-                      <td
-                        className="px-3 py-3 text-center font-mono"
-                        style={{ color: soldOut ? '#ef4444' : '#7bf1d6' }}
-                      >
-                        {remaining}
+                      {/* Stock — replica la columna Stock del inventario viejo:
+                          `restante/total` coloreado por disponibilidad + detalle
+                          de unidades vendidas debajo. Cuando remaining es 0 el
+                          número queda en rojo, que es la señal visual de agotado
+                          (sin necesidad de un pill aparte). */}
+                      <td className="px-3 py-3">
+                        <div>
+                          <p
+                            className="text-sm font-mono font-semibold"
+                            style={{ color: remaining > 0 ? '#7bf1d6' : '#f87171' }}
+                          >
+                            {remaining}/{qty}
+                          </p>
+                          {sold > 0 && (
+                            <p
+                              className="text-xs"
+                              style={{ color: 'rgba(255,255,255,0.3)' }}
+                            >
+                              {sold} vendido{sold === 1 ? '' : 's'}
+                            </p>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-right font-mono" style={{ color: '#7bf1d6' }}>
                         ${((Number(d.price) || 0) * remaining).toLocaleString()}
@@ -509,32 +515,24 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                             </button>
                           )}
                           {canInteract && !soldOut && (
+                            // Carrito solo icono (sin texto) — mismo estilo y
+                            // alineación que el botón "Vender" del inventario viejo.
+                            // Cuando el drop se agota, el botón desaparece (el
+                            // estado agotado se ve por el color rojo de la celda
+                            // Stock, sin pill AGOTADO).
                             <button
                               type="button"
                               onClick={() => openSellModal(d)}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-medium flex items-center gap-1 transition-all"
-                              style={{
-                                background: 'rgba(167,139,250,0.15)',
-                                border: '1px solid rgba(167,139,250,0.3)',
-                                color: '#a78bfa',
-                              }}
+                              className="btn-ghost p-2"
                               title="Vender unidades"
+                              style={{
+                                color: '#a78bfa',
+                                borderColor: 'rgba(167,139,250,0.25)',
+                                background: 'rgba(167,139,250,0.08)',
+                              }}
                             >
                               <ShoppingCart className="h-3.5 w-3.5" />
-                              Vender
                             </button>
-                          )}
-                          {canInteract && soldOut && (
-                            <span
-                              className="rounded-lg px-2 py-1 text-[10px] font-medium"
-                              style={{
-                                background: 'rgba(239,68,68,0.1)',
-                                color: '#fca5a5',
-                                border: '1px solid rgba(239,68,68,0.2)',
-                              }}
-                            >
-                              AGOTADO
-                            </span>
                           )}
                           {canAdmin && (
                             <button

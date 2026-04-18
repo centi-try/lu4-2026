@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T00:17:17.231Z",
-      "lastSignedIn": "2026-04-18T00:17:17.231Z"
+      "updatedAt": "2026-04-18T00:23:15.537Z",
+      "lastSignedIn": "2026-04-18T00:23:15.537Z"
     },
     {
       "id": 581030,
@@ -4114,7 +4114,7 @@
       "cycleId": 59639888,
       "name": "aaa",
       "category": "ARMADURA",
-      "price": 0,
+      "price": 20,
       "quantity": 1,
       "quantitySold": 0,
       "quantitySoldInCycle": 0,
@@ -4125,7 +4125,7 @@
       ],
       "reportedByUserId": 1,
       "createdAt": "2026-04-17T23:07:16.912Z",
-      "updatedAt": "2026-04-17T23:07:16.912Z"
+      "updatedAt": "2026-04-18T00:17:57.305Z"
     }
   ],
   "userRaidAccess": [
@@ -4470,6 +4470,18 @@
         }
       },
       "createdAt": "2026-04-18T00:13:23.067Z"
+    },
+    {
+      "id": 961939573,
+      "userId": 1,
+      "action": "RAID_DROP_UPDATED",
+      "details": {
+        "dropId": 318145297,
+        "changes": {
+          "price": 20
+        }
+      },
+      "createdAt": "2026-04-18T00:17:57.306Z"
     }
   ],
   "raidSettings": [],
