@@ -448,6 +448,25 @@ export const raidRouter = router({
     delete: raidAdminProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
+        // Proteger el histórico de ventas: si algún drop del evento ya tiene
+        // ventas registradas, no se puede borrar el evento (si lo borramos,
+        // `raidClanStats` quedaría con ingresos huérfanos de su evento de
+        // origen y se pierde la trazabilidad del reparto).
+        const eventDrops = await getRaidDropItems({ eventId: input.id });
+        const soldDrops = eventDrops.filter(
+          (d: any) => Number(d.quantitySold || 0) > 0,
+        );
+        if (soldDrops.length > 0) {
+          const names = soldDrops.map((d: any) => d.name).filter(Boolean).slice(0, 3);
+          const tail = soldDrops.length > 3 ? ` y ${soldDrops.length - 3} más` : '';
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message:
+              `No se puede eliminar: el evento tiene ${soldDrops.length} drop(s) ` +
+              `con ventas registradas${names.length ? ` (${names.join(', ')}${tail})` : ''}. ` +
+              `Las métricas de reparto por clan dependen de ese histórico.`,
+          });
+        }
         const event = await deleteRaidEvent(input.id);
         if (!event) throw new TRPCError({ code: 'NOT_FOUND', message: 'Evento no encontrado.' });
         await createRaidAuditLog({

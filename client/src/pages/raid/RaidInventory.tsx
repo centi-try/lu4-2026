@@ -1013,8 +1013,16 @@ export default function RaidInventory({ raidAccess }: Props) {
 
       {/* Modal de confirmación para eliminar un evento de raid. Reemplaza al
           confirm() nativo con un modal estilizado, en línea con los otros
-          modales del módulo (cerrar ciclo, eliminar drop). */}
-      {deleteEventTarget && (
+          modales del módulo (cerrar ciclo, eliminar drop). Defensivamente
+          también bloquea la acción si el evento tiene drops con ventas —
+          aunque el botón de EventCard ya está deshabilitado en ese caso. */}
+      {deleteEventTarget && (() => {
+        const targetDrops = deleteEventTarget.dropItems || [];
+        const soldInTarget = targetDrops.filter(
+          (d: any) => Number(d.quantitySold) > 0
+        );
+        const blockedByHistory = soldInTarget.length > 0;
+        return (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
@@ -1046,8 +1054,9 @@ export default function RaidInventory({ raidAccess }: Props) {
                   className="text-xs mt-1"
                   style={{ color: 'rgba(255,255,255,0.45)' }}
                 >
-                  Se eliminarán el evento, sus drops asociados y la evidencia.
-                  Esta acción no se puede deshacer.
+                  {blockedByHistory
+                    ? 'Este evento tiene drops con ventas registradas. No se puede eliminar para proteger el histórico de reparto de adena.'
+                    : 'Se eliminarán el evento, sus drops asociados y la evidencia. Esta acción no se puede deshacer.'}
                 </p>
               </div>
               <button
@@ -1136,6 +1145,36 @@ export default function RaidInventory({ raidAccess }: Props) {
               </div>
             </div>
 
+            {blockedByHistory && (
+              <div
+                className="rounded-xl p-3 mb-4 text-xs"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                  color: '#fca5a5',
+                }}
+              >
+                <div className="font-semibold mb-1" style={{ color: '#f87171' }}>
+                  {soldInTarget.length} drop{soldInTarget.length === 1 ? '' : 's'} con ventas registradas
+                </div>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {soldInTarget.slice(0, 5).map((d: any) => (
+                    <li key={d.id}>
+                      {d.name}{' '}
+                      <span style={{ color: 'rgba(248,113,113,0.7)' }}>
+                        · {d.quantitySold} vendida{d.quantitySold === 1 ? '' : 's'}
+                      </span>
+                    </li>
+                  ))}
+                  {soldInTarget.length > 5 && (
+                    <li style={{ color: 'rgba(248,113,113,0.7)' }}>
+                      … y {soldInTarget.length - 5} más
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <button
                 type="button"
@@ -1148,35 +1187,38 @@ export default function RaidInventory({ raidAccess }: Props) {
                   color: 'rgba(255,255,255,0.75)',
                 }}
               >
-                Cancelar
+                {blockedByHistory ? 'Entendido' : 'Cancelar'}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  deleteEvent.mutate(
-                    { id: Number(deleteEventTarget.id) },
-                    { onSettled: () => setDeleteEventTarget(null) }
-                  );
-                }}
-                disabled={deleteEvent.isPending}
-                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all flex items-center justify-center gap-2"
-                style={{
-                  background:
-                    'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(232,121,249,0.9))',
-                  border: '1px solid rgba(239,68,68,0.5)',
-                  color: '#fff',
-                  opacity: deleteEvent.isPending ? 0.6 : 1,
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-                {deleteEvent.isPending
-                  ? 'Eliminando…'
-                  : 'Sí, eliminar evento'}
-              </button>
+              {!blockedByHistory && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteEvent.mutate(
+                      { id: Number(deleteEventTarget.id) },
+                      { onSettled: () => setDeleteEventTarget(null) }
+                    );
+                  }}
+                  disabled={deleteEvent.isPending}
+                  className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background:
+                      'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(232,121,249,0.9))',
+                    border: '1px solid rgba(239,68,68,0.5)',
+                    color: '#fff',
+                    opacity: deleteEvent.isPending ? 0.6 : 1,
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleteEvent.isPending
+                    ? 'Eliminando…'
+                    : 'Sí, eliminar evento'}
+                </button>
+              )}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Modal de confirmación de registro de evento */}
       {confirmOpen && (() => {
@@ -1413,6 +1455,14 @@ function EventCard({
     ? new Date(event.createdAt).toLocaleString('es-CL')
     : '';
   const drops = event.dropItems || [];
+  // Si algún drop del evento ya tiene ventas, no permitimos eliminar el evento
+  // porque las métricas de reparto por clan (`raidClanStats`) quedarían
+  // huérfanas de su evento de origen. El backend también valida esto.
+  const soldDropsCount = drops.reduce(
+    (n: number, d: any) => n + (Number(d.quantitySold) > 0 ? 1 : 0),
+    0
+  );
+  const hasSoldDrops = soldDropsCount > 0;
 
   return (
     <div
@@ -1470,11 +1520,22 @@ function EventCard({
               type="button"
               onClick={(ev) => {
                 ev.stopPropagation();
-                onDelete();
+                if (!hasSoldDrops) onDelete();
               }}
-              className="rounded-lg p-1.5"
-              style={{ color: 'rgba(255,120,120,0.7)' }}
-              title="Eliminar evento"
+              disabled={hasSoldDrops}
+              className="rounded-lg p-1.5 transition-all"
+              style={{
+                color: hasSoldDrops
+                  ? 'rgba(255,255,255,0.25)'
+                  : 'rgba(255,120,120,0.7)',
+                cursor: hasSoldDrops ? 'not-allowed' : 'pointer',
+                opacity: hasSoldDrops ? 0.5 : 1,
+              }}
+              title={
+                hasSoldDrops
+                  ? `No se puede eliminar: ${soldDropsCount} drop${soldDropsCount === 1 ? '' : 's'} con ventas registradas`
+                  : 'Eliminar evento'
+              }
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
