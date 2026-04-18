@@ -289,12 +289,24 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                         <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
                       )}
                     </td>
-                    {/* Actions */}
+                    {/* Actions — reglas replicadas de RaidDropsTable:
+                        - ✏️ editar precio: deshabilitado si todo vendido (no tiene sentido cambiar el precio)
+                        - 🛒 vender: oculto si no hay stock restante
+                        - 🗑️ eliminar: deshabilitado si ya hubo ventas (preserva integridad histórica de purchases/character earnings) */}
                     {!compact && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           {canEdit && !isEditing && (
-                            <button onClick={() => handleEditPrice(item)} className="btn-ghost p-2" title="Editar precio">
+                            <button
+                              onClick={() => { if (remaining > 0) handleEditPrice(item); }}
+                              disabled={remaining === 0}
+                              className="btn-ghost p-2"
+                              title={remaining === 0 ? 'No se puede editar: ítem sin stock (todo vendido)' : 'Editar precio'}
+                              style={{
+                                opacity: remaining === 0 ? 0.35 : 1,
+                                cursor: remaining === 0 ? 'not-allowed' : 'pointer',
+                              }}
+                            >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -304,14 +316,25 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {canSell && (
+                          {canSell && remaining > 0 && (
                             <button onClick={() => openSellModal(item)} className="btn-ghost p-2" title="Vender unidades"
                               style={{ color: '#a78bfa', borderColor: 'rgba(167,139,250,0.25)', background: 'rgba(167,139,250,0.08)' }}>
                               <ShoppingCart className="h-3.5 w-3.5" />
                             </button>
                           )}
                           {canDelete && (
-                            <button onClick={() => handleDelete(item)} className="btn-danger p-2" title="Eliminar ítem">
+                            <button
+                              onClick={() => { if (item.quantitySold === 0) handleDelete(item); }}
+                              disabled={item.quantitySold > 0}
+                              className="rounded-lg p-2 transition-all"
+                              style={{
+                                background: item.quantitySold > 0 ? 'rgba(255,255,255,0.02)' : 'rgba(239,68,68,0.1)',
+                                border: item.quantitySold > 0 ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(239,68,68,0.2)',
+                                color: item.quantitySold > 0 ? 'rgba(255,255,255,0.2)' : '#f87171',
+                                cursor: item.quantitySold > 0 ? 'not-allowed' : 'pointer',
+                              }}
+                              title={item.quantitySold > 0 ? 'No se puede eliminar un ítem que ya tiene ventas' : 'Eliminar ítem'}
+                            >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           )}
