@@ -530,11 +530,28 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                             // Primer ícono (Pencil) — idéntico al menu inventario
                             // viejo. Click => habilita la edición inline del precio
                             // en la columna Precio de esta misma fila.
+                            //
+                            // Se deshabilita cuando el drop quedó sin stock
+                            // (todo vendido): ya no tiene sentido cambiar el
+                            // precio porque no afecta ni ventas futuras (no
+                            // hay) ni ventas pasadas (inmutables en
+                            // raidClanStats). Evita confusión al operador.
                             <button
                               type="button"
-                              onClick={() => startEditPrice(d)}
+                              onClick={() => {
+                                if (!soldOut) startEditPrice(d);
+                              }}
+                              disabled={soldOut}
                               className="btn-ghost p-2"
-                              title="Editar precio"
+                              title={
+                                soldOut
+                                  ? 'No se puede editar: drop sin stock (todo vendido)'
+                                  : 'Editar precio'
+                              }
+                              style={{
+                                opacity: soldOut ? 0.35 : 1,
+                                cursor: soldOut ? 'not-allowed' : 'pointer',
+                              }}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
