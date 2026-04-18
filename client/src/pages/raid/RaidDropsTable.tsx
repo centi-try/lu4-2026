@@ -10,7 +10,6 @@ import {
   Flag,
   Filter,
   ChevronDown,
-  Check,
   Pencil,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -432,6 +431,9 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       </td>
                       <td className="px-3 py-3 text-right font-mono" style={{ color: '#a78bfa' }}>
                         {canInteract && editingPriceDropId === Number(d.id) ? (
+                          // Edición inline del precio — replica el patrón del menu
+                          // inventario viejo (ItemTable.tsx: input + ✓ primary +
+                          // ✕ ghost). No recalcula ventas ya registradas.
                           <div className="flex items-center justify-end gap-1">
                             <input
                               autoFocus
@@ -446,72 +448,31 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                               }}
                               onClick={(e) => e.stopPropagation()}
                               disabled={updateDrop.isPending}
-                              className="w-24 rounded-lg px-2 py-1 text-xs text-right font-mono outline-none"
-                              style={{
-                                background: 'rgba(167,139,250,0.1)',
-                                border: '1px solid rgba(167,139,250,0.35)',
-                                color: '#a78bfa',
-                              }}
+                              className="input-dark h-8 w-24 text-xs"
                             />
                             <button
                               type="button"
                               onClick={() => savePrice(d)}
                               disabled={updateDrop.isPending}
                               title="Guardar"
-                              className="rounded-md p-1 transition-all"
-                              style={{
-                                background: 'rgba(52,211,153,0.15)',
-                                border: '1px solid rgba(52,211,153,0.3)',
-                                color: '#34d399',
-                              }}
+                              className="btn-primary text-xs px-2 py-1"
                             >
-                              <Check className="h-3 w-3" />
+                              ✓
                             </button>
                             <button
                               type="button"
                               onClick={cancelEditPrice}
                               disabled={updateDrop.isPending}
                               title="Cancelar"
-                              className="rounded-md p-1 transition-all"
-                              style={{
-                                background: 'rgba(248,113,113,0.1)',
-                                border: '1px solid rgba(248,113,113,0.25)',
-                                color: '#f87171',
-                              }}
+                              className="btn-ghost text-xs px-2 py-1"
                             >
-                              <X className="h-3 w-3" />
+                              ✕
                             </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => canInteract && startEditPrice(d)}
-                            disabled={!canInteract}
-                            title={
-                              canInteract
-                                ? 'Editar precio (no afecta ventas ya registradas)'
-                                : 'Sin permiso para editar'
-                            }
-                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono transition-all"
-                            style={{
-                              background: canInteract
-                                ? 'rgba(167,139,250,0.05)'
-                                : 'transparent',
-                              border: canInteract
-                                ? '1px solid rgba(167,139,250,0.15)'
-                                : '1px solid transparent',
-                              color: '#a78bfa',
-                              cursor: canInteract ? 'pointer' : 'default',
-                            }}
-                          >
+                          <span className="text-sm font-mono" style={{ color: 'rgba(255,255,255,0.7)' }}>
                             ${(Number(d.price) || 0).toLocaleString()}
-                            {canInteract && (
-                              <Pencil
-                                className="h-3 w-3"
-                                style={{ color: 'rgba(167,139,250,0.55)' }}
-                              />
-                            )}
-                          </button>
+                          </span>
                         )}
                       </td>
                       <td
@@ -534,6 +495,19 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-center gap-1.5">
+                          {canInteract && editingPriceDropId !== Number(d.id) && (
+                            // Primer ícono (Pencil) — idéntico al menu inventario
+                            // viejo. Click => habilita la edición inline del precio
+                            // en la columna Precio de esta misma fila.
+                            <button
+                              type="button"
+                              onClick={() => startEditPrice(d)}
+                              className="btn-ghost p-2"
+                              title="Editar precio"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           {canInteract && !soldOut && (
                             <button
                               type="button"

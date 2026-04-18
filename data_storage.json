@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T00:11:55.318Z",
-      "lastSignedIn": "2026-04-18T00:11:55.318Z"
+      "updatedAt": "2026-04-18T00:17:17.231Z",
+      "lastSignedIn": "2026-04-18T00:17:17.231Z"
     },
     {
       "id": 581030,
@@ -4090,7 +4090,7 @@
       "cycleId": 59639888,
       "name": "arma de fuego",
       "category": "ARMA",
-      "price": 0,
+      "price": 1000000,
       "quantity": 1,
       "quantitySold": 1,
       "quantitySoldInCycle": 0,
@@ -4105,7 +4105,7 @@
       ],
       "reportedByUserId": 1,
       "createdAt": "2026-04-17T23:03:14.797Z",
-      "updatedAt": "2026-04-17T23:05:10.190Z"
+      "updatedAt": "2026-04-18T00:13:23.066Z"
     },
     {
       "id": 318145297,
@@ -4458,6 +4458,18 @@
         "label": "Ciclo de Raids #8"
       },
       "createdAt": "2026-04-17T23:27:24.753Z"
+    },
+    {
+      "id": 439634701,
+      "userId": 1,
+      "action": "RAID_DROP_UPDATED",
+      "details": {
+        "dropId": 735910892,
+        "changes": {
+          "price": 1000000
+        }
+      },
+      "createdAt": "2026-04-18T00:13:23.067Z"
     }
   ],
   "raidSettings": [],
