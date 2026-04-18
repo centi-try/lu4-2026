@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T03:04:46.390Z",
-      "lastSignedIn": "2026-04-18T03:04:46.390Z"
+      "updatedAt": "2026-04-18T03:11:29.978Z",
+      "lastSignedIn": "2026-04-18T03:11:29.978Z"
     },
     {
       "id": 581030,
@@ -4296,7 +4296,7 @@
       "cycleId": 517468966,
       "name": "ada",
       "category": "KEY",
-      "price": 2323,
+      "price": 1000,
       "quantity": 1,
       "quantitySold": 0,
       "quantitySoldInCycle": 0,
@@ -4311,7 +4311,7 @@
       ],
       "reportedByUserId": 1,
       "createdAt": "2026-04-18T02:59:56.286Z",
-      "updatedAt": "2026-04-18T02:59:56.286Z"
+      "updatedAt": "2026-04-18T03:07:15.045Z"
     }
   ],
   "userRaidAccess": [
@@ -4886,6 +4886,18 @@
         "dropsCount": 1
       },
       "createdAt": "2026-04-18T02:59:56.287Z"
+    },
+    {
+      "id": 824335769,
+      "userId": 1,
+      "action": "RAID_DROP_UPDATED",
+      "details": {
+        "dropId": 180033508,
+        "changes": {
+          "price": 1000
+        }
+      },
+      "createdAt": "2026-04-18T03:07:15.046Z"
     }
   ],
   "raidSettings": [],

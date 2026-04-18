@@ -58,11 +58,39 @@ export default function RaidCycles({ raidAccess: _raidAccess }: Props) {
 function ClosedCycleCard({ cycle }: { cycle: any }) {
   const [open, setOpen] = useState(false);
   const summary = cycle.summary || {};
-  const bossesByName: Record<string, number> = summary.bossesByName || {};
-  const clansSummary: any[] = summary.clans || [];
-  const topBosses = Object.entries(bossesByName)
-    .sort(([, a], [, b]) => (b as number) - (a as number))
+
+  // El backend al cerrar el ciclo guarda:
+  //  - cycle.summary        -> { events, drops, bosses, clans, totalRevenue, totalPotentialValue }
+  //  - cycle.totalBosses    -> redundante con summary.bosses (top-level por compat)
+  //  - cycle.totalEvents    -> redundante con summary.events
+  //  - cycle.totalRevenue   -> redundante con summary.totalRevenue
+  //  - cycle.bossesKilled[] -> [{ bossId, bossName, officialImageUrl, kills }]
+  //  - cycle.clansParticipated[] -> [{ clanId, clanName, eventsParticipated, revenueShare }]
+  //
+  // Preferimos summary.* y caemos a los top-level si el ciclo se cerró con una
+  // versión vieja que no escribía summary todavía.
+  const totalBosses =
+    Number(summary.bosses ?? summary.totalBossesKilled ?? cycle.totalBosses ?? 0) || 0;
+  const totalEvents =
+    Number(summary.events ?? summary.totalEvents ?? cycle.totalEvents ?? 0) || 0;
+  const totalDrops = Number(summary.drops ?? summary.totalDrops ?? 0) || 0;
+  const totalRevenue = Number(summary.totalRevenue ?? cycle.totalRevenue ?? 0) || 0;
+  const totalPotential =
+    Number(summary.totalPotentialValue ?? summary.potentialValue ?? 0) || 0;
+
+  const bossesKilled: Array<{ bossName: string; kills: number; officialImageUrl?: string | null }> =
+    Array.isArray(cycle.bossesKilled) ? cycle.bossesKilled : [];
+  const topBosses = [...bossesKilled]
+    .sort((a, b) => (Number(b.kills) || 0) - (Number(a.kills) || 0))
     .slice(0, 5);
+
+  const clansSummary: Array<{
+    clanId: number;
+    clanName?: string;
+    name?: string;
+    eventsParticipated: number;
+    revenueShare: number;
+  }> = Array.isArray(cycle.clansParticipated) ? cycle.clansParticipated : [];
 
   const formatDate = (iso: string | null | undefined) =>
     iso
@@ -123,7 +151,7 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
         <div className="flex items-center gap-6 mr-4">
           <div className="text-right hidden sm:block">
             <p className="text-base font-bold font-mono" style={{ color: '#e879f9' }}>
-              {summary.totalBossesKilled ?? 0}
+              {totalBosses}
             </p>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
               bosses
@@ -131,7 +159,7 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
           </div>
           <div className="text-right hidden md:block">
             <p className="text-base font-bold font-mono" style={{ color: '#10b981' }}>
-              ${(summary.totalRevenue ?? 0).toLocaleString()}
+              ${totalRevenue.toLocaleString()}
             </p>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
               vendido
@@ -139,7 +167,7 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
           </div>
           <div className="text-right hidden md:block">
             <p className="text-base font-bold font-mono" style={{ color: '#7bf1d6' }}>
-              {summary.totalEvents ?? 0}
+              {totalEvents}
             </p>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
               eventos
@@ -155,32 +183,52 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
 
       {open && (
         <div className="border-t p-4 space-y-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="Bosses matados" value={summary.totalBossesKilled ?? 0} color="#e879f9" icon={<Skull className="h-4 w-4" />} />
-            <StatCard label="Eventos" value={summary.totalEvents ?? 0} color="#7bf1d6" icon={<Calendar className="h-4 w-4" />} />
-            <StatCard label="Drops totales" value={summary.totalDrops ?? 0} color="#a78bfa" icon={<Package className="h-4 w-4" />} />
-            <StatCard label="Ingresos" value={`$${(summary.totalRevenue ?? 0).toLocaleString()}`} color="#10b981" icon={<TrendingUp className="h-4 w-4" />} />
+          {/* Stats grid — 5 KPIs si hay potencial, 4 si no. */}
+          <div className={`grid grid-cols-2 gap-3 ${totalPotential > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
+            <StatCard label="Bosses matados" value={totalBosses} color="#e879f9" icon={<Skull className="h-4 w-4" />} />
+            <StatCard label="Eventos" value={totalEvents} color="#7bf1d6" icon={<Calendar className="h-4 w-4" />} />
+            <StatCard label="Drops totales" value={totalDrops} color="#a78bfa" icon={<Package className="h-4 w-4" />} />
+            <StatCard label="Vendido" value={`$${totalRevenue.toLocaleString()}`} color="#10b981" icon={<TrendingUp className="h-4 w-4" />} />
+            {totalPotential > 0 && (
+              <StatCard
+                label="Potencial"
+                value={`$${totalPotential.toLocaleString()}`}
+                color="#fbbf24"
+                icon={<TrendingUp className="h-4 w-4" />}
+              />
+            )}
           </div>
 
-          {/* Top bosses */}
+          {/* Top bosses — ahora desde cycle.bossesKilled con imagen del boss. */}
           {topBosses.length > 0 && (
             <div>
               <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 Top bosses eliminados
               </p>
               <div className="space-y-1.5">
-                {topBosses.map(([name, count]) => (
+                {topBosses.map((b) => (
                   <div
-                    key={name}
+                    key={b.bossName}
                     className="flex items-center justify-between rounded-lg p-2"
                     style={{ background: 'rgba(232,121,249,0.05)', border: '1px solid rgba(232,121,249,0.15)' }}
                   >
-                    <span className="text-sm" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                      {name}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {b.officialImageUrl ? (
+                        <img
+                          src={b.officialImageUrl}
+                          alt={b.bossName}
+                          className="h-6 w-6 rounded object-cover"
+                          style={{ border: '1px solid rgba(232,121,249,0.25)' }}
+                        />
+                      ) : (
+                        <Skull className="h-4 w-4" style={{ color: '#e879f9' }} />
+                      )}
+                      <span className="text-sm" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                        {b.bossName}
+                      </span>
+                    </div>
                     <span className="text-sm font-mono font-semibold" style={{ color: '#e879f9' }}>
-                      ×{count as number}
+                      ×{b.kills}
                     </span>
                   </div>
                 ))}
@@ -188,14 +236,14 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
             </div>
           )}
 
-          {/* Clanes participantes */}
+          {/* Clanes participantes — ahora desde cycle.clansParticipated. */}
           {clansSummary.length > 0 && (
             <div>
               <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 Clanes participantes ({clansSummary.length})
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
-                {clansSummary.map((cl: any) => (
+                {clansSummary.map((cl) => (
                   <div
                     key={cl.clanId}
                     className="rounded-lg p-3"
@@ -207,14 +255,14 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
                         <Flag className="h-3 w-3 inline mr-1" style={{ color: '#7bf1d6' }} />
-                        {cl.name}
+                        {cl.clanName || cl.name || `Clan #${cl.clanId}`}
                       </span>
                       <span className="text-xs font-mono" style={{ color: '#10b981' }}>
-                        ${(cl.revenueShare ?? 0).toLocaleString()}
+                        ${(Number(cl.revenueShare) || 0).toLocaleString()}
                       </span>
                     </div>
                     <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      {cl.eventsParticipated} eventos
+                      {cl.eventsParticipated} evento{cl.eventsParticipated === 1 ? '' : 's'}
                     </p>
                   </div>
                 ))}
