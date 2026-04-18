@@ -184,6 +184,8 @@ export default function RaidInventory({ raidAccess }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Modal de confirmación de cierre de ciclo
   const [closeCycleOpen, setCloseCycleOpen] = useState(false);
+  // Modal de confirmación para eliminar un evento de raid (reemplaza confirm() nativo)
+  const [deleteEventTarget, setDeleteEventTarget] = useState<any | null>(null);
   // Tab activa: 'register' (form + ciclo + eventos) | 'drops' (tabla consolidada)
   const [tab, setTab] = useState<'register' | 'drops'>('register');
 
@@ -895,11 +897,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                 event={e}
                 canInteract={canInteract}
                 canAdmin={!!raidAccess?.canAdmin}
-                onDelete={() => {
-                  if (confirm(`¿Eliminar el evento #${e.id}?`)) {
-                    deleteEvent.mutate({ id: Number(e.id) });
-                  }
-                }}
+                onDelete={() => setDeleteEventTarget(e)}
                 onSellDrop={(dropId, qty) => {
                   sellDrop.mutate({ id: dropId, quantity: qty });
                 }}
@@ -1007,6 +1005,173 @@ export default function RaidInventory({ raidAccess }: Props) {
               >
                 <StopCircle className="h-4 w-4" />
                 {closeCycle.isPending ? 'Cerrando…' : 'Sí, cerrar ciclo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación para eliminar un evento de raid. Reemplaza al
+          confirm() nativo con un modal estilizado, en línea con los otros
+          modales del módulo (cerrar ciclo, eliminar drop). */}
+      {deleteEventTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => {
+            if (!deleteEvent.isPending) setDeleteEventTarget(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.3)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+                  <h3
+                    className="text-lg font-bold"
+                    style={{ color: 'rgba(255,255,255,0.95)' }}
+                  >
+                    Eliminar evento de raid
+                  </h3>
+                </div>
+                <p
+                  className="text-xs mt-1"
+                  style={{ color: 'rgba(255,255,255,0.45)' }}
+                >
+                  Se eliminarán el evento, sus drops asociados y la evidencia.
+                  Esta acción no se puede deshacer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteEventTarget(null)}
+                disabled={deleteEvent.isPending}
+                className="rounded-lg p-1.5 transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.6)',
+                }}
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div
+              className="rounded-xl p-3 mb-4 flex items-center gap-3"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              {deleteEventTarget.bossImageUrl ? (
+                <img
+                  src={deleteEventTarget.bossImageUrl}
+                  alt={deleteEventTarget.bossName || ''}
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                  style={{ border: '1px solid rgba(239,68,68,0.3)' }}
+                />
+              ) : (
+                <div
+                  className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center"
+                  style={{
+                    background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                  }}
+                >
+                  <Skull className="h-5 w-5" style={{ color: '#ef4444' }} />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div
+                  className="font-semibold truncate"
+                  style={{ color: 'rgba(255,255,255,0.92)' }}
+                >
+                  {deleteEventTarget.bossName ||
+                    `Evento #${deleteEventTarget.id}`}
+                </div>
+                <div
+                  className="text-[11px] mt-0.5"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                >
+                  #{deleteEventTarget.id}
+                  {deleteEventTarget.createdAt && (
+                    <>
+                      {' · '}
+                      {new Date(deleteEventTarget.createdAt).toLocaleString(
+                        'es-AR'
+                      )}
+                    </>
+                  )}
+                </div>
+                {(deleteEventTarget.dropsCount != null ||
+                  (deleteEventTarget.clans || []).length > 0) && (
+                  <div
+                    className="text-[11px] mt-1 flex items-center gap-2 flex-wrap"
+                    style={{ color: 'rgba(255,255,255,0.5)' }}
+                  >
+                    {deleteEventTarget.dropsCount != null && (
+                      <span>
+                        {deleteEventTarget.dropsCount} drop
+                        {deleteEventTarget.dropsCount === 1 ? '' : 's'}
+                      </span>
+                    )}
+                    {(deleteEventTarget.clans || []).length > 0 && (
+                      <span>
+                        {deleteEventTarget.clans.length} clan
+                        {deleteEventTarget.clans.length === 1 ? '' : 'es'}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteEventTarget(null)}
+                disabled={deleteEvent.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.75)',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteEvent.mutate(
+                    { id: Number(deleteEventTarget.id) },
+                    { onSettled: () => setDeleteEventTarget(null) }
+                  );
+                }}
+                disabled={deleteEvent.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(232,121,249,0.9))',
+                  border: '1px solid rgba(239,68,68,0.5)',
+                  color: '#fff',
+                  opacity: deleteEvent.isPending ? 0.6 : 1,
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleteEvent.isPending
+                  ? 'Eliminando…'
+                  : 'Sí, eliminar evento'}
               </button>
             </div>
           </div>
