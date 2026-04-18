@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T02:08:55.833Z",
-      "lastSignedIn": "2026-04-18T02:08:55.833Z"
+      "updatedAt": "2026-04-18T02:16:58.455Z",
+      "lastSignedIn": "2026-04-18T02:16:58.455Z"
     },
     {
       "id": 581030,
@@ -4157,35 +4157,6 @@
       "accessLevel": "raid_mapper",
       "grantedBy": 1,
       "grantedAt": "2026-04-17T21:41:39.972Z"
-    },
-    {
-      "id": 459557,
-      "userId": 849181,
-      "accessLevel": "raid_user",
-      "grantedBy": 1,
-      "grantedAt": "2026-04-17T21:41:39.972Z"
-    },
-    {
-      "id": 391710,
-      "userId": 193339,
-      "accessLevel": "raid_user",
-      "grantedBy": 1,
-      "grantedAt": "2026-04-17T21:41:39.972Z"
-    },
-    {
-      "id": 438271,
-      "userId": 356166,
-      "accessLevel": "viewer_only",
-      "grantedBy": 1,
-      "grantedAt": "2026-04-17T21:41:39.972Z"
-    },
-    {
-      "id": 950287024,
-      "userId": 871224,
-      "accessLevel": "viewer_only",
-      "grantedBy": 1,
-      "grantedAt": "2026-04-18T02:01:56.419Z",
-      "updatedAt": "2026-04-18T02:01:56.419Z"
     }
   ],
   "raidAuditLogs": [
@@ -4520,6 +4491,66 @@
         "accessLevel": "viewer_only"
       },
       "createdAt": "2026-04-18T02:01:56.420Z"
+    },
+    {
+      "id": 894445480,
+      "userId": 1,
+      "action": "RAID_ACCESS_GRANTED",
+      "details": {
+        "targetUserId": 356166,
+        "accessLevel": "raid_user"
+      },
+      "createdAt": "2026-04-18T02:10:32.769Z"
+    },
+    {
+      "id": 892474833,
+      "userId": 1,
+      "action": "RAID_ACCESS_GRANTED",
+      "details": {
+        "targetUserId": 871224,
+        "accessLevel": "raid_user"
+      },
+      "createdAt": "2026-04-18T02:11:24.112Z"
+    },
+    {
+      "id": 205977896,
+      "userId": 1,
+      "action": "RAID_ACCESS_REVOKED",
+      "details": {
+        "targetUserId": 356166,
+        "accessLevel": null
+      },
+      "createdAt": "2026-04-18T02:12:04.443Z"
+    },
+    {
+      "id": 12809605,
+      "userId": 1,
+      "action": "RAID_ACCESS_REVOKED",
+      "details": {
+        "targetUserId": 193339,
+        "accessLevel": null
+      },
+      "createdAt": "2026-04-18T02:12:05.791Z"
+    },
+    {
+      "id": 667050115,
+      "userId": 1,
+      "action": "RAID_ACCESS_REVOKED",
+      "details": {
+        "targetUserId": 849181,
+        "accessLevel": null
+      },
+      "createdAt": "2026-04-18T02:12:07.029Z"
+    },
+    {
+      "id": 80071440,
+      "userId": 1,
+      "action": "RAID_ACCESS_REVOKED",
+      "details": {
+        "targetUserId": 871224,
+        "accessLevel": null
+      },
+      "createdAt": "2026-04-18T02:12:08.205Z"
     }
   ],
   "raidSettings": [],

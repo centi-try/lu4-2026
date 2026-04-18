@@ -287,7 +287,11 @@ export const raidRouter = router({
       return users.map((u: any) => ({
         id: Number(u.id),
         email: u.email || '',
-        name: u.characterName || u.name || '',
+        name: u.name || u.characterName || '',
+        // Nombre de personaje ingresado al crear la cuenta. Se expone como
+        // campo aparte para mostrarlo en la tabla de "Gestión de accesos raid"
+        // (además del nombre y el correo).
+        characterName: u.characterName || '',
         role: u.role || 'user',
         isActive: u.isActive !== false,
         raidAccess: accessMap.get(Number(u.id)) || null,

@@ -933,6 +933,12 @@ function RaidAccessSection() {
                 className="p-3 text-left text-xs uppercase tracking-wider"
                 style={{ color: 'rgba(255,255,255,0.4)' }}
               >
+                Personaje
+              </th>
+              <th
+                className="p-3 text-left text-xs uppercase tracking-wider"
+                style={{ color: 'rgba(255,255,255,0.4)' }}
+              >
                 Rol principal
               </th>
               <th
@@ -953,7 +959,7 @@ function RaidAccessSection() {
             {filteredUsers.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="p-6 text-center text-xs"
                   style={{ color: 'rgba(255,255,255,0.3)' }}
                 >
@@ -985,6 +991,28 @@ function RaidAccessSection() {
                   <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
                     {u.email}
                   </p>
+                </td>
+                <td className="p-3">
+                  {u.characterName ? (
+                    <span
+                      className="text-xs rounded-full px-2 py-0.5"
+                      style={{
+                        background: 'rgba(167,139,250,0.08)',
+                        color: '#a78bfa',
+                        border: '1px solid rgba(167,139,250,0.25)',
+                      }}
+                      title="Nombre de personaje ingresado al crear la cuenta"
+                    >
+                      {u.characterName}
+                    </span>
+                  ) : (
+                    <span
+                      className="text-xs"
+                      style={{ color: 'rgba(255,255,255,0.3)' }}
+                    >
+                      —
+                    </span>
+                  )}
                 </td>
                 <td className="p-3">
                   <span
