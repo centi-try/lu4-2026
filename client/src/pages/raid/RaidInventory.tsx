@@ -9,6 +9,7 @@ import type { ItemCategory } from '../../lib/types';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
 import RaidDropsTable from './RaidDropsTable';
 import { RaidDropTypeahead, type DropSuggestion } from './RaidDropTypeahead';
+import { BossSelect } from './BossSelect';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
