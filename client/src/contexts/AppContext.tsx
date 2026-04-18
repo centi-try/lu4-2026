@@ -301,11 +301,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (currentUser.role === 'USER') return;
 
     const updateNumericId = parseInt(String(id).replace('item-', ''));
+    // Propagar la URL de imagen al backend. Si no se propaga, el cambio solo
+    // vive en el estado local y se pierde al recargar (bug observado en
+    // /images del menú antiguo: la nueva URL no se persistía en DB).
+    const incomingImageUrl =
+      (updates as any).imageUrl ??
+      updates.image?.publicUrl ??
+      undefined;
     updateItemMutation.mutate({
       id: isNaN(updateNumericId) ? 0 : updateNumericId,
       name: updates.name,
       category: updates.category,
       price: updates.price || undefined,
+      imageUrl: incomingImageUrl,
     });
 
     setItems(prev => prev.map(item => {

@@ -222,6 +222,18 @@
   .select-dark option { background: oklch(0.12 0.012 265); color: oklch(0.95 0.005 265); padding: 0.5rem; font-weight: 500; }
   .select-dark option:checked { background: oklch(0.72 0.19 195 / 30%); color: oklch(0.95 0.005 265); }
 
+  /* Global dark options — aplica a TODO <select> del proyecto para evitar que
+   * los <option> se rendericen con el estilo default del sistema (blanco sobre
+   * blanco en algunos navegadores + modo oscuro). Cubre los selects que no usan
+   * .select-dark explícitamente (ej: form de Registrar evento raid). */
+  select option {
+    background-color: #0a0e16;
+    color: rgba(255, 255, 255, 0.92);
+  }
+  select option:disabled {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
   /* Btn primary */
   .btn-primary {
     display: inline-flex;
