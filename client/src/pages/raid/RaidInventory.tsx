@@ -8,6 +8,7 @@ import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
 import RaidDropsTable from './RaidDropsTable';
+import { RaidDropTypeahead, type DropSuggestion } from './RaidDropTypeahead';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
@@ -52,6 +53,11 @@ export default function RaidInventory({ raidAccess }: Props) {
   const cyclesListQ = trpc.raid.cycles.list.useQuery();
   const eventsQ = trpc.raid.events.list.useQuery({});
   const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery();
+  // Histórico completo de drops raid. Lo usamos como fuente del typeahead del
+  // formulario de nuevo evento: al escribir el nombre de un drop se sugieren
+  // drops ya registrados en eventos anteriores para reutilizar su metadata
+  // (categoría, precio, imagen). La cantidad NO se autocompleta por seguridad.
+  const allDropsQ = trpc.raid.drops.list.useQuery(undefined, { staleTime: 30_000 });
   // Lista de usuarios elegibles como "Comprador/Cuenta" al vender un drop
   // (solo usuarios con acceso raid: raid_admin, raid_mapper, raid_user).
   const buyersListQ = trpc.raid.buyers.list.useQuery(undefined, { staleTime: 30_000 });
@@ -191,6 +197,38 @@ export default function RaidInventory({ raidAccess }: Props) {
   const addDrop = () => setDrops((prev) => [...prev, emptyDrop()]);
   const removeDrop = (idx: number) =>
     setDrops((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)));
+
+  /**
+   * Aplica una sugerencia del typeahead sobre una fila de drop.
+   *
+   * Copia: nombre, categoría, precio, imagen (si la sugerencia no tiene
+   * imagen propia usamos el ícono oficial de la categoría que el super admin
+   * configuró en /raids/settings — mismo criterio que `updateDrop('category')`).
+   *
+   * NO copia: `quantity` se resetea a '0' para forzar al mapper a tipear la
+   * cantidad real — así evitamos registrar accidentalmente 1 unidad cuando
+   * solo se quería reutilizar metadata de un drop existente (mismo patrón
+   * de seguridad que el Registro de Ítems del inventario antiguo).
+   */
+  const applyDropTypeaheadSelection = (idx: number, s: DropSuggestion) => {
+    const catUp = String(s.category || '').toUpperCase();
+    const iconFromCategory = catUp ? categoryIconMap[catUp] || '' : '';
+    const imageUrl = s.imageUrl || iconFromCategory;
+    setDrops((prev) =>
+      prev.map((d, i) =>
+        i === idx
+          ? {
+              ...d,
+              name: s.name,
+              category: catUp,
+              price: s.price != null ? String(s.price) : '',
+              imageUrl,
+              quantity: '0', // <- reset de seguridad: obliga a re-ingresar
+            }
+          : d,
+      ),
+    );
+  };
 
   // Modal de confirmación — se abre cuando los datos pasan validación
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -448,7 +486,7 @@ export default function RaidInventory({ raidAccess }: Props) {
       {tab === 'drops' && <RaidDropsTable raidAccess={raidAccess} />}
 
       {tab === 'register' && canInteract && currentCycle && (
-        <div className="card-glass rounded-2xl p-5 mb-5">
+        <div className="card-glass rounded-2xl p-5 mb-5 relative" style={{ zIndex: 20 }}>
           <div className="flex items-center gap-2 mb-4">
             <Plus className="h-4 w-4" style={{ color: '#7bf1d6' }} />
             <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
@@ -717,17 +755,12 @@ export default function RaidInventory({ raidAccess }: Props) {
                           >
                             Nombre del item <span style={{ color: '#f87171' }}>*</span>
                           </label>
-                          <input
-                            type="text"
+                          <RaidDropTypeahead
                             value={d.name}
-                            onChange={(e) => updateDrop(idx, 'name', e.target.value)}
+                            onChange={(v) => updateDrop(idx, 'name', v)}
+                            onSelect={(s) => applyDropTypeaheadSelection(idx, s)}
+                            drops={allDropsQ.data || []}
                             placeholder="Ej: Dynasty Leather"
-                            className="w-full rounded-lg px-2 py-1.5 text-xs"
-                            style={{
-                              background: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.08)',
-                              color: 'rgba(255,255,255,0.9)',
-                            }}
                           />
                         </div>
 

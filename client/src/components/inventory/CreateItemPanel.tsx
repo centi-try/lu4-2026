@@ -96,8 +96,10 @@ export function CreateItemPanel() {
   };
 
   // Typeahead select: autocompleta nombre, categoría, precio, imagen.
-  // NO toca cantidad ni personajes — permite re-registrar un ítem conocido
-  // asignándole un reparto distinto.
+  // Cantidad y personajes NO se autocompletan, y además la cantidad se
+  // resetea a '0' para forzar al usuario a tipearla manualmente — así
+  // evitamos registrar accidentalmente 1 unidad cuando el mapper solo
+  // quiso reutilizar los datos del ítem existente.
   const applyTypeaheadSelection = (rowId: string, item: Item) => {
     const pickedCat = item.category;
     const picked = item.image?.publicUrl;
@@ -110,7 +112,8 @@ export function CreateItemPanel() {
       category: pickedCat,
       price: item.price != null ? String(item.price) : '',
       imageUrl: picked || fallback,
-      // quantity y selectedCharIds explícitamente NO se tocan
+      quantity: '0', // <- reset de seguridad, obliga a re-ingresar
+      // selectedCharIds se mantienen como estaban (vacíos o lo que haya)
     });
   };
 
