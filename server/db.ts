@@ -1323,7 +1323,7 @@ export const sellRaidDropItem = async (
 
 // Categorías válidas — deben coincidir con src/lib/category-meta.ts
 export const RAID_DROP_CATEGORIES = [
-  'ARMADURA', 'ARMA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA',
+  'ARMADURA', 'ARMA', 'JOYA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA',
 ] as const;
 
 export const getRaidCategoryIcons = async (): Promise<Array<{

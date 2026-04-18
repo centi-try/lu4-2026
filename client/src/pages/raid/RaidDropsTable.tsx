@@ -1163,7 +1163,7 @@ function SelectFilter({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={label}
-        className="w-full h-10 rounded-xl pl-9 pr-8 text-sm appearance-none cursor-pointer"
+        className="select-dark w-full h-10 rounded-xl pl-9 pr-8 text-sm appearance-none cursor-pointer"
         style={{
           background: 'rgba(255,255,255,0.04)',
           border: '1px solid rgba(255,255,255,0.08)',

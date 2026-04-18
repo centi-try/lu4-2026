@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 const DEFAULT_IMAGES: Record<ItemCategory, string> = {
   ARMADURA:   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=80&q=80',
   ARMA:       'https://images.unsplash.com/photo-1589656966895-2f33e7653819?auto=format&fit=crop&w=80&q=80',
+  JOYA:       'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=80&q=80',
   KEY:        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=80&q=80',
   RECIPE:     'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=80&q=80',
   MATERIALES: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=80&q=80',

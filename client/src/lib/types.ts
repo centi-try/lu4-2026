@@ -1,4 +1,4 @@
-export type ItemCategory = 'ARMADURA' | 'ARMA' | 'KEY' | 'RECIPE' | 'MATERIALES' | 'QUEST' | 'ADENA';
+export type ItemCategory = 'ARMADURA' | 'ARMA' | 'KEY' | 'RECIPE' | 'MATERIALES' | 'QUEST' | 'ADENA' | 'JOYA';
 export type ItemStatus = 'EN_REGISTRO' | 'CONFIRMADO' | 'VENDIDO';
 export type UserRole = 'SUPER_ADMIN' | 'MAPPER' | 'USER';
 

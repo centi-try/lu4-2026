@@ -742,18 +742,18 @@ export default function RaidInventory({ raidAccess }: Props) {
                           <select
                             value={catOk ? d.category : ''}
                             onChange={(e) => updateDrop(idx, 'category', e.target.value)}
-                            className="w-full rounded-lg px-2 py-1.5 text-xs"
+                            className="select-dark w-full rounded-lg px-2 py-1.5 text-xs"
                             style={{
                               background: 'rgba(255,255,255,0.03)',
                               border: '1px solid rgba(255,255,255,0.08)',
                               color: 'rgba(255,255,255,0.9)',
                             }}
                           >
-                            <option value="">-- Seleccionar --</option>
+                            <option value="" className="bg-[#0a0e16]">-- Seleccionar --</option>
                             {CATEGORIES.map((cat) => {
                               const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
                               return (
-                                <option key={cat} value={cat}>
+                                <option key={cat} value={cat} className="bg-[#0a0e16]">
                                   {meta.emoji} {meta.label}
                                 </option>
                               );
