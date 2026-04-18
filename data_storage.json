@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T02:54:09.456Z",
-      "lastSignedIn": "2026-04-18T02:54:09.456Z"
+      "updatedAt": "2026-04-18T02:57:14.030Z",
+      "lastSignedIn": "2026-04-18T02:57:14.030Z"
     },
     {
       "id": 581030,
@@ -925,7 +925,7 @@
       "tag": "IRB",
       "description": "Clan de tanques y curación",
       "totalRaidEarnings": 103352,
-      "currentCycleEarnings": 0,
+      "currentCycleEarnings": 1000,
       "createdAt": "2026-04-10T21:54:54.187Z",
       "updatedAt": "2026-04-10T21:54:54.187Z"
     },
@@ -935,7 +935,7 @@
       "tag": "MNA",
       "description": "Clan de arqueros y magos",
       "totalRaidEarnings": 116893,
-      "currentCycleEarnings": 0,
+      "currentCycleEarnings": 1000,
       "createdAt": "2026-04-10T21:54:54.187Z",
       "updatedAt": "2026-04-10T21:54:54.187Z"
     }
@@ -4237,8 +4237,8 @@
       "category": "ARMADURA",
       "price": 1000,
       "quantity": 10,
-      "quantitySold": 0,
-      "quantitySoldInCycle": 0,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 2,
       "imageUrl": null,
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4247,7 +4247,7 @@
       ],
       "reportedByUserId": 1,
       "createdAt": "2026-04-18T02:50:39.917Z",
-      "updatedAt": "2026-04-18T02:50:39.917Z"
+      "updatedAt": "2026-04-18T02:56:01.789Z"
     }
   ],
   "userRaidAccess": [
@@ -4750,6 +4750,42 @@
         "dropsCount": 1
       },
       "createdAt": "2026-04-18T02:50:39.918Z"
+    },
+    {
+      "id": 28998978,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 822175855,
+        "itemName": "dildo 3000",
+        "quantitySold": 1,
+        "revenue": 1000,
+        "clansShared": [
+          898429,
+          107708
+        ],
+        "buyerId": 581030,
+        "buyerName": "Lucía Admin"
+      },
+      "createdAt": "2026-04-18T02:55:45.521Z"
+    },
+    {
+      "id": 741186402,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 822175855,
+        "itemName": "dildo 3000",
+        "quantitySold": 1,
+        "revenue": 1000,
+        "clansShared": [
+          898429,
+          107708
+        ],
+        "buyerId": 581030,
+        "buyerName": "Lucía Admin"
+      },
+      "createdAt": "2026-04-18T02:56:01.791Z"
     }
   ],
   "raidSettings": [],

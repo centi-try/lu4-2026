@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle, Upload, ChevronDown, ChevronUp, Archive, Calendar } from 'lucide-react';
+import { Swords, Skull, Flag, Plus, Trash2, Image as ImageIcon, Check, X, AlertCircle, PlayCircle, StopCircle, Upload, ChevronDown, ChevronUp, Archive, Calendar, Package } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -431,8 +431,8 @@ export default function RaidInventory({ raidAccess }: Props) {
               tab === 'drops' ? '1px solid rgba(167,139,250,0.25)' : '1px solid transparent',
           }}
         >
-          <ImageIcon className="h-4 w-4" />
-          Tabla de drops
+          <Package className="h-4 w-4" />
+          Drops disponibles
         </button>
       </div>
 
