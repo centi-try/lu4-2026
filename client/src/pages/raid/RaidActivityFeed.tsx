@@ -15,6 +15,7 @@ import {
   Lock,
   Unlock,
   Package,
+  CalendarClock,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 
@@ -56,6 +57,9 @@ const actionMeta: Record<
   RAID_DROP_UPDATED: { icon: Pencil, color: '#fbbf24', label: 'Actualizó drop' },
   RAID_DROP_DELETED: { icon: Trash2, color: '#f87171', label: 'Eliminó drop' },
   RAID_DROP_SOLD: { icon: DollarSign, color: '#a78bfa', label: 'Vendió drop' },
+
+  RAID_SALES_CYCLE_OPENED: { icon: CalendarClock, color: '#10b981', label: 'Abrió ciclo de ventas' },
+  RAID_SALES_CYCLE_CLOSED: { icon: Lock, color: '#10b981', label: 'Cerró ciclo de ventas' },
 };
 
 function timeAgo(iso: string): string {
@@ -137,6 +141,25 @@ function describe(log: any): string {
     }
     case 'RAID_DROP_DELETED':
       return d.dropId != null ? `Drop #${d.dropId}` : '';
+    case 'RAID_SALES_CYCLE_OPENED':
+      return d.label
+        ? `${d.label}${d.salesCycleId != null ? ` · #${d.salesCycleId}` : ''}`
+        : d.salesCycleId != null
+          ? `Ciclo de ventas #${d.salesCycleId}`
+          : '';
+    case 'RAID_SALES_CYCLE_CLOSED': {
+      const bits: string[] = [];
+      if (d.label) bits.push(d.label);
+      if (d.totalRevenue != null)
+        bits.push(`$${Number(d.totalRevenue).toLocaleString()} vendido`);
+      if (d.totalItemsUnsold != null)
+        bits.push(`${d.totalItemsUnsold} sin vender`);
+      if (d.clansCount != null)
+        bits.push(`${d.clansCount} clan${d.clansCount === 1 ? '' : 'es'}`);
+      if (d.raidCyclesClosed != null)
+        bits.push(`${d.raidCyclesClosed} raid cycle${d.raidCyclesClosed === 1 ? '' : 's'}`);
+      return bits.join(' · ');
+    }
     default:
       try {
         return JSON.stringify(d).slice(0, 120);

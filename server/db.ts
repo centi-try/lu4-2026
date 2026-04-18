@@ -31,6 +31,10 @@ interface DatabaseSchema {
   raidAuditLogs: any[];
   raidSettings: any[];
   raidCategoryIcons: any[];    // iconos por categoría de drop (seteados por super admin)
+  // Ciclos de VENTA del módulo raid — capa semanal (Lun→Dom) de agregación
+  // sobre los raid cycles diarios. Solo agrupa/resume ventas, no modifica
+  // drops, eventos ni clanes.
+  raidSalesCycles: any[];
 }
 
 const initialSchema: DatabaseSchema = {
@@ -51,6 +55,7 @@ const initialSchema: DatabaseSchema = {
   raidAuditLogs: [],
   raidSettings: [],
   raidCategoryIcons: [],
+  raidSalesCycles: [],
 };
 
 function hashLocalPassword(password: string): string {
@@ -158,6 +163,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     raidAuditLogs: ensureArray(data?.raidAuditLogs),
     raidSettings: ensureArray(data?.raidSettings),
     raidCategoryIcons: ensureArray(data?.raidCategoryIcons),
+    raidSalesCycles: ensureArray(data?.raidSalesCycles),
   };
 }
 
@@ -1542,4 +1548,309 @@ export const getClanStats = async () => {
       createdAt: c.createdAt,
     };
   }).sort((a, b) => b.totalRaidEarnings + b.currentCycleEarnings - (a.totalRaidEarnings + a.currentCycleEarnings));
+};
+
+// ---------- Raid Sales Cycles (semanales, agregan raid cycles diarios) -----
+//
+// Diseño:
+//  * Una sola ciclo de ventas OPEN a la vez.
+//  * Mientras está abierto, solo persistimos startedAt, label, status.
+//  * El "estado en vivo" se calcula on-demand leyendo raidAuditLogs entre
+//    startedAt y NOW (sin materializar nada) — función
+//    `computeRaidSalesCycleLiveSnapshot`.
+//  * Al cerrar, el snapshot se materializa en `cycle.summary` y queda
+//    inmutable. Esta filosofía es idéntica a la de los raid cycles.
+//  * NO tocamos `raidDropItems.quantitySold`, `clans.currentCycleEarnings`
+//    ni ningún campo de los raid cycles diarios — los sales cycles solo
+//    LEEN y agrupan.
+
+const salesCycleLabelFor = (startedAtIso: string, closedCount: number) => {
+  try {
+    const d = new Date(startedAtIso);
+    const fmt = d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+    return `Ciclo de Ventas #${closedCount + 1} · desde ${fmt}`;
+  } catch {
+    return `Ciclo de Ventas #${closedCount + 1}`;
+  }
+};
+
+export const getRaidSalesCycles = async () => {
+  return (dbInstance.raidSalesCycles || []).slice().sort((a, b) => {
+    const sa = String(a.createdAt || a.startedAt || '');
+    const sb = String(b.createdAt || b.startedAt || '');
+    return sb.localeCompare(sa);
+  });
+};
+
+export const getCurrentRaidSalesCycle = async () => {
+  return (dbInstance.raidSalesCycles || []).find(c => c.status === 'OPEN') || null;
+};
+
+export const createRaidSalesCycle = async (data: {
+  label?: string | null;
+  createdByUserId?: number;
+}) => {
+  const existingOpen = await getCurrentRaidSalesCycle();
+  if (existingOpen) {
+    throw new Error(
+      'Ya existe un ciclo de ventas abierto. Ciérralo antes de abrir uno nuevo.'
+    );
+  }
+  const startedAt = nowIso();
+  const closedCount = (dbInstance.raidSalesCycles || []).filter(
+    c => c.status === 'CLOSED'
+  ).length;
+  const cycle = {
+    id: genId(),
+    label: data.label || salesCycleLabelFor(startedAt, closedCount),
+    status: 'OPEN' as const,
+    startedAt,
+    closedAt: null,
+    closedBy: null,
+    createdBy: data.createdByUserId || null,
+    summary: null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  if (!dbInstance.raidSalesCycles) dbInstance.raidSalesCycles = [];
+  dbInstance.raidSalesCycles.push(cycle);
+  saveDb(dbInstance);
+
+  await createRaidAuditLog({
+    userId: data.createdByUserId || 0,
+    action: 'RAID_SALES_CYCLE_OPENED',
+    details: {
+      salesCycleId: Number(cycle.id),
+      label: cycle.label,
+      startedAt,
+    },
+  });
+
+  return cycle;
+};
+
+/**
+ * Calcula el estado en vivo de un sales cycle entre `startedAt` y `endIso`
+ * (por defecto NOW). Se usa tanto para el "livePreview" mientras está
+ * abierto como para materializar el summary al cerrar.
+ *
+ * Fuente de verdad: `raidAuditLogs` tipo `RAID_DROP_SOLD`. Cada entry ya
+ * trae `revenue` (price * quantity vendida), `clanIds`, `dropItemId`,
+ * `itemName`, etc. — no hay que leer los raidDropItems para los totales.
+ *
+ * Los "items sin vender" sí se calculan sobre `raidDropItems` del rango
+ * (via `raidEvents.createdAt`) para listar el stock remanente.
+ */
+export const computeRaidSalesCycleLiveSnapshot = async (
+  startedAtIso: string,
+  endIso?: string | null
+) => {
+  const start = String(startedAtIso || '');
+  const end = String(endIso || nowIso());
+  const logs = (dbInstance.raidAuditLogs || []).filter(l => {
+    if (l.action !== 'RAID_DROP_SOLD') return false;
+    const t = String(l.createdAt || '');
+    return t >= start && t <= end;
+  });
+
+  // Totales por clan a partir del payload del log.
+  // Cada log de venta trae: { revenue, revenuePerClan, clanIds, quantitySold,
+  //   itemName, dropItemId, eventId, buyerId, buyerName, ... }
+  // Usamos revenuePerClan * (num clanes del log) si existe; si no, dividimos
+  // revenue proporcionalmente.
+  const clans = dbInstance.clans || [];
+  const clanNameOf = (clanId: number) => {
+    const c = clans.find((x: any) => Number(x.id) === Number(clanId));
+    return c?.name || `Clan #${clanId}`;
+  };
+
+  const clanSharesMap = new Map<number, { revenueShare: number; salesCount: number }>();
+  const bossesHitMap = new Map<string, number>();
+  let totalRevenue = 0;
+  let totalUnitsSold = 0;
+  const buyersMap = new Map<string, { buyerName: string; revenue: number; units: number }>();
+
+  for (const log of logs) {
+    const d = log.details || {};
+    const revenue = Number(d.revenue) || 0;
+    const qty = Number(d.quantitySold) || 0;
+    const clanIds: number[] = Array.isArray(d.clanIds) ? d.clanIds.map(Number) : [];
+    totalRevenue += revenue;
+    totalUnitsSold += qty;
+
+    if (clanIds.length > 0) {
+      const perClan = revenue / clanIds.length;
+      for (const cid of clanIds) {
+        const prev = clanSharesMap.get(cid) || { revenueShare: 0, salesCount: 0 };
+        clanSharesMap.set(cid, {
+          revenueShare: prev.revenueShare + perClan,
+          salesCount: prev.salesCount + 1,
+        });
+      }
+    }
+
+    if (d.bossName) {
+      bossesHitMap.set(String(d.bossName), (bossesHitMap.get(String(d.bossName)) || 0) + qty);
+    }
+
+    const buyerKey = d.buyerId ? String(d.buyerId) : (d.buyerName ? `name:${d.buyerName}` : '');
+    if (buyerKey) {
+      const prev = buyersMap.get(buyerKey) || { buyerName: d.buyerName || 'Desconocido', revenue: 0, units: 0 };
+      buyersMap.set(buyerKey, {
+        buyerName: prev.buyerName,
+        revenue: prev.revenue + revenue,
+        units: prev.units + qty,
+      });
+    }
+  }
+
+  const clansParticipated = Array.from(clanSharesMap.entries())
+    .map(([clanId, v]) => ({
+      clanId,
+      clanName: clanNameOf(clanId),
+      revenueShare: Math.round(v.revenueShare),
+      salesCount: v.salesCount,
+    }))
+    .sort((a, b) => b.revenueShare - a.revenueShare);
+
+  const topBosses = Array.from(bossesHitMap.entries())
+    .map(([bossName, units]) => ({ bossName, units }))
+    .sort((a, b) => b.units - a.units)
+    .slice(0, 10);
+
+  const topBuyers = Array.from(buyersMap.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10);
+
+  // Items SIN vender del ciclo (solo drops cuyo evento cayó en el rango).
+  const eventsInRange = (dbInstance.raidEvents || []).filter(e => {
+    const t = String(e.createdAt || '');
+    return t >= start && t <= end;
+  });
+  const eventIds = new Set<number>(eventsInRange.map(e => Number(e.id)));
+  const raidDropItems = dbInstance.raidDropItems || [];
+  const dropsInRange = raidDropItems.filter(d => eventIds.has(Number(d.eventId)));
+  const unsoldItems = dropsInRange
+    .map(d => {
+      const qty = Number(d.quantity) || 0;
+      const sold = Number(d.quantitySold) || 0;
+      const remaining = Math.max(0, qty - sold);
+      if (remaining <= 0) return null;
+      const boss = (dbInstance.raidBosses || []).find((b: any) => Number(b.id) === Number(d.raidBossId));
+      const event = eventsInRange.find(e => Number(e.id) === Number(d.eventId));
+      return {
+        dropItemId: Number(d.id),
+        itemName: d.name,
+        category: d.category || null,
+        price: Number(d.price) || 0,
+        quantity: qty,
+        quantitySold: sold,
+        remainingQty: remaining,
+        potentialRevenue: (Number(d.price) || 0) * remaining,
+        bossName: boss?.name || null,
+        bossImageUrl: boss?.officialImageUrl || null,
+        eventCreatedAt: event?.createdAt || null,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a, b) => b.potentialRevenue - a.potentialRevenue);
+
+  const totalDropsInRange = dropsInRange.length;
+  const totalItemsSold = dropsInRange.filter(d =>
+    (Number(d.quantitySold) || 0) >= (Number(d.quantity) || 0)
+  ).length;
+  const totalItemsPartiallySold = dropsInRange.filter(d => {
+    const sold = Number(d.quantitySold) || 0;
+    const qty = Number(d.quantity) || 0;
+    return sold > 0 && sold < qty;
+  }).length;
+  const totalItemsUnsold = unsoldItems.length;
+
+  // Raid cycles que se cerraron dentro del rango (info contextual).
+  const raidCyclesClosed = (dbInstance.raidCycles || [])
+    .filter(c => {
+      if (c.status !== 'CLOSED') return false;
+      const t = String(c.closedAt || '');
+      return t >= start && t <= end;
+    })
+    .map(c => ({
+      cycleId: Number(c.id),
+      label: c.label,
+      closedAt: c.closedAt,
+      totalRevenue: Number(c.totalRevenue) || 0,
+      totalEvents: Number(c.totalEvents) || 0,
+      totalBosses: Number(c.totalBosses) || 0,
+    }))
+    .sort((a, b) => String(b.closedAt || '').localeCompare(String(a.closedAt || '')));
+
+  const potentialRemaining = unsoldItems.reduce((acc, it) => acc + it.potentialRevenue, 0);
+
+  return {
+    range: { startedAt: start, endAt: end },
+    totals: {
+      totalRevenue: Math.round(totalRevenue),
+      totalUnitsSold,
+      totalSalesCount: logs.length,
+      totalDropsInRange,
+      totalItemsSold,
+      totalItemsPartiallySold,
+      totalItemsUnsold,
+      totalEventsInRange: eventsInRange.length,
+      potentialRemaining: Math.round(potentialRemaining),
+    },
+    clansParticipated,
+    topBosses,
+    topBuyers,
+    unsoldItems,
+    raidCyclesClosed,
+  };
+};
+
+export const closeRaidSalesCycle = async (cycleId: number, closedByUser: any) => {
+  const idx = (dbInstance.raidSalesCycles || []).findIndex(
+    c => Number(c.id) === Number(cycleId)
+  );
+  if (idx === -1) return null;
+  const cycle = dbInstance.raidSalesCycles[idx];
+  if (cycle.status !== 'OPEN') {
+    throw new Error('El ciclo de ventas no está abierto.');
+  }
+
+  const closedAt = nowIso();
+  const snapshot = await computeRaidSalesCycleLiveSnapshot(
+    cycle.startedAt,
+    closedAt
+  );
+
+  dbInstance.raidSalesCycles[idx] = {
+    ...cycle,
+    status: 'CLOSED' as const,
+    closedAt,
+    closedBy:
+      closedByUser?.characterName ||
+      closedByUser?.name ||
+      closedByUser?.email ||
+      'Super Admin',
+    summary: snapshot,
+    updatedAt: nowIso(),
+  };
+  saveDb(dbInstance);
+
+  await createRaidAuditLog({
+    userId: closedByUser?.id || 0,
+    action: 'RAID_SALES_CYCLE_CLOSED',
+    details: {
+      salesCycleId: Number(cycleId),
+      label: cycle.label,
+      startedAt: cycle.startedAt,
+      closedAt,
+      totalRevenue: snapshot.totals.totalRevenue,
+      totalUnitsSold: snapshot.totals.totalUnitsSold,
+      totalItemsUnsold: snapshot.totals.totalItemsUnsold,
+      clansCount: snapshot.clansParticipated.length,
+      raidCyclesClosed: snapshot.raidCyclesClosed.length,
+    },
+  });
+
+  return dbInstance.raidSalesCycles[idx];
 };

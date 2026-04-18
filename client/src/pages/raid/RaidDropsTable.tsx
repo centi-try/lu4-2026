@@ -112,6 +112,9 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       // ranking en /raids/clans se actualice en vivo.
       utils.raid.clans.stats.invalidate();
       utils.raid.dashboard.invalidate();
+      // Sales cycles: cada venta cambia el snapshot live.
+      utils.raid.salesCycles.livePreview.invalidate();
+      utils.raid.salesCycles.list.invalidate();
     },
     onError: (err) => toast.error(err.message || 'No se pudo registrar la venta'),
   });
@@ -125,6 +128,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       // dropItemsAssociated y potentialValue de los clanes asociados
       // cambian al borrar el drop.
       utils.raid.clans.stats.invalidate();
+      utils.raid.salesCycles.livePreview.invalidate();
     },
     onError: (err) => toast.error(err.message || 'No se pudo eliminar el drop'),
   });
@@ -143,6 +147,8 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       // Editar el precio cambia potentialValue (price * quantity) que
       // el card de cada clan muestra en su header.
       utils.raid.clans.stats.invalidate();
+      // El potential remanente del sales cycle depende del precio actual.
+      utils.raid.salesCycles.livePreview.invalidate();
     },
     onError: (err) => toast.error(err.message || 'No se pudo actualizar el precio'),
   });

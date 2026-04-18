@@ -1,18 +1,24 @@
 import { useState } from 'react';
-import { Skull, Calendar, ChevronDown, ChevronUp, Flag, Package, TrendingUp } from 'lucide-react';
+import { Skull, Calendar, ChevronDown, ChevronUp, Flag, Package, TrendingUp, CalendarClock } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
+import RaidSalesCyclesTab from './RaidSalesCyclesTab';
 
 interface Props {
   raidAccess?: RaidAccessInfo;
 }
 
-export default function RaidCycles({ raidAccess: _raidAccess }: Props) {
+export default function RaidCycles({ raidAccess }: Props) {
   const listQ = trpc.raid.cycles.list.useQuery();
 
   const allCycles = listQ.data || [];
   const closedCycles = allCycles.filter((c: any) => c.status === 'CLOSED');
+
+  // Dos tabs dentro del mismo menú "Historial de Ciclos":
+  //  - 'raid'  → raid cycles diarios cerrados (lo que ya existía)
+  //  - 'sales' → ciclos de venta (capa semanal que agrupa raid cycles)
+  const [tab, setTab] = useState<'raid' | 'sales'>('raid');
 
   return (
     <AppShell>
@@ -22,35 +28,83 @@ export default function RaidCycles({ raidAccess: _raidAccess }: Props) {
           <h2 className="text-2xl font-bold text-gradient">Historial de Ciclos</h2>
         </div>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Historial de ciclos cerrados con el resumen consolidado (bosses eliminados, clanes
-          participantes y ganancias). El ciclo activo y la gestión abrir/cerrar ahora vive en
-          <span style={{ color: '#7bf1d6' }}> Raid Inventario</span>.
+          Dos vistas: <span style={{ color: '#e879f9' }}>Ciclos de Raid</span> (diarios, cierran un día
+          de raids) y <span style={{ color: '#10b981' }}>Ciclos de Venta</span> (semanales u otra
+          duración, agregan ventas a lo largo de varios raid cycles).
         </p>
       </div>
 
-      {/* Historial de ciclos cerrados */}
-      <div className="card-glass rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-            Historial de ciclos cerrados
-          </h3>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            {closedCycles.length} ciclos
-          </span>
-        </div>
-
-        {closedCycles.length === 0 ? (
-          <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            Aún no hay ciclos cerrados en el historial.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {closedCycles.map((c: any) => (
-              <ClosedCycleCard key={c.id} cycle={c} />
-            ))}
-          </div>
-        )}
+      {/* Tabs — mismo patrón visual que /raids/inventory y /raids dashboard */}
+      <div
+        className="flex items-center gap-1 mb-5 rounded-xl p-1"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setTab('raid')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'raid'
+                ? 'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(167,139,250,0.25))'
+                : 'transparent',
+            color: tab === 'raid' ? '#e879f9' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'raid' ? '1px solid rgba(232,121,249,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Skull className="h-4 w-4" />
+          Ciclos de Raid
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('sales')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'sales'
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(123,241,214,0.25))'
+                : 'transparent',
+            color: tab === 'sales' ? '#10b981' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'sales' ? '1px solid rgba(16,185,129,0.25)' : '1px solid transparent',
+          }}
+        >
+          <CalendarClock className="h-4 w-4" />
+          Ciclos de Venta
+        </button>
       </div>
+
+      {tab === 'raid' && (
+        /* Historial de raid cycles diarios cerrados (la vista original) */
+        <div className="card-glass rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              Historial de ciclos de raid cerrados
+            </h3>
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {closedCycles.length} ciclos
+            </span>
+          </div>
+
+          {closedCycles.length === 0 ? (
+            <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Aún no hay ciclos cerrados en el historial.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {closedCycles.map((c: any) => (
+                <ClosedCycleCard key={c.id} cycle={c} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'sales' && <RaidSalesCyclesTab raidAccess={raidAccess} />}
     </AppShell>
   );
 }

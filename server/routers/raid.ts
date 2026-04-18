@@ -13,6 +13,9 @@ import {
   canUserAccessRaidModule,
   // cycles
   getRaidCycles, getCurrentRaidCycle, createRaidCycle, closeRaidCycle,
+  // sales cycles (capa semanal sobre raid cycles diarios)
+  getRaidSalesCycles, getCurrentRaidSalesCycle, createRaidSalesCycle,
+  closeRaidSalesCycle, computeRaidSalesCycleLiveSnapshot,
   // events
   getRaidEvents, getRaidEventById, createRaidEvent, updateRaidEvent, deleteRaidEvent,
   getRaidEventClans,
@@ -388,6 +391,76 @@ export const raidRouter = router({
         const cycle = await closeRaidCycle(input.cycleId, ctx.user);
         if (!cycle) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ciclo no encontrado.' });
         return { success: true, cycle };
+      }),
+  }),
+
+  // ---------------- Sales Cycles (semanales, encima de los raid cycles) -----
+  //
+  // Capa de agregación — un solo OPEN a la vez, mismo patrón que raid cycles.
+  // Calcula el estado en vivo leyendo raidAuditLogs entre startedAt y NOW.
+  // Al cerrar, el snapshot se materializa en `cycle.summary` y queda
+  // inmutable. NO modifica drops, eventos, clanes ni raid cycles.
+  salesCycles: router({
+    list: raidViewerProcedure.query(async () => {
+      return await getRaidSalesCycles();
+    }),
+    current: raidViewerProcedure.query(async () => {
+      return await getCurrentRaidSalesCycle();
+    }),
+    livePreview: raidViewerProcedure.query(async () => {
+      const current = await getCurrentRaidSalesCycle();
+      if (!current) return null;
+      const snapshot = await computeRaidSalesCycleLiveSnapshot(
+        current.startedAt,
+        null
+      );
+      return {
+        cycle: {
+          id: Number(current.id),
+          label: current.label,
+          status: current.status,
+          startedAt: current.startedAt,
+        },
+        snapshot,
+      };
+    }),
+    open: raidAdminProcedure
+      .input(z.object({
+        label: z.string().max(120).nullable().optional(),
+      }).optional())
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const cycle = await createRaidSalesCycle({
+            label: input?.label || null,
+            createdByUserId: ctx.user.id,
+          });
+          return { success: true, cycle };
+        } catch (e: any) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: e?.message || 'No se pudo abrir el ciclo de ventas.',
+          });
+        }
+      }),
+    close: raidAdminProcedure
+      .input(z.object({ salesCycleId: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const cycle = await closeRaidSalesCycle(input.salesCycleId, ctx.user);
+          if (!cycle) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'Ciclo de ventas no encontrado.',
+            });
+          }
+          return { success: true, cycle };
+        } catch (e: any) {
+          if (e instanceof TRPCError) throw e;
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: e?.message || 'No se pudo cerrar el ciclo de ventas.',
+          });
+        }
       }),
   }),
 

@@ -92,6 +92,9 @@ export default function RaidInventory({ raidAccess }: Props) {
       utils.raid.events.list.invalidate();
       utils.raid.dashboard.invalidate();
       utils.raid.clans.stats.invalidate();
+      // Al crear un evento se registran drops dentro del rango del sales cycle
+      // abierto (si existe), por lo que el potential remanente cambia.
+      utils.raid.salesCycles.livePreview.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -103,6 +106,7 @@ export default function RaidInventory({ raidAccess }: Props) {
       // Borrar un evento cambia eventsParticipated y dropItemsAssociated
       // de los clanes que estaban asociados.
       utils.raid.clans.stats.invalidate();
+      utils.raid.salesCycles.livePreview.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -112,6 +116,8 @@ export default function RaidInventory({ raidAccess }: Props) {
       utils.raid.events.list.invalidate();
       utils.raid.dashboard.invalidate();
       utils.raid.clans.stats.invalidate();
+      utils.raid.salesCycles.livePreview.invalidate();
+      utils.raid.salesCycles.list.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
