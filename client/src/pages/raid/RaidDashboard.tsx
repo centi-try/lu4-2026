@@ -5,6 +5,7 @@ import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
 import RaidActivityFeed from './RaidActivityFeed';
+import RaidDropsTable from './RaidDropsTable';
 import {
   BarChart,
   Bar,
@@ -19,7 +20,7 @@ interface Props {
   raidAccess?: RaidAccessInfo;
 }
 
-export default function RaidDashboard({ raidAccess: _raidAccess }: Props) {
+export default function RaidDashboard({ raidAccess }: Props) {
   const metricsQ = trpc.raid.dashboard.useQuery();
   const eventsQ = trpc.raid.events.list.useQuery({});
   const cyclesListQ = trpc.raid.cycles.list.useQuery();
@@ -306,6 +307,15 @@ export default function RaidDashboard({ raidAccess: _raidAccess }: Props) {
             renderEvent={(e: any) => <DashboardEventCard key={e.id} event={e} />}
           />
         )}
+      </div>
+
+      {/* Tabla consolidada de drops — replica 1:1 la tab "Tabla de drops" de
+          /raids/inventory para que cualquier usuario con acceso raid pueda ver
+          de un vistazo qué hay en stock, qué se puede comprar y a qué clanes
+          está asociado cada drop. Reutiliza el mismo componente con las mismas
+          mutations, así se mantiene consistente entre las dos vistas. */}
+      <div className="mt-5">
+        <RaidDropsTable raidAccess={raidAccess} />
       </div>
 
       {/* Actividad reciente del módulo Raid — igual al "Actividad Reciente"
