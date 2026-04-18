@@ -23,6 +23,7 @@ import RaidInventory from "./pages/raid/RaidInventory";
 import RaidClans from "./pages/raid/RaidClans";
 import RaidCycles from "./pages/raid/RaidCycles";
 import RaidSettings from "./pages/raid/RaidSettings";
+import RaidPurchases from "./pages/raid/RaidPurchases";
 
 function Router() {
   return (
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/raids/inventory" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidInventory} required="view" />} />} />
       <Route path="/raids/clans" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidClans} required="view" />} />} />
       <Route path="/raids/cycles" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidCycles} required="view" />} />} />
+      <Route path="/raids/purchases" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidPurchases} required="view" />} />} />
       <Route path="/raids/settings" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidSettings} required="admin" />} />} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

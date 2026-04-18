@@ -709,4 +709,49 @@ export const raidRouter = router({
         };
       });
     }),
+
+  // ---------------- Historial de Compras (raid) -----------------------------
+  // Deriva de los audit logs con action === 'RAID_DROP_SOLD'. No escribe en DB
+  // y es independiente del histórico de compras del menú antiguo (AppContext.
+  // purchases). Cada venta registrada con comprador aparece como una "compra"
+  // reutilizable por el frontend (pantalla /raids/purchases).
+  purchases: router({
+    list: raidViewerProcedure.query(async () => {
+      // Leemos una ventana amplia de logs — 5000 cubre histórico largo sin
+      // paginación. Si en el futuro se hace grande se puede paginar.
+      const logs = await getRaidAuditLogs(5000);
+      const users = await getAllUsers();
+      const usersById = new Map<number, any>();
+      for (const u of users) usersById.set(Number(u.id), u);
+
+      return logs
+        .filter((log: any) => String(log.action) === 'RAID_DROP_SOLD')
+        .map((log: any) => {
+          const d = (log.details || {}) as any;
+          const quantity = Number(d.quantitySold || 0);
+          const total = Number(d.revenue || 0);
+          const price = quantity > 0 ? Math.round(total / quantity) : 0;
+          const buyerIdRaw = d.buyerId;
+          const buyerName =
+            d.buyerName ||
+            (buyerIdRaw != null ? (usersById.get(Number(buyerIdRaw))?.name || 'Sin comprador') : 'Sin comprador');
+          const seller = usersById.get(Number(log.userId));
+          return {
+            // id del log — único y estable por compra
+            id: Number(log.id),
+            dropItemId: d.dropItemId != null ? Number(d.dropItemId) : null,
+            itemName: String(d.itemName || '—'),
+            buyerId: buyerIdRaw != null ? Number(buyerIdRaw) : null,
+            buyerName,
+            quantity,
+            price,
+            total,
+            clansShared: Array.isArray(d.clansShared) ? d.clansShared.map(Number) : [],
+            soldByUserId: Number(log.userId),
+            soldByUserName: seller?.name || seller?.email || 'Sistema',
+            createdAt: log.createdAt,
+          };
+        });
+    }),
+  }),
 });
