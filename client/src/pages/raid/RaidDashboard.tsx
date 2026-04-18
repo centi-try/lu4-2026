@@ -28,6 +28,15 @@ export default function RaidDashboard({ raidAccess }: Props) {
   const allEvents = eventsQ.data || [];
   const allCycles = cyclesListQ.data || [];
 
+  // Tab activa del dashboard:
+  //  - 'summary' → KPIs + chart + grid (Eventos | Actividad) [default]
+  //  - 'drops'   → tabla consolidada de drops disponibles
+  //
+  // Separamos en tabs para que el listado de eventos, el feed de actividad
+  // y la tabla de drops puedan crecer cada uno sin empujar a los otros
+  // hacia abajo (pedido explícito del usuario).
+  const [tab, setTab] = useState<'summary' | 'drops'>('summary');
+
   if (metricsQ.isLoading || !m) {
     return (
       <AppShell>
@@ -62,6 +71,58 @@ export default function RaidDashboard({ raidAccess }: Props) {
         </p>
       </div>
 
+      {/* Tabs: Resumen | Drops disponibles — mismo patrón que /raids/inventory */}
+      <div
+        className="flex items-center gap-1 mb-5 rounded-xl p-1"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setTab('summary')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'summary'
+                ? 'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(167,139,250,0.25))'
+                : 'transparent',
+            color: tab === 'summary' ? '#e879f9' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'summary' ? '1px solid rgba(232,121,249,0.25)' : '1px solid transparent',
+          }}
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          Resumen
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('drops')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'drops'
+                ? 'linear-gradient(135deg, rgba(167,139,250,0.25), rgba(123,241,214,0.25))'
+                : 'transparent',
+            color: tab === 'drops' ? '#a78bfa' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'drops' ? '1px solid rgba(167,139,250,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Package className="h-4 w-4" />
+          Drops disponibles
+        </button>
+      </div>
+
+      {tab === 'drops' && (
+        <div>
+          <RaidDropsTable raidAccess={raidAccess} />
+        </div>
+      )}
+
+      {tab === 'summary' && (
+      <>
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
         <KpiCard
@@ -321,12 +382,8 @@ export default function RaidDashboard({ raidAccess }: Props) {
         </div>
       </div>
 
-      {/* Tabla consolidada de drops (ancho completo) — replica la tab
-          "Tabla de drops" de /raids/inventory. Queda abajo porque necesita
-          el ancho completo para respirar (8 columnas + filtros). */}
-      <div className="mt-5">
-        <RaidDropsTable raidAccess={raidAccess} />
-      </div>
+      </>
+      )}
     </AppShell>
   );
 }

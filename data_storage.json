@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T02:48:49.911Z",
-      "lastSignedIn": "2026-04-18T02:48:49.911Z"
+      "updatedAt": "2026-04-18T02:54:09.456Z",
+      "lastSignedIn": "2026-04-18T02:54:09.456Z"
     },
     {
       "id": 581030,
@@ -1833,6 +1833,26 @@
       "notes": null,
       "createdAt": "2026-04-18T02:23:00.527Z",
       "updatedAt": "2026-04-18T02:23:00.527Z"
+    },
+    {
+      "id": 761838835,
+      "raidBossId": 814047,
+      "cycleId": 517468966,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-18T02:49:51.226Z",
+      "updatedAt": "2026-04-18T02:49:51.226Z"
+    },
+    {
+      "id": 137286279,
+      "raidBossId": 347552,
+      "cycleId": 517468966,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": "avion",
+      "createdAt": "2026-04-18T02:50:39.917Z",
+      "updatedAt": "2026-04-18T02:50:39.917Z"
     }
   ],
   "raidEventClans": [
@@ -2297,6 +2317,24 @@
       "eventId": 451276823,
       "clanId": 898429,
       "createdAt": "2026-04-18T02:23:00.527Z"
+    },
+    {
+      "id": 383840501,
+      "eventId": 761838835,
+      "clanId": 107708,
+      "createdAt": "2026-04-18T02:49:51.226Z"
+    },
+    {
+      "id": 953811806,
+      "eventId": 137286279,
+      "clanId": 898429,
+      "createdAt": "2026-04-18T02:50:39.917Z"
+    },
+    {
+      "id": 829057219,
+      "eventId": 137286279,
+      "clanId": 107708,
+      "createdAt": "2026-04-18T02:50:39.917Z"
     }
   ],
   "raidDropItems": [
@@ -4169,6 +4207,47 @@
       "reportedByUserId": 1,
       "createdAt": "2026-04-18T02:23:00.527Z",
       "updatedAt": "2026-04-18T02:23:00.527Z"
+    },
+    {
+      "id": 393426576,
+      "eventId": 761838835,
+      "raidBossId": 814047,
+      "cycleId": 517468966,
+      "name": "arbol",
+      "category": "ARMA",
+      "price": 3223,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZl4OUTQJpAyDswvTXkt0BsbLwdc4_eEyhlg&s",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-18T02:49:51.226Z",
+      "updatedAt": "2026-04-18T02:49:51.226Z"
+    },
+    {
+      "id": 822175855,
+      "eventId": 137286279,
+      "raidBossId": 347552,
+      "cycleId": 517468966,
+      "name": "dildo 3000",
+      "category": "ARMADURA",
+      "price": 1000,
+      "quantity": 10,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": null,
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        898429,
+        107708
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-18T02:50:39.917Z",
+      "updatedAt": "2026-04-18T02:50:39.917Z"
     }
   ],
   "userRaidAccess": [
@@ -4640,6 +4719,37 @@
         }
       },
       "createdAt": "2026-04-18T02:39:01.265Z"
+    },
+    {
+      "id": 513921033,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 761838835,
+        "bossId": 814047,
+        "bossName": "Freya",
+        "clanIds": [
+          107708
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-18T02:49:51.227Z"
+    },
+    {
+      "id": 638406356,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 137286279,
+        "bossId": 347552,
+        "bossName": "Tauti",
+        "clanIds": [
+          898429,
+          107708
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-18T02:50:39.918Z"
     }
   ],
   "raidSettings": [],
