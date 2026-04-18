@@ -358,14 +358,32 @@ export default function RaidSettings({ raidAccess }: Props) {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button
-                    onClick={() => setBossToDelete(b)}
-                    className="rounded-lg p-1.5 transition-all hover:bg-red-500/10"
-                    style={{ color: 'rgba(255,120,120,0.7)' }}
-                    title="Eliminar"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {(() => {
+                    const usage = Number(b.usageCount) || 0;
+                    const blocked = usage > 0;
+                    return (
+                      <button
+                        onClick={() => {
+                          if (!blocked) setBossToDelete(b);
+                        }}
+                        disabled={blocked}
+                        className="rounded-lg p-1.5 transition-all"
+                        style={{
+                          color: blocked
+                            ? 'rgba(255,120,120,0.25)'
+                            : 'rgba(255,120,120,0.7)',
+                          cursor: blocked ? 'not-allowed' : 'pointer',
+                        }}
+                        title={
+                          blocked
+                            ? `No se puede eliminar · está asociado a ${usage} evento${usage === 1 ? '' : 's'}. Editalo en vez de borrarlo.`
+                            : 'Eliminar'
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    );
+                  })()}
                 </div>
               ))
             )}
@@ -545,14 +563,32 @@ export default function RaidSettings({ raidAccess }: Props) {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button
-                        onClick={() => setClanToDelete(c)}
-                        className="rounded-lg p-1.5 transition-all hover:bg-red-500/10"
-                        style={{ color: 'rgba(255,120,120,0.7)' }}
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {(() => {
+                        const usage = Number(c.usageCount) || 0;
+                        const blocked = usage > 0;
+                        return (
+                          <button
+                            onClick={() => {
+                              if (!blocked) setClanToDelete(c);
+                            }}
+                            disabled={blocked}
+                            className="rounded-lg p-1.5 transition-all"
+                            style={{
+                              color: blocked
+                                ? 'rgba(255,120,120,0.25)'
+                                : 'rgba(255,120,120,0.7)',
+                              cursor: blocked ? 'not-allowed' : 'pointer',
+                            }}
+                            title={
+                              blocked
+                                ? `No se puede eliminar · está asociado a ${usage} evento${usage === 1 ? '' : 's'}. Editalo en vez de borrarlo.`
+                                : 'Eliminar'
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        );
+                      })()}
                     </>
                   )}
                 </div>

@@ -776,6 +776,12 @@ export const deleteRaidBoss = async (id: number) => {
   return boss;
 };
 
+export const countRaidBossUsage = async (id: number) => {
+  return (dbInstance.raidEvents || []).filter(
+    e => Number(e.raidBossId) === Number(id)
+  ).length;
+};
+
 // ---------- Clanes (catálogo - super admin / raid_admin) --------------------
 
 export const getClans = async () => {
@@ -834,6 +840,12 @@ export const deleteClan = async (id: number) => {
   dbInstance.raidEventClans = (dbInstance.raidEventClans || []).filter(ec => Number(ec.clanId) !== Number(id));
   saveDb(dbInstance);
   return clan;
+};
+
+export const countClanUsage = async (id: number) => {
+  return (dbInstance.raidEventClans || []).filter(
+    ec => Number(ec.clanId) === Number(id)
+  ).length;
 };
 
 // ---------- Acceso al módulo raid por usuario -------------------------------

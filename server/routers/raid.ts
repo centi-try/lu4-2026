@@ -4,8 +4,9 @@ import { router, protectedProcedure } from '../_core/trpc';
 import {
   // bosses
   getRaidBosses, createRaidBoss, updateRaidBoss, deleteRaidBoss, getRaidBossById,
+  countRaidBossUsage,
   // clans
-  getClans, createClan, updateClan, deleteClan, getClanById,
+  getClans, createClan, updateClan, deleteClan, getClanById, countClanUsage,
   // category icons (super admin)
   getRaidCategoryIcons, setRaidCategoryIcon, deleteRaidCategoryIcon, RAID_DROP_CATEGORIES,
   // access
@@ -157,7 +158,15 @@ export const raidRouter = router({
   // ---------------- Bosses (catálogo) ---------------------------------------
   bosses: router({
     list: raidViewerProcedure.query(async () => {
-      return await getRaidBosses();
+      const bosses = await getRaidBosses();
+      // Incluimos usageCount (cantidad de eventos que referencian el boss)
+      // para que la UI pueda bloquear el borrado cuando el boss está en uso.
+      return Promise.all(
+        bosses.map(async (b: any) => ({
+          ...b,
+          usageCount: await countRaidBossUsage(Number(b.id)),
+        }))
+      );
     }),
     listForCatalog: raidSuperAdminProcedure.query(async () => {
       return await getRaidBosses();
@@ -189,6 +198,16 @@ export const raidRouter = router({
     delete: raidSuperAdminProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
+        // Bloquear el borrado si el boss está siendo usado en algún evento
+        // registrado. La UI también deshabilita el botón, pero además lo
+        // validamos acá por si alguien intenta forzar la mutation.
+        const usage = await countRaidBossUsage(input.id);
+        if (usage > 0) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `No se puede eliminar: el Raid Boss está asociado a ${usage} evento${usage === 1 ? '' : 's'}. Edítalo en vez de borrarlo.`,
+          });
+        }
         const boss = await deleteRaidBoss(input.id);
         if (!boss) throw new TRPCError({ code: 'NOT_FOUND', message: 'Raid boss no encontrado.' });
         await createRaidAuditLog({
@@ -203,7 +222,15 @@ export const raidRouter = router({
   // ---------------- Clans ---------------------------------------------------
   clans: router({
     list: raidViewerProcedure.query(async () => {
-      return await getClans();
+      const clans = await getClans();
+      // Incluimos usageCount (cantidad de eventos donde el clan fue asociado)
+      // para que la UI pueda bloquear el borrado cuando ya está en uso.
+      return Promise.all(
+        clans.map(async (c: any) => ({
+          ...c,
+          usageCount: await countClanUsage(Number(c.id)),
+        }))
+      );
     }),
     stats: raidViewerProcedure.query(async () => {
       return await getClanStats();
@@ -235,6 +262,16 @@ export const raidRouter = router({
     delete: raidAdminProcedure
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
+        // Bloquear el borrado si el clan está siendo usado en algún evento
+        // registrado. La UI también deshabilita el botón, pero además lo
+        // validamos acá por si alguien intenta forzar la mutation.
+        const usage = await countClanUsage(input.id);
+        if (usage > 0) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `No se puede eliminar: el clan está asociado a ${usage} evento${usage === 1 ? '' : 's'}. Edítalo en vez de borrarlo.`,
+          });
+        }
         const clan = await deleteClan(input.id);
         if (!clan) throw new TRPCError({ code: 'NOT_FOUND', message: 'Clan no encontrado.' });
         await createRaidAuditLog({
