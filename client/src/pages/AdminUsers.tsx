@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
-import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key } from 'lucide-react';
+import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle } from 'lucide-react';
 
 type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
@@ -140,6 +140,8 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [passwordModal, setPasswordModal] = useState<{ userId: number; email: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [deleteModalUser, setDeleteModalUser] = useState<AdminUser | null>(null);
+  const [toggleModalUser, setToggleModalUser] = useState<AdminUser | null>(null);
 
   const { data: users, isLoading, error, refetch } = trpc.adminUsers.listUsers.useQuery(undefined, {
     retry: false,
@@ -191,8 +193,15 @@ export default function AdminUsers() {
     },
   });
 
-  const handleToggleActive = (userId: number, isActive: boolean) => {
-    toggleActiveMutation.mutate({ userId, isActive });
+  const handleToggleActive = (userId: number, _nextState: boolean) => {
+    const user = (users || []).find(u => u.id === userId);
+    if (user) setToggleModalUser(user);
+  };
+
+  const confirmToggleActive = () => {
+    if (!toggleModalUser) return;
+    toggleActiveMutation.mutate({ userId: toggleModalUser.id, isActive: !toggleModalUser.isActive });
+    setToggleModalUser(null);
   };
 
   const handleRoleChange = (userId: number, role: UserRole) => {
@@ -200,9 +209,13 @@ export default function AdminUsers() {
   };
 
   const handleDeleteUser = (user: AdminUser) => {
-    if (confirm(`¿Estás seguro de que deseas eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`)) {
-      deleteUserMutation.mutate({ userId: user.id });
-    }
+    setDeleteModalUser(user);
+  };
+
+  const confirmDeleteUser = () => {
+    if (!deleteModalUser) return;
+    deleteUserMutation.mutate({ userId: deleteModalUser.id });
+    setDeleteModalUser(null);
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -593,6 +606,115 @@ export default function AdminUsers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {deleteModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setDeleteModalUser(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.35)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Eliminar cuenta
+                </h3>
+              </div>
+              <button onClick={() => setDeleteModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará la cuenta de forma permanente. No se puede deshacer.
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {deleteModalUser.name}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {deleteModalUser.email} · {getRoleStyle(deleteModalUser.role).label}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmDeleteUser}
+                disabled={deleteUserMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: '#ef4444', color: '#fff' }}>
+                <Trash2 className="h-4 w-4" />
+                {deleteUserMutation.isPending ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toggle Active Confirmation Modal */}
+      {toggleModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setToggleModalUser(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: `1px solid ${toggleModalUser.isActive ? 'rgba(251,191,36,0.35)' : 'rgba(123,241,214,0.35)'}`,
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5"
+                  style={{ color: toggleModalUser.isActive ? '#fbbf24' : '#7bf1d6' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  {toggleModalUser.isActive ? 'Desactivar cuenta' : 'Activar cuenta'}
+                </h3>
+              </div>
+              <button onClick={() => setToggleModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              {toggleModalUser.isActive
+                ? 'La cuenta no podrá iniciar sesión hasta que vuelva a activarse.'
+                : 'La cuenta podrá iniciar sesión nuevamente.'}
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {toggleModalUser.name}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {toggleModalUser.email} · {getRoleStyle(toggleModalUser.role).label}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setToggleModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmToggleActive}
+                disabled={toggleActiveMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+                style={{
+                  background: toggleModalUser.isActive ? '#fbbf24' : '#7bf1d6',
+                  color: '#000'
+                }}>
+                {toggleActiveMutation.isPending
+                  ? 'Guardando…'
+                  : toggleModalUser.isActive ? 'Sí, desactivar' : 'Sí, activar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

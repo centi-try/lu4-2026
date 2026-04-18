@@ -21,8 +21,11 @@ const pwdHash = sha256(DEFAULT_PWD);
 // runtime roles normalize to: super_admin | mapper | user
 // raid access levels:          raid_admin | raid_mapper | raid_user | viewer_only
 const userDefs = [
-  { email: 'lucia.admin@inventory.com',     name: 'Lucía Admin',      role: 'super_admin', raid: 'raid_admin' },
-  { email: 'mateo.admin@inventory.com',     name: 'Mateo Admin',      role: 'super_admin', raid: 'raid_admin' },
+  // NOTE: lucia/mateo are RAID admins (not system super_admin) — the server's
+  // normalizeUser rewrites any super_admin user's email to the default, which
+  // would collapse them into the single superadmin@inventory.com row on load.
+  { email: 'lucia.admin@inventory.com',     name: 'Lucía Admin',      role: 'user',        raid: 'raid_admin' },
+  { email: 'mateo.admin@inventory.com',     name: 'Mateo Admin',      role: 'user',        raid: 'raid_admin' },
   { email: 'sofia.mapper@inventory.com',    name: 'Sofía Mapper',     role: 'mapper',      raid: 'raid_mapper' },
   { email: 'tomas.mapper@inventory.com',    name: 'Tomás Mapper',     role: 'mapper',      raid: 'raid_mapper' },
   { email: 'valeria.mapper@inventory.com',  name: 'Valeria Mapper',   role: 'mapper',      raid: 'viewer_only' },
@@ -73,13 +76,14 @@ if (keepSuper.length === 0) {
   console.warn('WARN: original super admin not found, it will be recreated on server boot');
 }
 
-// Reset lists
+// Reset lists (solo data legacy; raid se maneja en seed-raid-data.mjs)
 db.users = [...keepSuper];
 db.characters = [];
 db.items = [];
 db.userRaidAccess = [];
-db.purchases = db.purchases || [];
-db.auditLogs = db.auditLogs || [];
+db.purchases = [];
+db.salesCycles = [];
+db.auditLogs = [];
 
 const createdUsers = [];
 for (const u of userDefs) {
@@ -159,7 +163,9 @@ for (let i = 0; i < itemDefs.length; i++) {
   const assocCount = 1 + (i % 3);                       // 1, 2 or 3
   const assoc = pickN(allCharIds, assocCount);
   const mapperId = mapperIds[i % Math.max(mapperIds.length, 1)] || fallbackMapper;
-  const sold = i % 5 === 0 ? Math.min(1, d.quantity) : 0; // every 5th item has 1 sold
+  // Patrón de ventas variado: algunos items sin vender, otros con varias unidades
+  const soldPattern = [0, 1, 0, 2, 1, 0, 1, 0, 3, 1, 0, 2, 0, 1, 5, 0, 3, 2, 4, 1];
+  const sold = Math.min(soldPattern[i] || 0, d.quantity);
   const item = {
     id: randId(),
     name: d.name,
@@ -190,8 +196,182 @@ for (let i = 0; i < itemDefs.length; i++) {
   }
 }
 
-// Settings: bump cycle counter
-db.settings = Array.isArray(db.settings) && db.settings.length ? db.settings : [{ cycleCounter: 1 }];
+// ---------------------------------------------------------------------------
+// Purchases + Sales Cycles históricos (legacy module)
+// ---------------------------------------------------------------------------
+// Construimos 2 ciclos cerrados (un DIARIO + un SEMANAL) a partir de las ventas
+// persistidas en items. Además registramos `purchases` coherentes.
+function hoursAgo(h) {
+  return new Date(Date.now() - h * 3600 * 1000).toISOString();
+}
+
+const buyers = db.characters.filter(c => !c.name.startsWith('Guild Storage'));
+function pickBuyer(idx) { return buyers[idx % buyers.length]; }
+
+// Registrar una compra histórica por cada unidad vendida en items seed
+let purchaseIdx = 0;
+const historicalPurchases = [];
+for (const it of db.items) {
+  if ((it.quantitySold || 0) > 0) {
+    for (let u = 0; u < it.quantitySold; u++) {
+      const buyer = pickBuyer(purchaseIdx);
+      historicalPurchases.push({
+        id: String(randId()),
+        itemId: String(it.id),
+        itemName: it.name,
+        buyerId: String(buyer.id),
+        buyerName: buyer.name,
+        quantity: 1,
+        price: it.price,
+        total: it.price,
+        createdAt: hoursAgo(48 + purchaseIdx), // distribuidas en el pasado
+      });
+      purchaseIdx++;
+    }
+  }
+}
+db.purchases = historicalPurchases;
+
+// --- Ciclo SEMANAL cerrado ---------------------------------------------------
+// Contiene ~70% de las ventas históricas; items vendidos antes del cierre.
+const halfCount = Math.floor(historicalPurchases.length * 0.65);
+const semanalSoldPurchases = historicalPurchases.slice(0, halfCount);
+const diarioSoldPurchases = historicalPurchases.slice(halfCount);
+
+function buildCycle({ type, label, purchases: sPur, startedHoursAgo, closedHoursAgo, closedBy }) {
+  const revenuePerChar = {}; // characterId -> earnings
+  const soldItemsMap = {};   // itemId -> {qty, revenue}
+
+  for (const p of sPur) {
+    soldItemsMap[p.itemId] = soldItemsMap[p.itemId] || { qty: 0, revenue: 0 };
+    soldItemsMap[p.itemId].qty += p.quantity;
+    soldItemsMap[p.itemId].revenue += p.total;
+
+    const item = db.items.find(i => String(i.id) === p.itemId);
+    if (!item) continue;
+    const assoc = item.associatedCharacterIds || [];
+    const share = Math.floor(p.total / Math.max(assoc.length, 1));
+    for (const cid of assoc) {
+      revenuePerChar[cid] = (revenuePerChar[cid] || 0) + share;
+    }
+  }
+
+  const soldItems = Object.entries(soldItemsMap).map(([itemId, v]) => {
+    const item = db.items.find(i => String(i.id) === itemId);
+    if (!item) return null;
+    const assoc = (item.associatedCharacterIds || []).map(String);
+    return {
+      itemId: String(item.id),
+      itemName: item.name,
+      category: item.category,
+      price: item.price,
+      quantitySold: v.qty,
+      totalRevenue: v.revenue,
+      associatedCharacterIds: assoc,
+      earningsPerCharacter: Math.floor(v.revenue / Math.max(assoc.length, 1)),
+    };
+  }).filter(Boolean);
+
+  const characterEarnings = Object.entries(revenuePerChar)
+    .filter(([, amt]) => amt > 0)
+    .map(([cid, amt]) => {
+      const c = db.characters.find(ch => String(ch.id) === String(cid));
+      return {
+        characterId: String(cid),
+        characterName: c?.name || String(cid),
+        earnings: amt,
+      };
+    });
+
+  const totalRevenue = soldItems.reduce((s, i) => s + i.totalRevenue, 0);
+
+  // Items "no vendidos" = todos los que tienen stock disponible en ESA foto
+  const unsoldItemIds = db.items
+    .filter(i => {
+      const rem = (i.quantity || 0) - (i.quantitySold || 0);
+      return rem > 0;
+    })
+    .map(i => String(i.id));
+
+  return {
+    id: randId(),
+    label,
+    type,
+    status: 'CLOSED',
+    startedAt: hoursAgo(startedHoursAgo),
+    closedAt: hoursAgo(closedHoursAgo),
+    closedBy,
+    totalRevenue,
+    totalProfit: totalRevenue,
+    characterEarnings,
+    soldItems,
+    unsoldItemIds,
+  };
+}
+
+db.salesCycles.push(buildCycle({
+  type: 'SEMANAL',
+  label: 'Ciclo #1 (Semanal)',
+  purchases: semanalSoldPurchases,
+  startedHoursAgo: 24 * 10,   // hace ~10 días
+  closedHoursAgo: 24 * 3,     // cerrado hace ~3 días
+  closedBy: 'Lucía Admin',
+}));
+
+db.salesCycles.push(buildCycle({
+  type: 'DIARIO',
+  label: 'Ciclo #2 (Diario)',
+  purchases: diarioSoldPurchases,
+  startedHoursAgo: 24 * 3,    // hace ~3 días
+  closedHoursAgo: 24 * 1,     // cerrado ayer
+  closedBy: 'Mateo Admin',
+}));
+
+// --- Ciclo abierto actual -----------------------------------------------------
+// Simulamos algo de actividad del ciclo en curso: 2 items con
+// quantitySoldInCycle > 0 (no reflejados en ciclos cerrados).
+const currentCycleItems = db.items.slice(0, 3);
+for (const it of currentCycleItems) {
+  // incrementar las ventas: vendemos 1 unidad más (si queda stock)
+  const remaining = it.quantity - it.quantitySold;
+  if (remaining > 0) {
+    it.quantitySold += 1;
+    it.quantitySoldInCycle = 1;
+    const buyer = pickBuyer(purchaseIdx);
+    db.purchases.push({
+      id: String(randId()),
+      itemId: String(it.id),
+      itemName: it.name,
+      buyerId: String(buyer.id),
+      buyerName: buyer.name,
+      quantity: 1,
+      price: it.price,
+      total: it.price,
+      createdAt: hoursAgo(3 + purchaseIdx),
+    });
+    purchaseIdx++;
+
+    const assoc = it.associatedCharacterIds || [];
+    const share = Math.floor(it.price / Math.max(assoc.length, 1));
+    for (const cid of assoc) {
+      const c = db.characters.find(x => x.id === cid);
+      if (c) {
+        c.currentCycleEarnings = (c.currentCycleEarnings || 0) + share;
+        c.totalProfit = (c.totalProfit || 0) + share;
+      }
+    }
+  }
+}
+
+// Audit logs simulados para el feed
+db.auditLogs.push(
+  { id: randId(), userId: createdUsers[0].id, action: 'CYCLE_CLOSED', details: { cycle: 'Ciclo #1 (Semanal)' }, createdAt: hoursAgo(72) },
+  { id: randId(), userId: createdUsers[1].id, action: 'CYCLE_CLOSED', details: { cycle: 'Ciclo #2 (Diario)' }, createdAt: hoursAgo(24) },
+  { id: randId(), userId: createdUsers[0].id, action: 'ITEM_SOLD', details: { itemName: currentCycleItems[0]?.name }, createdAt: hoursAgo(2) },
+);
+
+// Settings: cycleCounter = (ciclos cerrados + 1)
+db.settings = [{ cycleCounter: db.salesCycles.filter(c => c.status === 'CLOSED').length + 1 }];
 
 fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
 

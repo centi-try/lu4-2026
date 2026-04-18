@@ -25,6 +25,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [sellModalItem, setSellModalItem] = useState<Item | null>(null);
   const [sellQty, setSellQty] = useState('1');
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
+  // Confirmación de borrado
+  const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
 
   const filtered = items
     .filter(i => {
@@ -55,10 +57,16 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     toast.success(`"${name}" confirmado. Imagen bloqueada para Mapper.`);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (!window.confirm(`¿Eliminar "${name}"?`)) return;
-    deleteItem(id);
+  const handleDelete = (item: Item) => {
+    setDeleteModalItem(item);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteModalItem) return;
+    const name = deleteModalItem.name;
+    deleteItem(deleteModalItem.id);
     toast.success(`"${name}" eliminado del inventario.`);
+    setDeleteModalItem(null);
   };
 
   const handleEditPrice = (item: Item) => {
@@ -303,7 +311,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                             </button>
                           )}
                           {canDelete && (
-                            <button onClick={() => handleDelete(item.id, item.name)} className="btn-danger p-2" title="Eliminar ítem">
+                            <button onClick={() => handleDelete(item)} className="btn-danger p-2" title="Eliminar ítem">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -488,6 +496,63 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
                 <ShoppingCart className="h-4 w-4" />
                 Confirmar Venta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de borrado */}
+      {deleteModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setDeleteModalItem(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.3)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Eliminar ítem
+                </h3>
+              </div>
+              <button type="button" onClick={() => setDeleteModalItem(null)} className="btn-ghost p-1.5">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará el ítem del inventario de forma permanente. No se puede deshacer.
+            </p>
+            <div className="rounded-xl p-3 mb-4 flex items-center gap-3"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {deleteModalItem.image?.publicUrl ? (
+                  <img src={deleteModalItem.image.publicUrl} alt={deleteModalItem.name} className="h-full w-full object-cover" />
+                ) : (
+                  <Trash2 className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  {deleteModalItem.name}
+                </p>
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {deleteModalItem.category} · Stock {deleteModalItem.quantity - deleteModalItem.quantitySold}/{deleteModalItem.quantity}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModalItem(null)} className="btn-ghost flex-1 py-2.5">
+                Cancelar
+              </button>
+              <button onClick={confirmDelete} className="btn-danger flex-1 py-2.5 flex items-center justify-center gap-2">
+                <Trash2 className="h-4 w-4" />
+                Sí, eliminar
               </button>
             </div>
           </div>
