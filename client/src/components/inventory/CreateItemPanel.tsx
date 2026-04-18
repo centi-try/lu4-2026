@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { ItemTypeahead } from './ItemTypeahead';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, CATEGORIES } from '../../lib/category-meta';
@@ -64,6 +64,53 @@ export function CreateItemPanel() {
   const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Estado del "mini-panel de copiar personajes a otras filas".
+  // copyPanelRowId  = id de la fila que está actuando como origen de la copia.
+  // copyTargets     = set de ids de las filas destino que el usuario marcó.
+  // Se resetea al cerrar el panel, cambiar de fila, o tras copiar.
+  const [copyPanelRowId, setCopyPanelRowId] = useState<string | null>(null);
+  const [copyTargets, setCopyTargets] = useState<Set<string>>(new Set());
+
+  const openCopyPanel = (rowId: string) => {
+    if (copyPanelRowId === rowId) {
+      // toggle cerrar
+      setCopyPanelRowId(null);
+      setCopyTargets(new Set());
+    } else {
+      setCopyPanelRowId(rowId);
+      setCopyTargets(new Set());
+    }
+  };
+
+  const toggleCopyTarget = (rowId: string) => {
+    setCopyTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+
+  const copyCharsToTargets = (fromRowId: string) => {
+    const source = rows.find((r) => r.id === fromRowId);
+    if (!source) return;
+    if (copyTargets.size === 0) {
+      toast.error('Seleccioná al menos una fila destino');
+      return;
+    }
+    const charIds = [...source.selectedCharIds];
+    setRows((prev) =>
+      prev.map((r) =>
+        copyTargets.has(r.id) ? { ...r, selectedCharIds: charIds } : r,
+      ),
+    );
+    toast.success(
+      `Personajes copiados a ${copyTargets.size} fila${copyTargets.size === 1 ? '' : 's'}.`,
+    );
+    setCopyPanelRowId(null);
+    setCopyTargets(new Set());
+  };
+
   const canCreate =
     (currentUser && currentUser.role === 'MAPPER') ||
     (currentUser && currentUser.role === 'SUPER_ADMIN');
@@ -93,6 +140,18 @@ export function CreateItemPanel() {
 
   const removeRow = (id: string) => {
     setRows(prev => (prev.length === 1 ? prev : prev.filter(r => r.id !== id)));
+    // Si la fila eliminada era la fuente de la copia o un destino marcado,
+    // reseteo el mini-panel para que el estado no quede colgado.
+    if (copyPanelRowId === id) {
+      setCopyPanelRowId(null);
+      setCopyTargets(new Set());
+    } else if (copyTargets.has(id)) {
+      setCopyTargets((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   // Typeahead select: autocompleta nombre, categoría, precio, imagen.
@@ -523,6 +582,166 @@ export function CreateItemPanel() {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Copiar personajes a otras filas — atajo para cuando varias
+                      filas del mismo lote comparten los mismos personajes.
+                      Solo se muestra si hay más de una fila Y la fila actual
+                      tiene personajes seleccionados (si no hay nada para copiar,
+                      el botón no aparece). */}
+                  {rows.length > 1 && row.selectedCharIds.length > 0 && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => openCopyPanel(row.id)}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold transition-all"
+                        style={{
+                          background: copyPanelRowId === row.id
+                            ? 'rgba(139,183,250,0.18)'
+                            : 'rgba(139,183,250,0.08)',
+                          border: `1px solid ${
+                            copyPanelRowId === row.id
+                              ? 'rgba(139,183,250,0.45)'
+                              : 'rgba(139,183,250,0.25)'
+                          }`,
+                          color: '#8bb7fa',
+                        }}
+                        title="Aplicá los personajes de esta fila a otras filas del lote"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copiar estos personajes a otras filas
+                        {copyPanelRowId === row.id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {copyPanelRowId === row.id && (
+                        <div
+                          className="mt-2 rounded-xl border p-3"
+                          style={{
+                            background: 'rgba(10,14,22,0.98)',
+                            borderColor: 'rgba(139,183,250,0.25)',
+                          }}
+                        >
+                          <p
+                            className="text-[11px] mb-2"
+                            style={{ color: 'rgba(255,255,255,0.6)' }}
+                          >
+                            Marcá las filas a las que querés copiarle estos{' '}
+                            <strong style={{ color: '#8bb7fa' }}>
+                              {row.selectedCharIds.length} personaje
+                              {row.selectedCharIds.length === 1 ? '' : 's'}
+                            </strong>
+                            . Los personajes que esas filas tuvieran se
+                            reemplazan por los de acá.
+                          </p>
+
+                          <div className="space-y-1 mb-3">
+                            {rows.map((other, otherIdx) => {
+                              if (other.id === row.id) return null;
+                              const checked = copyTargets.has(other.id);
+                              const display =
+                                other.name.trim() || `(sin nombre)`;
+                              return (
+                                <label
+                                  key={other.id}
+                                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                                  style={{
+                                    background: checked
+                                      ? 'rgba(139,183,250,0.1)'
+                                      : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${
+                                      checked
+                                        ? 'rgba(139,183,250,0.35)'
+                                        : 'rgba(255,255,255,0.05)'
+                                    }`,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleCopyTarget(other.id)}
+                                    className="cursor-pointer"
+                                    style={{ accentColor: '#8bb7fa' }}
+                                  />
+                                  <span
+                                    className="text-xs font-medium"
+                                    style={{
+                                      color: 'rgba(255,255,255,0.85)',
+                                    }}
+                                  >
+                                    Ítem #{otherIdx + 1}
+                                  </span>
+                                  <span
+                                    className="text-xs truncate flex-1"
+                                    style={{
+                                      color: 'rgba(255,255,255,0.45)',
+                                    }}
+                                  >
+                                    {display}
+                                  </span>
+                                  {other.selectedCharIds.length > 0 && (
+                                    <span
+                                      className="rounded-full px-1.5 py-0.5 text-[10px]"
+                                      style={{
+                                        background: 'rgba(255,255,255,0.06)',
+                                        color: 'rgba(255,255,255,0.5)',
+                                      }}
+                                      title="Esta fila ya tenía personajes; se reemplazan"
+                                    >
+                                      ya tiene {other.selectedCharIds.length}
+                                    </span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCopyPanelRowId(null);
+                                setCopyTargets(new Set());
+                              }}
+                              className="rounded-lg px-3 py-1.5 text-xs transition-all"
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(255,255,255,0.7)',
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyCharsToTargets(row.id)}
+                              disabled={copyTargets.size === 0}
+                              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+                              style={{
+                                background:
+                                  copyTargets.size === 0
+                                    ? 'rgba(139,183,250,0.1)'
+                                    : 'rgba(139,183,250,0.2)',
+                                border: '1px solid rgba(139,183,250,0.4)',
+                                color: '#8bb7fa',
+                                opacity: copyTargets.size === 0 ? 0.5 : 1,
+                                cursor:
+                                  copyTargets.size === 0
+                                    ? 'not-allowed'
+                                    : 'pointer',
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                              Copiar a {copyTargets.size} fila
+                              {copyTargets.size === 1 ? '' : 's'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
