@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp, Copy, Check, AlertCircle } from 'lucide-react';
 import { ItemTypeahead } from './ItemTypeahead';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, CATEGORIES } from '../../lib/category-meta';
@@ -52,17 +52,38 @@ const emptyRow = (): RowState => ({
   name: '',
   category: '',
   price: '',
-  quantity: '1',
+  // Cantidad arranca en 0 a propósito — obliga al usuario a tipear la cantidad
+  // real en vez de arrastrar un "1" por defecto. La validación al submit lo
+  // marca en rojo si no cambió.
+  quantity: '0',
   imageUrl: '',
   selectedCharIds: [],
   showCharPicker: false,
   charSearch: '',
 });
 
+/** Indica si el string de cantidad representa un valor inválido (0, vacío, NaN, negativo). */
+const isInvalidQuantity = (q: string): boolean => {
+  const n = parseInt(q, 10);
+  return isNaN(n) || n < 1;
+};
+
 export function CreateItemPanel() {
   const { addItem, currentUser, characters } = useApp();
   const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Una vez que el usuario intenta submitir al menos una vez, cualquier fila
+  // con cantidad inválida queda permanentemente en rojo hasta que la corrija.
+  // Antes del primer intento no mostramos errores en rojo — solo el 0 inicial
+  // en estado neutro, para no asustar al usuario ni bien entra a la pantalla.
+  const [triedSubmit, setTriedSubmit] = useState(false);
+
+  // Refs a cada fila (por id) para hacer scroll a la primera inválida cuando
+  // el usuario intenta registrar con qty=0. También disparamos un pulso breve
+  // en esa fila para remarcarla.
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [pulseRowId, setPulseRowId] = useState<string | null>(null);
 
   // Estado del "mini-panel de copiar personajes a otras filas".
   // copyPanelRowId  = id de la fila que está actuando como origen de la copia.
@@ -199,6 +220,33 @@ export function CreateItemPanel() {
     e.preventDefault();
     if (submitting) return;
 
+    // Al primer submit activamos el modo "mostrar errores" para que las
+    // filas inválidas queden en rojo hasta que se corrijan.
+    setTriedSubmit(true);
+
+    // Chequeo específico de cantidad: si hay 1+ filas con qty inválida
+    // concentramos el feedback en el input de cantidad (rojo + scroll + pulse).
+    const invalidQtyRows = rows.filter((r) => isInvalidQuantity(r.quantity));
+    if (invalidQtyRows.length > 0) {
+      const firstInvalid = invalidQtyRows[0];
+      const firstIdx = rows.findIndex((r) => r.id === firstInvalid.id);
+      const el = rowRefs.current[firstInvalid.id];
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      // Pulso breve (se limpia solo con el timeout)
+      setPulseRowId(firstInvalid.id);
+      window.setTimeout(() => setPulseRowId(null), 750);
+      toast.error(
+        invalidQtyRows.length === 1
+          ? `Ítem #${firstIdx + 1}: ingresá una cantidad mayor a 0.`
+          : `${invalidQtyRows.length} ítems necesitan una cantidad mayor a 0.`,
+      );
+      return;
+    }
+
+    // Validaciones restantes (nombre, categoría, precio) — mantienen el
+    // toast clásico fila-por-fila como estaba antes.
     for (let i = 0; i < rows.length; i++) {
       const err = validateRow(rows[i]);
       if (err) {
@@ -235,6 +283,7 @@ export function CreateItemPanel() {
         toast.success(`${rows.length} ítems registrados correctamente.`);
       }
       setRows([emptyRow()]);
+      setTriedSubmit(false); // Reset — lote siguiente arranca limpio
     } catch (err: any) {
       toast.error(err?.message || 'Error al registrar los ítems');
     } finally {
@@ -319,13 +368,18 @@ export function CreateItemPanel() {
                 c.class.toLowerCase().includes(row.charSearch.toLowerCase()),
             );
 
+            const qtyInvalid = triedSubmit && isInvalidQuantity(row.quantity);
             return (
               <div
                 key={row.id}
-                className="rounded-xl p-3"
+                ref={(el) => {
+                  rowRefs.current[row.id] = el;
+                }}
+                className={`rounded-xl p-3 ${pulseRowId === row.id ? 'row-pulse-error' : ''}`}
                 style={{
                   background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  border: `1px solid ${qtyInvalid ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                  transition: 'border-color 200ms ease',
                 }}
               >
                 {/* Row header: #N + quitar */}
@@ -441,15 +495,35 @@ export function CreateItemPanel() {
                       min="1"
                       value={row.quantity}
                       onChange={e => updateRow(row.id, { quantity: e.target.value })}
-                      placeholder="1"
-                      className="w-full rounded-lg px-2 py-1.5 text-xs"
+                      onFocus={e => {
+                        // UX: si el valor es '0' (default o post-typeahead),
+                        // al hacer focus lo vaciamos para que el usuario
+                        // pueda tipear sin borrar manualmente.
+                        if (row.quantity === '0') {
+                          updateRow(row.id, { quantity: '' });
+                          // preservar el cursor — el browser se encarga después del re-render
+                          e.target.select?.();
+                        }
+                      }}
+                      placeholder="0"
+                      className={`w-full rounded-lg px-2 py-1.5 text-xs ${qtyInvalid ? 'input-error' : ''}`}
                       style={{
                         background: 'rgba(255,255,255,0.03)',
                         border: '1px solid rgba(255,255,255,0.08)',
                         color: 'rgba(255,255,255,0.9)',
                         height: 36,
                       }}
+                      aria-invalid={qtyInvalid}
                     />
+                    {qtyInvalid && (
+                      <div
+                        className="flex items-center gap-1 mt-1 text-[10px] font-medium"
+                        style={{ color: '#f87171', whiteSpace: 'nowrap' }}
+                      >
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>debe ser &gt; 0</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Imagen preview (solo lectura, se asigna por categoría) */}

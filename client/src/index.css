@@ -304,4 +304,27 @@
     overflow-y: auto;
     max-height: 520px;
   }
+
+  /* ----------------------------------------------------------------------
+   * Validación de inputs — usado por el input "Cantidad" de los formularios
+   * de registro (legacy y raid) cuando el usuario intenta registrar un ítem
+   * con qty=0. Borde rojo sutil + glow + pulso breve de la fila para llamar
+   * la atención sin ser agresivo.
+   * -------------------------------------------------------------------- */
+  .input-error {
+    border-color: rgba(248, 113, 113, 0.65) !important;
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+    background: rgba(248, 113, 113, 0.06) !important;
+  }
+
+  @keyframes pulse-error {
+    0%   { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.35); }
+    60%  { box-shadow: 0 0 0 8px rgba(248, 113, 113, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+  }
+
+  .row-pulse-error {
+    animation: pulse-error 700ms ease-out 1;
+    border-radius: 0.75rem;
+  }
 }

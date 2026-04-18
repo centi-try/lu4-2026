@@ -41,9 +41,18 @@ const emptyDrop = (): DropItemInput => ({
   name: '',
   category: '',
   price: '0',
-  quantity: '1',
+  // Arranca en 0 a propósito — obliga al usuario a ingresar la cantidad real
+  // del drop en vez de arrastrar un "1" por defecto. La validación al submit
+  // lo marca en rojo si no se cambió.
+  quantity: '0',
   imageUrl: '',
 });
+
+/** Cantidad inválida: 0, vacío, NaN, negativo. */
+const isInvalidQuantity = (q: string): boolean => {
+  const n = parseInt(q, 10);
+  return isNaN(n) || n < 1;
+};
 
 export default function RaidInventory({ raidAccess }: Props) {
   const utils = trpc.useUtils();
@@ -142,6 +151,16 @@ export default function RaidInventory({ raidAccess }: Props) {
   const [selectedClanIds, setSelectedClanIds] = useState<number[]>([]);
   const [drops, setDrops] = useState<DropItemInput[]>([emptyDrop()]);
 
+  // Modo "mostrar errores de validación": se activa al primer intento de submit
+  // y se mantiene hasta que el usuario corrija todas las filas inválidas (o se
+  // registre el evento OK). Aplica al input de cantidad de cada drop.
+  const [triedSubmit, setTriedSubmit] = useState(false);
+
+  // Refs a cada fila de drop (por índice) para hacer scroll a la primera con
+  // cantidad inválida al intentar registrar.
+  const dropRowRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const [pulseDropIdx, setPulseDropIdx] = useState<number | null>(null);
+
   const handleEvidenceFile = async (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -170,6 +189,8 @@ export default function RaidInventory({ raidAccess }: Props) {
     setNotes('');
     setSelectedClanIds([]);
     setDrops([emptyDrop()]);
+    setTriedSubmit(false);
+    setPulseDropIdx(null);
   };
 
   const toggleClan = (id: number) => {
@@ -270,6 +291,34 @@ export default function RaidInventory({ raidAccess }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Activamos modo "mostrar errores" para que las filas con qty inválida
+    // queden en rojo hasta que el usuario las corrija.
+    setTriedSubmit(true);
+
+    // Chequeo específico de cantidad sobre los drops que tienen nombre.
+    // (Los drops sin nombre se filtran en validateForm — no nos interesan acá.)
+    const invalidQtyIdx = drops
+      .map((d, i) => ({ d, i }))
+      .filter(({ d }) => d.name.trim() && isInvalidQuantity(d.quantity))
+      .map(({ i }) => i);
+
+    if (invalidQtyIdx.length > 0) {
+      const firstIdx = invalidQtyIdx[0];
+      const el = dropRowRefs.current[firstIdx];
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      setPulseDropIdx(firstIdx);
+      window.setTimeout(() => setPulseDropIdx(null), 750);
+      toast.error(
+        invalidQtyIdx.length === 1
+          ? `Drop #${firstIdx + 1}: ingresá una cantidad mayor a 0.`
+          : `${invalidQtyIdx.length} drops necesitan una cantidad mayor a 0.`,
+      );
+      return;
+    }
+
     const valid = validateForm();
     if (!valid) return;
     // En vez de enviar, abrimos modal de confirmación.
@@ -717,13 +766,22 @@ export default function RaidInventory({ raidAccess }: Props) {
               <div className="space-y-3">
                 {drops.map((d, idx) => {
                   const catOk = d.category && CATEGORIES.includes(d.category as ItemCategory);
+                  // Solo mostramos error de cantidad si el drop ya tiene nombre
+                  // (un drop sin nombre se ignora en validateForm, así que no
+                  // tiene sentido marcarle la cantidad en rojo).
+                  const qtyInvalid =
+                    triedSubmit && d.name.trim().length > 0 && isInvalidQuantity(d.quantity);
                   return (
                     <div
                       key={idx}
-                      className="rounded-xl p-3"
+                      ref={(el) => {
+                        dropRowRefs.current[idx] = el;
+                      }}
+                      className={`rounded-xl p-3 ${pulseDropIdx === idx ? 'row-pulse-error' : ''}`}
                       style={{
                         background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.06)',
+                        border: `1px solid ${qtyInvalid ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                        transition: 'border-color 200ms ease',
                       }}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -823,21 +881,40 @@ export default function RaidInventory({ raidAccess }: Props) {
                             className="mb-1 block text-xs font-medium"
                             style={{ color: 'rgba(255,255,255,0.55)' }}
                           >
-                            Cant. *
+                            Cant. <span style={{ color: '#f87171' }}>*</span>
                           </label>
                           <input
                             type="number"
                             min="1"
                             value={d.quantity}
                             onChange={(e) => updateDrop(idx, 'quantity', e.target.value)}
-                            placeholder="1"
-                            className="w-full rounded-lg px-2 py-1.5 text-xs"
+                            onFocus={(e) => {
+                              // UX: si arranca en '0' (default o post-typeahead),
+                              // lo vaciamos al hacer focus así el usuario puede
+                              // tipear sin tener que borrar manualmente.
+                              if (d.quantity === '0') {
+                                updateDrop(idx, 'quantity', '');
+                                e.target.select?.();
+                              }
+                            }}
+                            placeholder="0"
+                            className={`w-full rounded-lg px-2 py-1.5 text-xs ${qtyInvalid ? 'input-error' : ''}`}
                             style={{
                               background: 'rgba(255,255,255,0.03)',
                               border: '1px solid rgba(255,255,255,0.08)',
                               color: 'rgba(255,255,255,0.9)',
                             }}
+                            aria-invalid={qtyInvalid}
                           />
+                          {qtyInvalid && (
+                            <div
+                              className="flex items-center gap-1 mt-1 text-[10px] font-medium"
+                              style={{ color: '#f87171', whiteSpace: 'nowrap' }}
+                            >
+                              <AlertCircle className="h-3 w-3 shrink-0" />
+                              <span>debe ser &gt; 0</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Imagen (solo preview - se asigna automáticamente por categoría) */}
