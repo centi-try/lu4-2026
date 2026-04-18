@@ -84,12 +84,20 @@ export default function RaidDropsTable({ raidAccess }: Props) {
     const totalUnits = filtered.reduce((s: number, d: any) => s + (Number(d.quantity) || 0), 0);
     const soldUnits = filtered.reduce((s: number, d: any) => s + (Number(d.quantitySold) || 0), 0);
     const remainingUnits = totalUnits - soldUnits;
+    // Adena ya cobrada (suma de price × quantitySold) — crece con cada venta.
+    const soldRevenue = filtered.reduce(
+      (s: number, d: any) => s + (Number(d.price) || 0) * (Number(d.quantitySold) || 0),
+      0
+    );
+    // Adena que falta cobrar si se vende lo restante (price × remaining).
     const potentialRevenue = filtered.reduce(
       (s: number, d: any) =>
         s + (Number(d.price) || 0) * ((Number(d.quantity) || 0) - (Number(d.quantitySold) || 0)),
       0
     );
-    return { totalUnits, soldUnits, remainingUnits, potentialRevenue };
+    // Adena total posible si todo se vende (sticker price).
+    const totalRevenue = soldRevenue + potentialRevenue;
+    return { totalUnits, soldUnits, remainingUnits, soldRevenue, potentialRevenue, totalRevenue };
   }, [filtered]);
 
   // -------- Mutations -------------------------------------------------------
@@ -199,7 +207,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
               · {filtered.length} de {drops.length}
             </span>
           </div>
-          <div className="flex items-center gap-4 text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
             <span>
               Unid: <span style={{ color: '#7bf1d6' }}>{totals.remainingUnits}</span>/
               {totals.totalUnits}
@@ -208,8 +216,16 @@ export default function RaidDropsTable({ raidAccess }: Props) {
               Vendidas: <span style={{ color: '#fbbf24' }}>{totals.soldUnits}</span>
             </span>
             <span>
-              Valor restante:{' '}
+              Vendido:{' '}
+              <span style={{ color: '#fbbf24' }}>${totals.soldRevenue.toLocaleString()}</span>
+            </span>
+            <span>
+              Restante:{' '}
               <span style={{ color: '#a78bfa' }}>${totals.potentialRevenue.toLocaleString()}</span>
+            </span>
+            <span>
+              Total:{' '}
+              <span style={{ color: 'rgba(255,255,255,0.85)' }}>${totals.totalRevenue.toLocaleString()}</span>
             </span>
           </div>
         </div>

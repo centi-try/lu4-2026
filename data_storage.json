@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T02:16:58.455Z",
-      "lastSignedIn": "2026-04-18T02:16:58.455Z"
+      "updatedAt": "2026-04-18T02:35:43.764Z",
+      "lastSignedIn": "2026-04-18T02:35:43.764Z"
     },
     {
       "id": 581030,
@@ -1823,6 +1823,16 @@
       "notes": null,
       "createdAt": "2026-04-17T23:07:16.912Z",
       "updatedAt": "2026-04-17T23:07:16.912Z"
+    },
+    {
+      "id": 451276823,
+      "raidBossId": 300420,
+      "cycleId": 517468966,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-18T02:23:00.527Z",
+      "updatedAt": "2026-04-18T02:23:00.527Z"
     }
   ],
   "raidEventClans": [
@@ -2275,6 +2285,18 @@
       "eventId": 818933503,
       "clanId": 128350,
       "createdAt": "2026-04-17T23:07:16.912Z"
+    },
+    {
+      "id": 483520433,
+      "eventId": 451276823,
+      "clanId": 107708,
+      "createdAt": "2026-04-18T02:23:00.527Z"
+    },
+    {
+      "id": 272877163,
+      "eventId": 451276823,
+      "clanId": 898429,
+      "createdAt": "2026-04-18T02:23:00.527Z"
     }
   ],
   "raidDropItems": [
@@ -4126,6 +4148,27 @@
       "reportedByUserId": 1,
       "createdAt": "2026-04-17T23:07:16.912Z",
       "updatedAt": "2026-04-18T00:17:57.305Z"
+    },
+    {
+      "id": 133408353,
+      "eventId": 451276823,
+      "raidBossId": 300420,
+      "cycleId": 517468966,
+      "name": "armadura de dios",
+      "category": "ARMADURA",
+      "price": 2323,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": null,
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107708,
+        898429
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-18T02:23:00.527Z",
+      "updatedAt": "2026-04-18T02:23:00.527Z"
     }
   ],
   "userRaidAccess": [
@@ -4157,6 +4200,14 @@
       "accessLevel": "raid_mapper",
       "grantedBy": 1,
       "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 471087377,
+      "userId": 356166,
+      "accessLevel": "raid_user",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-18T02:18:10.219Z",
+      "updatedAt": "2026-04-18T02:18:10.219Z"
     }
   ],
   "raidAuditLogs": [
@@ -4551,6 +4602,32 @@
         "accessLevel": null
       },
       "createdAt": "2026-04-18T02:12:08.205Z"
+    },
+    {
+      "id": 90306119,
+      "userId": 1,
+      "action": "RAID_ACCESS_GRANTED",
+      "details": {
+        "targetUserId": 356166,
+        "accessLevel": "raid_user"
+      },
+      "createdAt": "2026-04-18T02:18:10.220Z"
+    },
+    {
+      "id": 266732262,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 451276823,
+        "bossId": 300420,
+        "bossName": "Antharas",
+        "clanIds": [
+          107708,
+          898429
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-18T02:23:00.528Z"
     }
   ],
   "raidSettings": [],

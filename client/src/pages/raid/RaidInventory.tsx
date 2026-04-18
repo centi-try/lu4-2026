@@ -1474,6 +1474,17 @@ function EventCard({
     0
   );
   const hasSoldDrops = soldDropsCount > 0;
+  // Adena del evento: "vendido" crece con cada venta; "potencial" es el sticker
+  // price si se vende todo. Se muestra en el header de la tarjeta y sirve para
+  // que el operador vea, de un vistazo, cuánta adena lleva cobrada de ese raid.
+  const soldRevenue = drops.reduce(
+    (acc: number, d: any) => acc + (Number(d.price) || 0) * (Number(d.quantitySold) || 0),
+    0
+  );
+  const potentialRevenue = drops.reduce(
+    (acc: number, d: any) => acc + (Number(d.price) || 0) * (Number(d.quantity) || 0),
+    0
+  );
 
   return (
     <div
@@ -1507,6 +1518,10 @@ function EventCard({
           </p>
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
             {createdAt} · {event.clans?.length || 0} clan(es) · {drops.length} drop(s)
+          </p>
+          <p className="text-xs font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <span style={{ color: '#fbbf24' }}>${soldRevenue.toLocaleString()}</span>
+            <span> / ${potentialRevenue.toLocaleString()} adena</span>
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -56,6 +56,23 @@ function fmtTime(iso?: string | null): string {
   }
 }
 
+// Suma lo "vendido" (price × quantitySold) y lo "potencial" (price × quantity)
+// de todos los drops de todos los eventos pasados. Se usa para mostrar, en el
+// header de cada ciclo, cuánta adena se cobró vs. cuánta se podría cobrar.
+function sumEventsAdena(events: Event[]): { sold: number; potential: number } {
+  let sold = 0;
+  let potential = 0;
+  for (const ev of events) {
+    const drops = (ev.dropItems as any[]) || [];
+    for (const d of drops) {
+      const price = Number(d?.price) || 0;
+      sold += price * (Number(d?.quantitySold) || 0);
+      potential += price * (Number(d?.quantity) || 0);
+    }
+  }
+  return { sold, potential };
+}
+
 export default function EventsGroupedByCycle({ events, cycles, renderEvent }: Props) {
   const grouped = useMemo(() => {
     const cyclesById = new Map<string, Cycle>();
@@ -125,27 +142,38 @@ export default function EventsGroupedByCycle({ events, cycles, renderEvent }: Pr
   return (
     <div className="space-y-4">
       {/* Eventos del ciclo abierto */}
-      {grouped.openEvents.length > 0 && (
-        <div>
-          <div
-            className="flex items-center gap-2 mb-2 text-xs uppercase tracking-wider"
-            style={{ color: '#7bf1d6' }}
-          >
-            <PlayCircle className="h-3.5 w-3.5" />
-            <span>Ciclo actual {grouped.currentCycle?.label ? `· ${grouped.currentCycle.label}` : ''}</span>
-            <span style={{ color: 'rgba(255,255,255,0.35)' }}>· {grouped.openEvents.length}</span>
+      {grouped.openEvents.length > 0 && (() => {
+        const { sold, potential } = sumEventsAdena(grouped.openEvents);
+        return (
+          <div>
+            <div
+              className="flex items-center gap-2 mb-2 text-xs uppercase tracking-wider flex-wrap"
+              style={{ color: '#7bf1d6' }}
+            >
+              <PlayCircle className="h-3.5 w-3.5" />
+              <span>Ciclo actual {grouped.currentCycle?.label ? `· ${grouped.currentCycle.label}` : ''}</span>
+              <span style={{ color: 'rgba(255,255,255,0.35)' }}>· {grouped.openEvents.length} evento{grouped.openEvents.length === 1 ? '' : 's'}</span>
+              <span className="font-mono normal-case" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                · <span style={{ color: '#fbbf24' }}>${sold.toLocaleString()}</span> / ${potential.toLocaleString()} adena
+              </span>
+            </div>
+            <div className="space-y-3">
+              {grouped.openEvents.map((ev) => renderEvent(ev))}
+            </div>
           </div>
-          <div className="space-y-3">
-            {grouped.openEvents.map((ev) => renderEvent(ev))}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tarjetas por ciclo cerrado */}
       {grouped.closedGroups.map(({ cycle, events: groupEvents }) => {
         const cid = String(cycle.id);
         const open = isExpanded(cid);
-        const totalRevenue = Number(cycle.totalRevenue || 0);
+        // Para ciclos cerrados usamos el total oficial persistido por el
+        // backend (`cycle.totalRevenue`) como "vendido", y computamos el
+        // potencial de los eventos agrupados para mostrarlo al lado.
+        const computed = sumEventsAdena(groupEvents);
+        const sold = Number(cycle.totalRevenue ?? computed.sold) || 0;
+        const potential = computed.potential;
         return (
           <div
             key={cid}
@@ -193,11 +221,9 @@ export default function EventsGroupedByCycle({ events, cycles, renderEvent }: Pr
                     {fmtTime(cycle.startedAt)} → {fmtTime(cycle.closedAt)}
                   </span>
                   <span>· {groupEvents.length} evento{groupEvents.length === 1 ? '' : 's'}</span>
-                  {totalRevenue > 0 && (
-                    <span style={{ color: '#fbbf24' }}>
-                      · {totalRevenue.toLocaleString()} adena
-                    </span>
-                  )}
+                  <span className="font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    · <span style={{ color: '#fbbf24' }}>${sold.toLocaleString()}</span> / ${potential.toLocaleString()} adena
+                  </span>
                 </div>
               </div>
               {open ? (
