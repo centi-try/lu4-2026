@@ -53,6 +53,7 @@ export default function RaidSettings({ raidAccess }: Props) {
     onSuccess: () => {
       toast.success('Clan creado');
       utils.raid.clans.list.invalidate();
+      utils.raid.clans.stats.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -60,6 +61,7 @@ export default function RaidSettings({ raidAccess }: Props) {
     onSuccess: () => {
       toast.success('Clan actualizado');
       utils.raid.clans.list.invalidate();
+      utils.raid.clans.stats.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -67,6 +69,7 @@ export default function RaidSettings({ raidAccess }: Props) {
     onSuccess: () => {
       toast.success('Clan eliminado');
       utils.raid.clans.list.invalidate();
+      utils.raid.clans.stats.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });

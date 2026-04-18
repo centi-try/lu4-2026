@@ -100,6 +100,9 @@ export default function RaidInventory({ raidAccess }: Props) {
       toast.success('Evento eliminado');
       utils.raid.events.list.invalidate();
       utils.raid.dashboard.invalidate();
+      // Borrar un evento cambia eventsParticipated y dropItemsAssociated
+      // de los clanes que estaban asociados.
+      utils.raid.clans.stats.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });

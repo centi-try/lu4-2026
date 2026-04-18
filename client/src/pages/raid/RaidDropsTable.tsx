@@ -107,6 +107,10 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       utils.raid.drops.list.invalidate();
       utils.raid.events.list.invalidate();
       utils.raid.clans.list.invalidate();
+      // Una venta suma al currentCycleEarnings de los clanes asociados
+      // y al revenue del ciclo — refrescamos clans.stats para que el
+      // ranking en /raids/clans se actualice en vivo.
+      utils.raid.clans.stats.invalidate();
       utils.raid.dashboard.invalidate();
     },
     onError: (err) => toast.error(err.message || 'No se pudo registrar la venta'),
@@ -118,6 +122,9 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       utils.raid.drops.list.invalidate();
       utils.raid.events.list.invalidate();
       utils.raid.dashboard.invalidate();
+      // dropItemsAssociated y potentialValue de los clanes asociados
+      // cambian al borrar el drop.
+      utils.raid.clans.stats.invalidate();
     },
     onError: (err) => toast.error(err.message || 'No se pudo eliminar el drop'),
   });
@@ -133,6 +140,9 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       utils.raid.drops.list.invalidate();
       utils.raid.events.list.invalidate();
       utils.raid.dashboard.invalidate();
+      // Editar el precio cambia potentialValue (price * quantity) que
+      // el card de cada clan muestra en su header.
+      utils.raid.clans.stats.invalidate();
     },
     onError: (err) => toast.error(err.message || 'No se pudo actualizar el precio'),
   });
