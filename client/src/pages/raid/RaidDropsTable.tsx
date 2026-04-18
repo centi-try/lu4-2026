@@ -10,6 +10,8 @@ import {
   Flag,
   Filter,
   ChevronDown,
+  Check,
+  Pencil,
   Image as ImageIcon,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
@@ -113,14 +115,62 @@ export default function RaidDropsTable({ raidAccess }: Props) {
     onError: (err) => toast.error(err.message || 'No se pudo eliminar el drop'),
   });
 
+  // Editar el precio de un drop desde la tabla. Usa la mutation existente
+  // raid.drops.update (solo raid_mapper/admin). Esto NO recalcula ventas ya
+  // registradas: raidClanStats.totalRevenue / currentCycleEarnings quedan
+  // exactamente como quedaron al momento de cada venta (la adena histórica
+  // no se toca). El nuevo precio se aplica solo a las PRÓXIMAS ventas.
+  const updateDrop = trpc.raid.drops.update.useMutation({
+    onSuccess: () => {
+      toast.success('Precio actualizado · solo aplica a ventas futuras');
+      utils.raid.drops.list.invalidate();
+      utils.raid.events.list.invalidate();
+      utils.raid.dashboard.invalidate();
+    },
+    onError: (err) => toast.error(err.message || 'No se pudo actualizar el precio'),
+  });
+
   // -------- Modal state -----------------------------------------------------
   const [sellModalDrop, setSellModalDrop] = useState<any | null>(null);
   const [sellQty, setSellQty] = useState('1');
   const [deleteModalDrop, setDeleteModalDrop] = useState<any | null>(null);
 
+  // Inline price edit state. `editingPriceDropId` identifica la fila en edición
+  // y `priceDraft` mantiene el valor del input como string para aceptar ediciones
+  // parciales. Guardar usa raid.drops.update (no toca histórico de ventas).
+  const [editingPriceDropId, setEditingPriceDropId] = useState<number | null>(null);
+  const [priceDraft, setPriceDraft] = useState('');
+
   const openSellModal = (drop: any) => {
     setSellModalDrop(drop);
     setSellQty('1');
+  };
+
+  const startEditPrice = (drop: any) => {
+    setEditingPriceDropId(Number(drop.id));
+    setPriceDraft(String(Number(drop.price) || 0));
+  };
+
+  const cancelEditPrice = () => {
+    setEditingPriceDropId(null);
+    setPriceDraft('');
+  };
+
+  const savePrice = (drop: any) => {
+    const raw = priceDraft.replace(/[^0-9.]/g, '');
+    const parsed = Number(raw);
+    if (!isFinite(parsed) || parsed < 0) {
+      toast.error('Precio inválido');
+      return;
+    }
+    if (parsed === Number(drop.price)) {
+      cancelEditPrice();
+      return;
+    }
+    updateDrop.mutate(
+      { id: Number(drop.id), price: parsed },
+      { onSettled: () => cancelEditPrice() },
+    );
   };
 
   const canAdmin = !!raidAccess?.canAdmin;
@@ -381,7 +431,88 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                         </div>
                       </td>
                       <td className="px-3 py-3 text-right font-mono" style={{ color: '#a78bfa' }}>
-                        ${(Number(d.price) || 0).toLocaleString()}
+                        {canInteract && editingPriceDropId === Number(d.id) ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <input
+                              autoFocus
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={priceDraft}
+                              onChange={(e) => setPriceDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') savePrice(d);
+                                else if (e.key === 'Escape') cancelEditPrice();
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={updateDrop.isPending}
+                              className="w-24 rounded-lg px-2 py-1 text-xs text-right font-mono outline-none"
+                              style={{
+                                background: 'rgba(167,139,250,0.1)',
+                                border: '1px solid rgba(167,139,250,0.35)',
+                                color: '#a78bfa',
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => savePrice(d)}
+                              disabled={updateDrop.isPending}
+                              title="Guardar"
+                              className="rounded-md p-1 transition-all"
+                              style={{
+                                background: 'rgba(52,211,153,0.15)',
+                                border: '1px solid rgba(52,211,153,0.3)',
+                                color: '#34d399',
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditPrice}
+                              disabled={updateDrop.isPending}
+                              title="Cancelar"
+                              className="rounded-md p-1 transition-all"
+                              style={{
+                                background: 'rgba(248,113,113,0.1)',
+                                border: '1px solid rgba(248,113,113,0.25)',
+                                color: '#f87171',
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => canInteract && startEditPrice(d)}
+                            disabled={!canInteract}
+                            title={
+                              canInteract
+                                ? 'Editar precio (no afecta ventas ya registradas)'
+                                : 'Sin permiso para editar'
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono transition-all"
+                            style={{
+                              background: canInteract
+                                ? 'rgba(167,139,250,0.05)'
+                                : 'transparent',
+                              border: canInteract
+                                ? '1px solid rgba(167,139,250,0.15)'
+                                : '1px solid transparent',
+                              color: '#a78bfa',
+                              cursor: canInteract ? 'pointer' : 'default',
+                            }}
+                          >
+                            ${(Number(d.price) || 0).toLocaleString()}
+                            {canInteract && (
+                              <Pencil
+                                className="h-3 w-3"
+                                style={{ color: 'rgba(167,139,250,0.55)' }}
+                              />
+                            )}
+                          </button>
+                        )}
                       </td>
                       <td
                         className="px-3 py-3 text-center font-mono"

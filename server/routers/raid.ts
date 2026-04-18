@@ -535,10 +535,23 @@ export const raidRouter = router({
     return await getRaidDashboardMetrics();
   }),
 
-  auditLogs: raidSuperAdminProcedure
+  // Actividad reciente del módulo raid — visible a todos los usuarios con
+  // acceso raid (replica el comportamiento de ActivityFeed del dashboard viejo,
+  // pero consumiendo solo la colección raidAuditLogs).
+  auditLogs: raidViewerProcedure
     .input(z.object({ limit: z.number().int().min(1).max(500).optional() }).optional())
     .query(async ({ input }) => {
       const logs = await getRaidAuditLogs(input?.limit || 100);
-      return logs;
+      const users = await getAllUsers();
+      const usersById = new Map<number, any>();
+      for (const u of users) usersById.set(Number(u.id), u);
+      return logs.map((log: any) => {
+        const u = usersById.get(Number(log.userId));
+        return {
+          ...log,
+          actorName: u?.name || u?.email || 'Sistema',
+          actorRole: String(u?.role || '').toUpperCase() || null,
+        };
+      });
     }),
 });

@@ -4,6 +4,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
+import RaidActivityFeed from './RaidActivityFeed';
 import {
   BarChart,
   Bar,
@@ -305,6 +306,12 @@ export default function RaidDashboard({ raidAccess: _raidAccess }: Props) {
             renderEvent={(e: any) => <DashboardEventCard key={e.id} event={e} />}
           />
         )}
+      </div>
+
+      {/* Actividad reciente del módulo Raid — igual al "Actividad Reciente"
+          del dashboard viejo, pero alimentado por los audit logs del módulo. */}
+      <div className="mt-5">
+        <RaidActivityFeed />
       </div>
     </AppShell>
   );
