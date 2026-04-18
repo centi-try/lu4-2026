@@ -196,7 +196,11 @@ export function CreateItemPanel() {
   const validCount = rows.filter(r => r.name.trim() && r.category).length;
 
   return (
-    <div className="card-glass rounded-2xl p-5">
+    // NOTE: `.card-glass` aplica `backdrop-filter: blur(12px)` y eso crea un
+    // stacking context. Como hay otro card-glass debajo (Inventario de Ítems),
+    // ese otro pinta por encima y tapa el dropdown del typeahead. Subimos el
+    // z-index de este card para que su dropdown siempre quede visible.
+    <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
