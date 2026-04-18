@@ -58,8 +58,7 @@ const actionMeta: Record<
   RAID_DROP_DELETED: { icon: Trash2, color: '#f87171', label: 'Eliminó drop' },
   RAID_DROP_SOLD: { icon: DollarSign, color: '#a78bfa', label: 'Vendió drop' },
 
-  RAID_SALES_CYCLE_OPENED: { icon: CalendarClock, color: '#10b981', label: 'Abrió ciclo de ventas' },
-  RAID_SALES_CYCLE_CLOSED: { icon: Lock, color: '#10b981', label: 'Cerró ciclo de ventas' },
+  RAID_SALES_CYCLE_CLOSED: { icon: CalendarClock, color: '#10b981', label: 'Cerró ciclo de ventas' },
 };
 
 function timeAgo(iso: string): string {
@@ -141,12 +140,6 @@ function describe(log: any): string {
     }
     case 'RAID_DROP_DELETED':
       return d.dropId != null ? `Drop #${d.dropId}` : '';
-    case 'RAID_SALES_CYCLE_OPENED':
-      return d.label
-        ? `${d.label}${d.salesCycleId != null ? ` · #${d.salesCycleId}` : ''}`
-        : d.salesCycleId != null
-          ? `Ciclo de ventas #${d.salesCycleId}`
-          : '';
     case 'RAID_SALES_CYCLE_CLOSED': {
       const bits: string[] = [];
       if (d.label) bits.push(d.label);

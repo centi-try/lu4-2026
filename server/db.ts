@@ -1582,51 +1582,53 @@ export const getRaidSalesCycles = async () => {
   });
 };
 
-export const getCurrentRaidSalesCycle = async () => {
-  return (dbInstance.raidSalesCycles || []).find(c => c.status === 'OPEN') || null;
+/**
+ * El ciclo de ventas es IMPLÍCITO: no hay concepto de "abrir".
+ *
+ * El periodo actual arranca desde:
+ *   - el `closedAt` del último ciclo de ventas CERRADO, o
+ *   - si nunca se cerró ninguno, desde el `createdAt` del primer audit log
+ *     (o epoch si no hay logs) para capturar todo el histórico.
+ *
+ * El usuario solo aprieta "Cerrar ciclo" → se materializa el snapshot
+ * y el contador vuelve a 0 automáticamente para el siguiente periodo.
+ */
+export const getCurrentRaidSalesCyclePeriodStart = async (): Promise<string> => {
+  const closed = (dbInstance.raidSalesCycles || []).filter(c => c.status === 'CLOSED');
+  if (closed.length > 0) {
+    // El cierre más reciente marca el inicio del periodo actual.
+    const latest = closed
+      .slice()
+      .sort((a, b) => String(b.closedAt || '').localeCompare(String(a.closedAt || '')))[0];
+    return String(latest.closedAt || '');
+  }
+  // Nunca se cerró ninguno — arrancamos desde el primer audit log existente
+  // para que el primer cierre capture todo el histórico acumulado.
+  const firstLog = (dbInstance.raidAuditLogs || [])
+    .slice()
+    .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))[0];
+  return String(firstLog?.createdAt || '1970-01-01T00:00:00.000Z');
 };
 
-export const createRaidSalesCycle = async (data: {
-  label?: string | null;
-  createdByUserId?: number;
-}) => {
-  const existingOpen = await getCurrentRaidSalesCycle();
-  if (existingOpen) {
-    throw new Error(
-      'Ya existe un ciclo de ventas abierto. Ciérralo antes de abrir uno nuevo.'
-    );
-  }
-  const startedAt = nowIso();
+export const getCurrentRaidSalesCycle = async () => {
+  // Mantenido por compatibilidad con consumidores viejos — siempre devuelve
+  // un "pseudo-cycle" con status=OPEN calculado al vuelo desde la fecha de
+  // inicio implícita. No hay registro persistido mientras está abierto.
+  const startedAt = await getCurrentRaidSalesCyclePeriodStart();
   const closedCount = (dbInstance.raidSalesCycles || []).filter(
     c => c.status === 'CLOSED'
   ).length;
-  const cycle = {
-    id: genId(),
-    label: data.label || salesCycleLabelFor(startedAt, closedCount),
+  return {
+    id: 0,
+    label: salesCycleLabelFor(startedAt, closedCount),
     status: 'OPEN' as const,
     startedAt,
     closedAt: null,
     closedBy: null,
-    createdBy: data.createdByUserId || null,
     summary: null,
-    createdAt: nowIso(),
+    createdAt: startedAt,
     updatedAt: nowIso(),
   };
-  if (!dbInstance.raidSalesCycles) dbInstance.raidSalesCycles = [];
-  dbInstance.raidSalesCycles.push(cycle);
-  saveDb(dbInstance);
-
-  await createRaidAuditLog({
-    userId: data.createdByUserId || 0,
-    action: 'RAID_SALES_CYCLE_OPENED',
-    details: {
-      salesCycleId: Number(cycle.id),
-      label: cycle.label,
-      startedAt,
-    },
-  });
-
-  return cycle;
 };
 
 /**
@@ -1806,43 +1808,52 @@ export const computeRaidSalesCycleLiveSnapshot = async (
   };
 };
 
-export const closeRaidSalesCycle = async (cycleId: number, closedByUser: any) => {
-  const idx = (dbInstance.raidSalesCycles || []).findIndex(
-    c => Number(c.id) === Number(cycleId)
-  );
-  if (idx === -1) return null;
-  const cycle = dbInstance.raidSalesCycles[idx];
-  if (cycle.status !== 'OPEN') {
-    throw new Error('El ciclo de ventas no está abierto.');
-  }
-
+/**
+ * Cierra el ciclo de ventas actual (implícito). Crea un nuevo registro
+ * CLOSED con startedAt=getCurrentRaidSalesCyclePeriodStart(), closedAt=NOW
+ * y el snapshot materializado. Al terminar, el siguiente periodo empieza
+ * automáticamente desde este `closedAt`.
+ *
+ * No requiere `cycleId` porque no hay registro OPEN previo.
+ */
+export const closeRaidSalesCycle = async (closedByUser: any) => {
+  const startedAt = await getCurrentRaidSalesCyclePeriodStart();
   const closedAt = nowIso();
-  const snapshot = await computeRaidSalesCycleLiveSnapshot(
-    cycle.startedAt,
-    closedAt
-  );
 
-  dbInstance.raidSalesCycles[idx] = {
-    ...cycle,
+  const snapshot = await computeRaidSalesCycleLiveSnapshot(startedAt, closedAt);
+
+  const closedCount = (dbInstance.raidSalesCycles || []).filter(
+    c => c.status === 'CLOSED'
+  ).length;
+
+  const cycle = {
+    id: genId(),
+    label: salesCycleLabelFor(startedAt, closedCount),
     status: 'CLOSED' as const,
+    startedAt,
     closedAt,
     closedBy:
       closedByUser?.characterName ||
       closedByUser?.name ||
       closedByUser?.email ||
       'Super Admin',
+    createdBy: closedByUser?.id || null,
     summary: snapshot,
+    createdAt: nowIso(),
     updatedAt: nowIso(),
   };
+
+  if (!dbInstance.raidSalesCycles) dbInstance.raidSalesCycles = [];
+  dbInstance.raidSalesCycles.push(cycle);
   saveDb(dbInstance);
 
   await createRaidAuditLog({
     userId: closedByUser?.id || 0,
     action: 'RAID_SALES_CYCLE_CLOSED',
     details: {
-      salesCycleId: Number(cycleId),
+      salesCycleId: Number(cycle.id),
       label: cycle.label,
-      startedAt: cycle.startedAt,
+      startedAt,
       closedAt,
       totalRevenue: snapshot.totals.totalRevenue,
       totalUnitsSold: snapshot.totals.totalUnitsSold,
@@ -1852,5 +1863,5 @@ export const closeRaidSalesCycle = async (cycleId: number, closedByUser: any) =>
     },
   });
 
-  return dbInstance.raidSalesCycles[idx];
+  return cycle;
 };

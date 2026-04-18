@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
-  CalendarClock,
   Coins,
   Package,
   Swords,
@@ -22,16 +21,19 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 /**
  * Tab "Ciclos de Venta" dentro de /raids/cycles.
  *
- * Agrupa los raid cycles diarios en periodos semanales (u otra duración
- * definida por el admin al abrir/cerrar). No modifica drops, eventos ni
- * stats de clanes — solo LEE `raidAuditLogs` y `raidDropItems` del rango
- * para armar un resumen persistido al cerrar.
+ * El ciclo de ventas es IMPLÍCITO — no se abre, siempre está corriendo.
+ * Arranca desde el `closedAt` del último cierre (o desde el primer audit
+ * log si nunca se cerró ninguno). El usuario solo aprieta "Cerrar ciclo"
+ * cuando quiere congelar el resumen; el siguiente periodo empieza
+ * automáticamente desde ese mismo instante.
+ *
+ * No modifica drops, eventos ni stats de clanes — solo LEE `raidAuditLogs`
+ * y `raidDropItems` del rango para armar un resumen persistido al cerrar.
  *
  * Estructura:
- *  - Sub-sección "Ciclo actual" (si hay uno OPEN):
- *      → Card con snapshot live (adena, reparto por clan, items pendientes)
- *      → Botón "Cerrar ciclo de ventas" con modal de confirmación
- *  - Si NO hay ciclo abierto y el usuario es admin → botón "Abrir ciclo"
+ *  - Card "Ciclo actual" (siempre visible):
+ *      → Snapshot live (adena, reparto por clan, items pendientes)
+ *      → Botón "Cerrar ciclo de ventas" con modal de confirmación (admins)
  *  - Sub-sección "Historial" → acordeón con los cerrados (summary inmutable)
  */
 interface Props {
@@ -43,6 +45,7 @@ export default function RaidSalesCyclesTab({ raidAccess }: Props) {
   const utils = trpc.useUtils();
 
   const listQ = trpc.raid.salesCycles.list.useQuery();
+  const currentQ = trpc.raid.salesCycles.current.useQuery();
   const previewQ = trpc.raid.salesCycles.livePreview.useQuery(undefined, {
     // Refresco moderado del preview — si se vende algo desde otro lugar,
     // las invalidaciones explícitas ya lo refrescan. Este intervalo es
@@ -51,21 +54,11 @@ export default function RaidSalesCyclesTab({ raidAccess }: Props) {
   });
 
   const all = listQ.data || [];
-  const current = all.find((c: any) => c.status === 'OPEN') || null;
+  const current = currentQ.data || null;
   const closed = all.filter((c: any) => c.status === 'CLOSED');
   const preview = previewQ.data;
 
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
-
-  const openCycle = trpc.raid.salesCycles.open.useMutation({
-    onSuccess: () => {
-      toast.success('Ciclo de ventas abierto');
-      utils.raid.salesCycles.list.invalidate();
-      utils.raid.salesCycles.current.invalidate();
-      utils.raid.salesCycles.livePreview.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
 
   const closeCycle = trpc.raid.salesCycles.close.useMutation({
     onSuccess: () => {
@@ -81,39 +74,14 @@ export default function RaidSalesCyclesTab({ raidAccess }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* ---------- Ciclo actual ---------- */}
-      {current ? (
+      {/* ---------- Ciclo actual (siempre presente, implícito) ---------- */}
+      {current && (
         <CurrentSalesCycleCard
           cycle={current}
           preview={preview}
           canAdmin={canAdmin}
           onCloseClick={() => setConfirmCloseOpen(true)}
         />
-      ) : (
-        <div
-          className="card-glass rounded-2xl p-5 flex items-center justify-between"
-          style={{ border: '1px dashed rgba(255,255,255,0.08)' }}
-        >
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              No hay ciclo de ventas abierto
-            </p>
-            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Abrí un ciclo para empezar a acumular ventas. Los cierres conservan un resumen inmutable.
-            </p>
-          </div>
-          {canAdmin && (
-            <button
-              type="button"
-              onClick={() => openCycle.mutate({ label: null })}
-              disabled={openCycle.isPending}
-              className="btn-primary flex items-center gap-2"
-            >
-              <CalendarClock className="h-4 w-4" />
-              {openCycle.isPending ? 'Abriendo…' : 'Abrir ciclo de ventas'}
-            </button>
-          )}
-        </div>
       )}
 
       {/* ---------- Historial ---------- */}
@@ -149,9 +117,7 @@ export default function RaidSalesCyclesTab({ raidAccess }: Props) {
           onCancel={() => {
             if (!closeCycle.isPending) setConfirmCloseOpen(false);
           }}
-          onConfirm={() =>
-            closeCycle.mutate({ salesCycleId: Number(current.id) })
-          }
+          onConfirm={() => closeCycle.mutate()}
         />
       )}
     </div>
@@ -204,14 +170,14 @@ function CurrentSalesCycleCard({
                 border: '1px solid rgba(16,185,129,0.3)',
               }}
             >
-              Abierto
+              En curso
             </span>
             <h3 className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
               {cycle.label}
             </h3>
           </div>
           <p className="text-xs mt-1 font-mono" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            Abierto el{' '}
+            Acumulando desde{' '}
             {new Date(cycle.startedAt).toLocaleDateString('es-CL', {
               weekday: 'short',
               day: '2-digit',
