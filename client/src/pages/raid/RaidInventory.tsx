@@ -551,26 +551,12 @@ export default function RaidInventory({ raidAccess }: Props) {
                 <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   Raid Boss eliminado *
                 </label>
-                <select
-                  value={raidBossId || ''}
-                  onChange={(e) =>
-                    setRaidBossId(e.target.value ? Number(e.target.value) : null)
-                  }
-                  className="w-full rounded-xl px-3 py-2 text-sm"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.9)',
-                  }}
-                >
-                  <option value="">-- seleccioná un boss --</option>
-                  {bosses.map((b: any) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                      {b.level ? ` (Lv ${b.level})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <BossSelect
+                  bosses={bosses as any}
+                  value={raidBossId}
+                  onChange={(id) => setRaidBossId(id)}
+                  placeholder="-- seleccioná un boss --"
+                />
                 {bosses.length === 0 && (
                   <p
                     className="text-xs mt-1"
