@@ -1257,7 +1257,8 @@ export const deleteRaidDropItem = async (id: number) => {
 export const sellRaidDropItem = async (
   id: number,
   quantityToSell: number,
-  soldByUser: any
+  soldByUser: any,
+  buyer?: { buyerId: number; buyerName: string } | null
 ) => {
   const drop = await getRaidDropItemById(id);
   if (!drop) throw new Error('Drop item no encontrado.');
@@ -1304,10 +1305,12 @@ export const sellRaidDropItem = async (
       quantitySold: quantityToSell,
       revenue,
       clansShared: clanIds,
+      buyerId: buyer?.buyerId ?? null,
+      buyerName: buyer?.buyerName ?? null,
     },
   });
 
-  return { revenue, earningsPerClan, clanIds };
+  return { revenue, earningsPerClan, clanIds, buyer: buyer || null };
 };
 
 // ---------- Raid Category Icons (iconos por categoría de drop, super admin) -

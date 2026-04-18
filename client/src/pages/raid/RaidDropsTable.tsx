@@ -129,9 +129,18 @@ export default function RaidDropsTable({ raidAccess }: Props) {
     onError: (err) => toast.error(err.message || 'No se pudo actualizar el precio'),
   });
 
+  // Lista de compradores elegibles (usuarios con acceso raid: raid_admin,
+  // raid_mapper o raid_user). Se usa en el modal de "Vender" para asignar la
+  // venta a un comprador/cuenta, replicando la UX del inventario viejo.
+  const { data: buyersData } = trpc.raid.buyers.list.useQuery(undefined, {
+    staleTime: 30_000,
+  });
+  const buyers = (buyersData as any[]) || [];
+
   // -------- Modal state -----------------------------------------------------
   const [sellModalDrop, setSellModalDrop] = useState<any | null>(null);
   const [sellQty, setSellQty] = useState('1');
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
   const [deleteModalDrop, setDeleteModalDrop] = useState<any | null>(null);
 
   // Inline price edit state. `editingPriceDropId` identifica la fila en edición
@@ -586,7 +595,11 @@ export default function RaidDropsTable({ raidAccess }: Props) {
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
             onClick={(e) => {
-              if (e.target === e.currentTarget && !sellDrop.isPending) setSellModalDrop(null);
+              if (e.target === e.currentTarget && !sellDrop.isPending) {
+                setSellModalDrop(null);
+                setSelectedBuyerId('');
+                setSellQty('1');
+              }
             }}
           >
             <div
@@ -621,7 +634,11 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                   </div>
                 </div>
                 <button
-                  onClick={() => setSellModalDrop(null)}
+                  onClick={() => {
+                    setSellModalDrop(null);
+                    setSelectedBuyerId('');
+                    setSellQty('1');
+                  }}
                   disabled={sellDrop.isPending}
                   className="rounded-lg p-2"
                   style={{
@@ -766,6 +783,56 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                 </div>
               )}
 
+              {/* Selector de Comprador / Cuenta — replica el dropdown del
+                  modal de venta del inventario viejo (ItemTable.tsx). Solo
+                  lista usuarios con acceso al módulo raid (raid_admin,
+                  raid_mapper, raid_user). */}
+              <div className="mb-5">
+                <label
+                  className="mb-2 block text-sm font-medium"
+                  style={{ color: 'rgba(255,255,255,0.7)' }}
+                >
+                  Asignar a Comprador/Cuenta
+                </label>
+                <select
+                  value={selectedBuyerId}
+                  onChange={(e) => setSelectedBuyerId(e.target.value)}
+                  className="h-11 w-full text-sm px-3 rounded-xl select-dark"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.8)',
+                  }}
+                >
+                  <option value="" className="bg-[#0a0e16]">
+                    Seleccionar cuenta...
+                  </option>
+                  {buyers.map((b: any) => {
+                    const levelLabel =
+                      b.accessLevel === 'raid_admin'
+                        ? 'Raid Admin'
+                        : b.accessLevel === 'raid_mapper'
+                        ? 'Raid Mapper'
+                        : b.accessLevel === 'raid_user'
+                        ? 'Raid User'
+                        : b.accessLevel;
+                    return (
+                      <option key={b.id} value={String(b.id)} className="bg-[#0a0e16]">
+                        {b.name} ({levelLabel})
+                      </option>
+                    );
+                  })}
+                </select>
+                {buyers.length === 0 && (
+                  <p
+                    className="mt-1.5 text-xs"
+                    style={{ color: 'rgba(251,191,36,0.8)' }}
+                  >
+                    No hay usuarios elegibles. Pedile al super admin que asigne rol raid a alguien.
+                  </p>
+                )}
+              </div>
+
               {/* Input cantidad */}
               <div className="mb-5">
                 <label
@@ -826,7 +893,11 @@ export default function RaidDropsTable({ raidAccess }: Props) {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setSellModalDrop(null)}
+                  onClick={() => {
+                    setSellModalDrop(null);
+                    setSelectedBuyerId('');
+                    setSellQty('1');
+                  }}
                   disabled={sellDrop.isPending}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                   style={{
@@ -848,12 +919,29 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       toast.error(`Solo quedan ${remaining} unidades`);
                       return;
                     }
+                    if (!selectedBuyerId) {
+                      toast.error('Seleccioná un comprador/cuenta');
+                      return;
+                    }
+                    const buyer = buyers.find(
+                      (b: any) => String(b.id) === String(selectedBuyerId)
+                    );
+                    if (!buyer) {
+                      toast.error('Comprador no válido');
+                      return;
+                    }
                     sellDrop.mutate(
-                      { id: Number(sellModalDrop.id), quantity: sellQtyN },
+                      {
+                        id: Number(sellModalDrop.id),
+                        quantity: sellQtyN,
+                        buyerId: Number(buyer.id),
+                        buyerName: String(buyer.name),
+                      },
                       {
                         onSuccess: () => {
                           setSellModalDrop(null);
                           setSellQty('1');
+                          setSelectedBuyerId('');
                         },
                       }
                     );

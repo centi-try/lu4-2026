@@ -120,6 +120,7 @@ function describe(log: any): string {
       if (d.itemName) bits.push(d.itemName);
       if (d.quantitySold != null) bits.push(`${d.quantitySold} unid`);
       if (d.revenue != null) bits.push(`$${Number(d.revenue).toLocaleString()}`);
+      if (d.buyerName) bits.push(`a ${d.buyerName}`);
       if (Array.isArray(d.clansShared) && d.clansShared.length > 0)
         bits.push(`repartido entre ${d.clansShared.length} clan${d.clansShared.length === 1 ? '' : 'es'}`);
       return bits.join(' · ');

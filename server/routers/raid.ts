@@ -321,6 +321,37 @@ export const raidRouter = router({
       }),
   }),
 
+  // ---------------- Buyers --------------------------------------------------
+  // Lista de usuarios elegibles para asignar como "Comprador/Cuenta" en el
+  // modal de venta de drops (tab "Tabla de drops" en /raids/inventory).
+  // Solo incluye usuarios con acceso al módulo raid (raid_admin, raid_mapper,
+  // raid_user) y activos. No incluye viewer_only ni usuarios sin acceso raid.
+  // Accesible por raid_admin / raid_mapper (los que pueden vender).
+  buyers: router({
+    list: raidMapperProcedure.query(async () => {
+      const [users, access] = await Promise.all([getAllUsers(), listUserRaidAccess()]);
+      const accessMap = new Map<number, any>(
+        access.map((a: any) => [Number(a.userId), a])
+      );
+      const allowed = new Set(['raid_admin', 'raid_mapper', 'raid_user']);
+      return users
+        .filter((u: any) => u.isActive !== false)
+        .map((u: any) => {
+          const a = accessMap.get(Number(u.id));
+          const level = a?.accessLevel ? String(a.accessLevel) : null;
+          return {
+            id: Number(u.id),
+            name: u.characterName || u.name || u.email || `Usuario ${u.id}`,
+            email: u.email || '',
+            role: u.role || 'user',
+            accessLevel: level,
+          };
+        })
+        .filter((u: any) => u.accessLevel && allowed.has(u.accessLevel))
+        .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
+    }),
+  }),
+
   // ---------------- Cycles --------------------------------------------------
   cycles: router({
     list: raidViewerProcedure.query(async () => {
@@ -542,9 +573,26 @@ export const raidRouter = router({
       .input(z.object({
         id: z.number().int(),
         quantity: z.number().int().min(1),
+        buyerId: z.number().int(),
+        buyerName: z.string().min(1).max(200),
       }))
       .mutation(async ({ ctx, input }) => {
-        const result = await sellRaidDropItem(input.id, input.quantity, ctx.user);
+        // Validar que el comprador tenga acceso raid (raid_admin / raid_mapper
+        // / raid_user). No se permite vender a viewer_only ni a usuarios sin
+        // acceso al módulo. Esto preserva la trazabilidad del asignado a
+        // cuenta y evita registros a cuentas ajenas al módulo raid.
+        const buyerAccess = await getUserRaidAccess(input.buyerId);
+        const allowedLevels = new Set(['raid_admin', 'raid_mapper', 'raid_user']);
+        if (!buyerAccess || !allowedLevels.has(String(buyerAccess.accessLevel))) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'El comprador seleccionado no tiene acceso raid elegible.',
+          });
+        }
+        const result = await sellRaidDropItem(input.id, input.quantity, ctx.user, {
+          buyerId: input.buyerId,
+          buyerName: input.buyerName,
+        });
         return { success: true, ...result };
       }),
   }),

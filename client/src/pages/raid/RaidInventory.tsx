@@ -52,6 +52,9 @@ export default function RaidInventory({ raidAccess }: Props) {
   const cyclesListQ = trpc.raid.cycles.list.useQuery();
   const eventsQ = trpc.raid.events.list.useQuery({});
   const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery();
+  // Lista de usuarios elegibles como "Comprador/Cuenta" al vender un drop
+  // (solo usuarios con acceso raid: raid_admin, raid_mapper, raid_user).
+  const buyersListQ = trpc.raid.buyers.list.useQuery(undefined, { staleTime: 30_000 });
 
   // Mapa categoría → imageUrl (seteado por super admin en /raids/settings).
   const categoryIconMap: Record<string, string> = {};
@@ -898,8 +901,14 @@ export default function RaidInventory({ raidAccess }: Props) {
                 canInteract={canInteract}
                 canAdmin={!!raidAccess?.canAdmin}
                 onDelete={() => setDeleteEventTarget(e)}
-                onSellDrop={(dropId, qty) => {
-                  sellDrop.mutate({ id: dropId, quantity: qty });
+                buyers={(buyersListQ.data as any[]) || []}
+                onSellDrop={(dropId, qty, buyerId, buyerName) => {
+                  sellDrop.mutate({
+                    id: dropId,
+                    quantity: qty,
+                    buyerId,
+                    buyerName,
+                  });
                 }}
               />
             )}
@@ -1443,12 +1452,14 @@ function EventCard({
   canAdmin,
   onDelete,
   onSellDrop,
+  buyers,
 }: {
   event: any;
   canInteract: boolean;
   canAdmin: boolean;
   onDelete: () => void;
-  onSellDrop: (id: number, qty: number) => void;
+  onSellDrop: (id: number, qty: number, buyerId: number, buyerName: string) => void;
+  buyers: any[];
 }) {
   const [open, setOpen] = useState(false);
   const createdAt = event.createdAt
@@ -1618,7 +1629,10 @@ function EventCard({
                   {canInteract && available > 0 && (
                     <SellDropControl
                       max={available}
-                      onSell={(qty) => onSellDrop(Number(d.id), qty)}
+                      buyers={buyers}
+                      onSell={(qty, buyerId, buyerName) =>
+                        onSellDrop(Number(d.id), qty, buyerId, buyerName)
+                      }
                     />
                   )}
                   {available === 0 && (
@@ -1643,8 +1657,20 @@ function EventCard({
   );
 }
 
-function SellDropControl({ max, onSell }: { max: number; onSell: (qty: number) => void }) {
+function SellDropControl({
+  max,
+  buyers,
+  onSell,
+}: {
+  max: number;
+  buyers: any[];
+  onSell: (qty: number, buyerId: number, buyerName: string) => void;
+}) {
+  // La venta dentro del EventCard ahora requiere seleccionar comprador/cuenta,
+  // igual que el modal de la tab "Tabla de drops". La UI sigue siendo inline
+  // (qty + select + botón) para no quebrar el layout compacto de cada evento.
   const [qty, setQty] = useState('1');
+  const [buyerId, setBuyerId] = useState<string>('');
   return (
     <div className="flex items-center gap-1">
       <input
@@ -1660,6 +1686,26 @@ function SellDropControl({ max, onSell }: { max: number; onSell: (qty: number) =
           color: 'rgba(255,255,255,0.9)',
         }}
       />
+      <select
+        value={buyerId}
+        onChange={(e) => setBuyerId(e.target.value)}
+        className="rounded-lg px-1.5 py-1 text-xs max-w-[120px] select-dark"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          color: 'rgba(255,255,255,0.9)',
+        }}
+        title="Comprador/Cuenta"
+      >
+        <option value="" className="bg-[#0a0e16]">
+          Comprador…
+        </option>
+        {buyers.map((b: any) => (
+          <option key={b.id} value={String(b.id)} className="bg-[#0a0e16]">
+            {b.name}
+          </option>
+        ))}
+      </select>
       <button
         type="button"
         onClick={() => {
@@ -1668,7 +1714,18 @@ function SellDropControl({ max, onSell }: { max: number; onSell: (qty: number) =
             toast.error(`Solo hay ${max} disp.`);
             return;
           }
-          onSell(n);
+          if (!buyerId) {
+            toast.error('Seleccioná un comprador/cuenta');
+            return;
+          }
+          const b = buyers.find((x: any) => String(x.id) === String(buyerId));
+          if (!b) {
+            toast.error('Comprador no válido');
+            return;
+          }
+          onSell(n, Number(b.id), String(b.name));
+          setBuyerId('');
+          setQty('1');
         }}
         className="rounded-lg px-2 py-1 text-xs font-semibold"
         style={{
