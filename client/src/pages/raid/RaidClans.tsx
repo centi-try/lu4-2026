@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flag, Trophy, Swords, TrendingUp, Package } from 'lucide-react';
+import { Flag, Trophy, Swords, TrendingUp, Package, Coins } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
@@ -8,13 +8,14 @@ interface Props {
   raidAccess?: RaidAccessInfo;
 }
 
-export default function RaidClans({ raidAccess }: Props) {
+export default function RaidClans({ raidAccess: _raidAccess }: Props) {
   const statsQ = trpc.raid.clans.stats.useQuery();
   const stats = statsQ.data || [];
 
-  const sorted = [...stats].sort(
-    (a: any, b: any) => (b.currentCycleEarnings || 0) - (a.currentCycleEarnings || 0)
-  );
+  // El backend ya devuelve ordenado por (totalRaidEarnings + currentCycleEarnings)
+  // descendente. Respetamos ese orden — no re-ordenamos en el cliente para
+  // no perder el desempate del backend.
+  const sorted = stats;
 
   return (
     <AppShell>
@@ -102,30 +103,43 @@ export default function RaidClans({ raidAccess }: Props) {
                   </p>
                 )}
 
+                {/* Resumen "vendido / potencial" en el header.
+                    - Vendido (amarillo)   = totalRaidEarnings + currentCycleEarnings
+                      (toda la adena que el clan llevó cobrada hasta ahora).
+                    - Potencial (gris)      = potentialValue (lo que cobraría
+                      si todos los drops asociados al clan se vendieran al
+                      precio sticker actual). */}
+                <p className="text-xs font-mono mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  <span style={{ color: '#fbbf24' }}>
+                    ${((Number(c.totalRaidEarnings) || 0) + (Number(c.currentCycleEarnings) || 0)).toLocaleString()}
+                  </span>
+                  <span> cobrados / ${(Number(c.potentialValue) || 0).toLocaleString()} potencial</span>
+                </p>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Metric
                     label="Raids"
-                    value={c.raidsParticipated ?? 0}
+                    value={c.eventsParticipated ?? 0}
                     color="#e879f9"
                     icon={<Swords className="h-3.5 w-3.5" />}
                   />
                   <Metric
                     label="Drops"
-                    value={c.dropsReceived ?? 0}
+                    value={c.dropItemsAssociated ?? 0}
                     color="#a78bfa"
                     icon={<Package className="h-3.5 w-3.5" />}
                   />
                   <Metric
                     label="Ciclo actual"
-                    value={`$${(c.currentCycleEarnings ?? 0).toLocaleString()}`}
+                    value={`$${(Number(c.currentCycleEarnings) || 0).toLocaleString()}`}
                     color="#10b981"
                     icon={<TrendingUp className="h-3.5 w-3.5" />}
                   />
                   <Metric
-                    label="Total"
-                    value={`$${(c.totalEarnings ?? 0).toLocaleString()}`}
+                    label="Total histórico"
+                    value={`$${(Number(c.totalRaidEarnings) || 0).toLocaleString()}`}
                     color="#fbbf24"
-                    icon={<TrendingUp className="h-3.5 w-3.5" />}
+                    icon={<Coins className="h-3.5 w-3.5" />}
                   />
                 </div>
               </div>

@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-18T02:57:14.030Z",
-      "lastSignedIn": "2026-04-18T02:57:14.030Z"
+      "updatedAt": "2026-04-18T03:02:41.715Z",
+      "lastSignedIn": "2026-04-18T03:02:41.715Z"
     },
     {
       "id": 581030,
@@ -925,7 +925,7 @@
       "tag": "IRB",
       "description": "Clan de tanques y curación",
       "totalRaidEarnings": 103352,
-      "currentCycleEarnings": 1000,
+      "currentCycleEarnings": 4223,
       "createdAt": "2026-04-10T21:54:54.187Z",
       "updatedAt": "2026-04-10T21:54:54.187Z"
     },
@@ -1853,6 +1853,16 @@
       "notes": "avion",
       "createdAt": "2026-04-18T02:50:39.917Z",
       "updatedAt": "2026-04-18T02:50:39.917Z"
+    },
+    {
+      "id": 419352701,
+      "raidBossId": 732607,
+      "cycleId": 517468966,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-18T02:59:56.286Z",
+      "updatedAt": "2026-04-18T02:59:56.286Z"
     }
   ],
   "raidEventClans": [
@@ -2335,6 +2345,36 @@
       "eventId": 137286279,
       "clanId": 107708,
       "createdAt": "2026-04-18T02:50:39.917Z"
+    },
+    {
+      "id": 857582725,
+      "eventId": 419352701,
+      "clanId": 107476,
+      "createdAt": "2026-04-18T02:59:56.286Z"
+    },
+    {
+      "id": 418549826,
+      "eventId": 419352701,
+      "clanId": 898429,
+      "createdAt": "2026-04-18T02:59:56.286Z"
+    },
+    {
+      "id": 808618671,
+      "eventId": 419352701,
+      "clanId": 107708,
+      "createdAt": "2026-04-18T02:59:56.286Z"
+    },
+    {
+      "id": 284002839,
+      "eventId": 419352701,
+      "clanId": 128350,
+      "createdAt": "2026-04-18T02:59:56.286Z"
+    },
+    {
+      "id": 566199499,
+      "eventId": 419352701,
+      "clanId": 765309,
+      "createdAt": "2026-04-18T02:59:56.286Z"
     }
   ],
   "raidDropItems": [
@@ -4217,16 +4257,16 @@
       "category": "ARMA",
       "price": 3223,
       "quantity": 1,
-      "quantitySold": 0,
-      "quantitySoldInCycle": 0,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
       "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQZl4OUTQJpAyDswvTXkt0BsbLwdc4_eEyhlg&s",
-      "status": "EN_REGISTRO",
+      "status": "VENDIDO",
       "associatedClanIds": [
         107708
       ],
       "reportedByUserId": 1,
       "createdAt": "2026-04-18T02:49:51.226Z",
-      "updatedAt": "2026-04-18T02:49:51.226Z"
+      "updatedAt": "2026-04-18T02:58:52.110Z"
     },
     {
       "id": 822175855,
@@ -4248,6 +4288,30 @@
       "reportedByUserId": 1,
       "createdAt": "2026-04-18T02:50:39.917Z",
       "updatedAt": "2026-04-18T02:56:01.789Z"
+    },
+    {
+      "id": 180033508,
+      "eventId": 419352701,
+      "raidBossId": 732607,
+      "cycleId": 517468966,
+      "name": "ada",
+      "category": "KEY",
+      "price": 2323,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": null,
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        107476,
+        898429,
+        107708,
+        128350,
+        765309
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-18T02:59:56.286Z",
+      "updatedAt": "2026-04-18T02:59:56.286Z"
     }
   ],
   "userRaidAccess": [
@@ -4786,6 +4850,42 @@
         "buyerName": "Lucía Admin"
       },
       "createdAt": "2026-04-18T02:56:01.791Z"
+    },
+    {
+      "id": 54751272,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 393426576,
+        "itemName": "arbol",
+        "quantitySold": 1,
+        "revenue": 3223,
+        "clansShared": [
+          107708
+        ],
+        "buyerId": 689563,
+        "buyerName": "Sofía Mapper"
+      },
+      "createdAt": "2026-04-18T02:58:52.113Z"
+    },
+    {
+      "id": 527432536,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 419352701,
+        "bossId": 732607,
+        "bossName": "Balok",
+        "clanIds": [
+          107476,
+          898429,
+          107708,
+          128350,
+          765309
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-18T02:59:56.287Z"
     }
   ],
   "raidSettings": [],
