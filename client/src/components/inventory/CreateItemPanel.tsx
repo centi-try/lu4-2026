@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { ImagePlus, ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus } from 'lucide-react';
+import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { ItemTypeahead } from './ItemTypeahead';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory } from '../../lib/types';
 import { toast } from 'sonner';
 
+// Íconos por categoría — se asignan automáticamente cuando el usuario elige
+// categoría (mismo patrón visual que /raids/inventory → drops).
 const DEFAULT_IMAGES: Record<ItemCategory, string> = {
   ARMADURA:   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=80&q=80',
   ARMA:       'https://images.unsplash.com/photo-1589656966895-2f33e7653819?auto=format&fit=crop&w=80&q=80',
@@ -18,26 +20,25 @@ const DEFAULT_IMAGES: Record<ItemCategory, string> = {
 };
 
 // ============================================================================
-// Registro de ítems — formulario multi-fila (inspirado en RaidInventory)
+// Registro de ítems — layout compacto multi-fila, mismo patrón que el
+// formulario "Registrar nuevo evento de raid" en /raids/inventory.
 //
-// Cada fila representa UN ítem a registrar. El usuario puede agregar N filas
-// y registrarlas todas de una sola vez con el botón "Registrar lote".
+// Estructura de cada fila (columnas grid-12):
+//   [Nombre (typeahead, 4)] [Categoría (3)] [Precio (2)] [Cant. (1)] [Imagen preview (2)]
+//   + segunda línea colapsable con selector de "Personajes asociados".
 //
-// Autocompletado por fila (typeahead de ítems existentes):
-//   - ✅ autocompleta: nombre, categoría, precio, imagen
-//   - ❌ NO autocompleta: cantidad (queda en 1) ni personajes (quedan vacíos)
-//
-// Esto permite registrar variantes de un ítem ya conocido asignándole otros
-// personajes o una cantidad distinta sin arrastrar los del original.
-//
-// Backend: se invoca `addItem` N veces (una por fila válida). Cero cambios
-// de schema; cero cambios en otras pantallas.
+// Autocompletado del typeahead (al seleccionar un ítem existente):
+//   ✅ nombre, categoría, precio
+//   ✅ imagen ← copia la imagen del ítem seleccionado; si queda vacía, se
+//      auto-asigna el ícono default por categoría al elegir categoría.
+//   ❌ cantidad  (queda en 1)
+//   ❌ personajes (quedan vacíos — se asignan a mano por ítem)
 // ============================================================================
 
 interface RowState {
   id: string;
   name: string;
-  category: ItemCategory;
+  category: ItemCategory | '';
   price: string;
   quantity: string;
   imageUrl: string;
@@ -49,7 +50,7 @@ interface RowState {
 const emptyRow = (): RowState => ({
   id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   name: '',
-  category: 'ARMA',
+  category: '',
   price: '',
   quantity: '1',
   imageUrl: '',
@@ -71,6 +72,21 @@ export function CreateItemPanel() {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
   };
 
+  // Cambiar categoría auto-asigna el ícono default si la fila no tiene imagen
+  // propia todavía (misma lógica que /raids/inventory).
+  const handleCategoryChange = (rowId: string, newCat: ItemCategory | '') => {
+    setRows(prev =>
+      prev.map(r => {
+        if (r.id !== rowId) return r;
+        const nextImg =
+          newCat && CATEGORIES.includes(newCat as ItemCategory)
+            ? DEFAULT_IMAGES[newCat as ItemCategory]
+            : '';
+        return { ...r, category: newCat, imageUrl: nextImg };
+      }),
+    );
+  };
+
   const addRow = () => {
     setRows(prev => [...prev, emptyRow()]);
   };
@@ -80,14 +96,20 @@ export function CreateItemPanel() {
   };
 
   // Typeahead select: autocompleta nombre, categoría, precio, imagen.
-  // NO toca cantidad ni personajes — permite que el usuario re-registre
-  // un ítem conocido asignándole un reparto distinto.
+  // NO toca cantidad ni personajes — permite re-registrar un ítem conocido
+  // asignándole un reparto distinto.
   const applyTypeaheadSelection = (rowId: string, item: Item) => {
+    const pickedCat = item.category;
+    const picked = item.image?.publicUrl;
+    const fallback =
+      pickedCat && CATEGORIES.includes(pickedCat as ItemCategory)
+        ? DEFAULT_IMAGES[pickedCat as ItemCategory]
+        : '';
     updateRow(rowId, {
       name: item.name,
-      category: item.category,
+      category: pickedCat,
       price: item.price != null ? String(item.price) : '',
-      imageUrl: item.image?.publicUrl ?? '',
+      imageUrl: picked || fallback,
       // quantity y selectedCharIds explícitamente NO se tocan
     });
   };
@@ -103,6 +125,8 @@ export function CreateItemPanel() {
 
   const validateRow = (r: RowState): string | null => {
     if (!r.name.trim()) return 'Nombre del ítem es obligatorio';
+    if (!r.category || !CATEGORIES.includes(r.category as ItemCategory))
+      return 'Debes seleccionar una categoría';
     const qty = parseInt(r.quantity);
     if (isNaN(qty) || qty < 1) return 'La cantidad debe ser al menos 1';
     if (r.price && isNaN(Number(r.price))) return 'Precio inválido';
@@ -113,11 +137,10 @@ export function CreateItemPanel() {
     e.preventDefault();
     if (submitting) return;
 
-    // Validar cada fila
     for (let i = 0; i < rows.length; i++) {
       const err = validateRow(rows[i]);
       if (err) {
-        toast.error(`Fila ${i + 1}: ${err}`);
+        toast.error(`Ítem #${i + 1}: ${err}`);
         return;
       }
     }
@@ -125,17 +148,18 @@ export function CreateItemPanel() {
     setSubmitting(true);
     try {
       rows.forEach(r => {
+        const cat = r.category as ItemCategory;
         const qty = parseInt(r.quantity) || 1;
-        const finalImage = r.imageUrl || DEFAULT_IMAGES[r.category];
+        const finalImage = r.imageUrl || DEFAULT_IMAGES[cat];
         addItem({
           name: r.name.trim(),
-          category: r.category,
+          category: cat,
           price: r.price ? Number(r.price) : null,
           status: 'EN_REGISTRO',
           image: {
             id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             publicUrl: finalImage,
-            altText: categoryMeta[r.category].label,
+            altText: categoryMeta[cat].label,
           },
           associatedCharacterIds: r.selectedCharIds,
           quantity: qty,
@@ -148,11 +172,9 @@ export function CreateItemPanel() {
       } else {
         toast.success(`${rows.length} ítems registrados correctamente.`);
       }
-
-      // Reset a una sola fila vacía
       setRows([emptyRow()]);
     } catch (err: any) {
-      toast.error(err?.message || 'Error al registrar el lote');
+      toast.error(err?.message || 'Error al registrar los ítems');
     } finally {
       setSubmitting(false);
     }
@@ -171,6 +193,8 @@ export function CreateItemPanel() {
     );
   }
 
+  const validCount = rows.filter(r => r.name.trim() && r.category).length;
+
   return (
     <div className="card-glass rounded-2xl p-5">
       {/* Header */}
@@ -181,9 +205,9 @@ export function CreateItemPanel() {
             Registro de Ítems
           </h3>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Registrá uno o varios ítems en un solo lote. El autocompletado busca ítems existentes
-            y copia <strong style={{ color: 'rgba(255,255,255,0.7)' }}>nombre, categoría, precio e imagen</strong>
-            {' '}— la cantidad y los personajes asociados siempre los ingresás vos.
+            Registrá uno o varios ítems. El autocompletado busca ítems existentes y copia
+            <strong style={{ color: 'rgba(255,255,255,0.7)' }}> nombre, categoría, precio e imagen</strong>
+            {' '}— la cantidad y los personajes siempre los ingresás vos.
           </p>
         </div>
         <div
@@ -200,66 +224,73 @@ export function CreateItemPanel() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        {rows.map((row, idx) => {
-          const thumbnail = row.imageUrl || DEFAULT_IMAGES[row.category];
-          const filteredChars = characters.filter(
-            c =>
-              c.name.toLowerCase().includes(row.charSearch.toLowerCase()) ||
-              c.class.toLowerCase().includes(row.charSearch.toLowerCase()),
-          );
+        {/* Toolbar: contador + añadir ítem */}
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Ítems <span style={{ color: '#f87171' }}>*</span> ({validCount})
+          </label>
+          <button
+            type="button"
+            onClick={addRow}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all"
+            style={{
+              background: 'rgba(123,241,214,0.1)',
+              border: '1px solid rgba(123,241,214,0.25)',
+              color: '#7bf1d6',
+            }}
+          >
+            <Plus className="h-3 w-3" /> Añadir ítem
+          </button>
+        </div>
 
-          return (
-            <div
-              key={row.id}
-              className="rounded-2xl border p-4"
-              style={{
-                borderColor: 'rgba(255,255,255,0.08)',
-                background: 'rgba(255,255,255,0.02)',
-              }}
-            >
-              {/* Row header: numerito + botón remover */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-mono font-semibold"
-                    style={{
-                      background: 'rgba(123,241,214,0.12)',
-                      color: '#7bf1d6',
-                      border: '1px solid rgba(123,241,214,0.25)',
-                    }}
-                  >
-                    {idx + 1}
+        <div className="space-y-3">
+          {rows.map((row, idx) => {
+            const catOk =
+              row.category && CATEGORIES.includes(row.category as ItemCategory);
+            const filteredChars = characters.filter(
+              c =>
+                c.name.toLowerCase().includes(row.charSearch.toLowerCase()) ||
+                c.class.toLowerCase().includes(row.charSearch.toLowerCase()),
+            );
+
+            return (
+              <div
+                key={row.id}
+                className="rounded-xl p-3"
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                {/* Row header: #N + quitar */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    Ítem #{idx + 1}
                   </span>
-                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Ítem {idx + 1} de {rows.length}
-                  </span>
-                </div>
-                {rows.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeRow(row.id)}
-                    className="rounded-lg p-1.5 transition-all"
+                    disabled={rows.length <= 1}
+                    className="rounded-lg px-2 py-1 text-xs transition-all flex items-center gap-1"
                     style={{
-                      background: 'rgba(239,68,68,0.08)',
-                      border: '1px solid rgba(239,68,68,0.2)',
-                      color: '#f87171',
+                      background: 'rgba(255,120,120,0.05)',
+                      border: '1px solid rgba(255,120,120,0.15)',
+                      color: 'rgba(255,120,120,0.7)',
+                      opacity: rows.length <= 1 ? 0.3 : 1,
+                      cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
                     }}
-                    title="Quitar esta fila"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3 w-3" /> quitar
                   </button>
-                )}
-              </div>
+                </div>
 
-              {/* Grid principal: typeahead + thumbnail */}
-              <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-                {/* Left: fields */}
-                <div className="space-y-3">
-                  {/* Nombre (typeahead) */}
-                  <div>
+                {/* Grid principal horizontal: nombre + cat + precio + cant + imagen */}
+                <div className="grid gap-3 sm:grid-cols-12">
+                  {/* Nombre con typeahead */}
+                  <div className="sm:col-span-4">
                     <label
                       className="mb-1 block text-xs font-medium"
-                      style={{ color: 'rgba(255,255,255,0.6)' }}
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
                     >
                       Nombre del ítem <span style={{ color: '#f87171' }}>*</span>
                     </label>
@@ -267,324 +298,348 @@ export function CreateItemPanel() {
                       value={row.name}
                       onChange={v => updateRow(row.id, { name: v })}
                       onSelect={item => applyTypeaheadSelection(row.id, item)}
+                      placeholder="Ej: Draconic Leather"
+                      compact
                     />
                   </div>
 
-                  {/* Categoría + Precio + Cantidad */}
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <label
-                        className="mb-1 block text-xs font-medium"
-                        style={{ color: 'rgba(255,255,255,0.6)' }}
-                      >
-                        Categoría <span style={{ color: '#f87171' }}>*</span>
-                      </label>
-                      <select
-                        value={row.category}
-                        onChange={e =>
-                          updateRow(row.id, { category: e.target.value as ItemCategory })
-                        }
-                        className="select-dark h-10"
-                      >
-                        {CATEGORIES.map(cat => {
-                          const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
-                          return (
-                            <option key={cat} value={cat}>
-                              {meta.emoji} {meta.label}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label
-                        className="mb-1 block text-xs font-medium"
-                        style={{ color: 'rgba(255,255,255,0.6)' }}
-                      >
-                        Precio (Adena)
-                      </label>
-                      <input
-                        type="number"
-                        value={row.price}
-                        onChange={e => updateRow(row.id, { price: e.target.value })}
-                        placeholder="Ej: 1200"
-                        className="input-dark h-10"
-                        min="0"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className="mb-1 block text-xs font-medium"
-                        style={{ color: 'rgba(255,255,255,0.6)' }}
-                      >
-                        Cantidad <span style={{ color: '#f87171' }}>*</span>
-                      </label>
-                      <input
-                        type="number"
-                        value={row.quantity}
-                        onChange={e => updateRow(row.id, { quantity: e.target.value })}
-                        placeholder="1"
-                        className="input-dark h-10"
-                        min="1"
-                      />
-                    </div>
-                  </div>
-
-                  {/* URL de imagen */}
-                  <div>
+                  {/* Categoría */}
+                  <div className="sm:col-span-3">
                     <label
                       className="mb-1 block text-xs font-medium"
-                      style={{ color: 'rgba(255,255,255,0.6)' }}
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
                     >
-                      URL de imagen (opcional)
+                      Categoría <span style={{ color: '#f87171' }}>*</span>
                     </label>
-                    <input
-                      type="url"
-                      value={row.imageUrl}
-                      onChange={e => updateRow(row.id, { imageUrl: e.target.value })}
-                      placeholder="https://..."
-                      className="input-dark h-10"
-                    />
-                  </div>
-
-                  {/* Personajes asociados */}
-                  <div>
-                    <label
-                      className="mb-1 block text-xs font-medium"
-                      style={{ color: 'rgba(255,255,255,0.6)' }}
-                    >
-                      <Users className="inline h-3.5 w-3.5 mr-1" />
-                      Personajes asociados{' '}
-                      <span style={{ color: 'rgba(255,255,255,0.3)' }}>
-                        (quienes ayudaron a conseguir el ítem)
-                      </span>
-                    </label>
-
-                    {row.selectedCharIds.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {row.selectedCharIds.map(cid => {
-                          const char = characters.find(c => c.id === cid);
-                          if (!char) return null;
-                          return (
-                            <div
-                              key={cid}
-                              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
-                              style={{
-                                background: 'rgba(123,241,214,0.12)',
-                                border: '1px solid rgba(123,241,214,0.25)',
-                                color: '#7bf1d6',
-                              }}
-                            >
-                              <div
-                                className={`flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
-                                style={{ fontSize: '8px', fontWeight: 'bold' }}
-                              >
-                                {char.name.slice(0, 1).toUpperCase()}
-                              </div>
-                              <span>{char.name}</span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateRow(row.id, {
-                                    selectedCharIds: row.selectedCharIds.filter(id => id !== cid),
-                                  })
-                                }
-                                className="ml-0.5 hover:opacity-70"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateRow(row.id, { showCharPicker: !row.showCharPicker })
+                    <select
+                      value={catOk ? row.category : ''}
+                      onChange={e =>
+                        handleCategoryChange(row.id, e.target.value as ItemCategory | '')
                       }
-                      className="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs w-full text-left transition-all"
+                      className="select-dark w-full rounded-lg px-2 py-1.5 text-xs"
                       style={{
                         background: 'rgba(255,255,255,0.03)',
-                        borderColor: row.showCharPicker
-                          ? 'rgba(123,241,214,0.4)'
-                          : 'rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.6)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                        height: 36,
                       }}
                     >
-                      <Users className="h-3.5 w-3.5" />
-                      {row.selectedCharIds.length === 0
-                        ? 'Seleccionar personajes...'
-                        : `${row.selectedCharIds.length} personaje(s) seleccionado(s)`}
-                    </button>
+                      <option value="" className="bg-[#0a0e16]">
+                        -- Seleccionar --
+                      </option>
+                      {CATEGORIES.map(cat => {
+                        const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                        return (
+                          <option key={cat} value={cat} className="bg-[#0a0e16]">
+                            {meta.emoji} {meta.label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
 
-                    {row.showCharPicker && (
-                      <div
-                        className="mt-1 rounded-xl border overflow-hidden"
-                        style={{
-                          background: 'rgba(10,14,22,0.98)',
-                          borderColor: 'rgba(255,255,255,0.1)',
-                          maxHeight: 220,
-                          overflowY: 'auto',
-                        }}
-                      >
-                        <div
-                          className="flex items-center gap-2 border-b px-3 py-2 sticky top-0"
-                          style={{
-                            background: 'rgba(10,14,22,0.98)',
-                            borderColor: 'rgba(255,255,255,0.06)',
-                          }}
-                        >
-                          <Search
-                            className="h-3.5 w-3.5 shrink-0"
-                            style={{ color: 'rgba(255,255,255,0.35)' }}
+                  {/* Precio */}
+                  <div className="sm:col-span-2">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Precio (Adena)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.price}
+                      onChange={e => updateRow(row.id, { price: e.target.value })}
+                      placeholder="0"
+                      className="w-full rounded-lg px-2 py-1.5 text-xs"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                        height: 36,
+                      }}
+                    />
+                  </div>
+
+                  {/* Cantidad */}
+                  <div className="sm:col-span-1">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Cant. <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={row.quantity}
+                      onChange={e => updateRow(row.id, { quantity: e.target.value })}
+                      placeholder="1"
+                      className="w-full rounded-lg px-2 py-1.5 text-xs"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                        height: 36,
+                      }}
+                    />
+                  </div>
+
+                  {/* Imagen preview (solo lectura, se asigna por categoría) */}
+                  <div className="sm:col-span-2">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Imagen
+                    </label>
+                    <div
+                      className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px dashed rgba(255,255,255,0.08)',
+                        height: 36,
+                      }}
+                      title={
+                        row.imageUrl
+                          ? 'Asignada automáticamente por categoría'
+                          : 'Elegí una categoría para asignar el ícono'
+                      }
+                    >
+                      {row.imageUrl ? (
+                        <>
+                          <img
+                            src={row.imageUrl}
+                            alt=""
+                            className="h-7 w-7 rounded object-cover shrink-0"
                           />
-                          <input
-                            value={row.charSearch}
-                            onChange={e => updateRow(row.id, { charSearch: e.target.value })}
-                            placeholder="Buscar personaje..."
-                            className="bg-transparent text-xs outline-none w-full"
-                            style={{ color: 'rgba(255,255,255,0.8)' }}
+                          <span
+                            className="text-[10px] truncate"
+                            style={{ color: 'rgba(255,255,255,0.5)' }}
+                          >
+                            auto · {catOk ? row.category : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon
+                            className="h-4 w-4 shrink-0"
+                            style={{ color: 'rgba(255,255,255,0.25)' }}
                           />
-                        </div>
-                        {filteredChars.map(char => {
-                          const isSelected = row.selectedCharIds.includes(char.id);
-                          return (
-                            <button
-                              key={char.id}
-                              type="button"
-                              onClick={() => toggleCharInRow(row.id, char.id)}
-                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
-                              style={{
-                                background: isSelected ? 'rgba(123,241,214,0.06)' : undefined,
-                              }}
-                            >
-                              <div
-                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}
-                              >
-                                {char.name.slice(0, 2).toUpperCase()}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="text-xs font-medium truncate"
-                                  style={{ color: 'rgba(255,255,255,0.85)' }}
-                                >
-                                  {char.name}
-                                </p>
-                                <p
-                                  className="text-xs"
-                                  style={{ color: 'rgba(255,255,255,0.35)' }}
-                                >
-                                  {char.class} · Nv.{char.level}
-                                </p>
-                              </div>
-                              <div
-                                className="shrink-0 h-4 w-4 rounded border flex items-center justify-center"
-                                style={{
-                                  borderColor: isSelected
-                                    ? '#7bf1d6'
-                                    : 'rgba(255,255,255,0.2)',
-                                  background: isSelected
-                                    ? 'rgba(123,241,214,0.2)'
-                                    : 'transparent',
-                                }}
-                              >
-                                {isSelected && (
-                                  <span style={{ color: '#7bf1d6', fontSize: 10 }}>✓</span>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                        {filteredChars.length === 0 && (
-                          <p
-                            className="px-3 py-4 text-xs text-center"
+                          <span
+                            className="text-[10px]"
                             style={{ color: 'rgba(255,255,255,0.3)' }}
                           >
-                            No se encontraron personajes
-                          </p>
-                        )}
-                      </div>
-                    )}
+                            elegí categoría
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Right: thumbnail */}
-                <div
-                  className="hidden lg:flex flex-col items-center justify-center rounded-xl border border-dashed p-3 w-32"
-                  style={{
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    background: 'rgba(255,255,255,0.01)',
-                  }}
-                >
-                  <div
-                    className="relative h-20 w-20 overflow-hidden rounded-xl border"
-                    style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                {/* Segunda línea: personajes asociados (colapsable) */}
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateRow(row.id, { showCharPicker: !row.showCharPicker })
+                    }
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${
+                        row.showCharPicker
+                          ? 'rgba(123,241,214,0.4)'
+                          : 'rgba(255,255,255,0.08)'
+                      }`,
+                      color: 'rgba(255,255,255,0.7)',
+                    }}
                   >
-                    {thumbnail ? (
-                      <img
-                        src={thumbnail}
-                        alt="Preview"
-                        className="h-full w-full object-cover"
-                      />
+                    <Users className="h-3.5 w-3.5" />
+                    Personajes asociados
+                    {row.selectedCharIds.length > 0 && (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          background: 'rgba(123,241,214,0.2)',
+                          color: '#7bf1d6',
+                        }}
+                      >
+                        {row.selectedCharIds.length}
+                      </span>
+                    )}
+                    {row.showCharPicker ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-white/5">
-                        <ImagePlus
-                          className="h-6 w-6"
-                          style={{ color: 'rgba(255,255,255,0.3)' }}
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  {/* Chips de personajes ya seleccionados (visibles siempre si hay) */}
+                  {row.selectedCharIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {row.selectedCharIds.map(cid => {
+                        const char = characters.find(c => c.id === cid);
+                        if (!char) return null;
+                        return (
+                          <div
+                            key={cid}
+                            className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                            style={{
+                              background: 'rgba(123,241,214,0.12)',
+                              border: '1px solid rgba(123,241,214,0.25)',
+                              color: '#7bf1d6',
+                            }}
+                          >
+                            <div
+                              className={`flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                              style={{ fontSize: 8, fontWeight: 'bold' }}
+                            >
+                              {char.name.slice(0, 1).toUpperCase()}
+                            </div>
+                            <span>{char.name}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateRow(row.id, {
+                                  selectedCharIds: row.selectedCharIds.filter(
+                                    id => id !== cid,
+                                  ),
+                                })
+                              }
+                              className="ml-0.5 hover:opacity-70"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Picker expandido */}
+                  {row.showCharPicker && (
+                    <div
+                      className="mt-2 rounded-xl border overflow-hidden"
+                      style={{
+                        background: 'rgba(10,14,22,0.98)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-2 border-b px-3 py-2 sticky top-0"
+                        style={{
+                          background: 'rgba(10,14,22,0.98)',
+                          borderColor: 'rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <Search
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={{ color: 'rgba(255,255,255,0.35)' }}
+                        />
+                        <input
+                          value={row.charSearch}
+                          onChange={e =>
+                            updateRow(row.id, { charSearch: e.target.value })
+                          }
+                          placeholder="Buscar personaje..."
+                          className="bg-transparent text-xs outline-none w-full"
+                          style={{ color: 'rgba(255,255,255,0.8)' }}
                         />
                       </div>
-                    )}
-                  </div>
-                  <p
-                    className="mt-2 text-[10px] text-center"
-                    style={{ color: 'rgba(255,255,255,0.35)' }}
-                  >
-                    Vista previa
-                  </p>
+                      {filteredChars.map(char => {
+                        const isSelected = row.selectedCharIds.includes(char.id);
+                        return (
+                          <button
+                            key={char.id}
+                            type="button"
+                            onClick={() => toggleCharInRow(row.id, char.id)}
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                            style={{
+                              background: isSelected
+                                ? 'rgba(123,241,214,0.06)'
+                                : undefined,
+                            }}
+                          >
+                            <div
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}
+                            >
+                              {char.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="text-xs font-medium truncate"
+                                style={{ color: 'rgba(255,255,255,0.85)' }}
+                              >
+                                {char.name}
+                              </p>
+                              <p
+                                className="text-xs"
+                                style={{ color: 'rgba(255,255,255,0.35)' }}
+                              >
+                                {char.class} · Nv.{char.level}
+                              </p>
+                            </div>
+                            <div
+                              className="shrink-0 h-4 w-4 rounded border flex items-center justify-center"
+                              style={{
+                                borderColor: isSelected
+                                  ? '#7bf1d6'
+                                  : 'rgba(255,255,255,0.2)',
+                                background: isSelected
+                                  ? 'rgba(123,241,214,0.2)'
+                                  : 'transparent',
+                              }}
+                            >
+                              {isSelected && (
+                                <span style={{ color: '#7bf1d6', fontSize: 10 }}>
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {filteredChars.length === 0 && (
+                        <p
+                          className="px-3 py-4 text-xs text-center"
+                          style={{ color: 'rgba(255,255,255,0.3)' }}
+                        >
+                          No se encontraron personajes
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
 
-        {/* Add row button */}
+        {/* Botón submit (estilo raid) */}
         <button
-          type="button"
-          onClick={addRow}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm transition-all hover:bg-white/[0.03]"
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all"
           style={{
-            borderColor: 'rgba(123,241,214,0.3)',
-            background: 'rgba(123,241,214,0.04)',
+            background:
+              'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(139,183,250,0.2))',
+            border: '1px solid rgba(123,241,214,0.35)',
             color: '#7bf1d6',
+            opacity: submitting ? 0.5 : 1,
+            cursor: submitting ? 'not-allowed' : 'pointer',
           }}
         >
-          <Plus className="h-4 w-4" />
-          Agregar otro ítem al lote
+          {submitting
+            ? 'Registrando…'
+            : rows.length === 1
+            ? 'Registrar ítem'
+            : `Registrar ${rows.length} ítems`}
         </button>
-
-        {/* Submit */}
-        <div className="flex items-center justify-between gap-3 pt-2">
-          <div className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            {rows.length === 1 ? '1 ítem listo para registrar' : `${rows.length} ítems listos para registrar`}
-          </div>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="btn-primary h-11 px-6 text-sm font-semibold"
-            style={{
-              opacity: submitting ? 0.5 : 1,
-              cursor: submitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {submitting
-              ? 'Registrando…'
-              : rows.length === 1
-              ? 'Registrar ítem'
-              : `Registrar lote (${rows.length})`}
-          </button>
-        </div>
       </form>
     </div>
   );

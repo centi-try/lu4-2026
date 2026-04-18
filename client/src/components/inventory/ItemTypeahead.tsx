@@ -9,6 +9,12 @@ interface Props {
   onChange: (value: string) => void;
   onSelect: (item: Item) => void;
   placeholder?: string;
+  /**
+   * Compact mode shrinks the input height and padding so the typeahead fits
+   * inline inside a grid row (same look & feel as the drop rows in the raid
+   * event form).
+   */
+  compact?: boolean;
 }
 
 function highlight(text: string, query: string): React.ReactNode {
@@ -26,7 +32,7 @@ function highlight(text: string, query: string): React.ReactNode {
   );
 }
 
-export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre del ítem con autocompletado inteligente...' }: Props) {
+export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre del ítem con autocompletado inteligente...', compact = false }: Props) {
   const { searchItems } = useApp();
   const [results, setResults] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,9 +74,14 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
 
   return (
     <div className="relative">
-      <div className="flex h-11 items-center gap-3 rounded-xl px-4 transition-all"
-        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
-        <Search className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
+      <div
+        className={`flex items-center gap-2 rounded-lg transition-all ${compact ? 'h-9 px-2' : 'h-11 px-4 gap-3 rounded-xl'}`}
+        style={{
+          background: compact ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.04)',
+          border: compact ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.1)',
+        }}
+      >
+        <Search className={`shrink-0 ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} style={{ color: 'rgba(255,255,255,0.35)' }} />
         <input
           ref={inputRef}
           value={value}
@@ -79,10 +90,10 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
           onFocus={() => results.length > 0 && setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder={placeholder}
-          className="w-full bg-transparent text-sm outline-none"
+          className={`w-full bg-transparent outline-none ${compact ? 'text-xs' : 'text-sm'}`}
           style={{ color: 'rgba(255,255,255,0.9)', caretColor: '#7bf1d6' }}
         />
-        {loading && <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: '#7bf1d6' }} />}
+        {loading && <Loader2 className={`animate-spin shrink-0 ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} style={{ color: '#7bf1d6' }} />}
       </div>
 
       {open && results.length > 0 && (
