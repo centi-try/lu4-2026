@@ -158,6 +158,10 @@ export default function RaidSettings({ raidAccess }: Props) {
   const clans = clansQ.data || [];
   const canAdminClans = !!raidAccess?.canAdmin;
 
+  // Confirmaciones de borrado (reemplazan window.confirm() feos)
+  const [bossToDelete, setBossToDelete] = useState<any | null>(null);
+  const [clanToDelete, setClanToDelete] = useState<any | null>(null);
+
   return (
     <AppShell>
       <div className="mb-6">
@@ -355,11 +359,7 @@ export default function RaidSettings({ raidAccess }: Props) {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`¿Eliminar el boss "${b.name}"?`)) {
-                        deleteBoss.mutate({ id: Number(b.id) });
-                      }
-                    }}
+                    onClick={() => setBossToDelete(b)}
                     className="rounded-lg p-1.5 transition-all hover:bg-red-500/10"
                     style={{ color: 'rgba(255,120,120,0.7)' }}
                     title="Eliminar"
@@ -546,11 +546,7 @@ export default function RaidSettings({ raidAccess }: Props) {
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(`¿Eliminar el clan "${c.name}"?`)) {
-                            deleteClan.mutate({ id: Number(c.id) });
-                          }
-                        }}
+                        onClick={() => setClanToDelete(c)}
                         className="rounded-lg p-1.5 transition-all hover:bg-red-500/10"
                         style={{ color: 'rgba(255,120,120,0.7)' }}
                         title="Eliminar"
@@ -571,7 +567,187 @@ export default function RaidSettings({ raidAccess }: Props) {
 
       {/* ===== Gestión de Accesos Raid (super admin only) ===== */}
       {raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
+
+      {/* ===== Modales de confirmación de borrado ===== */}
+      {bossToDelete && (
+        <ConfirmDeleteModal
+          title="Eliminar Raid Boss"
+          description="Esta acción es irreversible. El boss dejará de aparecer en el catálogo para nuevos eventos; los eventos ya creados que lo referenciaban conservan su imagen."
+          itemLabel={bossToDelete.name}
+          itemDetail={bossToDelete.level ? `Lv ${bossToDelete.level}` : undefined}
+          itemImage={bossToDelete.officialImageUrl || null}
+          isPending={deleteBoss.isPending}
+          onCancel={() => {
+            if (!deleteBoss.isPending) setBossToDelete(null);
+          }}
+          onConfirm={() =>
+            deleteBoss.mutate(
+              { id: Number(bossToDelete.id) },
+              { onSuccess: () => setBossToDelete(null) }
+            )
+          }
+        />
+      )}
+
+      {clanToDelete && (
+        <ConfirmDeleteModal
+          title="Eliminar Clan"
+          description="Esta acción es irreversible. El clan dejará de aparecer como destinatario en nuevos eventos; sus asignaciones previas y estadísticas históricas se conservan."
+          itemLabel={clanToDelete.name}
+          itemDetail={clanToDelete.tag ? `[${clanToDelete.tag}]` : undefined}
+          itemImage={null}
+          isPending={deleteClan.isPending}
+          onCancel={() => {
+            if (!deleteClan.isPending) setClanToDelete(null);
+          }}
+          onConfirm={() =>
+            deleteClan.mutate(
+              { id: Number(clanToDelete.id) },
+              { onSuccess: () => setClanToDelete(null) }
+            )
+          }
+        />
+      )}
     </AppShell>
+  );
+}
+
+// ============================================================================
+// Modal reutilizable de confirmación de borrado
+// ============================================================================
+
+function ConfirmDeleteModal({
+  title,
+  description,
+  itemLabel,
+  itemDetail,
+  itemImage,
+  isPending,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  itemLabel: string;
+  itemDetail?: string;
+  itemImage: string | null;
+  isPending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl p-5"
+        style={{
+          background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+          border: '1px solid rgba(239,68,68,0.3)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+              <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                {title}
+              </h3>
+            </div>
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              {description}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="rounded-lg p-1.5"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'rgba(255,255,255,0.6)',
+            }}
+            aria-label="Cerrar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div
+          className="rounded-xl p-3 mb-4 flex items-center gap-3"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <div
+            className="h-10 w-10 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            {itemImage ? (
+              <img src={itemImage} alt={itemLabel} className="h-full w-full object-cover" />
+            ) : (
+              <Trash2 className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.25)' }} />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div
+              className="text-sm font-semibold truncate"
+              style={{ color: 'rgba(255,255,255,0.9)' }}
+            >
+              {itemLabel}
+            </div>
+            {itemDetail && (
+              <div
+                className="text-[11px] mt-0.5"
+                style={{ color: 'rgba(255,255,255,0.45)' }}
+              >
+                {itemDetail}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.75)',
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+            style={{
+              background: 'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(232,121,249,0.9))',
+              border: '1px solid rgba(239,68,68,0.5)',
+              color: '#fff',
+              opacity: isPending ? 0.6 : 1,
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            {isPending ? 'Eliminando…' : 'Sí, eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -603,6 +779,14 @@ function CategoryIconsSection() {
     iconByCat[String(r.category).toUpperCase()] = r.imageUrl;
   });
 
+  // Confirmación para borrar ícono de categoría.
+  const [iconToDelete, setIconToDelete] = useState<{
+    category: string;
+    label: string;
+    emoji: string;
+    imageUrl: string;
+  } | null>(null);
+
   return (
     <div className="mt-5 rounded-2xl p-5" style={{
       background: 'rgba(255,255,255,0.02)',
@@ -632,12 +816,39 @@ function CategoryIconsSection() {
               color={meta.color}
               currentUrl={current}
               onSave={(url) => setIcon.mutate({ category: cat, imageUrl: url })}
-              onDelete={() => deleteIcon.mutate({ category: cat })}
+              onDelete={() =>
+                setIconToDelete({
+                  category: cat,
+                  label: meta.label,
+                  emoji: meta.emoji,
+                  imageUrl: current,
+                })
+              }
               saving={setIcon.isPending || deleteIcon.isPending}
             />
           );
         })}
       </div>
+
+      {iconToDelete && (
+        <ConfirmDeleteModal
+          title="Eliminar ícono de categoría"
+          description="Esta acción es irreversible. Los drops nuevos de esta categoría volverán a usar el ícono genérico hasta que asignes uno nuevo."
+          itemLabel={`${iconToDelete.emoji} ${iconToDelete.label}`}
+          itemDetail={`Categoría ${iconToDelete.category}`}
+          itemImage={iconToDelete.imageUrl || null}
+          isPending={deleteIcon.isPending}
+          onCancel={() => {
+            if (!deleteIcon.isPending) setIconToDelete(null);
+          }}
+          onConfirm={() =>
+            deleteIcon.mutate(
+              { category: iconToDelete.category },
+              { onSuccess: () => setIconToDelete(null) }
+            )
+          }
+        />
+      )}
     </div>
   );
 }
