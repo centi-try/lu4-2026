@@ -282,46 +282,50 @@ export default function RaidDashboard({ raidAccess }: Props) {
         )}
       </div>
 
-      {/* Tabla completa de Eventos registrados — visible para todos los roles raid */}
-      <div className="card-glass rounded-2xl p-5 mt-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Swords className="h-5 w-5" style={{ color: '#e879f9' }} />
-            <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              Eventos registrados
-            </h3>
+      {/* Grid 2 columnas (Opción B): "Eventos registrados" y "Actividad
+          reciente" quedan lado a lado en pantallas anchas (lg+). En mobile
+          siguen siendo una columna (apilados). La tabla de drops va debajo,
+          ocupando ancho completo, porque sus 8 columnas necesitan el espacio. */}
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        {/* Eventos registrados */}
+        <div className="card-glass rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Swords className="h-5 w-5" style={{ color: '#e879f9' }} />
+              <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Eventos registrados
+              </h3>
+            </div>
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              {allEvents.length} total
+            </span>
           </div>
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            {allEvents.length} total
-          </span>
+
+          {allEvents.length === 0 ? (
+            <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Aún no hay eventos registrados.
+            </p>
+          ) : (
+            <EventsGroupedByCycle
+              events={allEvents}
+              cycles={allCycles}
+              renderEvent={(e: any) => <DashboardEventCard key={e.id} event={e} />}
+            />
+          )}
         </div>
 
-        {allEvents.length === 0 ? (
-          <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            Aún no hay eventos registrados.
-          </p>
-        ) : (
-          <EventsGroupedByCycle
-            events={allEvents}
-            cycles={allCycles}
-            renderEvent={(e: any) => <DashboardEventCard key={e.id} event={e} />}
-          />
-        )}
+        {/* Actividad reciente del módulo Raid — igual al "Actividad Reciente"
+            del dashboard viejo, pero alimentado por los audit logs del módulo. */}
+        <div>
+          <RaidActivityFeed />
+        </div>
       </div>
 
-      {/* Tabla consolidada de drops — replica 1:1 la tab "Tabla de drops" de
-          /raids/inventory para que cualquier usuario con acceso raid pueda ver
-          de un vistazo qué hay en stock, qué se puede comprar y a qué clanes
-          está asociado cada drop. Reutiliza el mismo componente con las mismas
-          mutations, así se mantiene consistente entre las dos vistas. */}
+      {/* Tabla consolidada de drops (ancho completo) — replica la tab
+          "Tabla de drops" de /raids/inventory. Queda abajo porque necesita
+          el ancho completo para respirar (8 columnas + filtros). */}
       <div className="mt-5">
         <RaidDropsTable raidAccess={raidAccess} />
-      </div>
-
-      {/* Actividad reciente del módulo Raid — igual al "Actividad Reciente"
-          del dashboard viejo, pero alimentado por los audit logs del módulo. */}
-      <div className="mt-5">
-        <RaidActivityFeed />
       </div>
     </AppShell>
   );
