@@ -18,7 +18,6 @@ import { toast } from 'sonner';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
-import { DropReservationsCell, ReservationQuickButton } from './DropReservationsCell';
 
 // ============================================================================
 // Tabla consolidada de todos los raid drops registrados.
@@ -108,10 +107,6 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       utils.raid.drops.list.invalidate();
       utils.raid.events.list.invalidate();
       utils.raid.clans.list.invalidate();
-      // Si el drop quedó agotado, el backend borra las reservas vivas y las
-      // archiva en el audit log. Refrescamos para que el contador de la
-      // columna "Reservas" se actualice en vivo.
-      utils.raid.reservations.list.invalidate();
       // Una venta suma al currentCycleEarnings de los clanes asociados
       // y al revenue del ciclo — refrescamos clans.stats para que el
       // ranking en /raids/clans se actualice en vivo.
@@ -351,7 +346,6 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                   <th className="px-3 py-3 font-medium text-right">Precio</th>
                   <th className="px-3 py-3 font-medium text-left">Stock</th>
                   <th className="px-3 py-3 font-medium text-right">Subtotal</th>
-                  <th className="px-3 py-3 font-medium text-center">Reservas</th>
                   <th className="px-3 py-3 font-medium text-center">Acciones</th>
                 </tr>
               </thead>

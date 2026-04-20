@@ -24,8 +24,6 @@ import {
   // drops
   getRaidDropItems, getRaidDropItemById, updateRaidDropItem, deleteRaidDropItem,
   sellRaidDropItem,
-  // drop reservations (señales de intención de compra sobre drops disponibles)
-  getRaidDropReservations, createRaidDropReservation, deleteRaidDropReservation,
   // dashboard + stats
   getRaidDashboardMetrics, getClanStats,
   // audit
@@ -684,111 +682,6 @@ export const raidRouter = router({
           buyerName: input.buyerName,
         });
         return { success: true, ...result };
-      }),
-  }),
-
-  // ---------------- Reservas de compra sobre drops --------------------------
-  // Cualquier usuario con acceso raid (incluyendo raid_user) puede reservar
-  // unidades de un drop para señalar intención de compra. La suma total de
-  // reservas por drop no puede superar el stock disponible — esto garantiza
-  // que múltiples usuarios puedan competir por las mismas unidades sin que
-  // uno solo acapare todo.
-  reservations: router({
-    list: raidViewerProcedure
-      .input(z.object({
-        dropItemId: z.number().int().optional(),
-        userId: z.number().int().optional(),
-      }).optional())
-      .query(async ({ input }) => {
-        const reservations = await getRaidDropReservations(input);
-        return reservations;
-      }),
-    create: raidViewerProcedure
-      .input(z.object({
-        dropItemId: z.number().int(),
-        quantity: z.number().int().min(1),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        // Verificar que el usuario tenga acceso raid real (no viewer_only que
-        // solo puede mirar). Para reservar se necesita al menos raid_user.
-        const access = await getUserRaidAccess(ctx.user.id);
-        const allowedLevels = new Set(['raid_admin', 'raid_mapper', 'raid_user']);
-        if (!access || !allowedLevels.has(String(access.accessLevel))) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Necesitás rol raid_user o superior para reservar.',
-          });
-        }
-        // characterName del perfil del usuario (fallback al name si no tiene).
-        const characterName = String(
-          (ctx.user as any).characterName ||
-          ctx.user.name ||
-          ctx.user.email ||
-          ''
-        ).trim();
-        if (!characterName) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Tu perfil no tiene un personaje configurado. Configuralo antes de reservar.',
-          });
-        }
-        try {
-          const reservation = await createRaidDropReservation({
-            dropItemId: input.dropItemId,
-            userId: ctx.user.id,
-            userName: String(ctx.user.name || ctx.user.email || 'Usuario').trim(),
-            characterName,
-            quantity: input.quantity,
-          });
-          await createRaidAuditLog({
-            userId: ctx.user.id,
-            action: 'RAID_DROP_RESERVED',
-            details: {
-              dropItemId: input.dropItemId,
-              quantity: input.quantity,
-              characterName,
-            },
-          });
-          return { success: true, reservation };
-        } catch (err: any) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: err?.message || 'No se pudo registrar la reserva.',
-          });
-        }
-      }),
-    delete: raidViewerProcedure
-      .input(z.object({ id: z.number().int() }))
-      .mutation(async ({ ctx, input }) => {
-        // Obtener la reserva primero para verificar el dueño.
-        const all = await getRaidDropReservations();
-        const target = all.find(r => Number(r.id) === Number(input.id));
-        if (!target) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Reserva no encontrada.',
-          });
-        }
-        const access = await canUserAccessRaidModule(ctx.user);
-        const isOwner = Number(target.userId) === Number(ctx.user.id);
-        // Solo el dueño de la reserva o un admin raid puede borrarla.
-        if (!isOwner && !access.canAdmin) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'No tenés permiso para borrar esta reserva.',
-          });
-        }
-        const removed = await deleteRaidDropReservation(input.id);
-        await createRaidAuditLog({
-          userId: ctx.user.id,
-          action: 'RAID_DROP_RESERVATION_DELETED',
-          details: {
-            reservationId: input.id,
-            dropItemId: target.dropItemId,
-            deletedBy: isOwner ? 'owner' : 'admin',
-          },
-        });
-        return { success: true, reservation: removed };
       }),
   }),
 
