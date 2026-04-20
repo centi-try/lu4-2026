@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Plus } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,11 +8,11 @@ import { useAuth } from '../../contexts/AuthContext';
 // ============================================================================
 // Botón "R" de reservas para items del inventario legacy.
 //
-// Mismo patrón visual y de semántica que DropReservationsCell del módulo raid:
+// Mismo patrón visual y de semántica que la reserva en el módulo raid:
 // - Cualquier usuario logueado puede reservar (waitlist).
 // - La suma total de reservas puede superar el stock: el admin decide a quién
 //   vender y cancela las sobrantes.
-// - La cantidad individual de una reserva no puede superar el stock disponible.
+// - La cantidad individual no puede superar el stock disponible.
 // - El personaje se toma del perfil (characterName del registro).
 // - El dueño cancela la propia; MAPPER/SUPER_ADMIN cancelan cualquiera.
 // - Modal renderizado con createPortal a document.body para evitar clipping
@@ -110,74 +110,79 @@ export function ItemReservationButton({ item, reservations }: Props) {
 
   // Disabled si sold out Y no hay reservas que mirar/cancelar.
   const disabled = soldOut && reservedCount === 0;
-
-  const triggerColor = reservedCount > 0 ? '#fbbf24' : 'rgba(255,255,255,0.55)';
-  const triggerBg = reservedCount > 0 ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.03)';
-  const triggerBorder = reservedCount > 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.08)';
+  const hasReservations = reservedCount > 0;
 
   return (
     <>
+      {/* Trigger con mismo estilo que el botón R del módulo raid
+          (ReservationQuickButton en DropReservationsCell.tsx). */}
       <button
         type="button"
         onClick={() => { if (!disabled) setOpen(true); }}
         disabled={disabled}
-        className="rounded-lg p-2 transition-all"
-        style={{
-          background: disabled ? 'rgba(255,255,255,0.02)' : triggerBg,
-          border: `1px solid ${disabled ? 'rgba(255,255,255,0.04)' : triggerBorder}`,
-          color: disabled ? 'rgba(255,255,255,0.2)' : triggerColor,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-        }}
+        className="btn-ghost p-2"
         title={
           disabled
             ? 'Ítem sin stock — sin reservas activas'
-            : reservedCount > 0
-              ? `${reservedCount} reserva(s) activa(s)`
-              : 'Reservar ítem'
+            : hasReservations
+              ? `Ver reservas (${reservedCount}) / agregar la tuya`
+              : 'Reservar / ver reservas'
         }
+        style={{
+          color: disabled ? 'rgba(255,255,255,0.2)' : '#fbbf24',
+          borderColor: disabled ? 'rgba(255,255,255,0.04)' : 'rgba(251,191,36,0.25)',
+          background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(251,191,36,0.08)',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        }}
       >
-        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[12px] font-black leading-none">R</span>
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">R</span>
       </button>
 
       {open && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div
-            className="w-full max-w-md rounded-2xl shadow-2xl"
+            className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
             style={{
               background: 'rgba(10,14,22,0.98)',
-              border: '1px solid rgba(251,191,36,0.3)',
+              border: '1px solid rgba(251,191,36,0.28)',
             }}
           >
-            {/* Header */}
+            {/* Header con avatar R circular */}
             <div
-              className="flex items-start justify-between px-5 py-4 border-b"
+              className="flex items-start gap-3 px-5 py-4 border-b"
               style={{ borderColor: 'rgba(255,255,255,0.06)' }}
             >
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full shrink-0"
+                style={{
+                  background: 'rgba(251,191,36,0.15)',
+                  border: '1px solid rgba(251,191,36,0.35)',
+                  color: '#fbbf24',
+                }}
+              >
+                <span className="text-base font-black leading-none">R</span>
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="inline-flex h-4 w-4 items-center justify-center text-[13px] font-black leading-none"
-                    style={{ color: '#fbbf24' }}
-                  >
-                    R
-                  </span>
-                  <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.92)' }}>
-                    Reservar ítem
-                  </h3>
-                </div>
-                <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <h3 className="text-base font-semibold leading-tight" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Reservar
+                </h3>
+                <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
                   {item.name}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded p-1 shrink-0"
-                style={{ color: 'rgba(255,255,255,0.4)' }}
+                className="rounded-lg p-1.5 shrink-0 transition-colors"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'rgba(255,255,255,0.55)',
+                }}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -185,57 +190,59 @@ export function ItemReservationButton({ item, reservations }: Props) {
 
             {/* Body */}
             <div className="px-5 py-4">
-              {/* Info bar */}
+              {/* Info card */}
               <div
-                className="rounded-xl px-3 py-2.5 mb-3"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                className="rounded-xl px-4 py-3 mb-4 space-y-1.5"
+                style={{
+                  background: 'rgba(251,191,36,0.05)',
+                  border: '1px solid rgba(251,191,36,0.15)',
+                }}
               >
-                <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>Personaje</span>
-                  <span className="font-mono" style={{ color: '#fbbf24' }}>{characterName || '—'}</span>
+                <div className="flex items-center justify-between text-xs">
+                  <span style={{ color: 'rgba(255,255,255,0.55)' }}>Personaje</span>
+                  <span className="font-semibold" style={{ color: '#fbbf24' }}>
+                    {characterName || '—'}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>Stock disponible</span>
-                  <span className="font-mono" style={{ color: availableStock > 0 ? '#7bf1d6' : '#f87171' }}>
+                <div className="flex items-center justify-between text-xs">
+                  <span style={{ color: 'rgba(255,255,255,0.55)' }}>Stock disponible</span>
+                  <span className="font-semibold font-mono" style={{ color: availableStock > 0 ? '#fbbf24' : '#f87171' }}>
                     {availableStock} unidad(es)
                   </span>
                 </div>
-                {reservedCount > 0 && (
-                  <div className="flex items-center justify-between text-[11px] mt-1">
-                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>Ya reservado (waitlist)</span>
-                    <span className="font-mono" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      {reservedCount} reserva{reservedCount === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                )}
               </div>
 
-              {/* Lista de reservas */}
-              <div className="mb-3">
-                <div className="flex items-center gap-2 mb-2">
+              {/* Reservas actuales */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <span
-                    className="text-[11px] uppercase tracking-wider font-semibold"
+                    className="text-[10px] uppercase tracking-[0.1em] font-semibold"
                     style={{ color: 'rgba(255,255,255,0.4)' }}
                   >
                     Reservas actuales
                   </span>
                   <span
-                    className="text-[10px] font-mono"
-                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                    className="text-[11px] font-mono font-semibold"
+                    style={{ color: hasReservations ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}
                   >
                     {reservedCount}
                   </span>
                 </div>
                 <div
-                  className="max-h-48 overflow-y-auto rounded-lg"
-                  style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.04)' }}
+                  className="rounded-lg overflow-hidden"
+                  style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                  }}
                 >
                   {rowReservations.length === 0 ? (
                     <div
-                      className="px-3 py-5 text-center text-xs"
+                      className="px-3 py-5 text-center text-xs italic"
                       style={{ color: 'rgba(255,255,255,0.3)' }}
                     >
-                      Sin reservas registradas.
+                      Nadie reservó todavía. Sé el primero.
                     </div>
                   ) : (
                     rowReservations.map((r) => {
@@ -244,7 +251,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                       return (
                         <div
                           key={r.id}
-                          className="flex items-center gap-2 px-3 py-2 border-b"
+                          className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0"
                           style={{
                             borderColor: 'rgba(255,255,255,0.04)',
                             background: isOwner ? 'rgba(251,191,36,0.05)' : 'transparent',
@@ -265,10 +272,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                                 </span>
                               )}
                             </p>
-                            <p
-                              className="text-[10px]"
-                              style={{ color: 'rgba(255,255,255,0.35)' }}
-                            >
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
                               {r.userName}
                               {r.createdAt && (
                                 <>
@@ -298,7 +302,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                               type="button"
                               onClick={() => deleteMut.mutate({ id: Number(r.id) })}
                               disabled={deleteMut.isPending}
-                              className="rounded p-1 shrink-0"
+                              className="rounded p-1 shrink-0 transition-colors"
                               style={{
                                 background: 'rgba(239,68,68,0.08)',
                                 border: '1px solid rgba(239,68,68,0.2)',
@@ -317,8 +321,40 @@ export function ItemReservationButton({ item, reservations }: Props) {
                 </div>
               </div>
 
-              {/* Form */}
-              {soldOut ? (
+              {/* Nueva reserva */}
+              {!soldOut && characterName && (
+                <div className="mb-1">
+                  <label
+                    className="block text-[10px] uppercase tracking-[0.1em] font-semibold mb-2"
+                    style={{ color: 'rgba(255,255,255,0.4)' }}
+                  >
+                    Nueva reserva — Cantidad
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxPerReservation}
+                    value={qtyInput}
+                    onChange={(e) => setQtyInput(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-lg px-4 py-2.5 text-base font-mono outline-none transition-colors"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.95)',
+                      caretColor: '#fbbf24',
+                    }}
+                  />
+                  <p
+                    className="mt-2 text-[10px]"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                  >
+                    Máximo {maxPerReservation} por reserva.
+                  </p>
+                </div>
+              )}
+
+              {soldOut && (
                 <div
                   className="rounded-lg px-3 py-2.5 text-center text-xs"
                   style={{
@@ -329,7 +365,9 @@ export function ItemReservationButton({ item, reservations }: Props) {
                 >
                   Este ítem no tiene stock disponible — no se pueden crear nuevas reservas.
                 </div>
-              ) : !characterName ? (
+              )}
+
+              {!soldOut && !characterName && (
                 <div
                   className="rounded-lg px-3 py-2.5 text-center text-xs"
                   style={{
@@ -340,55 +378,46 @@ export function ItemReservationButton({ item, reservations }: Props) {
                 >
                   Tu perfil no tiene un personaje configurado.
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label
-                        className="block text-[10px] uppercase tracking-wider font-semibold mb-1"
-                        style={{ color: 'rgba(255,255,255,0.4)' }}
-                      >
-                        Cantidad (máx {maxPerReservation})
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={maxPerReservation}
-                        value={qtyInput}
-                        onChange={(e) => setQtyInput(e.target.value)}
-                        placeholder="1"
-                        className="w-full rounded-lg px-3 py-2 text-sm font-mono outline-none"
-                        style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.08)',
-                          color: 'rgba(255,255,255,0.9)',
-                          caretColor: '#fbbf24',
-                        }}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCreate}
-                      disabled={createMut.isPending}
-                      className="rounded-lg px-4 py-2 text-xs font-semibold transition-all"
-                      style={{
-                        background: 'rgba(251,191,36,0.15)',
-                        border: '1px solid rgba(251,191,36,0.35)',
-                        color: '#fbbf24',
-                        cursor: createMut.isPending ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {createMut.isPending ? 'Reservando…' : 'Reservar'}
-                    </button>
-                  </div>
-                  <p
-                    className="mt-2 text-[10px] leading-relaxed"
-                    style={{ color: 'rgba(255,255,255,0.35)' }}
-                  >
-                    Máximo {maxPerReservation} por reserva. Puede haber más personas anotadas
-                    en la waitlist que stock real — el admin decidirá a quién venderle.
-                  </p>
-                </>
+              )}
+            </div>
+
+            {/* Footer con acciones */}
+            <div
+              className="flex items-center justify-end gap-2 px-5 py-3 border-t"
+              style={{
+                borderColor: 'rgba(255,255,255,0.06)',
+                background: 'rgba(0,0,0,0.2)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.7)',
+                }}
+              >
+                Cancelar
+              </button>
+              {!soldOut && characterName && (
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={createMut.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all"
+                  style={{
+                    background: 'rgba(251,191,36,0.18)',
+                    border: '1px solid rgba(251,191,36,0.4)',
+                    color: '#fbbf24',
+                    cursor: createMut.isPending ? 'not-allowed' : 'pointer',
+                    opacity: createMut.isPending ? 0.6 : 1,
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {createMut.isPending ? 'Confirmando…' : 'Confirmar reserva'}
+                </button>
               )}
             </div>
           </div>

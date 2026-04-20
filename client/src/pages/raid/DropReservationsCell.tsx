@@ -473,161 +473,162 @@ export function ReservationQuickButton({
       {open && createPortal(
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-          onClick={(e) => {
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget && !createMut.isPending) setOpen(false);
           }}
         >
           <div
-            className="w-full max-w-sm rounded-2xl p-6 max-h-[92vh] overflow-y-auto"
+            className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
             style={{
               background: 'rgba(10,14,22,0.98)',
-              border: '1px solid rgba(251,191,36,0.3)',
+              border: '1px solid rgba(251,191,36,0.28)',
             }}
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-xl"
-                  style={{
-                    background: 'rgba(251,191,36,0.15)',
-                    border: '1px solid rgba(251,191,36,0.35)',
-                  }}
-                >
-                  <span
-                    className="inline-flex h-5 w-5 items-center justify-center text-[16px] font-black leading-none"
-                    style={{ color: '#fbbf24' }}
-                  >
-                    R
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                    Reservar
-                  </h3>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    {drop.name}
-                  </p>
-                </div>
+            {/* Header con avatar R circular — idéntico al modal del inventario
+                legacy (ver ItemReservationButton). */}
+            <div
+              className="flex items-start gap-3 px-5 py-4 border-b"
+              style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+            >
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-full shrink-0"
+                style={{
+                  background: 'rgba(251,191,36,0.15)',
+                  border: '1px solid rgba(251,191,36,0.35)',
+                  color: '#fbbf24',
+                }}
+              >
+                <span className="text-base font-black leading-none">R</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold leading-tight" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Reservar
+                </h3>
+                <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {drop.name}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={createMut.isPending}
-                className="rounded-lg p-2"
+                className="rounded-lg p-1.5 shrink-0 transition-colors"
                 style={{
                   background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.6)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: 'rgba(255,255,255,0.55)',
                 }}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div
-              className="mb-4 rounded-xl p-3"
-              style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              <div className="flex items-center justify-between mb-2 text-xs">
-                <span style={{ color: 'rgba(255,255,255,0.4)' }}>Personaje</span>
-                <span
-                  className="font-medium"
-                  style={{ color: characterName ? '#fbbf24' : '#f87171' }}
-                >
-                  {characterName || 'Sin personaje configurado'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span style={{ color: 'rgba(255,255,255,0.4)' }}>Stock disponible</span>
-                <span className="font-mono" style={{ color: '#fbbf24' }}>
-                  {availableStock} unidad(es)
-                </span>
-              </div>
-              {reservedUnits > 0 && (
-                <div className="flex items-center justify-between text-[11px] mt-1">
-                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>Ya reservado (waitlist)</span>
-                  <span className="font-mono" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    {rowReservations.length} reserva{rowReservations.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Historial de reservas del drop — siempre visible (hueco cuando
-                 está vacío para dar contexto al usuario). Admin puede borrar
-                 cualquiera; dueño solo la propia. Marcamos la del usuario
-                 actual con un chip "(vos)" dorado. */}
-            <div className="mb-4">
+            {/* Body */}
+            <div className="px-5 py-4">
+              {/* Info card */}
               <div
-                className="flex items-center justify-between mb-2 text-xs uppercase tracking-wider"
-                style={{ color: 'rgba(255,255,255,0.45)' }}
-              >
-                <span>Reservas actuales</span>
-                <span style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {rowReservations.length}
-                </span>
-              </div>
-              <div
-                className="rounded-xl max-h-48 overflow-y-auto"
+                className="rounded-xl px-4 py-3 mb-4 space-y-1.5"
                 style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: 'rgba(251,191,36,0.05)',
+                  border: '1px solid rgba(251,191,36,0.15)',
                 }}
               >
-                {rowReservations.length === 0 ? (
-                  <p
-                    className="text-xs italic p-3 text-center"
-                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                <div className="flex items-center justify-between text-xs">
+                  <span style={{ color: 'rgba(255,255,255,0.55)' }}>Personaje</span>
+                  <span className="font-semibold" style={{ color: characterName ? '#fbbf24' : '#f87171' }}>
+                    {characterName || 'Sin personaje configurado'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span style={{ color: 'rgba(255,255,255,0.55)' }}>Stock disponible</span>
+                  <span className="font-semibold font-mono" style={{ color: availableStock > 0 ? '#fbbf24' : '#f87171' }}>
+                    {availableStock} unidad(es)
+                  </span>
+                </div>
+              </div>
+
+              {/* Reservas actuales — historial del drop */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className="text-[10px] uppercase tracking-[0.1em] font-semibold"
+                    style={{ color: 'rgba(255,255,255,0.4)' }}
                   >
-                    Nadie reservó todavía. Sé el primero.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-white/5">
-                    {rowReservations.map((r) => {
+                    Reservas actuales
+                  </span>
+                  <span
+                    className="text-[11px] font-mono font-semibold"
+                    style={{ color: rowReservations.length > 0 ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}
+                  >
+                    {rowReservations.length}
+                  </span>
+                </div>
+                <div
+                  className="rounded-lg overflow-hidden"
+                  style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {rowReservations.length === 0 ? (
+                    <div
+                      className="px-3 py-5 text-center text-xs italic"
+                      style={{ color: 'rgba(255,255,255,0.3)' }}
+                    >
+                      Nadie reservó todavía. Sé el primero.
+                    </div>
+                  ) : (
+                    rowReservations.map((r) => {
                       const isMine = Number(r.userId) === currentUserId;
                       const canDelete = isMine || canAdmin;
                       return (
-                        <li
+                        <div
                           key={r.id}
-                          className="flex items-center gap-2 px-3 py-2"
+                          className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0"
                           style={{
-                            background: isMine ? 'rgba(251,191,36,0.06)' : 'transparent',
+                            borderColor: 'rgba(255,255,255,0.04)',
+                            background: isMine ? 'rgba(251,191,36,0.05)' : 'transparent',
                           }}
                         >
                           <div className="flex-1 min-w-0">
                             <p
-                              className="text-xs font-medium truncate"
-                              style={{ color: 'rgba(255,255,255,0.85)' }}
+                              className="text-xs truncate font-medium"
+                              style={{ color: isMine ? '#fbbf24' : 'rgba(255,255,255,0.85)' }}
                             >
                               {r.characterName || r.userName}
                               {isMine && (
                                 <span
-                                  className="ml-1.5 text-[10px] font-normal"
-                                  style={{ color: '#fbbf24' }}
+                                  className="ml-1 text-[10px] font-mono"
+                                  style={{ color: 'rgba(251,191,36,0.7)' }}
                                 >
                                   (vos)
                                 </span>
                               )}
                             </p>
-                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                              {r.userName} · {new Date(r.createdAt).toLocaleString('es-AR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                              {r.userName}
+                              {r.createdAt && (
+                                <>
+                                  {' · '}
+                                  {new Date(r.createdAt).toLocaleString('es-AR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                  })}
+                                </>
+                              )}
                             </p>
                           </div>
                           <span
-                            className="text-xs font-mono rounded-md px-2 py-0.5"
+                            className="text-[11px] font-mono px-1.5 py-0.5 rounded shrink-0"
                             style={{
-                              background: 'rgba(251,191,36,0.12)',
-                              color: '#fbbf24',
+                              background: 'rgba(251,191,36,0.1)',
                               border: '1px solid rgba(251,191,36,0.25)',
+                              color: '#fbbf24',
                             }}
                           >
                             ×{r.quantity}
@@ -637,92 +638,130 @@ export function ReservationQuickButton({
                               type="button"
                               onClick={() => deleteMut.mutate({ id: Number(r.id) })}
                               disabled={deleteMut.isPending}
-                              title={isMine ? 'Cancelar mi reserva' : 'Borrar reserva (admin)'}
-                              className="rounded-md p-1"
+                              className="rounded p-1 shrink-0 transition-colors"
                               style={{
+                                background: 'rgba(239,68,68,0.08)',
+                                border: '1px solid rgba(239,68,68,0.2)',
                                 color: '#f87171',
-                                background: 'rgba(248,113,113,0.08)',
-                                border: '1px solid rgba(248,113,113,0.25)',
+                                cursor: deleteMut.isPending ? 'not-allowed' : 'pointer',
                               }}
+                              title={isMine ? 'Cancelar mi reserva' : 'Eliminar reserva'}
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>
                           )}
-                        </li>
+                        </div>
                       );
-                    })}
-                  </ul>
-                )}
+                    })
+                  )}
+                </div>
               </div>
+
+              {/* Nueva reserva */}
+              {characterName && maxPerReservation > 0 && (
+                <div className="mb-1">
+                  <label
+                    className="block text-[10px] uppercase tracking-[0.1em] font-semibold mb-2"
+                    style={{ color: 'rgba(255,255,255,0.4)' }}
+                  >
+                    Nueva reserva — Cantidad
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxPerReservation}
+                    step={1}
+                    autoFocus
+                    placeholder="0"
+                    value={qtyInput}
+                    onChange={(e) => setQtyInput(e.target.value)}
+                    disabled={createMut.isPending}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreate();
+                    }}
+                    className="w-full rounded-lg px-4 py-2.5 text-base font-mono outline-none transition-colors"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.95)',
+                      caretColor: '#fbbf24',
+                    }}
+                  />
+                  <p
+                    className="mt-2 text-[10px]"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                  >
+                    Máximo {maxPerReservation} por reserva.
+                  </p>
+                </div>
+              )}
+
+              {maxPerReservation <= 0 && (
+                <div
+                  className="rounded-lg px-3 py-2.5 text-center text-xs"
+                  style={{
+                    background: 'rgba(239,68,68,0.06)',
+                    border: '1px solid rgba(239,68,68,0.18)',
+                    color: '#fca5a5',
+                  }}
+                >
+                  Este drop no tiene stock disponible — no se pueden crear nuevas reservas.
+                </div>
+              )}
+
+              {!characterName && (
+                <div
+                  className="rounded-lg px-3 py-2.5 text-center text-xs"
+                  style={{
+                    background: 'rgba(239,68,68,0.06)',
+                    border: '1px solid rgba(239,68,68,0.18)',
+                    color: '#fca5a5',
+                  }}
+                >
+                  Tu perfil no tiene un personaje configurado.
+                </div>
+              )}
             </div>
 
-            <div className="mb-4">
-              <label
-                className="block mb-2 text-xs uppercase tracking-wider"
-                style={{ color: 'rgba(255,255,255,0.45)' }}
-              >
-                Nueva reserva — cantidad
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={maxPerReservation}
-                step={1}
-                autoFocus
-                placeholder="0"
-                value={qtyInput}
-                onChange={(e) => setQtyInput(e.target.value)}
-                disabled={createMut.isPending || !characterName || maxPerReservation <= 0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreate();
-                }}
-                className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.9)',
-                }}
-              />
-              <p className="mt-2 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Máximo {maxPerReservation} por reserva.
-                {reservedUnits > 0 && (
-                  <>
-                    {' '}Puede haber más personas anotadas en la waitlist que stock
-                    real — el admin decidirá a quién venderle.
-                  </>
-                )}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2">
+            {/* Footer con acciones */}
+            <div
+              className="flex items-center justify-end gap-2 px-5 py-3 border-t"
+              style={{
+                borderColor: 'rgba(255,255,255,0.06)',
+                background: 'rgba(0,0,0,0.2)',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={createMut.isPending}
-                className="btn-ghost text-xs px-3 py-2"
+                className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.7)',
+                }}
               >
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={createMut.isPending || !characterName || !qtyInput}
-                className="text-xs font-semibold rounded-lg px-4 py-2 flex items-center gap-1.5"
-                style={{
-                  background: 'rgba(251,191,36,0.15)',
-                  border: '1px solid rgba(251,191,36,0.4)',
-                  color: '#fbbf24',
-                  cursor:
-                    createMut.isPending || !characterName || !qtyInput
-                      ? 'not-allowed'
-                      : 'pointer',
-                  opacity:
-                    createMut.isPending || !characterName || !qtyInput ? 0.5 : 1,
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Confirmar reserva
-              </button>
+              {characterName && maxPerReservation > 0 && (
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={createMut.isPending || !qtyInput}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all"
+                  style={{
+                    background: 'rgba(251,191,36,0.18)',
+                    border: '1px solid rgba(251,191,36,0.4)',
+                    color: '#fbbf24',
+                    cursor: createMut.isPending || !qtyInput ? 'not-allowed' : 'pointer',
+                    opacity: createMut.isPending || !qtyInput ? 0.6 : 1,
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {createMut.isPending ? 'Confirmando…' : 'Confirmar reserva'}
+                </button>
+              )}
             </div>
           </div>
         </div>,
