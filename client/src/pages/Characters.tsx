@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { categoryMeta } from '../lib/category-meta';
 import { toast } from 'sonner';
 import type { Character } from '../lib/types';
+import { FancySelect } from '../components/ui/FancySelect';
 
 function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect: (c: Character) => void; isActive: boolean }) {
   const { items } = useApp();
@@ -338,14 +339,21 @@ export default function Characters() {
                 placeholder="Buscar personaje..." className="bg-transparent text-xs outline-none w-full"
                 style={{ color: 'rgba(255,255,255,0.8)' }} />
             </div>
-            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value as typeof roleFilter)}
-              className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
-              style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
-              <option value="ALL" className="bg-[#0a0e16]">Todos los roles</option>
-              <option value="SUPER_ADMIN" className="bg-[#0a0e16]">⚡ Super Admin</option>
-              <option value="MAPPER" className="bg-[#0a0e16]">🗺️ Mapper</option>
-              <option value="USER" className="bg-[#0a0e16]">👤 Usuario</option>
-            </select>
+            <div className="min-w-[160px]">
+              <FancySelect<string>
+                value={roleFilter}
+                onChange={(v) => setRoleFilter(String(v) as typeof roleFilter)}
+                accent="turquoise"
+                size="sm"
+                placeholder="Todos los roles"
+                options={[
+                  { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
+                  { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                  { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
+                  { value: 'USER', label: 'Usuario', emoji: '👤' },
+                ]}
+              />
+            </div>
             <span className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)' }}>
               {filtered.length} personajes
             </span>

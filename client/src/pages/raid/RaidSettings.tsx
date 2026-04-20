@@ -5,6 +5,7 @@ import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
+import { FancySelect } from '../../components/ui/FancySelect';
 
 // Límite para imágenes de iconos (base64 data URL). 2 MB alcanza para un ícono.
 const ICON_MAX_BYTES = 2 * 1024 * 1024;
@@ -1134,22 +1135,21 @@ function RaidAccessSection() {
         <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
           Acción masiva ({selectedIds.length} seleccionados):
         </span>
-        <select
-          value={bulkLevel}
-          onChange={(e) => setBulkLevel(e.target.value as any)}
-          className="rounded-lg px-2 py-1 text-xs"
-          style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.9)',
-          }}
-        >
-          <option value="raid_admin">Raid Admin</option>
-          <option value="raid_mapper">Raid Mapper</option>
-          <option value="raid_user">Raid User</option>
-          <option value="viewer_only">Solo lectura (viewer_only)</option>
-          <option value="revoke">Revocar acceso</option>
-        </select>
+        <div className="min-w-[200px]">
+          <FancySelect<string>
+            value={bulkLevel}
+            onChange={(v) => setBulkLevel(String(v) as any)}
+            accent="amber"
+            size="sm"
+            options={[
+              { value: 'raid_admin', label: 'Raid Admin', emoji: '👑' },
+              { value: 'raid_mapper', label: 'Raid Mapper', emoji: '🗺️' },
+              { value: 'raid_user', label: 'Raid User', emoji: '⚔️' },
+              { value: 'viewer_only', label: 'Solo lectura', emoji: '👁️', description: 'viewer_only' },
+              { value: 'revoke', label: 'Revocar acceso', emoji: '🚫' },
+            ]}
+          />
+        </div>
         <button
           onClick={applyBulk}
           disabled={selectedIds.length === 0 || setBulk.isPending}
@@ -1290,28 +1290,30 @@ function RaidAccessSection() {
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-1.5">
-                    <select
-                      value={u.raidAccess?.accessLevel || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAccess.mutate({
-                          userId: Number(u.id),
-                          accessLevel: val === '' ? null : (val as any),
-                        });
-                      }}
-                      className="rounded-lg px-2 py-1 text-xs"
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.9)',
-                      }}
-                    >
-                      <option value="">Sin acceso</option>
-                      <option value="viewer_only">Solo lectura</option>
-                      <option value="raid_user">Raid User</option>
-                      <option value="raid_mapper">Raid Mapper</option>
-                      <option value="raid_admin">Raid Admin</option>
-                    </select>
+                    <div className="min-w-[160px]">
+                      <FancySelect<string>
+                        value={u.raidAccess?.accessLevel || ''}
+                        onChange={(v) => {
+                          const val = String(v);
+                          setAccess.mutate({
+                            userId: Number(u.id),
+                            accessLevel: val === '' ? null : (val as any),
+                          });
+                        }}
+                        accent="amber"
+                        size="sm"
+                        placeholder="Sin acceso"
+                        panelWidth="auto"
+                        panelAlign="right"
+                        options={[
+                          { value: '', label: 'Sin acceso', emoji: '—' },
+                          { value: 'viewer_only', label: 'Solo lectura', emoji: '👁️' },
+                          { value: 'raid_user', label: 'Raid User', emoji: '⚔️' },
+                          { value: 'raid_mapper', label: 'Raid Mapper', emoji: '🗺️' },
+                          { value: 'raid_admin', label: 'Raid Admin', emoji: '👑' },
+                        ]}
+                      />
+                    </div>
                   </div>
                 </td>
               </tr>

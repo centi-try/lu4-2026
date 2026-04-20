@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { trpc } from '../../lib/trpc';
 import { useAuth } from '../../contexts/AuthContext';
 import { ItemReservationButton, type ItemReservationRecord } from './ItemReservationButton';
+import { FancySelect, type FancyOption } from '../ui/FancySelect';
 
 interface Props {
   items?: Item[];
@@ -297,24 +298,34 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   }}
                 />
               </div>
-              <select value={catFilter} onChange={e => setCatFilter(e.target.value as ItemCategory | 'ALL')}
-                className="w-full h-10 rounded-xl border px-3 text-sm outline-none select-dark"
-                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}>
-                <option value="ALL" className="bg-[#0a0e16]">Todas las categorías</option>
-                {CATEGORIES.map(c => {
-                  const meta = categoryMeta[c] || { emoji: '📦', label: c };
-                  return <option key={c} value={c} className="bg-[#0a0e16]">{meta.emoji} {meta.label}</option>;
-                })}
-              </select>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ItemStatus | 'ALL' | 'WITH_RESERVATIONS')}
-                className="w-full h-10 rounded-xl border px-3 text-sm outline-none select-dark"
-                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}>
-                <option value="ALL" className="bg-[#0a0e16]">Todos los estados</option>
-                <option value="CONFIRMADO" className="bg-[#0a0e16]">✅ Confirmado</option>
-                <option value="EN_REGISTRO" className="bg-[#0a0e16]">🟡 En Registro</option>
-                <option value="VENDIDO" className="bg-[#0a0e16]">💰 Vendido</option>
-                <option value="WITH_RESERVATIONS" className="bg-[#0a0e16]">R Con reservas</option>
-              </select>
+              <FancySelect<ItemCategory | 'ALL'>
+                value={catFilter}
+                onChange={(v) => setCatFilter(v as ItemCategory | 'ALL')}
+                accent="turquoise"
+                size="md"
+                placeholder="Todas las categorías"
+                options={[
+                  { value: 'ALL', label: 'Todas las categorías', emoji: '📂' },
+                  ...CATEGORIES.map<FancyOption<ItemCategory | 'ALL'>>(c => {
+                    const meta = categoryMeta[c] || { emoji: '📦', label: c };
+                    return { value: c, label: meta.label, emoji: meta.emoji };
+                  }),
+                ]}
+              />
+              <FancySelect<ItemStatus | 'ALL' | 'WITH_RESERVATIONS'>
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as ItemStatus | 'ALL' | 'WITH_RESERVATIONS')}
+                accent="turquoise"
+                size="md"
+                placeholder="Todos los estados"
+                options={[
+                  { value: 'ALL', label: 'Todos los estados', emoji: '🧾' },
+                  { value: 'CONFIRMADO', label: 'Confirmado', emoji: '✅' },
+                  { value: 'EN_REGISTRO', label: 'En Registro', emoji: '🟡' },
+                  { value: 'VENDIDO', label: 'Vendido', emoji: '💰' },
+                  { value: 'WITH_RESERVATIONS', label: 'Con reservas', emoji: '🔖' },
+                ]}
+              />
             </div>
           )}
         </div>
@@ -659,19 +670,21 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 Asignar a Comprador/Cuenta
               </label>
-              <select
+              <FancySelect<string>
                 value={selectedBuyerId}
-                onChange={e => setSelectedBuyerId(e.target.value)}
-                className="input-dark h-11 w-full text-sm px-3 select-dark"
-                style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
-              >
-                <option value="" className="bg-[#0a0e16]">Seleccionar cuenta...</option>
-                {characters.map(char => (
-                  <option key={char.id} value={char.id} className="bg-[#0a0e16]">
-                    {char.name} ({char.class})
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setSelectedBuyerId(String(v))}
+                accent="turquoise"
+                size="lg"
+                placeholder="Seleccionar cuenta..."
+                searchable
+                searchPlaceholder="Buscar personaje..."
+                options={characters.map<FancyOption<string>>(char => ({
+                  value: String(char.id),
+                  label: char.name,
+                  description: char.class,
+                  emoji: '👤',
+                }))}
+              />
             </div>
 
             {/* Input cantidad */}

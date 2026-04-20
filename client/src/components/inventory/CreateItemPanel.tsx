@@ -6,6 +6,7 @@ import { categoryMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory } from '../../lib/types';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
+import { FancySelect, type FancyOption } from '../ui/FancySelect';
 
 // Íconos por categoría — ya no están hardcodeados. El super admin los setea
 // en /raids/settings → "Iconos por categoría de drop" y el mismo mapa se
@@ -451,31 +452,19 @@ export function CreateItemPanel() {
                     >
                       Categoría <span style={{ color: '#f87171' }}>*</span>
                     </label>
-                    <select
-                      value={catOk ? row.category : ''}
-                      onChange={e =>
-                        handleCategoryChange(row.id, e.target.value as ItemCategory | '')
+                    <FancySelect<ItemCategory | ''>
+                      value={catOk ? (row.category as ItemCategory) : ''}
+                      onChange={(v) =>
+                        handleCategoryChange(row.id, v as ItemCategory | '')
                       }
-                      className="select-dark w-full rounded-lg px-2 py-1.5 text-xs"
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.9)',
-                        height: 36,
-                      }}
-                    >
-                      <option value="" className="bg-[#0a0e16]">
-                        -- Seleccionar --
-                      </option>
-                      {CATEGORIES.map(cat => {
+                      accent="turquoise"
+                      size="md"
+                      placeholder="-- Seleccionar --"
+                      options={CATEGORIES.map<FancyOption<ItemCategory | ''>>(cat => {
                         const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
-                        return (
-                          <option key={cat} value={cat} className="bg-[#0a0e16]">
-                            {meta.emoji} {meta.label}
-                          </option>
-                        );
+                        return { value: cat, label: meta.label, emoji: meta.emoji };
                       })}
-                    </select>
+                    />
                   </div>
 
                   {/* Precio */}

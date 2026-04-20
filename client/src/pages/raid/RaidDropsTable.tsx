@@ -8,8 +8,6 @@ import {
   Users,
   Skull,
   Flag,
-  Filter,
-  ChevronDown,
   Pencil,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -19,6 +17,7 @@ import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { ReservationQuickButton, ReservationsPill } from './DropReservationsCell';
+import { FancySelect, type FancyOption } from '../../components/ui/FancySelect';
 
 // ============================================================================
 // Tabla consolidada de todos los raid drops registrados.
@@ -342,56 +341,69 @@ export default function RaidDropsTable({ raidAccess }: Props) {
               }}
             />
           </div>
-          <SelectFilter
+          <FancySelect<string>
             value={categoryFilter}
-            onChange={(v) => setCategoryFilter(v as CategoryFilter)}
-            label="Categoría"
-          >
-            <option value="ALL">Todas las categorías</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {categoryMeta[c].emoji} {categoryMeta[c].label}
-              </option>
-            ))}
-          </SelectFilter>
-          <SelectFilter
+            onChange={(v) => setCategoryFilter(String(v) as CategoryFilter)}
+            accent="magenta"
+            size="md"
+            placeholder="Todas las categorías"
+            options={[
+              { value: 'ALL', label: 'Todas las categorías', emoji: '📂' },
+              ...CATEGORIES.map<FancyOption<string>>((c) => ({
+                value: c,
+                label: categoryMeta[c].label,
+                emoji: categoryMeta[c].emoji,
+              })),
+            ]}
+          />
+          <FancySelect<string>
             value={cycleFilter}
-            onChange={(v) => setCycleFilter(v as any)}
-            label="Ciclo"
-          >
-            <option value="ALL">Todos los ciclos</option>
-            {currentCycle && <option value="CURRENT">Ciclo actual</option>}
-            {cycles
-              .filter((c: any) => c.status === 'CLOSED')
-              .map((c: any) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.label}
-                </option>
-              ))}
-          </SelectFilter>
-          <SelectFilter
+            onChange={(v) => setCycleFilter(String(v) as any)}
+            accent="magenta"
+            size="md"
+            placeholder="Todos los ciclos"
+            options={[
+              { value: 'ALL', label: 'Todos los ciclos', emoji: '📅' },
+              ...(currentCycle
+                ? [{ value: 'CURRENT', label: 'Ciclo actual', emoji: '🟢' } as FancyOption<string>]
+                : []),
+              ...cycles
+                .filter((c: any) => c.status === 'CLOSED')
+                .map<FancyOption<string>>((c: any) => ({
+                  value: String(c.id),
+                  label: String(c.label),
+                  emoji: '🗂️',
+                })),
+            ]}
+          />
+          <FancySelect<string>
             value={clanFilter}
-            onChange={(v) => setClanFilter(v as any)}
-            label="Clan"
-          >
-            <option value="ALL">Todos los clanes</option>
-            {clans.map((c: any) => (
-              <option key={c.id} value={String(c.id)}>
-                {c.tag ? `[${c.tag}] ` : ''}
-                {c.name}
-              </option>
-            ))}
-          </SelectFilter>
-          <SelectFilter
+            onChange={(v) => setClanFilter(String(v) as any)}
+            accent="magenta"
+            size="md"
+            placeholder="Todos los clanes"
+            options={[
+              { value: 'ALL', label: 'Todos los clanes', emoji: '🏳️' },
+              ...clans.map<FancyOption<string>>((c: any) => ({
+                value: String(c.id),
+                label: `${c.tag ? `[${c.tag}] ` : ''}${c.name}`,
+                emoji: '🏳️‍☠️',
+              })),
+            ]}
+          />
+          <FancySelect<string>
             value={statusFilter}
-            onChange={(v) => setStatusFilter(v as StatusFilter)}
-            label="Estado"
-          >
-            <option value="ALL">Todos</option>
-            <option value="AVAILABLE">Con stock</option>
-            <option value="SOLD_OUT">Agotados</option>
-            <option value="WITH_RESERVATIONS">Con reservas</option>
-          </SelectFilter>
+            onChange={(v) => setStatusFilter(String(v) as StatusFilter)}
+            accent="magenta"
+            size="md"
+            placeholder="Todos"
+            options={[
+              { value: 'ALL', label: 'Todos', emoji: '🧾' },
+              { value: 'AVAILABLE', label: 'Con stock', emoji: '🟢' },
+              { value: 'SOLD_OUT', label: 'Agotados', emoji: '⛔' },
+              { value: 'WITH_RESERVATIONS', label: 'Con reservas', emoji: '🔖' },
+            ]}
+          />
         </div>
       </div>
 
@@ -934,20 +946,15 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                 >
                   Asignar a Comprador/Cuenta
                 </label>
-                <select
+                <FancySelect<string>
                   value={selectedBuyerId}
-                  onChange={(e) => setSelectedBuyerId(e.target.value)}
-                  className="h-11 w-full text-sm px-3 rounded-xl select-dark"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(255,255,255,0.8)',
-                  }}
-                >
-                  <option value="" className="bg-[#0a0e16]">
-                    Seleccionar cuenta...
-                  </option>
-                  {buyers.map((b: any) => {
+                  onChange={(v) => setSelectedBuyerId(String(v))}
+                  accent="magenta"
+                  size="lg"
+                  placeholder="Seleccionar cuenta..."
+                  searchable
+                  searchPlaceholder="Buscar cuenta..."
+                  options={buyers.map<FancyOption<string>>((b: any) => {
                     const levelLabel =
                       b.accessLevel === 'raid_admin'
                         ? 'Raid Admin'
@@ -956,13 +963,14 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                         : b.accessLevel === 'raid_user'
                         ? 'Raid User'
                         : b.accessLevel;
-                    return (
-                      <option key={b.id} value={String(b.id)} className="bg-[#0a0e16]">
-                        {b.name} ({levelLabel})
-                      </option>
-                    );
+                    return {
+                      value: String(b.id),
+                      label: b.name,
+                      description: levelLabel,
+                      emoji: '👤',
+                    };
                   })}
-                </select>
+                />
                 {buyers.length === 0 && (
                   <p
                     className="mt-1.5 text-xs"
@@ -1232,41 +1240,10 @@ export default function RaidDropsTable({ raidAccess }: Props) {
   );
 }
 
-// ----- Small helper: styled select wrapper ----------------------------------
-function SelectFilter({
-  value,
-  onChange,
-  label,
-  children,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="relative">
-      <Filter
-        className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none"
-        style={{ color: 'rgba(255,255,255,0.35)' }}
-      />
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        className="select-dark w-full h-10 rounded-xl pl-9 pr-8 text-sm appearance-none cursor-pointer"
-        style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          color: 'rgba(255,255,255,0.85)',
-        }}
-      >
-        {children}
-      </select>
-      <ChevronDown
-        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-        style={{ color: 'rgba(255,255,255,0.45)' }}
-      />
-    </div>
-  );
+// ----- (helper SelectFilter eliminado: reemplazado por FancySelect) ---------
+// Stub vacío para preservar simetría; no se usa. Lo dejamos comentado y el
+// diff es claro: todas las categorías/ciclos/clanes/estado usan FancySelect.
+function _RaidDropsTableSelectFilterLegacy() {
+  // placeholder intencional — dejado por si se reinstaura el helper.
+  return null;
 }

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
+import { FancySelect, type FancyOption } from '../../components/ui/FancySelect';
 
 // ============================================================================
 // RaidHistory — misma UX que /history (stats + grouping por día + filtros),
@@ -371,28 +372,40 @@ export default function RaidHistory() {
               style={{ color: 'rgba(255,255,255,0.8)' }}
             />
           </div>
-          <select
-            value={actionFilter}
-            onChange={e => setActionFilter(e.target.value)}
-            className="h-9 rounded-xl border px-3 text-xs outline-none"
-            style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}
-          >
-            <option value="ALL">Todas las acciones</option>
-            {availableActions.map(key => (
-              <option key={key} value={key}>{actionMeta[key]?.label || key}</option>
-            ))}
-          </select>
-          <select
-            value={roleFilter}
-            onChange={e => setRoleFilter(e.target.value)}
-            className="h-9 rounded-xl border px-3 text-xs outline-none"
-            style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}
-          >
-            <option value="ALL">Todos los roles</option>
-            <option value="SUPER_ADMIN">⚡ Super Admin</option>
-            <option value="MAPPER">🗺️ Mapper</option>
-            <option value="USER">👤 Usuario</option>
-          </select>
+          <div className="min-w-[180px]">
+            <FancySelect<string>
+              value={actionFilter}
+              onChange={(v) => setActionFilter(String(v))}
+              accent="magenta"
+              size="sm"
+              placeholder="Todas las acciones"
+              searchable
+              searchPlaceholder="Buscar acción..."
+              options={[
+                { value: 'ALL', label: 'Todas las acciones', emoji: '📋' },
+                ...availableActions.map<FancyOption<string>>(key => ({
+                  value: key,
+                  label: actionMeta[key]?.label || key,
+                  emoji: '🔖',
+                })),
+              ]}
+            />
+          </div>
+          <div className="min-w-[160px]">
+            <FancySelect<string>
+              value={roleFilter}
+              onChange={(v) => setRoleFilter(String(v))}
+              accent="magenta"
+              size="sm"
+              placeholder="Todos los roles"
+              options={[
+                { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
+                { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
+                { value: 'USER', label: 'Usuario', emoji: '👤' },
+              ]}
+            />
+          </div>
           <span
             className="text-xs px-3 py-2 rounded-xl"
             style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)' }}

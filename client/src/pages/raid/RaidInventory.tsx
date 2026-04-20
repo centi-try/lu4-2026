@@ -11,6 +11,7 @@ import RaidDropsTable from './RaidDropsTable';
 import { RaidDropTypeahead, type DropSuggestion } from './RaidDropTypeahead';
 import { BossSelect } from './BossSelect';
 import { ReservationQuickButton, ReservationsPill } from './DropReservationsCell';
+import { FancySelect, type FancyOption } from '../../components/ui/FancySelect';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
@@ -821,26 +822,17 @@ export default function RaidInventory({ raidAccess }: Props) {
                           >
                             Categoría <span style={{ color: '#f87171' }}>*</span>
                           </label>
-                          <select
-                            value={catOk ? d.category : ''}
-                            onChange={(e) => updateDrop(idx, 'category', e.target.value)}
-                            className="select-dark w-full rounded-lg px-2 py-1.5 text-xs"
-                            style={{
-                              background: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.08)',
-                              color: 'rgba(255,255,255,0.9)',
-                            }}
-                          >
-                            <option value="" className="bg-[#0a0e16]">-- Seleccionar --</option>
-                            {CATEGORIES.map((cat) => {
+                          <FancySelect<ItemCategory | ''>
+                            value={catOk ? (d.category as ItemCategory) : ''}
+                            onChange={(v) => updateDrop(idx, 'category', String(v))}
+                            accent="magenta"
+                            size="md"
+                            placeholder="-- Seleccionar --"
+                            options={CATEGORIES.map<FancyOption<ItemCategory | ''>>((cat) => {
                               const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
-                              return (
-                                <option key={cat} value={cat} className="bg-[#0a0e16]">
-                                  {meta.emoji} {meta.label}
-                                </option>
-                              );
+                              return { value: cat, label: meta.label, emoji: meta.emoji };
                             })}
-                          </select>
+                          />
                         </div>
 
                         {/* Precio */}
@@ -1837,26 +1829,22 @@ function SellDropControl({
           color: 'rgba(255,255,255,0.9)',
         }}
       />
-      <select
-        value={buyerId}
-        onChange={(e) => setBuyerId(e.target.value)}
-        className="rounded-lg px-1.5 py-1 text-xs max-w-[120px] select-dark"
-        style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          color: 'rgba(255,255,255,0.9)',
-        }}
-        title="Comprador/Cuenta"
-      >
-        <option value="" className="bg-[#0a0e16]">
-          Comprador…
-        </option>
-        {buyers.map((b: any) => (
-          <option key={b.id} value={String(b.id)} className="bg-[#0a0e16]">
-            {b.name}
-          </option>
-        ))}
-      </select>
+      <div className="max-w-[140px] w-[140px]">
+        <FancySelect<string>
+          value={buyerId}
+          onChange={(v) => setBuyerId(String(v))}
+          accent="magenta"
+          size="sm"
+          placeholder="Comprador…"
+          searchable
+          title="Comprador/Cuenta"
+          options={buyers.map<FancyOption<string>>((b: any) => ({
+            value: String(b.id),
+            label: b.name,
+            emoji: '👤',
+          }))}
+        />
+      </div>
       <button
         type="button"
         onClick={() => {
