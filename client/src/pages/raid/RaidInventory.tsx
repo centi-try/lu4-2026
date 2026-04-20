@@ -1726,13 +1726,22 @@ function EventCard({
             {drops.map((d: any) => {
               const available =
                 (Number(d.quantity) || 0) - (Number(d.quantitySold) || 0);
+              const dropReservedUnits = reservations
+                .filter((r: any) => Number(r.dropItemId) === Number(d.id))
+                .reduce((s: number, r: any) => s + (Number(r.quantity) || 0), 0);
+              const hasReservations = dropReservedUnits > 0;
               return (
                 <div
                   key={d.id}
                   className="flex items-center gap-2 rounded-lg p-2"
                   style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.05)',
+                    background: hasReservations
+                      ? 'rgba(251,191,36,0.08)'
+                      : 'rgba(255,255,255,0.03)',
+                    border: hasReservations
+                      ? '1px solid rgba(251,191,36,0.35)'
+                      : '1px solid rgba(255,255,255,0.05)',
+                    boxShadow: hasReservations ? 'inset 3px 0 0 0 #fbbf24' : undefined,
                   }}
                 >
                   <div

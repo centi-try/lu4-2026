@@ -40,7 +40,7 @@ interface Props {
 }
 
 type CategoryFilter = 'ALL' | ItemCategory;
-type StatusFilter = 'ALL' | 'AVAILABLE' | 'SOLD_OUT';
+type StatusFilter = 'ALL' | 'AVAILABLE' | 'SOLD_OUT' | 'WITH_RESERVATIONS';
 
 export default function RaidDropsTable({ raidAccess }: Props) {
   const utils = trpc.useUtils();
@@ -69,6 +69,17 @@ export default function RaidDropsTable({ raidAccess }: Props) {
   const [clanFilter, setClanFilter] = useState<'ALL' | string>('ALL');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
+  // Mapa dropId → unidades reservadas vivas (suma de reservations.quantity).
+  // Se usa para resaltar filas con reservas y para el filtro "Con reservas".
+  const reservedUnitsByDrop = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const r of reservations) {
+      const key = Number(r.dropItemId);
+      map.set(key, (map.get(key) || 0) + (Number(r.quantity) || 0));
+    }
+    return map;
+  }, [reservations]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return drops.filter((d: any) => {
@@ -85,9 +96,10 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       const remaining = (Number(d.quantity) || 0) - (Number(d.quantitySold) || 0);
       if (statusFilter === 'AVAILABLE' && remaining <= 0) return false;
       if (statusFilter === 'SOLD_OUT' && remaining > 0) return false;
+      if (statusFilter === 'WITH_RESERVATIONS' && !(reservedUnitsByDrop.get(Number(d.id)) || 0)) return false;
       return true;
     });
-  }, [drops, search, categoryFilter, cycleFilter, clanFilter, statusFilter, currentCycle]);
+  }, [drops, search, categoryFilter, cycleFilter, clanFilter, statusFilter, currentCycle, reservedUnitsByDrop]);
 
   const totals = useMemo(() => {
     const totalUnits = filtered.reduce((s: number, d: any) => s + (Number(d.quantity) || 0), 0);
@@ -106,8 +118,21 @@ export default function RaidDropsTable({ raidAccess }: Props) {
     );
     // Adena total posible si todo se vende (sticker price).
     const totalRevenue = soldRevenue + potentialRevenue;
-    return { totalUnits, soldUnits, remainingUnits, soldRevenue, potentialRevenue, totalRevenue };
-  }, [filtered]);
+    // Reservas: drops distintos con al menos una reserva viva + total unidades.
+    let dropsWithReservations = 0;
+    let reservedUnitsTotal = 0;
+    for (const d of filtered) {
+      const u = reservedUnitsByDrop.get(Number(d.id)) || 0;
+      if (u > 0) {
+        dropsWithReservations += 1;
+        reservedUnitsTotal += u;
+      }
+    }
+    return {
+      totalUnits, soldUnits, remainingUnits, soldRevenue, potentialRevenue, totalRevenue,
+      dropsWithReservations, reservedUnitsTotal,
+    };
+  }, [filtered, reservedUnitsByDrop]);
 
   // -------- Mutations -------------------------------------------------------
   const sellDrop = trpc.raid.drops.sell.useMutation({
@@ -256,6 +281,30 @@ export default function RaidDropsTable({ raidAccess }: Props) {
               Total:{' '}
               <span style={{ color: 'rgba(255,255,255,0.85)' }}>${totals.totalRevenue.toLocaleString()}</span>
             </span>
+            {totals.dropsWithReservations > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setStatusFilter((s) => (s === 'WITH_RESERVATIONS' ? 'ALL' : 'WITH_RESERVATIONS'))
+                }
+                title={
+                  statusFilter === 'WITH_RESERVATIONS'
+                    ? 'Quitar filtro de reservas'
+                    : 'Filtrar: solo drops con reservas'
+                }
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+                style={{
+                  background: statusFilter === 'WITH_RESERVATIONS'
+                    ? 'rgba(251,191,36,0.22)'
+                    : 'rgba(251,191,36,0.12)',
+                  border: `1px solid ${statusFilter === 'WITH_RESERVATIONS' ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.35)'}`,
+                  color: '#fbbf24',
+                }}
+              >
+                <span className="inline-flex h-3 w-3 items-center justify-center text-[11px] font-black leading-none">R</span>
+                {totals.dropsWithReservations} drops · {totals.reservedUnitsTotal} uds
+              </button>
+            )}
           </div>
         </div>
 
@@ -327,6 +376,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
             <option value="ALL">Todos</option>
             <option value="AVAILABLE">Con stock</option>
             <option value="SOLD_OUT">Agotados</option>
+            <option value="WITH_RESERVATIONS">Con reservas</option>
           </SelectFilter>
         </div>
       </div>
@@ -368,11 +418,17 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                   const remaining = qty - sold;
                   const soldOut = remaining <= 0;
                   const meta = (categoryMeta as any)[d.category] || null;
+                  const rowReservedUnits = reservedUnitsByDrop.get(Number(d.id)) || 0;
+                  const hasReservations = rowReservedUnits > 0;
                   return (
                     <tr
                       key={d.id}
                       className="border-t transition-colors hover:bg-white/[0.02]"
-                      style={{ borderColor: 'rgba(255,255,255,0.04)' }}
+                      style={{
+                        borderColor: 'rgba(255,255,255,0.04)',
+                        background: hasReservations ? 'rgba(251,191,36,0.06)' : undefined,
+                        boxShadow: hasReservations ? 'inset 3px 0 0 0 #fbbf24' : undefined,
+                      }}
                     >
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-3">

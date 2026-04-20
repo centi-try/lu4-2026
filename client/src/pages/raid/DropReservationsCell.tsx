@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, X, Check } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -465,16 +466,16 @@ export function ReservationQuickButton({
         <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">R</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={(e) => {
             if (e.target === e.currentTarget && !createMut.isPending) setOpen(false);
           }}
         >
           <div
-            className="w-full max-w-sm rounded-2xl p-6"
+            className="w-full max-w-sm rounded-2xl p-6 max-h-[92vh] overflow-y-auto"
             style={{
               background: 'rgba(10,14,22,0.98)',
               border: '1px solid rgba(251,191,36,0.3)',
@@ -709,7 +710,8 @@ export function ReservationQuickButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
