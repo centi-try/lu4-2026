@@ -106,6 +106,12 @@ temp/
 *.sqlite
 *.sqlite3
 
+# Persistencia — backups y snapshots locales (no deben commitearse)
+backups/
+data_storage.backup.*
+data_storage.json.backup-*
+data_storage.json.tmp
+
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 

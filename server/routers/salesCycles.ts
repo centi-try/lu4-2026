@@ -1,6 +1,6 @@
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
 import { z } from "zod";
-import { getSalesCycles, createSalesCycle, closeSalesCycle } from "../db";
+import { getSalesCycles, createSalesCycle, closeSalesCycle, createBackup } from "../db";
 
 const CreateSalesCycleSchema = z.object({
   name: z.string(),
@@ -40,6 +40,11 @@ export const salesCyclesRouter = router({
   close: protectedProcedure
     .input(CloseSalesCycleSchema)
     .mutation(async ({ ctx, input }) => {
+      // Snapshot automático antes de cerrar ciclo — operación irreversible
+      // que muta múltiples entidades (ciclo, personajes, historial).
+      try {
+        createBackup('pre-close-cycle');
+      } catch { /* best-effort */ }
       // FIX: Pasar todos los datos al closeSalesCycle para que genere el ciclo correcto
       await closeSalesCycle(input.id || 0, {
         type: input.type || "SEMANAL",

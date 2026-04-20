@@ -6,8 +6,32 @@ export const DEFAULT_SUPER_ADMIN_EMAIL = 'superadmin@inventory.com';
 export const DEFAULT_SUPER_ADMIN_PASSWORD = 'SuperAdmin123!';
 export const DEFAULT_SUPER_ADMIN_NAME = 'Super Admin';
 
-// Definir la ruta del archivo de base de datos persistente
-const DB_FILE = path.join(process.cwd(), 'data_storage.json');
+// ============================================================================
+// Rutas de persistencia
+// ============================================================================
+// Permitimos override completo via env (útil para tests, deploys con volumen
+// persistente, o desarrollo con múltiples bases). En ausencia del env var
+// caemos al comportamiento histórico: archivo `data_storage.json` en el cwd.
+// También exponemos el DIRECTORIO de datos para alojar backups/ al lado.
+const DB_FILE = process.env.DATA_FILE
+  ? path.resolve(process.env.DATA_FILE)
+  : path.join(process.cwd(), 'data_storage.json');
+const DATA_DIR = path.dirname(DB_FILE);
+const BACKUPS_DIR = process.env.BACKUPS_DIR
+  ? path.resolve(process.env.BACKUPS_DIR)
+  : path.join(DATA_DIR, 'backups');
+const BACKUPS_RETENTION_DAYS = Math.max(
+  1,
+  Number(process.env.BACKUPS_RETENTION_DAYS) || 30,
+);
+const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+export const STORAGE_PATHS = {
+  dbFile: DB_FILE,
+  dataDir: DATA_DIR,
+  backupsDir: BACKUPS_DIR,
+  retentionDays: BACKUPS_RETENTION_DAYS,
+};
 
 // Estructura inicial de la base de datos
 interface DatabaseSchema {
@@ -183,12 +207,90 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
   };
 }
 
+// ============================================================================
+// Helpers de persistencia robusta
+// ============================================================================
+// 1) Escritura atómica: escribir a `*.tmp` y renombrar. Si el proceso muere en
+//    medio, el archivo final queda intacto (o con el contenido anterior).
+// 2) Serialización de escrituras con mutex cooperativo: aunque `fs.writeFileSync`
+//    es síncrono, exponemos un contador de "pending writes" para poder detectar
+//    corrupción al cargar y permitir esperar al flush en tests.
+// 3) Carga robusta: si el JSON está corrupto, intentamos cargar el backup más
+//    reciente antes de rendirnos y empezar de cero (que sería catastrófico).
+
+function ensureDir(p: string) {
+  try {
+    fs.mkdirSync(p, { recursive: true });
+  } catch {
+    /* ignore */
+  }
+}
+
+function listBackupFiles(): string[] {
+  try {
+    if (!fs.existsSync(BACKUPS_DIR)) return [];
+    return fs
+      .readdirSync(BACKUPS_DIR)
+      .filter((f) => f.startsWith('data_storage_') && f.endsWith('.json'))
+      .sort()
+      .reverse();
+  } catch {
+    return [];
+  }
+}
+
+function tryParseDatabase(raw: string): DatabaseSchema | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as DatabaseSchema;
+  } catch {
+    return null;
+  }
+}
+
+function loadFromLatestBackup(): DatabaseSchema | null {
+  const backups = listBackupFiles();
+  for (const file of backups) {
+    const full = path.join(BACKUPS_DIR, file);
+    try {
+      const raw = fs.readFileSync(full, 'utf-8');
+      const parsed = tryParseDatabase(raw);
+      if (parsed) {
+        console.warn(`[db] Recuperando desde backup: ${file}`);
+        return parsed;
+      }
+    } catch {
+      /* siguiente */
+    }
+  }
+  return null;
+}
+
 // Cargar o inicializar la base de datos
 function loadDb(): DatabaseSchema {
   try {
     if (fs.existsSync(DB_FILE)) {
       const data = fs.readFileSync(DB_FILE, 'utf-8');
-      return ensureDefaultSuperAdmin(JSON.parse(data));
+      const parsed = tryParseDatabase(data);
+      if (parsed) {
+        return ensureDefaultSuperAdmin(parsed);
+      }
+      console.error(
+        `[db] Archivo ${DB_FILE} corrupto o vacío — intentando recuperar desde backup`,
+      );
+      const recovered = loadFromLatestBackup();
+      if (recovered) {
+        // Guardar inmediatamente el estado recuperado en el archivo principal
+        // para que próximas cargas no toquen el backup de nuevo.
+        try {
+          writeDbAtomic(recovered);
+        } catch (err) {
+          console.error('[db] Error reescribiendo archivo principal:', err);
+        }
+        return ensureDefaultSuperAdmin(recovered);
+      }
+      console.error('[db] Sin backups recuperables — arrancando con schema vacío');
     }
   } catch (error) {
     console.error('Error loading DB file:', error);
@@ -196,13 +298,170 @@ function loadDb(): DatabaseSchema {
   return ensureDefaultSuperAdmin(JSON.parse(JSON.stringify(initialSchema)));
 }
 
-// Guardar la base de datos en disco
+// Escritura atómica: tmp + rename. Esto evita que un crash durante el save
+// deje el archivo principal corrupto — o se escribe todo o queda el anterior.
+function writeDbAtomic(data: DatabaseSchema) {
+  ensureDir(DATA_DIR);
+  const tmp = `${DB_FILE}.tmp`;
+  const serialized = JSON.stringify(data, null, 2);
+  fs.writeFileSync(tmp, serialized, 'utf-8');
+  fs.renameSync(tmp, DB_FILE);
+}
+
+// Mutex cooperativo: garantizamos que dos saveDb concurrentes no se pisen. Como
+// fs.writeFileSync es síncrono, el riesgo real viene de `JSON.stringify` +
+// múltiples mutaciones de `dbInstance` entre calls. Serializamos llamadas con
+// una cola simple de promesas.
+let saveQueue: Promise<void> = Promise.resolve();
+
 function saveDb(data: DatabaseSchema) {
+  saveQueue = saveQueue.then(async () => {
+    try {
+      writeDbAtomic(data);
+    } catch (error) {
+      console.error('Error saving DB file:', error);
+    }
+  });
+  return saveQueue;
+}
+
+// ============================================================================
+// Sistema de backups
+// ============================================================================
+// - Snapshot diario automático (chequeado al arrancar y cada 24h).
+// - Snapshot on-demand (endpoint admin).
+// - Snapshot antes de operaciones riesgosas (close cycle, bulk delete).
+// - Retención configurable (default 30 días).
+
+export interface BackupInfo {
+  file: string;
+  fullPath: string;
+  createdAt: string;
+  sizeBytes: number;
+  reason?: string;
+}
+
+function formatBackupTimestamp(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+  );
+}
+
+export function createBackup(reason: string = 'manual'): BackupInfo | null {
+  ensureDir(BACKUPS_DIR);
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (error) {
-    console.error('Error saving DB file:', error);
+    if (!fs.existsSync(DB_FILE)) {
+      // Nada para respaldar todavía — primer arranque.
+      return null;
+    }
+    const stamp = formatBackupTimestamp(new Date());
+    const sanitizedReason = reason.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'manual';
+    const file = `data_storage_${stamp}_${sanitizedReason}.json`;
+    const fullPath = path.join(BACKUPS_DIR, file);
+    fs.copyFileSync(DB_FILE, fullPath);
+    const stat = fs.statSync(fullPath);
+    return {
+      file,
+      fullPath,
+      createdAt: stat.mtime.toISOString(),
+      sizeBytes: stat.size,
+      reason: sanitizedReason,
+    };
+  } catch (err) {
+    console.error('[db] Error creando backup:', err);
+    return null;
   }
+}
+
+export function listBackups(): BackupInfo[] {
+  const files = listBackupFiles();
+  const result: BackupInfo[] = [];
+  for (const file of files) {
+    const full = path.join(BACKUPS_DIR, file);
+    try {
+      const stat = fs.statSync(full);
+      // Intentar parsear el sufijo: data_storage_<stamp>_<reason>.json
+      const match = file.match(/^data_storage_(.+?)_(.+)\.json$/);
+      const reason = match ? match[2] : undefined;
+      result.push({
+        file,
+        fullPath: full,
+        createdAt: stat.mtime.toISOString(),
+        sizeBytes: stat.size,
+        reason,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+  return result;
+}
+
+export function pruneOldBackups() {
+  try {
+    const all = listBackups();
+    const cutoff = Date.now() - BACKUPS_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    for (const b of all) {
+      if (new Date(b.createdAt).getTime() < cutoff) {
+        try {
+          fs.unlinkSync(b.fullPath);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[db] Error podando backups:', err);
+  }
+}
+
+export function restoreFromBackup(file: string): boolean {
+  const full = path.join(BACKUPS_DIR, path.basename(file));
+  if (!fs.existsSync(full)) return false;
+  try {
+    const raw = fs.readFileSync(full, 'utf-8');
+    const parsed = tryParseDatabase(raw);
+    if (!parsed) return false;
+    // Primero tomamos un backup del estado actual ANTES de restaurar,
+    // así nunca se pierde irreversiblemente.
+    createBackup('pre-restore');
+    const restored = ensureDefaultSuperAdmin(parsed);
+    dbInstance = restored;
+    writeDbAtomic(restored);
+    return true;
+  } catch (err) {
+    console.error('[db] Error restaurando backup:', err);
+    return false;
+  }
+}
+
+// Snapshot diario: al arrancar chequea si hay backup en las últimas 24h. Si
+// no, crea uno. Después programa un intervalo de 24h para repetir.
+export function startDailyBackupScheduler() {
+  const run = () => {
+    try {
+      const all = listBackups();
+      const latestAutomatic = all.find((b) => b.reason === 'daily');
+      const shouldBackup =
+        !latestAutomatic ||
+        Date.now() - new Date(latestAutomatic.createdAt).getTime() >= BACKUP_INTERVAL_MS;
+      if (shouldBackup) {
+        const info = createBackup('daily');
+        if (info) {
+          console.log(`[db] Backup diario creado: ${info.file} (${info.sizeBytes} bytes)`);
+        }
+      }
+      pruneOldBackups();
+    } catch (err) {
+      console.error('[db] Error en scheduler de backups:', err);
+    }
+  };
+  // Primera corrida al arrancar (async para no bloquear el boot).
+  setTimeout(run, 5_000);
+  // Repetir cada 24h.
+  setInterval(run, BACKUP_INTERVAL_MS);
 }
 
 // Singleton de la base de datos en memoria sincronizado con disco

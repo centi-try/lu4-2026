@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
@@ -32,6 +32,7 @@ const navItems: Array<{
 // "Config. Raids" queda visualmente debajo de "Gestión de Usuarios".
 const adminNavItems = [
   { href: '/admin/users', label: 'Gestión de Usuarios', icon: Users, desc: 'Administrar cuentas y roles' },
+  { href: '/admin/backups', label: 'Backups', icon: Database, desc: 'Snapshots de la base de datos' },
   { href: '/raids/settings', label: 'Config. Raids', icon: Crown, desc: 'Catálogo de bosses y clanes' },
 ];
 

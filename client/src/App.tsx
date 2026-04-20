@@ -12,6 +12,7 @@ import Purchases from "./pages/Purchases";
 import SalesCycles from "./pages/SalesCycles";
 import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
+import Backups from "./pages/Backups";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";

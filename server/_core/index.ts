@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { DEFAULT_SUPER_ADMIN_EMAIL, DEFAULT_SUPER_ADMIN_NAME, getDb, getUserByEmail, hashStoredPassword, upsertUser } from "../db";
+import { DEFAULT_SUPER_ADMIN_EMAIL, DEFAULT_SUPER_ADMIN_NAME, getDb, getUserByEmail, hashStoredPassword, upsertUser, startDailyBackupScheduler, STORAGE_PATHS } from "../db";
 
 // Esquemas dummy para compatibilidad
 const users = { name: 'users' };
@@ -228,6 +228,10 @@ async function startServer() {
 
   server.listen(port, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${port}/`);
+    console.log(`[db] Archivo principal: ${STORAGE_PATHS.dbFile}`);
+    console.log(`[db] Backups: ${STORAGE_PATHS.backupsDir} (retención ${STORAGE_PATHS.retentionDays} días)`);
+    // Arranca el scheduler de backups diarios una vez que el server está vivo.
+    startDailyBackupScheduler();
   });
 }
 

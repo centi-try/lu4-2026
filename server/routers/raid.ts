@@ -32,6 +32,8 @@ import {
   createRaidAuditLog, getRaidAuditLogs,
   // users (para listar)
   getAllUsers,
+  // backups
+  createBackup,
 } from '../db';
 
 // ============================================================================
@@ -470,6 +472,10 @@ export const raidRouter = router({
     }),
     close: raidAdminProcedure.mutation(async ({ ctx }) => {
       try {
+        // Snapshot pre-cierre de ciclo de ventas raid (semanal).
+        try {
+          createBackup('pre-close-raid-sales-cycle');
+        } catch { /* best-effort */ }
         const cycle = await closeRaidSalesCycle(ctx.user);
         return { success: true, cycle };
       } catch (e: any) {
