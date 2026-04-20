@@ -197,6 +197,10 @@ async function startServer() {
     const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
     const emailRaw = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
+    // "Recordarme": si viene en true, la cookie vive ~30 días. Si viene
+    // false o undefined, no seteamos maxAge → cookie de sesión (muere al
+    // cerrar el navegador). El user tiene control explícito.
+    const rememberMe = req.body?.rememberMe === true || req.body?.rememberMe === 'true';
 
     try {
       // 1) Rate limit por IP (antes de cualquier cosa — no toca la DB)

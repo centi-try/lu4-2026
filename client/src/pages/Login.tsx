@@ -14,6 +14,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState<{ email: boolean; password: boolean }>({
     email: false,
@@ -207,6 +208,21 @@ export default function Login() {
                 </p>
               )}
             </div>
+
+            <label
+              className="flex items-center gap-2 cursor-pointer select-none pt-1"
+              style={{ color: 'rgba(255,255,255,0.65)' }}
+            >
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={loading}
+                className="h-4 w-4 rounded cursor-pointer"
+                style={{ accentColor: '#7bf1d6' }}
+              />
+              <span className="text-sm">Recordarme en este navegador (30 días)</span>
+            </label>
 
             <button
               type="submit"
