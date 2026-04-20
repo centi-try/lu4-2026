@@ -383,11 +383,11 @@ export default function RaidDropsTable({ raidAccess }: Props) {
             size="md"
             placeholder="Todos los clanes"
             options={[
-              { value: 'ALL', label: 'Todos los clanes', emoji: '🏳️' },
+              { value: 'ALL', label: 'Todos los clanes', emoji: '🚩' },
               ...clans.map<FancyOption<string>>((c: any) => ({
                 value: String(c.id),
                 label: `${c.tag ? `[${c.tag}] ` : ''}${c.name}`,
-                emoji: '🏳️‍☠️',
+                emoji: '🚩',
               })),
             ]}
           />
