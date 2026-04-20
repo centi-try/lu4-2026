@@ -1,14 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
+type LegacyRole = 'super_admin' | 'mapper' | 'user';
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
+  /**
+   * Lista de roles globales permitidos. Si se omite, cualquier usuario
+   * autenticado pasa (comportamiento anterior). Si se define, un usuario
+   * autenticado con rol fuera de la lista ve un mensaje de "sin acceso"
+   * con botón para volver al dashboard. El match es case-insensitive.
+   */
+  allowedRoles?: LegacyRole[];
 }
 
-export default function ProtectedRoute({ component: Component }: ProtectedRouteProps) {
-  const { isAuthenticated, loading } = useAuth();
+export default function ProtectedRoute({ component: Component, allowedRoles }: ProtectedRouteProps) {
+  const { isAuthenticated, loading, user } = useAuth();
   const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) setLocation('/login');
+  }, [loading, isAuthenticated, setLocation]);
 
   if (loading) {
     return (
@@ -21,9 +35,40 @@ export default function ProtectedRoute({ component: Component }: ProtectedRouteP
     );
   }
 
-  if (!isAuthenticated) {
-    setLocation('/login');
-    return null;
+  if (!isAuthenticated) return null;
+
+  if (allowedRoles && allowedRoles.length > 0) {
+    const role = String((user as any)?.role || '').toLowerCase() as LegacyRole;
+    const allowed = allowedRoles.map((r) => r.toLowerCase()) as LegacyRole[];
+    if (!allowed.includes(role)) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6"
+          style={{ background: 'radial-gradient(circle at 10% 10%, rgba(123,241,214,0.06) 0%, transparent 30%), linear-gradient(180deg, #060910 0%, #080c14 50%, #040608 100%)' }}>
+          <div className="max-w-md rounded-2xl border p-8 text-center space-y-4"
+            style={{ background: 'rgba(10,14,22,0.95)', borderColor: 'rgba(255,255,255,0.08)' }}>
+            <div className="mx-auto h-14 w-14 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)' }}>
+              <Lock className="h-7 w-7" style={{ color: '#fbbf24' }} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Sin acceso
+              </h1>
+              <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Esta sección no está disponible para tu rol. Si necesitás acceder, pedile al super admin que ajuste tus permisos.
+              </p>
+            </div>
+            <button
+              onClick={() => setLocation('/')}
+              className="btn-primary w-full"
+              style={{ padding: '10px 16px' }}
+            >
+              Volver al Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
   }
 
   return <Component />;

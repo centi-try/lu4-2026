@@ -5,9 +5,21 @@ import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
 
-const navItems = [
+// Lista completa de menús del sistema legacy. Cada entrada declara sus roles
+// permitidos; el sidebar filtra según el rol global del usuario logueado.
+// `allowedRoles: undefined` == visible para todos los autenticados.
+const navItems: Array<{
+  href: string;
+  label: string;
+  icon: any;
+  desc: string;
+  allowedRoles?: Array<'super_admin' | 'mapper' | 'user'>;
+}> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, desc: 'Vista general y KPIs' },
-  { href: '/inventory', label: 'Inventario', icon: Package, desc: 'Gestión de ítems' },
+  // /inventory: solo SUPER_ADMIN y MAPPER (los que pueden crear/vender ítems).
+  // Un USER ve el inventario desde el widget del Dashboard, donde puede
+  // reservar sin acceder al panel operativo.
+  { href: '/inventory', label: 'Inventario', icon: Package, desc: 'Gestión de ítems', allowedRoles: ['super_admin', 'mapper'] },
   { href: '/characters', label: 'Personajes', icon: User, desc: 'Personajes y ganancias' },
   { href: '/cycles', label: 'Ciclos de Ventas', icon: BarChart3, desc: 'Historial y cierre de ciclos' },
   { href: '/purchases', label: 'Compras', icon: ShoppingBag, desc: 'Historial de adquisiciones' },
@@ -86,7 +98,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navItems.map(item => {
+          {navItems.filter(item => {
+            if (!item.allowedRoles) return true;
+            const currentRole = String(authUser?.role || '').toLowerCase() as 'super_admin' | 'mapper' | 'user';
+            return item.allowedRoles.includes(currentRole);
+          }).map(item => {
             const Icon = item.icon;
             const isActive = location === item.href;
             return (
