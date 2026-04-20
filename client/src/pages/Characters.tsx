@@ -182,7 +182,13 @@ function CharacterDetail({ char }: { char: Character }) {
               const isVendido = item.status === 'VENDIDO';
               const remaining = item.quantity - item.quantitySold;
               const assocCount = item.associatedCharacterIds.length || 1;
-              const earningsShare = item.price ? Math.floor(item.price / assocCount) : 0;
+              // Ganancia por unidad para el personaje (label "c/u por venta").
+              const perUnitShare = item.price ? Math.floor(item.price / assocCount) : 0;
+              // Ganancia real acumulada para el personaje por este ítem
+              // (price * quantitySold / assocCount) — coherente con el backend.
+              const earnedFromItem = item.price
+                ? Math.floor((item.price * item.quantitySold) / assocCount)
+                : 0;
               const isSellingThis = sellModalItem === item.id;
 
               return (
@@ -206,7 +212,7 @@ function CharacterDetail({ char }: { char: Character }) {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs font-mono" style={{ color: '#a78bfa' }}>
-                        {isVendido ? `+$${(earningsShare ?? 0).toLocaleString()}` : `$${(item.price ?? 0).toLocaleString() || '—'}`}
+                        {isVendido ? `+$${(earnedFromItem ?? 0).toLocaleString()}` : `$${(item.price ?? 0).toLocaleString() || '—'}`}
                       </p>
                       <p className="text-xs" style={{
                         color: isVendido ? '#a78bfa' : (item.status === 'CONFIRMADO' ? '#34d399' : '#fbbf24')
@@ -220,7 +226,7 @@ function CharacterDetail({ char }: { char: Character }) {
                   <div className="mt-2 flex items-center gap-1">
                     <Users className="h-3 w-3 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
                     <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      {assocCount} personaje(s) · ${(earningsShare ?? 0).toLocaleString()} c/u por venta
+                      {assocCount} personaje(s) · ${(perUnitShare ?? 0).toLocaleString()} c/u por unidad
                     </span>
                   </div>
 

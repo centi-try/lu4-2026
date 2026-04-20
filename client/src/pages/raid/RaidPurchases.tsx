@@ -9,6 +9,27 @@ interface Props {
   raidAccess?: RaidAccessInfo;
 }
 
+// ============================================================================
+// Grouping por día (mismo patrón que /history, /raids/history y /purchases).
+// Queremos que el historial raid se lea como una cronología en vez de una
+// lista plana: "Hoy", "Ayer", y luego el nombre del día con fecha completa.
+// ============================================================================
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Sin fecha';
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+}
+function dayLabel(iso: string): string {
+  if (iso === 'Sin fecha') return 'Sin fecha';
+  const d = new Date(iso);
+  const today = new Date();
+  const tToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const diffDays = Math.round((tToday - d.getTime()) / 86400000);
+  if (diffDays === 0) return 'Hoy';
+  if (diffDays === 1) return 'Ayer';
+  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 /**
  * Historial de Compras del módulo Raid.
  *
@@ -52,6 +73,22 @@ export default function RaidPurchases(_: Props) {
       return matchesSearch && matchesView;
     });
   }, [purchasesQ.data, search, view, currentUserId]);
+
+  // Orden DESC por fecha y agrupación por día para la vista cronológica.
+  const groupedByDay = useMemo(() => {
+    const sorted = [...filtered].sort((a, b) => {
+      const ta = new Date((a as any).createdAt || 0).getTime();
+      const tb = new Date((b as any).createdAt || 0).getTime();
+      return tb - ta;
+    });
+    const groups = new Map<string, typeof sorted>();
+    for (const p of sorted) {
+      const key = dayKey((p as any).createdAt || '');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(p);
+    }
+    return Array.from(groups.entries());
+  }, [filtered]);
 
   return (
     <AppShell>
@@ -121,8 +158,8 @@ export default function RaidPurchases(_: Props) {
           )}
         </div>
 
-        {/* List */}
-        <div className="grid gap-4">
+        {/* List — agrupada por día con headers sticky */}
+        <div className="space-y-6">
           {purchasesQ.isLoading ? (
             <div className="card-glass flex items-center justify-center py-20 rounded-3xl">
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
@@ -147,15 +184,46 @@ export default function RaidPurchases(_: Props) {
               </p>
             </div>
           ) : (
-            filtered.map((purchase) => {
-              const isMine =
-                purchase.buyerId != null && Number(purchase.buyerId) === currentUserId;
-              const clanNames = ((purchase.clansShared || []) as number[])
-                .map((id: number) => clansById.get(Number(id)))
-                .filter(Boolean) as string[];
+            groupedByDay.map(([dayIso, dayPurchases]) => {
+              const daySubtotal = dayPurchases.reduce(
+                (acc, p) => acc + (Number((p as any).total) || 0),
+                0,
+              );
               return (
+              <section key={dayIso} className="space-y-3">
                 <div
-                  key={purchase.id}
+                  className="sticky top-0 z-10 -mx-1 flex items-center justify-between rounded-xl px-3 py-2 backdrop-blur"
+                  style={{
+                    background: 'rgba(15,20,26,0.85)',
+                    border: '1px solid rgba(248,113,113,0.15)',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[11px] uppercase tracking-[0.15em] font-semibold"
+                      style={{ color: 'rgba(248,113,113,0.85)' }}
+                    >
+                      {dayLabel(dayIso)}
+                    </span>
+                    <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      · {dayPurchases.length} compra{dayPurchases.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-semibold" style={{ color: '#f87171' }}>
+                    ${daySubtotal.toLocaleString()}
+                  </span>
+                </div>
+                <div className="grid gap-4">
+                  {dayPurchases.map((purchase) => {
+                    const isMine =
+                      (purchase as any).buyerId != null &&
+                      Number((purchase as any).buyerId) === currentUserId;
+                    const clanNames = (((purchase as any).clansShared || []) as number[])
+                      .map((id: number) => clansById.get(Number(id)))
+                      .filter(Boolean) as string[];
+                    return (
+                <div
+                  key={(purchase as any).id}
                   className="card-glass group relative overflow-hidden rounded-2xl p-4 transition-all hover:translate-y-[-2px]"
                   style={{ border: '1px solid rgba(255,255,255,0.06)' }}
                 >
@@ -249,6 +317,10 @@ export default function RaidPurchases(_: Props) {
                   {/* Decorative element (raid theme: rojo) */}
                   <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-transparent via-[#f87171]/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
+                    );
+                  })}
+                </div>
+              </section>
               );
             })
           )}

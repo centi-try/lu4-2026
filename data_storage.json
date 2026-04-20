@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-20T06:14:09.499Z",
-      "lastSignedIn": "2026-04-20T06:14:09.499Z",
+      "updatedAt": "2026-04-20T06:57:51.170Z",
+      "lastSignedIn": "2026-04-20T06:57:51.170Z",
       "currentCycleEarnings": 0
     },
     {
@@ -209,8 +209,12 @@
       "totalProfit": 2700,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 300,
-      "updatedAt": "2026-04-18T08:47:58.597Z"
+      "totalEarnings": 3000,
+      "updatedAt": "2026-04-18T08:47:58.597Z",
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 294977,
@@ -219,7 +223,12 @@
       "profitPerCycle": 0,
       "totalProfit": 1333,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 1333,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 447240,
@@ -228,7 +237,12 @@
       "profitPerCycle": 0,
       "totalProfit": 1333,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 1333,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "MAPPER"
     },
     {
       "id": 620936,
@@ -237,7 +251,12 @@
       "profitPerCycle": 0,
       "totalProfit": 1133,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 1133,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "MAPPER"
     },
     {
       "id": 988089,
@@ -247,8 +266,12 @@
       "totalProfit": 300,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 300,
-      "updatedAt": "2026-04-18T08:47:58.597Z"
+      "totalEarnings": 600,
+      "updatedAt": "2026-04-18T08:47:58.597Z",
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "MAPPER"
     },
     {
       "id": 649528,
@@ -257,7 +280,12 @@
       "profitPerCycle": 0,
       "totalProfit": 1375,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 1100,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 457774,
@@ -267,8 +295,12 @@
       "totalProfit": 4300,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 450,
-      "updatedAt": "2026-04-18T08:36:28.795Z"
+      "totalEarnings": 2500,
+      "updatedAt": "2026-04-18T08:36:28.795Z",
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 291690,
@@ -277,7 +309,12 @@
       "profitPerCycle": 0,
       "totalProfit": 3766,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 3766,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 240999,
@@ -286,7 +323,12 @@
       "profitPerCycle": 0,
       "totalProfit": 2950,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 2950,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 177644,
@@ -296,8 +338,11 @@
       "totalProfit": 1633,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 300,
-      "updatedAt": "2026-04-18T08:47:58.597Z"
+      "totalEarnings": 1933,
+      "updatedAt": "2026-04-18T08:47:58.597Z",
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600"
     },
     {
       "id": 645672,
@@ -306,7 +351,12 @@
       "profitPerCycle": 0,
       "totalProfit": 1125,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 850,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     },
     {
       "id": 676516,
@@ -315,7 +365,12 @@
       "profitPerCycle": 0,
       "totalProfit": 450,
       "currentCycleEarnings": 0,
-      "createdAt": "2026-04-18T08:25:58.929Z"
+      "createdAt": "2026-04-18T08:25:58.929Z",
+      "totalEarnings": 450,
+      "class": "Aventurero",
+      "level": 1,
+      "avatar": "from-gray-400 to-gray-600",
+      "role": "USER"
     }
   ],
   "items": [
