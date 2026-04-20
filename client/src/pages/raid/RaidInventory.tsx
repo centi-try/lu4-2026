@@ -10,6 +10,7 @@ import EventsGroupedByCycle from './EventsGroupedByCycle';
 import RaidDropsTable from './RaidDropsTable';
 import { RaidDropTypeahead, type DropSuggestion } from './RaidDropTypeahead';
 import { BossSelect } from './BossSelect';
+import { ReservationQuickButton, ReservationsPill } from './DropReservationsCell';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
@@ -71,6 +72,9 @@ export default function RaidInventory({ raidAccess }: Props) {
   // Lista de usuarios elegibles como "Comprador/Cuenta" al vender un drop
   // (solo usuarios con acceso raid: raid_admin, raid_mapper, raid_user).
   const buyersListQ = trpc.raid.buyers.list.useQuery(undefined, { staleTime: 30_000 });
+  // Reservas — se usan también dentro de cada EventCard para mostrar el pill
+  // al lado del nombre del ítem y el botón 'Reservar' en la fila de cada drop.
+  const reservationsInvQ = trpc.raid.reservations.list.useQuery(undefined, { staleTime: 5_000 });
 
   // Mapa categoría → imageUrl (seteado por super admin en /raids/settings).
   const categoryIconMap: Record<string, string> = {};
@@ -1006,6 +1010,8 @@ export default function RaidInventory({ raidAccess }: Props) {
                 event={e}
                 canInteract={canInteract}
                 canAdmin={!!raidAccess?.canAdmin}
+                raidAccess={raidAccess}
+                reservations={(reservationsInvQ.data as any[]) || []}
                 onDelete={() => setDeleteEventTarget(e)}
                 buyers={(buyersListQ.data as any[]) || []}
                 onSellDrop={(dropId, qty, buyerId, buyerName) => {
@@ -1556,6 +1562,8 @@ function EventCard({
   event,
   canInteract,
   canAdmin,
+  raidAccess,
+  reservations,
   onDelete,
   onSellDrop,
   buyers,
@@ -1563,6 +1571,8 @@ function EventCard({
   event: any;
   canInteract: boolean;
   canAdmin: boolean;
+  raidAccess?: RaidAccessInfo;
+  reservations: any[];
   onDelete: () => void;
   onSellDrop: (id: number, qty: number, buyerId: number, buyerName: string) => void;
   buyers: any[];
@@ -1737,17 +1747,28 @@ function EventCard({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className="text-xs font-medium"
+                      className="text-xs font-medium flex items-center gap-1.5"
                       style={{ color: 'rgba(255,255,255,0.9)' }}
                     >
-                      {d.name}
+                      <span className="truncate">{d.name}</span>
+                      <ReservationsPill drop={d} reservations={reservations} />
                     </p>
                     <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
                       {d.category} · ${Number(d.price).toLocaleString()} · {available}/
                       {d.quantity} disp.
                     </p>
                   </div>
-                  {canInteract && available > 0 && (
+                  {/* Botón Reservar: disponible para cualquier rol con acceso
+                       raid mientras el drop tenga stock. El componente se
+                       auto-oculta si no hay acceso o el drop está agotado. */}
+                  {available > 0 && (
+                    <ReservationQuickButton
+                      drop={d}
+                      reservations={reservations}
+                      raidAccess={raidAccess}
+                    />
+                  )}
+                  {canAdmin && available > 0 && (
                     <SellDropControl
                       max={available}
                       buyers={buyers}

@@ -404,15 +404,23 @@ export function ReservationQuickButton({
   const characterName = String(
     (user as any)?.characterName || user?.name || ''
   ).trim();
+  const canAdmin = !!raidAccess?.canAdmin;
+  const currentUserId = Number((user as any)?.id || 0);
 
   const createMut = trpc.raid.reservations.create.useMutation({
     onSuccess: () => {
       toast.success('Reserva registrada');
       utils.raid.reservations.list.invalidate();
-      setOpen(false);
       setQtyInput('');
     },
     onError: (err) => toast.error(err.message || 'No se pudo reservar'),
+  });
+  const deleteMut = trpc.raid.reservations.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Reserva cancelada');
+      utils.raid.reservations.list.invalidate();
+    },
+    onError: (err) => toast.error(err.message || 'No se pudo cancelar'),
   });
 
   if (!raidAccess?.canAccess || soldOut) return null;
@@ -529,12 +537,111 @@ export function ReservationQuickButton({
               </div>
             </div>
 
+            {/* Historial de reservas del drop — siempre visible (hueco cuando
+                 está vacío para dar contexto al usuario). Admin puede borrar
+                 cualquiera; dueño solo la propia. Marcamos la del usuario
+                 actual con un chip "(vos)" dorado. */}
+            <div className="mb-4">
+              <div
+                className="flex items-center justify-between mb-2 text-xs uppercase tracking-wider"
+                style={{ color: 'rgba(255,255,255,0.45)' }}
+              >
+                <span>Reservas actuales</span>
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  {rowReservations.length} · {reservedUnits} uds
+                </span>
+              </div>
+              <div
+                className="rounded-xl max-h-48 overflow-y-auto"
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                {rowReservations.length === 0 ? (
+                  <p
+                    className="text-xs italic p-3 text-center"
+                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                  >
+                    Nadie reservó todavía. Sé el primero.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-white/5">
+                    {rowReservations.map((r) => {
+                      const isMine = Number(r.userId) === currentUserId;
+                      const canDelete = isMine || canAdmin;
+                      return (
+                        <li
+                          key={r.id}
+                          className="flex items-center gap-2 px-3 py-2"
+                          style={{
+                            background: isMine ? 'rgba(251,191,36,0.06)' : 'transparent',
+                          }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className="text-xs font-medium truncate"
+                              style={{ color: 'rgba(255,255,255,0.85)' }}
+                            >
+                              {r.characterName || r.userName}
+                              {isMine && (
+                                <span
+                                  className="ml-1.5 text-[10px] font-normal"
+                                  style={{ color: '#fbbf24' }}
+                                >
+                                  (vos)
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                              {r.userName} · {new Date(r.createdAt).toLocaleString('es-AR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+                          <span
+                            className="text-xs font-mono rounded-md px-2 py-0.5"
+                            style={{
+                              background: 'rgba(251,191,36,0.12)',
+                              color: '#fbbf24',
+                              border: '1px solid rgba(251,191,36,0.25)',
+                            }}
+                          >
+                            ×{r.quantity}
+                          </span>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => deleteMut.mutate({ id: Number(r.id) })}
+                              disabled={deleteMut.isPending}
+                              title={isMine ? 'Cancelar mi reserva' : 'Borrar reserva (admin)'}
+                              className="rounded-md p-1"
+                              style={{
+                                color: '#f87171',
+                                background: 'rgba(248,113,113,0.08)',
+                                border: '1px solid rgba(248,113,113,0.25)',
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+
             <div className="mb-4">
               <label
                 className="block mb-2 text-xs uppercase tracking-wider"
                 style={{ color: 'rgba(255,255,255,0.45)' }}
               >
-                Cantidad a reservar
+                Nueva reserva — cantidad
               </label>
               <input
                 type="number"
@@ -545,7 +652,7 @@ export function ReservationQuickButton({
                 placeholder="0"
                 value={qtyInput}
                 onChange={(e) => setQtyInput(e.target.value)}
-                disabled={createMut.isPending || !characterName}
+                disabled={createMut.isPending || !characterName || remainingForReservations <= 0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreate();
                 }}
@@ -556,6 +663,12 @@ export function ReservationQuickButton({
                   color: 'rgba(255,255,255,0.9)',
                 }}
               />
+              {remainingForReservations <= 0 && (
+                <p className="mt-2 text-xs" style={{ color: '#f87171' }}>
+                  El stock ya está completamente reservado. Esperá a que alguien
+                  cancele o a que el admin venda.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2">
@@ -592,5 +705,41 @@ export function ReservationQuickButton({
         </div>
       )}
     </>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Pill compacta que se muestra al lado del nombre del ítem cuando el drop
+// tiene reservas vivas. Indicador no-interactivo; las acciones viven en el
+// botón Reservar de la columna de Acciones.
+// ───────────────────────────────────────────────────────────────────────────
+export function ReservationsPill({
+  drop,
+  reservations,
+}: {
+  drop: any;
+  reservations: Reservation[];
+}) {
+  const rowReservations = reservations.filter(
+    r => Number(r.dropItemId) === Number(drop.id)
+  );
+  if (rowReservations.length === 0) return null;
+  const totalUnits = rowReservations.reduce(
+    (s, r) => s + (Number(r.quantity) || 0),
+    0
+  );
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
+      title={`${rowReservations.length} reserva(s) · ${totalUnits} unidad(es)`}
+      style={{
+        background: 'rgba(251,191,36,0.12)',
+        border: '1px solid rgba(251,191,36,0.35)',
+        color: '#fbbf24',
+      }}
+    >
+      <Bookmark className="h-2.5 w-2.5" />
+      {totalUnits} uds
+    </span>
   );
 }

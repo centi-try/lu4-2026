@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import type { ItemCategory } from '../../lib/types';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
-import { DropReservationsCell, ReservationQuickButton } from './DropReservationsCell';
+import { ReservationQuickButton, ReservationsPill } from './DropReservationsCell';
 
 // ============================================================================
 // Tabla consolidada de todos los raid drops registrados.
@@ -48,11 +48,19 @@ export default function RaidDropsTable({ raidAccess }: Props) {
   const cyclesQ = trpc.raid.cycles.list.useQuery();
   const currentCycleQ = trpc.raid.cycles.current.useQuery();
   const clansQ = trpc.raid.clans.list.useQuery();
+  // Reservas de drops disponibles — se fetchean una sola vez a nivel de tabla
+  // y cada fila filtra las propias dentro de <ReservationsPill> y
+  // <ReservationQuickButton>. Las mutations de reserva/cancelación invalidan
+  // este query para que el pill y el modal se refresquen en vivo.
+  const reservationsQ = trpc.raid.reservations.list.useQuery(undefined, {
+    staleTime: 5_000,
+  });
 
   const drops = dropsQ.data || [];
   const cycles = cyclesQ.data || [];
   const clans = clansQ.data || [];
   const currentCycle = currentCycleQ.data;
+  const reservations = ((reservationsQ.data as any[]) || []) as any[];
 
   // -------- Filters ---------------------------------------------------------
   const [search, setSearch] = useState('');
@@ -350,8 +358,6 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                   <th className="px-3 py-3 font-medium">Clanes</th>
                   <th className="px-3 py-3 font-medium text-right">Precio</th>
                   <th className="px-3 py-3 font-medium text-left">Stock</th>
-                  <th className="px-3 py-3 font-medium text-right">Subtotal</th>
-                  <th className="px-3 py-3 font-medium text-center">Reservas</th>
                   <th className="px-3 py-3 font-medium text-center">Acciones</th>
                 </tr>
               </thead>
@@ -392,10 +398,11 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                           </div>
                           <div className="min-w-0">
                             <div
-                              className="font-medium truncate"
+                              className="font-medium truncate flex items-center gap-2"
                               style={{ color: 'rgba(255,255,255,0.9)' }}
                             >
-                              {d.name}
+                              <span className="truncate">{d.name}</span>
+                              <ReservationsPill drop={d} reservations={reservations} />
                             </div>
                             <div
                               className="text-[11px]"
@@ -543,9 +550,6 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-right font-mono" style={{ color: '#7bf1d6' }}>
-                        ${((Number(d.price) || 0) * remaining).toLocaleString()}
-                      </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-center gap-1.5">
                           {canInteract && editingPriceDropId !== Number(d.id) && (
@@ -623,6 +627,17 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
+                          )}
+                          {/* Botón Reservar — va al final, no altera el orden
+                              existente (Pencil, 🛒 Vender, Trash2). Solo aparece
+                              mientras el drop tiene stock. El componente se
+                              auto-oculta para roles sin acceso raid. */}
+                          {!soldOut && (
+                            <ReservationQuickButton
+                              drop={d}
+                              reservations={reservations}
+                              raidAccess={raidAccess}
+                            />
                           )}
                         </div>
                       </td>
