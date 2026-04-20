@@ -10,7 +10,6 @@ import Characters from "./pages/Characters";
 import History from "./pages/History";
 import Purchases from "./pages/Purchases";
 import SalesCycles from "./pages/SalesCycles";
-import Images from "./pages/Images";
 import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
@@ -36,7 +35,6 @@ function Router() {
       <Route path="/history" component={() => <ProtectedRoute component={History} />} />
       <Route path="/purchases" component={() => <ProtectedRoute component={Purchases} />} />
       <Route path="/cycles" component={() => <ProtectedRoute component={SalesCycles} />} />
-      <Route path="/images" component={() => <ProtectedRoute component={Images} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
       <Route path="/raids" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidDashboard} required="view" />} />} />
@@ -44,7 +42,7 @@ function Router() {
       <Route path="/raids/clans" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidClans} required="view" />} />} />
       <Route path="/raids/cycles" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidCycles} required="view" />} />} />
       <Route path="/raids/purchases" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidPurchases} required="view" />} />} />
-      <Route path="/raids/settings" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidSettings} required="admin" />} />} />
+      <Route path="/raids/settings" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidSettings} required="super_admin" />} />} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

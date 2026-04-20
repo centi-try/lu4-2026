@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { trpc } from '../lib/trpc';
 
-type RequiredAccess = 'view' | 'interact' | 'admin';
+type RequiredAccess = 'view' | 'interact' | 'admin' | 'super_admin';
 
 interface RaidProtectedRouteProps {
   component: React.ComponentType<{ raidAccess?: RaidAccessInfo }>;
@@ -136,6 +136,46 @@ export default function RaidProtectedRoute({
           </h2>
           <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
             Solo raid_admin o Super Admin pueden acceder a esta sección.
+          </p>
+          <button
+            onClick={() => setLocation('/raids')}
+            className="rounded-xl px-4 py-2 text-sm font-semibold transition-all"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.9)',
+            }}
+          >
+            Volver al Dashboard Raid
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (required === 'super_admin' && access.accessLevel !== 'super_admin') {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{
+          background:
+            'radial-gradient(circle at 10% 10%, rgba(232,121,249,0.08) 0%, transparent 30%), linear-gradient(180deg, #060910 0%, #080c14 50%, #040608 100%)',
+        }}
+      >
+        <div
+          className="max-w-md w-full rounded-2xl p-8 text-center"
+          style={{
+            background: 'rgba(10,14,22,0.95)',
+            border: '1px solid rgba(232,121,249,0.25)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div className="text-5xl mb-4">👑</div>
+          <h2 className="text-xl font-bold mb-2" style={{ color: '#fbbf24' }}>
+            Solo Super Admin
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            La configuración del módulo Raid está reservada al Super Admin del sistema.
           </p>
           <button
             onClick={() => setLocation('/raids')}

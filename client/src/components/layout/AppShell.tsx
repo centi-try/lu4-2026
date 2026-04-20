@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, ImageIcon, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
@@ -12,7 +12,6 @@ const navItems = [
   { href: '/cycles', label: 'Ciclos de Ventas', icon: BarChart3, desc: 'Historial y cierre de ciclos' },
   { href: '/purchases', label: 'Compras', icon: ShoppingBag, desc: 'Historial de adquisiciones' },
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
-  { href: '/images', label: 'Imágenes', icon: ImageIcon, desc: 'Gestión de imágenes' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
 ];
 
@@ -47,7 +46,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     retry: false,
   });
   const canSeeRaidModule = !!raidAccess?.canAccess;
-  const canSeeRaidAdmin = !!raidAccess?.canAdmin;
+  // El menú "Config. Raids" quedó restringido a super admin del sistema
+  // (antes también lo veía raid_admin). Misma política que /admin/users.
   const isCurrentSuperAdmin = currentUser && (
     (currentUser.role as string) === 'SUPER_ADMIN' ||
     (currentUser.role as string) === 'super_admin'
@@ -152,7 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 );
               })}
-              {(isAuthSuperAdmin || canSeeRaidAdmin) && raidAdminNavItems.map(item => {
+              {isAuthSuperAdmin && raidAdminNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
                 return (
