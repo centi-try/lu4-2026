@@ -39,7 +39,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<ItemCategory | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL' | 'WITH_RESERVATIONS'>('ALL');
   const [sortKey, setSortKey] = useState<'name' | 'price' | 'createdAt'>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [editId, setEditId] = useState<string | null>(null);
@@ -61,14 +61,23 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     return { drops, units };
   }, [reservationsByItem]);
 
+  // "WITH_RESERVATIONS" es un pseudo-filtro: no es un status real de ítem,
+  // sino un toggle que activa el filtrado por ítems con reservas vivas.
+  // Se maneja aparte de `statusFilter` para no ensuciar el tipo ItemStatus.
   const filtered = items
     .filter(i => {
       const q = search.toLowerCase();
-      return (
-        (!q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)) &&
-        (catFilter === 'ALL' || i.category === catFilter) &&
-        (statusFilter === 'ALL' || i.status === statusFilter)
-      );
+      const matchesSearch = !q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q);
+      const matchesCat = catFilter === 'ALL' || i.category === catFilter;
+      const statusStr = String(statusFilter);
+      let matchesStatus = true;
+      if (statusStr === 'WITH_RESERVATIONS') {
+        const rs = reservationsByItem.get(String(i.id));
+        matchesStatus = !!(rs && rs.length > 0);
+      } else if (statusStr !== 'ALL') {
+        matchesStatus = i.status === statusFilter;
+      }
+      return matchesSearch && matchesCat && matchesStatus;
     })
     .sort((a, b) => {
       // Orden por defecto: ítems con stock arriba, agotados/vendidos al final.
@@ -83,6 +92,43 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       if (sortKey === 'price') { va = a.price ?? 0; vb = b.price ?? 0; }
       return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
     });
+
+  // Totales agregados de los ítems filtrados. Mismo orden/semántica que la
+  // tabla de drops del menú raid: Unid (restante/total), Vendidas, Vendido
+  // (adena cobrada = price*sold), Restante (potencial = price*remaining),
+  // Total (sticker price del subset filtrado).
+  const totals = useMemo(() => {
+    const totalUnits = filtered.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const soldUnits = filtered.reduce((s, i) => s + (Number(i.quantitySold) || 0), 0);
+    const remainingUnits = totalUnits - soldUnits;
+    const soldRevenue = filtered.reduce(
+      (s, i) => s + (Number(i.price) || 0) * (Number(i.quantitySold) || 0),
+      0
+    );
+    const potentialRevenue = filtered.reduce(
+      (s, i) =>
+        s + (Number(i.price) || 0) * ((Number(i.quantity) || 0) - (Number(i.quantitySold) || 0)),
+      0
+    );
+    const totalRevenue = soldRevenue + potentialRevenue;
+    // Reservas: ítems distintos con al menos una reserva viva + total unidades
+    // reservadas (suma de quantity). Solo cuenta ítems dentro de `filtered`
+    // para que el contador respete los filtros actuales.
+    let itemsWithReservations = 0;
+    let reservedUnitsTotal = 0;
+    for (const it of filtered) {
+      const rs = reservationsByItem.get(String(it.id));
+      if (rs && rs.length > 0) {
+        itemsWithReservations += 1;
+        for (const r of rs) reservedUnitsTotal += Number(r.quantity) || 0;
+      }
+    }
+    return {
+      totalUnits, soldUnits, remainingUnits,
+      soldRevenue, potentialRevenue, totalRevenue,
+      itemsWithReservations, reservedUnitsTotal,
+    };
+  }, [filtered, reservationsByItem]);
 
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -176,22 +222,51 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
               Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
             </p>
-            {reservedTotals.drops > 0 && (
-              <div
-                className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs"
-                style={{
-                  background: 'rgba(251,191,36,0.1)',
-                  border: '1px solid rgba(251,191,36,0.28)',
-                  color: '#fbbf24',
-                }}
-                title="Ítems con reservas de compra activas"
-              >
-                <span className="inline-flex h-3 w-3 items-center justify-center text-[11px] font-black leading-none">R</span>
-                <span className="font-mono">
-                  {reservedTotals.drops} item{reservedTotals.drops === 1 ? '' : 's'} · {reservedTotals.units} uds
-                </span>
-              </div>
-            )}
+            {/* Stats line — mismo orden/colores que la tabla de drops del menú
+                raid: Unid (restante/total), Vendidas, Vendido, Restante, Total
+                + pill R clickeable que filtra a solo ítems con reservas. */}
+            <div className="mt-2 flex items-center gap-3 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              <span>
+                Unid: <span style={{ color: '#7bf1d6' }}>{totals.remainingUnits}</span>/
+                {totals.totalUnits}
+              </span>
+              <span>
+                Vendidas: <span style={{ color: '#fbbf24' }}>{totals.soldUnits}</span>
+              </span>
+              <span>
+                Vendido: <span style={{ color: '#fbbf24' }}>${totals.soldRevenue.toLocaleString()}</span>
+              </span>
+              <span>
+                Restante: <span style={{ color: '#a78bfa' }}>${totals.potentialRevenue.toLocaleString()}</span>
+              </span>
+              <span>
+                Total: <span style={{ color: 'rgba(255,255,255,0.85)' }}>${totals.totalRevenue.toLocaleString()}</span>
+              </span>
+              {totals.itemsWithReservations > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStatusFilter((s) => (s === 'WITH_RESERVATIONS' ? 'ALL' : 'WITH_RESERVATIONS'))
+                  }
+                  title={
+                    statusFilter === 'WITH_RESERVATIONS'
+                      ? 'Quitar filtro de reservas'
+                      : 'Filtrar: solo ítems con reservas'
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+                  style={{
+                    background: statusFilter === 'WITH_RESERVATIONS'
+                      ? 'rgba(251,191,36,0.22)'
+                      : 'rgba(251,191,36,0.12)',
+                    border: `1px solid ${statusFilter === 'WITH_RESERVATIONS' ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.35)'}`,
+                    color: '#fbbf24',
+                  }}
+                >
+                  <span className="inline-flex h-3 w-3 items-center justify-center text-[11px] font-black leading-none">R</span>
+                  {totals.itemsWithReservations} {totals.itemsWithReservations === 1 ? 'item' : 'items'} · {totals.reservedUnitsTotal} uds
+                </button>
+              )}
+            </div>
           </div>
 
           {!compact && (
@@ -212,13 +287,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   return <option key={c} value={c} className="bg-[#0a0e16]">{meta.emoji} {meta.label}</option>;
                 })}
               </select>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ItemStatus | 'ALL')}
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ItemStatus | 'ALL' | 'WITH_RESERVATIONS')}
                 className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
                 style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
                 <option value="ALL" className="bg-[#0a0e16]">Todos los estados</option>
                 <option value="CONFIRMADO" className="bg-[#0a0e16]">✅ Confirmado</option>
                 <option value="EN_REGISTRO" className="bg-[#0a0e16]">🟡 En Registro</option>
                 <option value="VENDIDO" className="bg-[#0a0e16]">💰 Vendido</option>
+                <option value="WITH_RESERVATIONS" className="bg-[#0a0e16]">R Con reservas</option>
               </select>
             </div>
           )}
