@@ -38,6 +38,13 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       );
     })
     .sort((a, b) => {
+      // Orden por defecto: ítems con stock arriba, agotados/vendidos al final.
+      // Dentro de cada grupo aplicamos el sortKey elegido por el usuario.
+      const remA = (Number(a.quantity) || 0) - (Number(a.quantitySold) || 0);
+      const remB = (Number(b.quantity) || 0) - (Number(b.quantitySold) || 0);
+      const outA = (a.status === 'VENDIDO' || remA <= 0) ? 1 : 0;
+      const outB = (b.status === 'VENDIDO' || remB <= 0) ? 1 : 0;
+      if (outA !== outB) return outA - outB;
       let va: string | number = a[sortKey] ?? '';
       let vb: string | number = b[sortKey] ?? '';
       if (sortKey === 'price') { va = a.price ?? 0; vb = b.price ?? 0; }
