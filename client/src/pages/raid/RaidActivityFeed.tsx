@@ -55,6 +55,8 @@ const actionMeta: Record<
   RAID_ACCESS_BULK_REVOKED: { icon: UserMinus, color: '#f87171', label: 'Revocó acceso raid (lote)' },
 
   RAID_CYCLE_OPENED: { icon: Unlock, color: '#7bf1d6', label: 'Abrió ciclo de raids' },
+  // Alias: logs viejos usaban "CREATED", los nuevos usan "OPENED".
+  RAID_CYCLE_CREATED: { icon: Unlock, color: '#7bf1d6', label: 'Abrió ciclo de raids' },
   RAID_CYCLE_CLOSED: { icon: Lock, color: '#e879f9', label: 'Cerró ciclo de raids' },
 
   RAID_EVENT_CREATED: { icon: Swords, color: '#a78bfa', label: 'Registró evento de raid' },
@@ -109,6 +111,7 @@ function describe(log: any): string {
         .filter(Boolean)
         .join(' · ');
     case 'RAID_CYCLE_OPENED':
+    case 'RAID_CYCLE_CREATED':
       return d.label
         ? `${d.label}${d.cycleId != null ? ` · ciclo #${d.cycleId}` : ''}`
         : d.cycleId != null

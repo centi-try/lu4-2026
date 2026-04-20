@@ -48,6 +48,8 @@ const actionMeta: Record<string, ActionMeta> = {
   RAID_ACCESS_BULK_REVOKED:   { icon: UserMinus,color: '#f87171', label: 'Revocó en lote',      desc: 'Revocó acceso de múltiples usuarios' },
   // Ciclos (raid cycle = ventana operativa)
   RAID_CYCLE_OPENED:          { icon: Unlock,  color: '#7bf1d6', label: 'Abrió raid cycle',     desc: 'Nueva ventana de raids abierta' },
+  // Alias: logs viejos usaban "CREATED", los nuevos usan "OPENED".
+  RAID_CYCLE_CREATED:         { icon: Unlock,  color: '#7bf1d6', label: 'Abrió raid cycle',     desc: 'Nueva ventana de raids abierta' },
   RAID_CYCLE_CLOSED:          { icon: Lock,    color: '#e879f9', label: 'Cerró raid cycle',     desc: 'Ventana de raids cerrada' },
   // Eventos
   RAID_EVENT_CREATED:         { icon: Swords,  color: '#a78bfa', label: 'Registró evento',      desc: 'Nuevo evento de raid registrado' },
@@ -109,6 +111,7 @@ function describe(log: RaidLog): string {
         d.accessLevel ? `nivel ${d.accessLevel}` : '',
       ].filter(Boolean).join(' · ');
     case 'RAID_CYCLE_OPENED':
+    case 'RAID_CYCLE_CREATED':
       return d.label
         ? `${d.label}${d.cycleId != null ? ` · ciclo #${d.cycleId}` : ''}`
         : d.cycleId != null ? `Ciclo #${d.cycleId}` : '';
