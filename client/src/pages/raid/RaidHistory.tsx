@@ -381,12 +381,12 @@ export default function RaidHistory() {
               placeholder="Todas las acciones"
               searchable
               searchPlaceholder="Buscar acción..."
+              panelWidth="auto"
               options={[
-                { value: 'ALL', label: 'Todas las acciones', emoji: '📋' },
+                { value: 'ALL', label: 'Todas las acciones' },
                 ...availableActions.map<FancyOption<string>>(key => ({
                   value: key,
                   label: actionMeta[key]?.label || key,
-                  emoji: '🔖',
                 })),
               ]}
             />

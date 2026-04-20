@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback, ReactNode } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Search, Check } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -10,6 +11,14 @@ import { ChevronDown, Search, Check } from 'lucide-react';
 // inconsistente con el resto del formulario. Este componente renderiza todo
 // en DOM: botón trigger con icono/emoji + label y panel desplegable con
 // buscador, resaltado del seleccionado y navegación por teclado.
+//
+// Panel en portal: el panel se renderiza con createPortal en document.body y
+// posición fixed calculada desde getBoundingClientRect del trigger. Esto
+// evita dos problemas:
+//   1) Contenedores con `overflow: hidden` que cortan el dropdown.
+//   2) Contenedores con `backdrop-filter: blur(...)` (ej: `card-glass`) que
+//      crean un stacking context nuevo y dejan el panel semi-transparente
+//      detrás del contenido de la card.
 //
 // API intencional: props `value`/`onChange`/`placeholder`/`options` — mismo
 // contrato conceptual que un <select>, para que el reemplazo sea mecánico
@@ -51,7 +60,7 @@ interface FancySelectProps<V extends string | number = string> {
   searchPlaceholder?: string;
   /** Texto cuando no hay resultados. */
   emptyText?: string;
-  /** Permitir desmarcar (click en la opción seleccionada la deselecciona). Si true, el componente puede emitir un valor "vacío". */
+  /** Permitir desmarcar. Si true, el componente puede emitir un valor "vacío". */
   clearable?: boolean;
   /** Ancho del panel. 'trigger' = mismo que trigger (default), 'auto' = auto según contenido. */
   panelWidth?: 'trigger' | 'auto';
@@ -116,7 +125,14 @@ export function FancySelect<V extends string | number = string>({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(-1);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [panelRect, setPanelRect] = useState<{
+    top: number;
+    left: number;
+    right: number;
+    width: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -124,16 +140,45 @@ export function FancySelect<V extends string | number = string>({
   const sz = SIZES[size];
   const effectiveSearch = searchable ?? options.length > 8;
 
-  // Cerrar al click fuera.
+  // Calcular posición del panel desde el rect del trigger. Se recalcula al
+  // abrir y ante scroll/resize mientras esté abierto.
+  const recalc = useCallback(() => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setPanelRect({
+      top: r.bottom + 4,
+      left: r.left,
+      right: window.innerWidth - r.right,
+      width: r.width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) recalc();
+  }, [open, recalc]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => recalc();
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('scroll', handler, true);
+      window.removeEventListener('resize', handler);
+    };
+  }, [open, recalc]);
+
+  // Cerrar al click fuera (considerando trigger + panel, ambos pueden estar en
+  // diferentes árboles DOM porque el panel vive en portal).
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery('');
-        setActiveIdx(-1);
-      }
+      const t = e.target as Node;
+      if (triggerRef.current && triggerRef.current.contains(t)) return;
+      if (panelRef.current && panelRef.current.contains(t)) return;
+      setOpen(false);
+      setQuery('');
+      setActiveIdx(-1);
     };
     window.addEventListener('mousedown', handler);
     return () => window.removeEventListener('mousedown', handler);
@@ -251,10 +296,143 @@ export function FancySelect<V extends string | number = string>({
     return null;
   };
 
+  // Panel renderizado en portal. Posicionado con coords absolutas del trigger.
+  const panel =
+    open && panelRect && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            ref={panelRef}
+            className="rounded-xl shadow-2xl"
+            style={{
+              position: 'fixed',
+              top: panelRect.top,
+              ...(panelAlign === 'right'
+                ? { right: panelRect.right }
+                : { left: panelRect.left }),
+              width: panelWidth === 'trigger' ? panelRect.width : 'max-content',
+              minWidth: panelWidth === 'auto' ? panelRect.width : undefined,
+              maxWidth: 'min(560px, calc(100vw - 24px))',
+              // Sin blur aquí (el blur en parents crea el problema que estamos
+              // resolviendo). Color opaco sólido — suficiente contraste contra
+              // cualquier fondo.
+              background: '#0a0e16',
+              border: `1px solid ${accentStyle.border}`,
+              overflow: 'hidden',
+              zIndex: 9999,
+            }}
+          >
+            {effectiveSearch && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 border-b"
+                style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+              >
+                <Search
+                  className="h-3.5 w-3.5 shrink-0"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleTriggerKey}
+                  placeholder={searchPlaceholder}
+                  className="bg-transparent text-sm outline-none w-full"
+                  style={{ color: 'rgba(255,255,255,0.9)' }}
+                />
+              </div>
+            )}
+            <div ref={listRef} className="max-h-64 overflow-y-auto" role="listbox">
+              {filtered.length === 0 ? (
+                <div
+                  className="px-3 py-4 text-center text-xs"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                >
+                  {emptyText}
+                </div>
+              ) : (
+                filtered.map((opt, idx) => {
+                  const isSelected = opt.value === value;
+                  const isActive = idx === activeIdx;
+                  const prefix = renderPrefix(opt, 20);
+                  return (
+                    <button
+                      key={`${opt.value}`}
+                      type="button"
+                      disabled={opt.disabled}
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        commit(opt);
+                      }}
+                      className="w-full flex items-center gap-2.5 text-left transition-colors"
+                      style={{
+                        padding: '8px 12px',
+                        background: isSelected
+                          ? accentStyle.bg
+                          : isActive
+                          ? 'rgba(255,255,255,0.05)'
+                          : 'transparent',
+                        borderLeft: isSelected
+                          ? `2px solid ${accentStyle.color}`
+                          : '2px solid transparent',
+                        cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                        opacity: opt.disabled ? 0.4 : 1,
+                      }}
+                    >
+                      {prefix}
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm truncate"
+                          style={{
+                            color: isSelected ? accentStyle.color : 'rgba(255,255,255,0.9)',
+                            fontWeight: isSelected ? 600 : 500,
+                          }}
+                        >
+                          {opt.label}
+                        </p>
+                        {opt.description && (
+                          <p
+                            className="text-[10px] truncate"
+                            style={{ color: 'rgba(255,255,255,0.45)' }}
+                          >
+                            {opt.description}
+                          </p>
+                        )}
+                      </div>
+                      {opt.badge && (
+                        <span
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                          style={{
+                            background: accentStyle.bg,
+                            border: `1px solid ${accentStyle.border}`,
+                            color: accentStyle.color,
+                          }}
+                        >
+                          {opt.badge}
+                        </span>
+                      )}
+                      {isSelected && (
+                        <Check
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={{ color: accentStyle.color }}
+                        />
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
-    <div ref={rootRef} className="relative">
+    <div className="relative">
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         title={title}
@@ -301,128 +479,7 @@ export function FancySelect<V extends string | number = string>({
           }}
         />
       </button>
-
-      {/* Panel */}
-      {open && (
-        <div
-          className="absolute top-full mt-1 rounded-xl overflow-hidden shadow-2xl"
-          style={{
-            background: 'rgba(10,14,22,0.98)',
-            border: `1px solid ${accentStyle.border}`,
-            backdropFilter: 'blur(20px)',
-            zIndex: 60,
-            left: panelAlign === 'left' ? 0 : undefined,
-            right: panelAlign === 'right' ? 0 : undefined,
-            width: panelWidth === 'trigger' ? '100%' : 'max-content',
-            minWidth: panelWidth === 'auto' ? '100%' : undefined,
-            maxWidth: 'min(420px, 90vw)',
-          }}
-        >
-          {effectiveSearch && (
-            <div
-              className="flex items-center gap-2 px-3 py-2 border-b"
-              style={{ borderColor: 'rgba(255,255,255,0.06)' }}
-            >
-              <Search className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} />
-              <input
-                ref={searchRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleTriggerKey}
-                placeholder={searchPlaceholder}
-                className="bg-transparent text-sm outline-none w-full"
-                style={{ color: 'rgba(255,255,255,0.9)' }}
-              />
-            </div>
-          )}
-          <div
-            ref={listRef}
-            className="max-h-64 overflow-y-auto"
-            role="listbox"
-          >
-            {filtered.length === 0 ? (
-              <div
-                className="px-3 py-4 text-center text-xs"
-                style={{ color: 'rgba(255,255,255,0.35)' }}
-              >
-                {emptyText}
-              </div>
-            ) : (
-              filtered.map((opt, idx) => {
-                const isSelected = opt.value === value;
-                const isActive = idx === activeIdx;
-                const prefix = renderPrefix(opt, 20);
-                return (
-                  <button
-                    key={`${opt.value}`}
-                    type="button"
-                    disabled={opt.disabled}
-                    onMouseEnter={() => setActiveIdx(idx)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      commit(opt);
-                    }}
-                    className="w-full flex items-center gap-2.5 text-left transition-colors"
-                    style={{
-                      padding: '8px 12px',
-                      background: isSelected
-                        ? accentStyle.bg
-                        : isActive
-                        ? 'rgba(255,255,255,0.05)'
-                        : 'transparent',
-                      borderLeft: isSelected
-                        ? `2px solid ${accentStyle.color}`
-                        : '2px solid transparent',
-                      cursor: opt.disabled ? 'not-allowed' : 'pointer',
-                      opacity: opt.disabled ? 0.4 : 1,
-                    }}
-                  >
-                    {prefix}
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="text-sm truncate"
-                        style={{
-                          color: isSelected ? accentStyle.color : 'rgba(255,255,255,0.9)',
-                          fontWeight: isSelected ? 600 : 500,
-                        }}
-                      >
-                        {opt.label}
-                      </p>
-                      {opt.description && (
-                        <p
-                          className="text-[10px] truncate"
-                          style={{ color: 'rgba(255,255,255,0.45)' }}
-                        >
-                          {opt.description}
-                        </p>
-                      )}
-                    </div>
-                    {opt.badge && (
-                      <span
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
-                        style={{
-                          background: accentStyle.bg,
-                          border: `1px solid ${accentStyle.border}`,
-                          color: accentStyle.color,
-                        }}
-                      >
-                        {opt.badge}
-                      </span>
-                    )}
-                    {isSelected && (
-                      <Check
-                        className="h-3.5 w-3.5 shrink-0"
-                        style={{ color: accentStyle.color }}
-                      />
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
+      {panel}
     </div>
   );
 }
