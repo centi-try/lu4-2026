@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 interface User {
   id: number;
@@ -16,46 +16,67 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, characterName: string) => Promise<void>;
   logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// Clave histórica: hasta esta versión guardábamos el user en localStorage.
+// Ya no lo hacemos (la cookie httpOnly + /api/auth/me son la única fuente
+// de verdad), pero limpiamos la entrada vieja al montar para no dejar
+// datos colgados del usuario en la máquina.
+const LEGACY_STORAGE_KEY = 'user';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          setUser(null);
-          localStorage.removeItem('user');
-          return;
-        }
-
-        const data = await response.json();
-        if (data.user) {
-          setUser(data.user);
-          localStorage.setItem('user', JSON.stringify(data.user));
-        } else {
-          setUser(null);
-          localStorage.removeItem('user');
-        }
-      } catch (error) {
-        console.error('Error checking session:', error);
+  // Un único GET /api/auth/me para validar sesión. El backend responde
+  // 200 con { user } si la cookie es válida, 401 si no. Nunca leemos
+  // localStorage para determinar si hay sesión.
+  const fetchMe = useCallback(async () => {
+    try {
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!response.ok) {
         setUser(null);
-        localStorage.removeItem('user');
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
-
-    checkSession();
+      const data = await response.json();
+      setUser(data?.user ?? null);
+    } catch (error) {
+      console.error('Error checking session:', error);
+      setUser(null);
+    }
   }, []);
+
+  useEffect(() => {
+    // Limpieza best-effort del storage legacy.
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    } catch { /* ignore */ }
+
+    (async () => {
+      await fetchMe();
+      setLoading(false);
+    })();
+  }, [fetchMe]);
+
+  // Revalidar al volver el foco a la pestaña — si el admin cambió el rol
+  // o deshabilitó la cuenta mientras estabas afuera, lo notamos al toque.
+  useEffect(() => {
+    const onFocus = () => { fetchMe(); };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchMe();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchMe]);
 
   const login = async (email: string, password: string) => {
     const response = await fetch('/api/auth/login', {
@@ -64,16 +85,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
-
     const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.message || 'Error al iniciar sesión');
+      throw new Error(data?.message || 'Error al iniciar sesión');
     }
-
-    if (data.user) {
+    // Confiamos en la cookie emitida por el backend — revalidamos vía /me
+    // para obtener el shape canónico y dejar el estado consistente.
+    if (data?.user) {
       setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
+    } else {
+      await fetchMe();
     }
   };
 
@@ -84,19 +105,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       credentials: 'include',
       body: JSON.stringify({ email, password, characterName }),
     });
-
     const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.message || 'Error al registrarse');
+      throw new Error(data?.message || 'Error al registrarse');
     }
-
-    if (data.user) {
+    if (data?.user) {
       setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
       return;
     }
-
+    // Fallback por si el backend no devuelve el user en el register.
     await login(email, password);
   };
 
@@ -110,7 +127,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error al cerrar sesión en servidor:', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('user');
     }
   };
 
@@ -123,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        refresh: fetchMe,
       }}
     >
       {children}
