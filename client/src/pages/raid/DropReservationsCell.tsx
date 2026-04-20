@@ -445,19 +445,16 @@ export function ReservationQuickButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        disabled={remainingForReservations <= 0}
         className="btn-ghost p-2"
         title={
           remainingForReservations <= 0
-            ? 'Ya está todo reservado'
-            : 'Reservar unidades'
+            ? 'Ver reservas (todo el stock ya está reservado)'
+            : 'Reservar / ver reservas'
         }
         style={{
           color: '#fbbf24',
           borderColor: 'rgba(251,191,36,0.25)',
           background: 'rgba(251,191,36,0.08)',
-          opacity: remainingForReservations <= 0 ? 0.4 : 1,
-          cursor: remainingForReservations <= 0 ? 'not-allowed' : 'pointer',
         }}
       >
         <Bookmark className="h-3.5 w-3.5" />
