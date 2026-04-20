@@ -31,6 +31,7 @@ export const settingsRouter = router({
       await createAuditLog({
         userId: ctx.user.id,
         action: 'USER_PASSWORD_CHANGED_BY_SELF',
+        detail: `Cambió su propia contraseña.`,
         details: {
           performedBy: ctx.user.email || ctx.user.openId,
         },

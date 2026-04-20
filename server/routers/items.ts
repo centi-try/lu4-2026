@@ -60,7 +60,9 @@ export const itemsRouter = router({
       await createAuditLog({
         userId: ctx.user?.id || 0,
         action: "CREATE_ITEM",
-        details: { itemName: input.name },
+        itemName: input.name,
+        detail: `Creó el ítem "${input.name}" (${input.quantity || 1} unidad(es)) en categoría ${input.category}.`,
+        details: { itemName: input.name, category: input.category, quantity: input.quantity || 1 },
       });
 
       return { success: true };
@@ -79,19 +81,41 @@ export const itemsRouter = router({
         updateData.associatedCharacterIds = input.associatedCharacterIds;
       }
 
+      const allBefore = await getItems();
+      const before = allBefore.find(i => Number(i.id) === Number(input.id));
       await updateItem(input.id, updateData);
+
+      // Registrar en auditoría distinguiendo cambio de precio de cambio genérico.
+      const changedKeys = Object.keys(updateData);
+      const isPriceOnly = changedKeys.length === 1 && changedKeys[0] === 'price';
+      await createAuditLog({
+        userId: ctx.user?.id || 0,
+        action: isPriceOnly ? 'UPDATE_PRICE' : 'UPDATE_ITEM',
+        itemId: String(input.id),
+        itemName: before?.name || updateData.name,
+        detail: isPriceOnly
+          ? `Actualizó el precio del ítem "${before?.name || input.id}" a $${Number(updateData.price).toLocaleString()}.`
+          : `Actualizó ${changedKeys.join(', ')} del ítem "${before?.name || input.id}".`,
+        details: { itemId: input.id, changes: updateData },
+      });
+
       return { success: true };
     }),
 
   confirm: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const allBefore = await getItems();
+      const before = allBefore.find(i => Number(i.id) === Number(input.id));
       await updateItem(input.id, { status: "CONFIRMED" });
 
       await createAuditLog({
         userId: ctx.user?.id || 0,
         action: "CONFIRM_ITEM",
-        details: { itemId: input.id },
+        itemId: String(input.id),
+        itemName: before?.name,
+        detail: `Confirmó el ítem "${before?.name || input.id}".`,
+        details: { itemId: input.id, itemName: before?.name },
       });
 
       return { success: true };
@@ -100,12 +124,17 @@ export const itemsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const allBefore = await getItems();
+      const before = allBefore.find(i => Number(i.id) === Number(input.id));
       await deleteItem(input.id);
 
       await createAuditLog({
         userId: ctx.user?.id || 0,
         action: "DELETE_ITEM",
-        details: { itemId: input.id },
+        itemId: String(input.id),
+        itemName: before?.name,
+        detail: `Eliminó el ítem "${before?.name || input.id}".`,
+        details: { itemId: input.id, itemName: before?.name },
       });
 
       return { success: true };

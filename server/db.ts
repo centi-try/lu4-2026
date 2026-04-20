@@ -572,9 +572,10 @@ export const closeSalesCycle = async (id: number, data: any) => {
 
   // Registrar en el log de auditoría
   createAuditLog({
+    userId: data.closedByUserId,
     action: 'CYCLE_CLOSED',
     detail: `Cerró ${newCycle.label} (${newCycle.type}) con $${totalRevenue.toLocaleString()} recaudados y ${soldItems.length} venta(s).`,
-    createdAt: new Date(),
+    details: { cycle: newCycle.label, totalRevenue, sold: soldItems.length },
   });
 
   // 3. FIX: Resetear quantitySoldInCycle en todos los items
@@ -618,9 +619,69 @@ export const closeSalesCycle = async (id: number, data: any) => {
   return newCycle;
 };
 
+// Normaliza y enriquece un log de auditoría antes de persistirlo.
+// Reglas:
+//   1) `createdAt` siempre ISO string (no Date object — el cliente deserializa mal).
+//   2) Si falta `actorName` o `actorRole`, se intenta resolver por `userId`
+//      buscando en dbInstance.users para que el historial tenga quién hizo qué
+//      aunque el call site se haya olvidado de pasarlos.
+//   3) `itemId` se castea a string para uniformidad con los logs antiguos.
+//   4) Si falta `detail` y `details` tiene info aprovechable, se arma una frase
+//      humana en base a la acción (fallback mínimo — el call site sigue siendo
+//      responsable de proveer un detail descriptivo cuando puede).
 export const createAuditLog = async (data: any) => {
   if (!dbInstance.auditLogs) dbInstance.auditLogs = [];
-  dbInstance.auditLogs.push({ ...data, id: Math.floor(Math.random() * 1000000), createdAt: new Date() });
+
+  const enriched: any = { ...data };
+
+  // 1) createdAt ISO
+  const rawCreatedAt = enriched.createdAt;
+  if (rawCreatedAt instanceof Date) {
+    enriched.createdAt = rawCreatedAt.toISOString();
+  } else if (typeof rawCreatedAt === 'string' && rawCreatedAt) {
+    enriched.createdAt = rawCreatedAt;
+  } else {
+    enriched.createdAt = new Date().toISOString();
+  }
+
+  // 2) actorName / actorRole por userId si no vienen
+  if ((!enriched.actorName || !enriched.actorRole) && enriched.userId != null) {
+    const actor = (dbInstance.users || []).find(u => Number(u.id) === Number(enriched.userId));
+    if (actor) {
+      if (!enriched.actorName) {
+        enriched.actorName = String(
+          actor.characterName || actor.name || actor.email || 'Usuario'
+        ).trim();
+      }
+      if (!enriched.actorRole) {
+        enriched.actorRole = String(actor.role || 'user');
+      }
+    }
+  }
+  if (!enriched.actorName) enriched.actorName = 'Sistema';
+  if (!enriched.actorRole) enriched.actorRole = 'system';
+
+  // 3) itemId como string (histórico tenía inconsistencias)
+  if (enriched.itemId != null) {
+    enriched.itemId = String(enriched.itemId);
+  }
+
+  // 4) detail fallback
+  if (!enriched.detail) {
+    const d = enriched.details || {};
+    const act = String(enriched.action || '').toUpperCase();
+    if (d.itemName && (act.includes('ITEM') || act.includes('PRICE') || act.includes('IMAGE'))) {
+      enriched.detail = `${enriched.actorName} ejecutó ${act} sobre "${d.itemName}".`;
+      if (!enriched.itemName) enriched.itemName = d.itemName;
+    } else if (d.targetEmail) {
+      enriched.detail = `${enriched.actorName} ejecutó ${act} sobre ${d.targetEmail}.`;
+    } else if (d.cycle) {
+      enriched.detail = `${enriched.actorName} ejecutó ${act} sobre ${d.cycle}.`;
+    }
+  }
+
+  enriched.id = Math.floor(Math.random() * 1000000);
+  dbInstance.auditLogs.push(enriched);
   saveDb(dbInstance);
 };
 export const getAuditLogs = async () => dbInstance.auditLogs || [];

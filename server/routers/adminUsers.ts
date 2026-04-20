@@ -55,9 +55,13 @@ export const adminUsersRouter = router({
       const updatedUser = await setUserActive(input.userId, input.isActive);
 
       // Registrar auditoría
+      const targetLabel = targetUser.characterName || targetUser.name || targetUser.email;
       await createAuditLog({
         userId: ctx.user.id,
         action: input.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+        detail: input.isActive
+          ? `Activó la cuenta de ${targetLabel}.`
+          : `Desactivó la cuenta de ${targetLabel}.`,
         details: {
           targetUserId: input.userId,
           targetEmail: targetUser.email,
@@ -101,9 +105,11 @@ export const adminUsersRouter = router({
       const updatedUser = await setUserRole(input.userId, input.role);
 
       // Registrar auditoría
+      const targetLabelRole = targetUser.characterName || targetUser.name || targetUser.email;
       await createAuditLog({
         userId: ctx.user.id,
         action: 'USER_ROLE_CHANGED',
+        detail: `Cambió el rol de ${targetLabelRole} de ${previousRole} a ${input.role}.`,
         details: {
           targetUserId: input.userId,
           targetEmail: targetUser.email,
@@ -155,9 +161,11 @@ export const adminUsersRouter = router({
       const deletedUser = await deleteUser(input.userId);
 
       // Registrar auditoría
+      const targetLabelDel = targetUser.characterName || targetUser.name || targetUser.email;
       await createAuditLog({
         userId: ctx.user.id,
         action: 'USER_DELETED',
+        detail: `Eliminó la cuenta de ${targetLabelDel} (${targetUser.email}).`,
         details: {
           targetUserId: input.userId,
           targetEmail: targetUser.email,
@@ -202,9 +210,11 @@ export const adminUsersRouter = router({
       await updateUserPassword(input.userId, hashedPassword);
 
       // Registrar auditoría
+      const targetLabelPwd = targetUser.characterName || targetUser.name || targetUser.email;
       await createAuditLog({
         userId: ctx.user.id,
         action: 'USER_PASSWORD_CHANGED_BY_ADMIN',
+        detail: `Cambió la contraseña de ${targetLabelPwd}.`,
         details: {
           targetUserId: input.userId,
           targetEmail: targetUser.email,

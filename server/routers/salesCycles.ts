@@ -50,6 +50,7 @@ export const salesCyclesRouter = router({
         itemsSold: input.itemsSold || [],
         // FIX: Registrar quién cerró el ciclo usando el usuario autenticado
         closedBy: ctx.user?.characterName || ctx.user?.name || "Administrador",
+        closedByUserId: ctx.user?.id,
         startedAt: input.startedAt,
       });
       return { success: true };
