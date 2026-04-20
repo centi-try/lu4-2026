@@ -16,6 +16,8 @@ import {
   Unlock,
   Package,
   CalendarClock,
+  Bookmark,
+  BookmarkX,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 
@@ -35,6 +37,11 @@ const actionMeta: Record<
   RAID_BOSS_UPDATED: { icon: Pencil, color: '#60a5fa', label: 'Actualizó raid boss' },
   RAID_BOSS_DELETED: { icon: Trash2, color: '#f87171', label: 'Eliminó raid boss' },
 
+  // Clanes: el servidor emite sin prefijo RAID_ (ver raid.ts clans.create/update/delete).
+  CLAN_CREATED: { icon: Flag, color: '#7bf1d6', label: 'Creó clan' },
+  CLAN_UPDATED: { icon: Pencil, color: '#60a5fa', label: 'Actualizó clan' },
+  CLAN_DELETED: { icon: Trash2, color: '#f87171', label: 'Eliminó clan' },
+  // Aliases por si aparece la variante con prefijo.
   RAID_CLAN_CREATED: { icon: Flag, color: '#7bf1d6', label: 'Creó clan' },
   RAID_CLAN_UPDATED: { icon: Pencil, color: '#60a5fa', label: 'Actualizó clan' },
   RAID_CLAN_DELETED: { icon: Trash2, color: '#f87171', label: 'Eliminó clan' },
@@ -57,6 +64,10 @@ const actionMeta: Record<
   RAID_DROP_UPDATED: { icon: Pencil, color: '#fbbf24', label: 'Actualizó drop' },
   RAID_DROP_DELETED: { icon: Trash2, color: '#f87171', label: 'Eliminó drop' },
   RAID_DROP_SOLD: { icon: DollarSign, color: '#a78bfa', label: 'Vendió drop' },
+
+  // Reservas de drops (waitlist)
+  RAID_DROP_RESERVED:             { icon: Bookmark,  color: '#fbbf24', label: 'Reservó drop' },
+  RAID_DROP_RESERVATION_DELETED:  { icon: BookmarkX, color: '#f59e0b', label: 'Canceló reserva' },
 
   RAID_SALES_CYCLE_CLOSED: { icon: CalendarClock, color: '#10b981', label: 'Cerró ciclo de ventas' },
 };
@@ -82,7 +93,10 @@ function describe(log: any): string {
     case 'RAID_CLAN_CREATED':
     case 'RAID_CLAN_UPDATED':
     case 'RAID_CLAN_DELETED':
-      return d.clanName || (d.clanId != null ? `Clan #${d.clanId}` : '');
+    case 'CLAN_CREATED':
+    case 'CLAN_UPDATED':
+    case 'CLAN_DELETED':
+      return d.name || d.clanName || (d.clanId != null ? `Clan #${d.clanId}` : '');
     case 'RAID_CATEGORY_ICON_SET':
     case 'RAID_CATEGORY_ICON_DELETED':
       return d.category ? `Categoría: ${d.category}` : '';
@@ -140,6 +154,23 @@ function describe(log: any): string {
     }
     case 'RAID_DROP_DELETED':
       return d.dropId != null ? `Drop #${d.dropId}` : '';
+    case 'RAID_DROP_RESERVED': {
+      const bits: string[] = [];
+      if (d.itemName) bits.push(`"${d.itemName}"`);
+      else if (d.dropItemId != null) bits.push(`drop #${d.dropItemId}`);
+      if (d.quantity != null) bits.push(`${d.quantity} unid`);
+      if (d.characterName) bits.push(`para ${d.characterName}`);
+      return bits.join(' · ');
+    }
+    case 'RAID_DROP_RESERVATION_DELETED': {
+      const bits: string[] = [];
+      if (d.itemName) bits.push(`"${d.itemName}"`);
+      else if (d.dropItemId != null) bits.push(`drop #${d.dropItemId}`);
+      if (d.quantity != null) bits.push(`${d.quantity} unid`);
+      if (d.characterName) bits.push(`de ${d.characterName}`);
+      if (d.deletedBy === 'admin') bits.push('(cancelada por admin)');
+      return bits.join(' · ');
+    }
     case 'RAID_SALES_CYCLE_CLOSED': {
       const bits: string[] = [];
       if (d.label) bits.push(d.label);

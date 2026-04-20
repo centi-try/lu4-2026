@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Search, Shield, AlertTriangle,
   Skull, Pencil, Trash2, Flag, Image as ImageIcon, UserPlus, UserMinus,
-  Unlock, Lock, Swords, DollarSign, CalendarClock,
+  Unlock, Lock, Swords, DollarSign, CalendarClock, Bookmark, BookmarkX,
 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
@@ -31,6 +31,11 @@ const actionMeta: Record<string, ActionMeta> = {
   RAID_BOSS_CREATED:          { icon: Skull,   color: '#e879f9', label: 'Creó raid boss',       desc: 'Nuevo boss agregado al catálogo' },
   RAID_BOSS_UPDATED:          { icon: Pencil,  color: '#60a5fa', label: 'Actualizó raid boss',  desc: 'Datos del boss modificados' },
   RAID_BOSS_DELETED:          { icon: Trash2,  color: '#f87171', label: 'Eliminó raid boss',    desc: 'Boss eliminado del catálogo' },
+  // Clanes: el servidor emite sin prefijo RAID_ (raid.ts clans.create/update/delete).
+  CLAN_CREATED:               { icon: Flag,    color: '#7bf1d6', label: 'Creó clan',            desc: 'Nuevo clan registrado' },
+  CLAN_UPDATED:               { icon: Pencil,  color: '#60a5fa', label: 'Actualizó clan',       desc: 'Datos del clan modificados' },
+  CLAN_DELETED:               { icon: Trash2,  color: '#f87171', label: 'Eliminó clan',         desc: 'Clan eliminado del catálogo' },
+  // Aliases por si aparece la variante con prefijo.
   RAID_CLAN_CREATED:          { icon: Flag,    color: '#7bf1d6', label: 'Creó clan',            desc: 'Nuevo clan registrado' },
   RAID_CLAN_UPDATED:          { icon: Pencil,  color: '#60a5fa', label: 'Actualizó clan',       desc: 'Datos del clan modificados' },
   RAID_CLAN_DELETED:          { icon: Trash2,  color: '#f87171', label: 'Eliminó clan',         desc: 'Clan eliminado del catálogo' },
@@ -52,6 +57,9 @@ const actionMeta: Record<string, ActionMeta> = {
   RAID_DROP_UPDATED:          { icon: Pencil,      color: '#fbbf24', label: 'Actualizó drop',   desc: 'Datos de un drop modificados' },
   RAID_DROP_DELETED:          { icon: Trash2,      color: '#f87171', label: 'Eliminó drop',     desc: 'Drop eliminado' },
   RAID_DROP_SOLD:             { icon: DollarSign,  color: '#a78bfa', label: 'Vendió drop',      desc: 'Drop vendido con reparto entre clanes' },
+  // Reservas (waitlist)
+  RAID_DROP_RESERVED:            { icon: Bookmark,  color: '#fbbf24', label: 'Reservó drop',     desc: 'Ítem agregado a la waitlist' },
+  RAID_DROP_RESERVATION_DELETED: { icon: BookmarkX, color: '#f59e0b', label: 'Canceló reserva',  desc: 'Reserva de drop cancelada' },
   // Ciclo de ventas semanal
   RAID_SALES_CYCLE_CLOSED:    { icon: CalendarClock, color: '#10b981', label: 'Cerró ciclo ventas', desc: 'Ciclo de ventas raid cerrado y archivado' },
 };
@@ -81,7 +89,10 @@ function describe(log: RaidLog): string {
     case 'RAID_CLAN_CREATED':
     case 'RAID_CLAN_UPDATED':
     case 'RAID_CLAN_DELETED':
-      return d.clanName || (d.clanId != null ? `Clan #${d.clanId}` : '');
+    case 'CLAN_CREATED':
+    case 'CLAN_UPDATED':
+    case 'CLAN_DELETED':
+      return d.name || d.clanName || (d.clanId != null ? `Clan #${d.clanId}` : '');
     case 'RAID_CATEGORY_ICON_SET':
     case 'RAID_CATEGORY_ICON_DELETED':
       return d.category ? `Categoría: ${d.category}` : '';
@@ -141,6 +152,23 @@ function describe(log: RaidLog): string {
     }
     case 'RAID_DROP_DELETED':
       return d.dropId != null ? `Drop #${d.dropId}` : '';
+    case 'RAID_DROP_RESERVED': {
+      const bits: string[] = [];
+      if (d.itemName) bits.push(`"${d.itemName}"`);
+      else if (d.dropItemId != null) bits.push(`drop #${d.dropItemId}`);
+      if (d.quantity != null) bits.push(`${d.quantity} unid`);
+      if (d.characterName) bits.push(`para ${d.characterName}`);
+      return bits.join(' · ');
+    }
+    case 'RAID_DROP_RESERVATION_DELETED': {
+      const bits: string[] = [];
+      if (d.itemName) bits.push(`"${d.itemName}"`);
+      else if (d.dropItemId != null) bits.push(`drop #${d.dropItemId}`);
+      if (d.quantity != null) bits.push(`${d.quantity} unid`);
+      if (d.characterName) bits.push(`de ${d.characterName}`);
+      if (d.deletedBy === 'admin') bits.push('(cancelada por admin)');
+      return bits.join(' · ');
+    }
     case 'RAID_SALES_CYCLE_CLOSED': {
       const bits: string[] = [];
       if (d.label) bits.push(d.label);

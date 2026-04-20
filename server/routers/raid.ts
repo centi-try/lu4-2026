@@ -745,11 +745,16 @@ export const raidRouter = router({
             characterName,
             quantity: input.quantity,
           });
+          // Enriquecemos el log con el nombre del drop para que el Historial /
+          // ActivityFeed puedan mostrar una frase legible sin tener que hacer
+          // lookups en el cliente.
+          const drop = await getRaidDropItemById(input.dropItemId);
           await createRaidAuditLog({
             userId: ctx.user.id,
             action: 'RAID_DROP_RESERVED',
             details: {
               dropItemId: input.dropItemId,
+              itemName: drop?.name,
               quantity: input.quantity,
               characterName,
             },
@@ -784,12 +789,16 @@ export const raidRouter = router({
           });
         }
         const removed = await deleteRaidDropReservation(input.id);
+        const drop = await getRaidDropItemById(Number(target.dropItemId));
         await createRaidAuditLog({
           userId: ctx.user.id,
           action: 'RAID_DROP_RESERVATION_DELETED',
           details: {
             reservationId: input.id,
             dropItemId: target.dropItemId,
+            itemName: drop?.name,
+            characterName: target.characterName,
+            quantity: target.quantity,
             deletedBy: isOwner ? 'owner' : 'admin',
           },
         });
