@@ -210,22 +210,29 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   return (
     <>
       <div className="card-glass rounded-2xl">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <div>
-            <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              Inventario de Ítems
-              <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-mono" style={{ background: 'rgba(123,241,214,0.12)', color: '#7bf1d6' }}>
-                {filtered.length}
-              </span>
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
-            </p>
-            {/* Stats line — mismo orden/colores que la tabla de drops del menú
-                raid: Unid (restante/total), Vendidas, Vendido, Restante, Total
-                + pill R clickeable que filtra a solo ítems con reservas. */}
-            <div className="mt-2 flex items-center gap-3 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        {/* Header — mismo layout que RaidDropsTable:
+            fila 1: título + descripción a la izquierda, stats a la derecha.
+            fila 2: grilla de filtros expandida (Buscar · Categoría · Estado). */}
+        <div className="border-b p-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Inventario de Ítems
+                <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-mono" style={{ background: 'rgba(123,241,214,0.12)', color: '#7bf1d6' }}>
+                  {filtered.length}
+                </span>
+                <span className="ml-2 text-xs font-normal" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  · {filtered.length} de {items.length}
+                </span>
+              </h3>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
+              </p>
+            </div>
+            {/* Stats a la derecha — mismo orden/colores que la tabla de drops
+                del menú raid: Unid · Vendidas · Vendido · Restante · Total
+                + pill R clickeable que toggle-filtra a ítems con reservas. */}
+            <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
               <span>
                 Unid: <span style={{ color: '#7bf1d6' }}>{totals.remainingUnits}</span>/
                 {totals.totalUnits}
@@ -269,18 +276,30 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             </div>
           </div>
 
+          {/* Filters — grilla en fila propia abajo del título, estilo raid. */}
           {!compact && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex h-9 items-center gap-2 rounded-xl border px-3"
-                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}>
-                <Search className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.35)' }} />
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar..." className="bg-transparent text-xs outline-none w-32"
-                  style={{ color: 'rgba(255,255,255,0.8)', caretColor: '#7bf1d6' }} />
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar ítem por nombre…"
+                  className="w-full h-10 rounded-xl pl-9 pr-3 text-sm outline-none"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.85)',
+                  }}
+                />
               </div>
               <select value={catFilter} onChange={e => setCatFilter(e.target.value as ItemCategory | 'ALL')}
-                className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
-                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
+                className="w-full h-10 rounded-xl border px-3 text-sm outline-none select-dark"
+                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}>
                 <option value="ALL" className="bg-[#0a0e16]">Todas las categorías</option>
                 {CATEGORIES.map(c => {
                   const meta = categoryMeta[c] || { emoji: '📦', label: c };
@@ -288,8 +307,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 })}
               </select>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ItemStatus | 'ALL' | 'WITH_RESERVATIONS')}
-                className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
-                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
+                className="w-full h-10 rounded-xl border px-3 text-sm outline-none select-dark"
+                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}>
                 <option value="ALL" className="bg-[#0a0e16]">Todos los estados</option>
                 <option value="CONFIRMADO" className="bg-[#0a0e16]">✅ Confirmado</option>
                 <option value="EN_REGISTRO" className="bg-[#0a0e16]">🟡 En Registro</option>
