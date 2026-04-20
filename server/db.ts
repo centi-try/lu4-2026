@@ -31,6 +31,12 @@ interface DatabaseSchema {
   raidAuditLogs: any[];
   raidSettings: any[];
   raidCategoryIcons: any[];    // iconos por categoría de drop (seteados por super admin)
+  // Reservas de compra sobre drops disponibles. Las generan raid_users (y
+  // cualquier otro rol raid) para marcar intención de compra. NO descuentan
+  // stock real — solo sirven como lista de espera visible al raid_admin /
+  // super admin al momento de vender. Se archivan en el audit log y se
+  // borran cuando el drop se vende completamente.
+  raidDropReservations: any[];
   // Ciclos de VENTA del módulo raid — capa semanal (Lun→Dom) de agregación
   // sobre los raid cycles diarios. Solo agrupa/resume ventas, no modifica
   // drops, eventos ni clanes.
@@ -55,6 +61,7 @@ const initialSchema: DatabaseSchema = {
   raidAuditLogs: [],
   raidSettings: [],
   raidCategoryIcons: [],
+  raidDropReservations: [],
   raidSalesCycles: [],
 };
 
@@ -163,6 +170,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     raidAuditLogs: ensureArray(data?.raidAuditLogs),
     raidSettings: ensureArray(data?.raidSettings),
     raidCategoryIcons: ensureArray(data?.raidCategoryIcons),
+    raidDropReservations: ensureArray(data?.raidDropReservations),
     raidSalesCycles: ensureArray(data?.raidSalesCycles),
   };
 }
@@ -1314,6 +1322,15 @@ export const sellRaidDropItem = async (
   }
   saveDb(dbInstance);
 
+  // Si el drop quedó totalmente vendido, archivamos las reservas vivas como
+  // snapshot en el audit log y limpiamos la tabla. Si el drop todavía tiene
+  // stock, las reservas quedan vivas (pueden seguir compitiendo por las
+  // unidades restantes).
+  let reservationsSnapshot: RaidDropReservation[] = [];
+  if (fullySold) {
+    reservationsSnapshot = await clearReservationsForDrop(Number(id));
+  }
+
   await createRaidAuditLog({
     userId: soldByUser?.id || 0,
     action: 'RAID_DROP_SOLD',
@@ -1325,6 +1342,13 @@ export const sellRaidDropItem = async (
       clansShared: clanIds,
       buyerId: buyer?.buyerId ?? null,
       buyerName: buyer?.buyerName ?? null,
+      reservationsSnapshot: reservationsSnapshot.map(r => ({
+        userId: r.userId,
+        userName: r.userName,
+        characterName: r.characterName,
+        quantity: r.quantity,
+        createdAt: r.createdAt,
+      })),
     },
   });
 
@@ -1377,6 +1401,108 @@ export const deleteRaidCategoryIcon = async (category: string) => {
   if (dbInstance.raidCategoryIcons.length === before) return null;
   saveDb(dbInstance);
   return { category: cat };
+};
+
+// ---------- Raid Drop Reservations -----------------------------------------
+// Las reservas son señales de intención de compra que cualquier usuario con
+// acceso raid puede registrar sobre un drop disponible. NO descuentan stock
+// real — solo alimentan la lista de espera que ve el raid_admin / super admin
+// al momento de vender. La validación clave es:
+//   suma(quantity de reservas vivas) + nueva <= remainingInCycle
+// Esto evita que una sola persona "acapare" el stock con reservas.
+
+export interface RaidDropReservation {
+  id: number;
+  dropItemId: number;
+  userId: number;
+  userName: string;
+  characterName: string;
+  quantity: number;
+  createdAt: string;
+}
+
+export const getRaidDropReservations = async (filter?: {
+  dropItemId?: number;
+  userId?: number;
+}): Promise<RaidDropReservation[]> => {
+  let list: RaidDropReservation[] = (dbInstance.raidDropReservations || []).slice();
+  if (filter?.dropItemId != null) {
+    list = list.filter(r => Number(r.dropItemId) === Number(filter.dropItemId));
+  }
+  if (filter?.userId != null) {
+    list = list.filter(r => Number(r.userId) === Number(filter.userId));
+  }
+  return list.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+};
+
+export const getReservedQuantityForDrop = async (dropItemId: number): Promise<number> => {
+  const list = (dbInstance.raidDropReservations || []).filter(
+    (r: RaidDropReservation) => Number(r.dropItemId) === Number(dropItemId)
+  );
+  return list.reduce((acc: number, r: RaidDropReservation) => acc + (Number(r.quantity) || 0), 0);
+};
+
+export const createRaidDropReservation = async (data: {
+  dropItemId: number;
+  userId: number;
+  userName: string;
+  characterName: string;
+  quantity: number;
+}): Promise<RaidDropReservation> => {
+  const drop = await getRaidDropItemById(data.dropItemId);
+  if (!drop) throw new Error('Drop no encontrado.');
+  const totalQty = Number(drop.quantity) || 0;
+  const sold = Number(drop.quantitySold) || 0;
+  const availableStock = Math.max(0, totalQty - sold);
+  if (availableStock <= 0) {
+    throw new Error('Este drop ya no tiene stock disponible.');
+  }
+  const currentReserved = await getReservedQuantityForDrop(data.dropItemId);
+  const remainingForReservations = availableStock - currentReserved;
+  if (data.quantity <= 0) {
+    throw new Error('La cantidad reservada debe ser mayor a 0.');
+  }
+  if (data.quantity > remainingForReservations) {
+    throw new Error(
+      `Solo quedan ${remainingForReservations} unidad(es) disponibles para reservar.`
+    );
+  }
+  if (!dbInstance.raidDropReservations) dbInstance.raidDropReservations = [];
+  const reservation: RaidDropReservation = {
+    id: genId(),
+    dropItemId: Number(data.dropItemId),
+    userId: Number(data.userId),
+    userName: String(data.userName || '').trim(),
+    characterName: String(data.characterName || '').trim(),
+    quantity: Number(data.quantity),
+    createdAt: nowIso(),
+  };
+  dbInstance.raidDropReservations.push(reservation);
+  saveDb(dbInstance);
+  return reservation;
+};
+
+export const deleteRaidDropReservation = async (id: number): Promise<RaidDropReservation | null> => {
+  if (!dbInstance.raidDropReservations) return null;
+  const idx = dbInstance.raidDropReservations.findIndex(
+    (r: RaidDropReservation) => Number(r.id) === Number(id)
+  );
+  if (idx === -1) return null;
+  const [removed] = dbInstance.raidDropReservations.splice(idx, 1);
+  saveDb(dbInstance);
+  return removed;
+};
+
+export const clearReservationsForDrop = async (dropItemId: number): Promise<RaidDropReservation[]> => {
+  if (!dbInstance.raidDropReservations) return [];
+  const matched: RaidDropReservation[] = dbInstance.raidDropReservations.filter(
+    (r: RaidDropReservation) => Number(r.dropItemId) === Number(dropItemId)
+  );
+  dbInstance.raidDropReservations = dbInstance.raidDropReservations.filter(
+    (r: RaidDropReservation) => Number(r.dropItemId) !== Number(dropItemId)
+  );
+  if (matched.length > 0) saveDb(dbInstance);
+  return matched;
 };
 
 // ---------- Raid Audit Logs -------------------------------------------------
