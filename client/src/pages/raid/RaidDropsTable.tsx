@@ -82,7 +82,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return drops.filter((d: any) => {
+    const matched = drops.filter((d: any) => {
       if (q && !String(d.name || '').toLowerCase().includes(q)) return false;
       if (categoryFilter !== 'ALL' && String(d.category) !== categoryFilter) return false;
       if (cycleFilter === 'CURRENT' && currentCycle && Number(d.cycleId) !== Number(currentCycle.id))
@@ -98,6 +98,20 @@ export default function RaidDropsTable({ raidAccess }: Props) {
       if (statusFilter === 'SOLD_OUT' && remaining > 0) return false;
       if (statusFilter === 'WITH_RESERVATIONS' && !(reservedUnitsByDrop.get(Number(d.id)) || 0)) return false;
       return true;
+    });
+    // Orden por defecto pedido por el usuario: drops con stock primero, los
+    // agotados al final. Dentro de cada grupo, preferimos los más recientes
+    // (createdAt desc) y como último criterio el id desc.
+    return matched.slice().sort((a: any, b: any) => {
+      const remA = (Number(a.quantity) || 0) - (Number(a.quantitySold) || 0);
+      const remB = (Number(b.quantity) || 0) - (Number(b.quantitySold) || 0);
+      const outA = remA <= 0 ? 1 : 0;
+      const outB = remB <= 0 ? 1 : 0;
+      if (outA !== outB) return outA - outB;
+      const tA = Date.parse(String(a.createdAt || '')) || 0;
+      const tB = Date.parse(String(b.createdAt || '')) || 0;
+      if (tA !== tB) return tB - tA;
+      return Number(b.id) - Number(a.id);
     });
   }, [drops, search, categoryFilter, cycleFilter, clanFilter, statusFilter, currentCycle, reservedUnitsByDrop]);
 
