@@ -551,7 +551,7 @@ export function ReservationQuickButton({
                 <div className="flex items-center justify-between text-[11px] mt-1">
                   <span style={{ color: 'rgba(255,255,255,0.4)' }}>Ya reservado (waitlist)</span>
                   <span className="font-mono" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    {reservedUnits} · {rowReservations.length} personas
+                    {rowReservations.length} reserva{rowReservations.length === 1 ? '' : 's'}
                   </span>
                 </div>
               )}
