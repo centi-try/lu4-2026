@@ -41,6 +41,99 @@ interface Props {
 type CategoryFilter = 'ALL' | ItemCategory;
 type StatusFilter = 'ALL' | 'AVAILABLE' | 'SOLD_OUT' | 'WITH_RESERVATIONS';
 
+// Lista compacta de clanes asociados a un drop.
+// Muestra los primeros MAX_CLAN_PILLS como pills y colapsa el resto en un
+// chip "+N más" con popover al hover. Así la fila mantiene altura constante
+// aunque haya 10+ clanes asociados, y el operador igual puede ver la lista
+// completa sin abandonar la tabla.
+const MAX_CLAN_PILLS = 3;
+
+function ClansPillList({ clans }: { clans: any[] }) {
+  const [hover, setHover] = useState(false);
+  if (!clans || clans.length === 0) {
+    return (
+      <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+        —
+      </span>
+    );
+  }
+  const visible = clans.slice(0, MAX_CLAN_PILLS);
+  const overflow = clans.slice(MAX_CLAN_PILLS);
+
+  return (
+    <div className="flex items-center gap-1 flex-nowrap">
+      {visible.map((c: any) => (
+        <span
+          key={c.id}
+          className="rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap"
+          style={{
+            background: 'rgba(123,241,214,0.1)',
+            color: '#7bf1d6',
+            border: '1px solid rgba(123,241,214,0.2)',
+          }}
+        >
+          {c.name}
+        </span>
+      ))}
+      {overflow.length > 0 && (
+        <span
+          className="relative"
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+        >
+          <span
+            className="rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap cursor-default"
+            style={{
+              background: 'rgba(232,121,249,0.12)',
+              color: '#e879f9',
+              border: '1px solid rgba(232,121,249,0.3)',
+              fontWeight: 600,
+            }}
+          >
+            +{overflow.length} más
+          </span>
+          {hover && (
+            <div
+              className="absolute z-50 rounded-lg shadow-2xl"
+              style={{
+                top: 'calc(100% + 6px)',
+                left: 0,
+                minWidth: 180,
+                maxWidth: 260,
+                background: '#0a0e16',
+                border: '1px solid rgba(232,121,249,0.35)',
+                padding: 8,
+              }}
+            >
+              <p
+                className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+                style={{ color: 'rgba(232,121,249,0.7)' }}
+              >
+                Otros clanes ({overflow.length})
+              </p>
+              <div className="flex flex-col gap-1">
+                {overflow.map((c: any) => (
+                  <span
+                    key={c.id}
+                    className="rounded px-1.5 py-0.5 text-[10px]"
+                    style={{
+                      background: 'rgba(123,241,214,0.1)',
+                      color: '#7bf1d6',
+                      border: '1px solid rgba(123,241,214,0.2)',
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function RaidDropsTable({ raidAccess }: Props) {
   const utils = trpc.useUtils();
   const dropsQ = trpc.raid.drops.list.useQuery({});
@@ -538,30 +631,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                         </div>
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {(d.clans || []).length === 0 ? (
-                            <span
-                              className="text-[11px]"
-                              style={{ color: 'rgba(255,255,255,0.35)' }}
-                            >
-                              —
-                            </span>
-                          ) : (
-                            (d.clans || []).map((c: any) => (
-                              <span
-                                key={c.id}
-                                className="rounded px-1.5 py-0.5 text-[10px]"
-                                style={{
-                                  background: 'rgba(123,241,214,0.1)',
-                                  color: '#7bf1d6',
-                                  border: '1px solid rgba(123,241,214,0.2)',
-                                }}
-                              >
-                                {c.name}
-                              </span>
-                            ))
-                          )}
-                        </div>
+                        <ClansPillList clans={d.clans || []} />
                       </td>
                       <td className="px-3 py-3 text-right font-mono" style={{ color: '#a78bfa' }}>
                         {canInteract && editingPriceDropId === Number(d.id) ? (
