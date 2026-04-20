@@ -90,15 +90,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const isActive = location === item.href;
             return (
-              <Link key={item.href} href={item.href}>
-                <a className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
-                  style={{ color: isActive ? '#7bf1d6' : 'rgba(255,255,255,0.5)' }}>
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate">{item.label}</p>
-                    <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
-                  </div>
-                </a>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                style={{ color: isActive ? '#7bf1d6' : 'rgba(255,255,255,0.5)' }}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate">{item.label}</p>
+                  <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
+                </div>
               </Link>
             );
           })}
@@ -112,15 +114,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.href} href={item.href}>
-                    <a className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
-                      style={{ color: isActive ? '#7bf1d6' : 'rgba(255,255,255,0.5)' }}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate">{item.label}</p>
-                        <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
-                      </div>
-                    </a>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                    style={{ color: isActive ? '#7bf1d6' : 'rgba(255,255,255,0.5)' }}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate">{item.label}</p>
+                      <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
+                    </div>
                   </Link>
                 );
               })}
@@ -141,15 +145,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const isActive = location === item.href;
                 return (
-                  <Link key={item.href} href={item.href}>
-                    <a className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
-                      style={{ color: isActive ? '#e879f9' : 'rgba(255,255,255,0.5)' }}>
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate">{item.label}</p>
-                        <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
-                      </div>
-                    </a>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${isActive ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                    style={{ color: isActive ? '#e879f9' : 'rgba(255,255,255,0.5)' }}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate">{item.label}</p>
+                      <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.3)' }}>{item.desc}</p>
+                    </div>
                   </Link>
                 );
               })}
