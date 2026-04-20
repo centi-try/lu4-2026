@@ -41,10 +41,24 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Cuando el usuario selecciona una sugerencia, el padre setea `value` al
+  // nombre del ítem elegido. Ese cambio dispara de nuevo este efecto y sin
+  // esta señal el dropdown se reabría porque la query coincide con el ítem
+  // recién elegido. `suppressNextOpenRef` le dice al próximo ciclo que salte
+  // la apertura automática (el dropdown ya quedó cerrado por el handler).
+  const suppressNextOpenRef = useRef(false);
 
   useEffect(() => {
     clearTimeout(timerRef.current);
-    if (!value.trim()) { setResults([]); setOpen(false); return; }
+    if (!value.trim()) { setResults([]); setOpen(false); suppressNextOpenRef.current = false; return; }
+    if (suppressNextOpenRef.current) {
+      suppressNextOpenRef.current = false;
+      setResults([]);
+      setOpen(false);
+      setLoading(false);
+      setActiveIdx(-1);
+      return;
+    }
     setLoading(true);
     timerRef.current = setTimeout(() => {
       const r = searchItems(value);
@@ -56,13 +70,21 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
     return () => clearTimeout(timerRef.current);
   }, [value, searchItems]);
 
+  const handleSelect = useCallback((item: Item) => {
+    suppressNextOpenRef.current = true;
+    setOpen(false);
+    setResults([]);
+    setActiveIdx(-1);
+    onSelect(item);
+  }, [onSelect]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!open) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
     if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
-    if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); onSelect(results[activeIdx]); setOpen(false); }
+    if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); handleSelect(results[activeIdx]); }
     if (e.key === 'Escape') { setOpen(false); setActiveIdx(-1); }
-  }, [open, results, activeIdx, onSelect]);
+  }, [open, results, activeIdx, handleSelect]);
 
   // Scroll active item into view
   useEffect(() => {
@@ -104,7 +126,7 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
             return (
               <button
                 key={item.id}
-                onMouseDown={() => { onSelect(item); setOpen(false); }}
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
                 onMouseEnter={() => setActiveIdx(idx)}
                 className="flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-all last:border-b-0"
                 style={{

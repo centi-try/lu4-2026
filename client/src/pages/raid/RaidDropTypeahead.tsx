@@ -72,6 +72,10 @@ export function RaidDropTypeahead({
   const [loading, setLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Al seleccionar una sugerencia el padre setea `value` al nombre del drop
+  // elegido — ese cambio volvía a disparar el efecto de filtrado y reabría el
+  // dropdown. Esta señal le indica al próximo ciclo que no vuelva a abrir.
+  const suppressNextOpenRef = useRef(false);
 
   // Índice de sugerencias deduplicadas por nombre (entrada más reciente).
   const suggestions = useMemo<DropSuggestion[]>(() => {
@@ -104,6 +108,15 @@ export function RaidDropTypeahead({
     if (!q) {
       setFiltered([]);
       setOpen(false);
+      suppressNextOpenRef.current = false;
+      return;
+    }
+    if (suppressNextOpenRef.current) {
+      suppressNextOpenRef.current = false;
+      setFiltered([]);
+      setOpen(false);
+      setLoading(false);
+      setActiveIdx(-1);
       return;
     }
     setLoading(true);
@@ -119,6 +132,17 @@ export function RaidDropTypeahead({
     return () => clearTimeout(timerRef.current);
   }, [value, suggestions]);
 
+  const handleSelect = useCallback(
+    (s: DropSuggestion) => {
+      suppressNextOpenRef.current = true;
+      setOpen(false);
+      setFiltered([]);
+      setActiveIdx(-1);
+      onSelect(s);
+    },
+    [onSelect],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!open) return;
@@ -132,15 +156,14 @@ export function RaidDropTypeahead({
       }
       if (e.key === 'Enter' && activeIdx >= 0) {
         e.preventDefault();
-        onSelect(filtered[activeIdx]);
-        setOpen(false);
+        handleSelect(filtered[activeIdx]);
       }
       if (e.key === 'Escape') {
         setOpen(false);
         setActiveIdx(-1);
       }
     },
-    [open, filtered, activeIdx, onSelect],
+    [open, filtered, activeIdx, handleSelect],
   );
 
   useEffect(() => {
@@ -197,9 +220,9 @@ export function RaidDropTypeahead({
               <button
                 key={`${s.name}-${idx}`}
                 type="button"
-                onMouseDown={() => {
-                  onSelect(s);
-                  setOpen(false);
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(s);
                 }}
                 onMouseEnter={() => setActiveIdx(idx)}
                 className="flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-all last:border-b-0"
