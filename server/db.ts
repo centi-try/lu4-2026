@@ -1457,14 +1457,17 @@ export const createRaidDropReservation = async (data: {
   if (availableStock <= 0) {
     throw new Error('Este drop ya no tiene stock disponible.');
   }
-  const currentReserved = await getReservedQuantityForDrop(data.dropItemId);
-  const remainingForReservations = availableStock - currentReserved;
+  // Semántica waitlist: múltiples usuarios pueden reservar el mismo drop incluso
+  // si la suma total supera el stock. El admin luego decide a quién vender y
+  // elimina las reservas sobrantes. Solo se valida que la cantidad individual
+  // no supere el stock disponible (reservar 10 de un drop con 3 uds no tiene
+  // sentido).
   if (data.quantity <= 0) {
     throw new Error('La cantidad reservada debe ser mayor a 0.');
   }
-  if (data.quantity > remainingForReservations) {
+  if (data.quantity > availableStock) {
     throw new Error(
-      `Solo quedan ${remainingForReservations} unidad(es) disponibles para reservar.`
+      `Este drop solo tiene ${availableStock} unidad(es) disponibles — no podés reservar más que eso.`
     );
   }
   if (!dbInstance.raidDropReservations) dbInstance.raidDropReservations = [];

@@ -405,7 +405,11 @@ export function ReservationQuickButton({
     (s, r) => s + (Number(r.quantity) || 0),
     0
   );
-  const remainingForReservations = Math.max(0, availableStock - reservedUnits);
+  // Semántica waitlist: la cantidad individual de la reserva está capada por
+  // el stock absoluto (no por el "restante menos otras reservas"). Múltiples
+  // usuarios pueden reservar aunque la suma supere el stock — el admin
+  // preguntará uno por uno y cancelará las que no concreten.
+  const maxPerReservation = availableStock;
   const soldOut = availableStock <= 0;
   const characterName = String(
     (user as any)?.characterName || user?.name || ''
@@ -437,9 +441,9 @@ export function ReservationQuickButton({
       toast.error('Ingresá una cantidad mayor a 0');
       return;
     }
-    if (n > remainingForReservations) {
+    if (n > maxPerReservation) {
       toast.error(
-        `Solo quedan ${remainingForReservations} unidad(es) disponibles para reservar`
+        `Este drop tiene ${maxPerReservation} unidad(es) — no podés reservar más que eso`
       );
       return;
     }
@@ -453,8 +457,8 @@ export function ReservationQuickButton({
         onClick={() => setOpen(true)}
         className="btn-ghost p-2"
         title={
-          remainingForReservations <= 0
-            ? 'Ver reservas (todo el stock ya está reservado)'
+          rowReservations.length > 0
+            ? `Ver reservas (${rowReservations.length}) / agregar la tuya`
             : 'Reservar / ver reservas'
         }
         style={{
@@ -538,11 +542,19 @@ export function ReservationQuickButton({
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span style={{ color: 'rgba(255,255,255,0.4)' }}>Disponible</span>
+                <span style={{ color: 'rgba(255,255,255,0.4)' }}>Stock disponible</span>
                 <span className="font-mono" style={{ color: '#fbbf24' }}>
-                  {remainingForReservations} unidad(es)
+                  {availableStock} unidad(es)
                 </span>
               </div>
+              {reservedUnits > 0 && (
+                <div className="flex items-center justify-between text-[11px] mt-1">
+                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>Ya reservado (waitlist)</span>
+                  <span className="font-mono" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    {reservedUnits} · {rowReservations.length} personas
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Historial de reservas del drop — siempre visible (hueco cuando
@@ -654,13 +666,13 @@ export function ReservationQuickButton({
               <input
                 type="number"
                 min={1}
-                max={remainingForReservations}
+                max={maxPerReservation}
                 step={1}
                 autoFocus
                 placeholder="0"
                 value={qtyInput}
                 onChange={(e) => setQtyInput(e.target.value)}
-                disabled={createMut.isPending || !characterName || remainingForReservations <= 0}
+                disabled={createMut.isPending || !characterName || maxPerReservation <= 0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreate();
                 }}
@@ -671,12 +683,15 @@ export function ReservationQuickButton({
                   color: 'rgba(255,255,255,0.9)',
                 }}
               />
-              {remainingForReservations <= 0 && (
-                <p className="mt-2 text-xs" style={{ color: '#f87171' }}>
-                  El stock ya está completamente reservado. Esperá a que alguien
-                  cancele o a que el admin venda.
-                </p>
-              )}
+              <p className="mt-2 text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                Máximo {maxPerReservation} por reserva.
+                {reservedUnits > 0 && (
+                  <>
+                    {' '}Puede haber más personas anotadas en la waitlist que stock
+                    real — el admin decidirá a quién venderle.
+                  </>
+                )}
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-2">
