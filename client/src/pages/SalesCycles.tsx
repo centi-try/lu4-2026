@@ -344,9 +344,20 @@ export default function SalesCyclesPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {salesCycles.map((cycle, idx) => (
-              <CycleCard key={cycle.id} cycle={cycle} defaultOpen={idx === 0} />
-            ))}
+            {[...salesCycles]
+              .sort((a, b) => {
+                // Más reciente arriba: priorizamos closedAt y caemos a createdAt/startedAt.
+                const ta = new Date((a as any).closedAt || (a as any).createdAt || (a as any).startedAt || 0).getTime();
+                const tb = new Date((b as any).closedAt || (b as any).createdAt || (b as any).startedAt || 0).getTime();
+                if (tb !== ta) return tb - ta;
+                // Fallback determinístico por número/id cuando las fechas empatan.
+                const na = Number((a as any).cycleNumber ?? (a as any).number ?? (a as any).id ?? 0);
+                const nb = Number((b as any).cycleNumber ?? (b as any).number ?? (b as any).id ?? 0);
+                return nb - na;
+              })
+              .map((cycle, idx) => (
+                <CycleCard key={cycle.id} cycle={cycle} defaultOpen={idx === 0} />
+              ))}
           </div>
         )}
       </div>
