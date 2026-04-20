@@ -311,17 +311,24 @@ async function startServer() {
 
       const { sdk } = await import("./sdk");
       const { getSessionCookieOptions } = await import("./cookies");
-      const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
+      const { COOKIE_NAME, REMEMBER_ME_MS } = await import("@shared/const");
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.characterName || user.name || '',
       });
 
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
+      // Si rememberMe=true → cookie persistente de 30 días.
+      // Si rememberMe=false (o undefined) → omitimos maxAge → cookie de sesión
+      // (muere cuando el navegador cierra todas las pestañas). El user decide.
+      if (rememberMe) {
+        res.cookie(COOKIE_NAME, sessionToken, {
+          ...cookieOptions,
+          maxAge: REMEMBER_ME_MS,
+        });
+      } else {
+        res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
+      }
 
       await upsertUser({
         id: user.id,

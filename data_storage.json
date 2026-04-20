@@ -15,9 +15,11 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
-      "updatedAt": "2026-04-20T06:57:51.170Z",
-      "lastSignedIn": "2026-04-20T06:57:51.170Z",
-      "currentCycleEarnings": 0
+      "updatedAt": "2026-04-20T11:44:59.616Z",
+      "lastSignedIn": "2026-04-20T11:32:56.312Z",
+      "currentCycleEarnings": 0,
+      "failedLoginAttempts": 5,
+      "lockedUntil": "2026-04-20T11:55:56.442Z"
     },
     {
       "id": 620324,
@@ -48,11 +50,11 @@
       "role": "user",
       "loginMethod": "local",
       "isActive": true,
-      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "passwordHash": "$2b$10$hCkSTccYppCpi1lUGmLVwOdTnO.FiE5EDuNTh7.dBgUHIlHGtlZUO",
       "characterId": null,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "updatedAt": "2026-04-20T03:18:08.547Z",
-      "lastSignedIn": "2026-04-20T03:18:08.547Z",
+      "updatedAt": "2026-04-20T11:45:03.270Z",
+      "lastSignedIn": "2026-04-20T11:45:03.269Z",
       "currentCycleEarnings": 0
     },
     {
@@ -209,12 +211,8 @@
       "totalProfit": 2700,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 3000,
-      "updatedAt": "2026-04-18T08:47:58.597Z",
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 56708,
+      "updatedAt": "2026-04-20T07:26:30.669Z"
     },
     {
       "id": 294977,
@@ -224,11 +222,8 @@
       "totalProfit": 1333,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 1333,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 254408,
+      "updatedAt": "2026-04-20T07:25:28.006Z"
     },
     {
       "id": 447240,
@@ -238,11 +233,8 @@
       "totalProfit": 1333,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 1333,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "MAPPER"
+      "totalEarnings": 53808,
+      "updatedAt": "2026-04-20T07:24:54.355Z"
     },
     {
       "id": 620936,
@@ -252,11 +244,8 @@
       "totalProfit": 1133,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 1133,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "MAPPER"
+      "totalEarnings": 50458,
+      "updatedAt": "2026-04-20T07:26:21.679Z"
     },
     {
       "id": 988089,
@@ -266,12 +255,8 @@
       "totalProfit": 300,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 600,
-      "updatedAt": "2026-04-18T08:47:58.597Z",
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "MAPPER"
+      "totalEarnings": 4650,
+      "updatedAt": "2026-04-20T07:26:26.369Z"
     },
     {
       "id": 649528,
@@ -281,11 +266,8 @@
       "totalProfit": 1375,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 1100,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 750,
+      "updatedAt": "2026-04-20T07:25:28.006Z"
     },
     {
       "id": 457774,
@@ -295,12 +277,8 @@
       "totalProfit": 4300,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 2500,
-      "updatedAt": "2026-04-18T08:36:28.795Z",
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 3750,
+      "updatedAt": "2026-04-20T07:26:17.358Z"
     },
     {
       "id": 291690,
@@ -310,11 +288,8 @@
       "totalProfit": 3766,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 3766,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 1800,
+      "updatedAt": "2026-04-20T07:25:48.574Z"
     },
     {
       "id": 240999,
@@ -324,11 +299,8 @@
       "totalProfit": 2950,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 2950,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 203683,
+      "updatedAt": "2026-04-20T07:26:35.272Z"
     },
     {
       "id": 177644,
@@ -338,11 +310,8 @@
       "totalProfit": 1633,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 1933,
-      "updatedAt": "2026-04-18T08:47:58.597Z",
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600"
+      "totalEarnings": 253100,
+      "updatedAt": "2026-04-20T07:26:26.369Z"
     },
     {
       "id": 645672,
@@ -352,11 +321,8 @@
       "totalProfit": 1125,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 850,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 202633,
+      "updatedAt": "2026-04-20T07:26:21.679Z"
     },
     {
       "id": 676516,
@@ -366,11 +332,8 @@
       "totalProfit": 450,
       "currentCycleEarnings": 0,
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "totalEarnings": 450,
-      "class": "Aventurero",
-      "level": 1,
-      "avatar": "from-gray-400 to-gray-600",
-      "role": "USER"
+      "totalEarnings": 202250,
+      "updatedAt": "2026-04-20T07:26:13.501Z"
     }
   ],
   "items": [
@@ -378,47 +341,47 @@
       "id": 320968,
       "name": "Espada de Hielo +7",
       "category": "ARMA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 1500,
       "mapperId": 642795,
       "imageUrl": null,
       "quantity": 2,
-      "quantitySold": 1,
+      "quantitySold": 2,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         240999
       ],
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "updatedAt": "2026-04-18T08:25:58.929Z"
+      "updatedAt": "2026-04-20T07:26:35.271Z"
     },
     {
       "id": 751000,
       "name": "Arco Élfico +5",
       "category": "ARMA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 1200,
       "mapperId": 876147,
       "imageUrl": null,
       "quantity": 3,
-      "quantitySold": 2,
+      "quantitySold": 3,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         240999,
         461664
       ],
       "createdAt": "2026-04-18T08:25:58.929Z",
-      "updatedAt": "2026-04-18T08:25:58.929Z"
+      "updatedAt": "2026-04-20T07:26:30.668Z"
     },
     {
       "id": 571872,
       "name": "Daga de Obsidiana",
       "category": "ARMA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 900,
       "mapperId": 639001,
       "imageUrl": null,
       "quantity": 4,
-      "quantitySold": 2,
+      "quantitySold": 4,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         461664,
@@ -426,7 +389,7 @@
         177644
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:47:58.596Z"
+      "updatedAt": "2026-04-20T07:26:26.367Z"
     },
     {
       "id": 807877,
@@ -467,12 +430,12 @@
       "id": 121398,
       "name": "Armadura de Dragón",
       "category": "ARMADURA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 2500,
       "mapperId": 639001,
       "imageUrl": null,
       "quantity": 1,
-      "quantitySold": 0,
+      "quantitySold": 1,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         620936,
@@ -480,42 +443,42 @@
         645672
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:26:21.678Z"
     },
     {
       "id": 629682,
       "name": "Coraza de Mithril",
       "category": "ARMADURA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 2100,
       "mapperId": 642795,
       "imageUrl": null,
       "quantity": 2,
-      "quantitySold": 1,
+      "quantitySold": 2,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         457774
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:26:17.357Z"
     },
     {
       "id": 317833,
       "name": "Casco de Guerra",
       "category": "ARMADURA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 800,
       "mapperId": 876147,
       "imageUrl": null,
       "quantity": 3,
-      "quantitySold": 0,
+      "quantitySold": 3,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         988089,
         676516
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:26:13.500Z"
     },
     {
       "id": 682667,
@@ -540,36 +503,36 @@
       "id": 973521,
       "name": "Escudo de Acero",
       "category": "ARMADURA",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 700,
       "mapperId": 642795,
       "imageUrl": null,
       "quantity": 4,
-      "quantitySold": 1,
+      "quantitySold": 4,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         461664
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:26:02.009Z"
     },
     {
       "id": 121655,
       "name": "Anillo de Poder",
       "category": "ACCESORIO",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 1800,
       "mapperId": 876147,
       "imageUrl": null,
       "quantity": 2,
-      "quantitySold": 0,
+      "quantitySold": 2,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         291690,
         645672
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:25:48.573Z"
     },
     {
       "id": 341595,
@@ -594,47 +557,47 @@
       "id": 805808,
       "name": "Capa del Viento",
       "category": "ACCESORIO",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 850,
       "mapperId": 642795,
       "imageUrl": null,
       "quantity": 3,
-      "quantitySold": 0,
+      "quantitySold": 3,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         988089
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:25:43.686Z"
     },
     {
       "id": 805363,
       "name": "Botas Aladas",
       "category": "ACCESORIO",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 1000,
       "mapperId": 876147,
       "imageUrl": null,
       "quantity": 2,
-      "quantitySold": 1,
+      "quantitySold": 2,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         620936,
         461664
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:25:33.650Z"
     },
     {
       "id": 835608,
       "name": "Poción de Vida Mayor",
       "category": "CONSUMIBLE",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 150,
       "mapperId": 639001,
       "imageUrl": null,
       "quantity": 20,
-      "quantitySold": 5,
+      "quantitySold": 20,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         649528,
@@ -642,53 +605,53 @@
         294977
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:25:28.005Z"
     },
     {
       "id": 903685,
       "name": "Poción de Maná",
       "category": "CONSUMIBLE",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 120,
       "mapperId": 642795,
       "imageUrl": null,
       "quantity": 25,
-      "quantitySold": 0,
+      "quantitySold": 25,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         177644
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:25:20.998Z"
     },
     {
       "id": 116486,
       "name": "Elixir de Fuerza",
       "category": "CONSUMIBLE",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 300,
       "mapperId": 876147,
       "imageUrl": null,
       "quantity": 10,
-      "quantitySold": 3,
+      "quantitySold": 10,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         676516,
         294977
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:25:11.267Z"
     },
     {
       "id": 871081,
       "name": "Lingote de Adamantium",
       "category": "MATERIAL",
-      "status": "CONFIRMED",
+      "status": "VENDIDO",
       "price": 600,
       "mapperId": 639001,
       "imageUrl": null,
       "quantity": 8,
-      "quantitySold": 2,
+      "quantitySold": 8,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         457774,
@@ -696,17 +659,17 @@
         447240
       ],
       "createdAt": "2026-04-18T08:25:58.930Z",
-      "updatedAt": "2026-04-18T08:25:58.930Z"
+      "updatedAt": "2026-04-20T07:24:54.354Z"
     },
     {
       "name": "Lingote de Adamantium",
       "category": "ARMADURA",
-      "status": "EN_REGISTRO",
+      "status": "VENDIDO",
       "price": 60000,
       "mapperId": 1,
       "imageUrl": null,
       "quantity": 4,
-      "quantitySold": 0,
+      "quantitySold": 4,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         461664,
@@ -717,17 +680,17 @@
       ],
       "id": 776597,
       "createdAt": "2026-04-18T09:29:45.919Z",
-      "updatedAt": "2026-04-18T09:29:45.919Z"
+      "updatedAt": "2026-04-20T07:24:43.667Z"
     },
     {
       "name": "Guanteletes Rúnicos",
       "category": "ARMADURA",
-      "status": "EN_REGISTRO",
+      "status": "VENDIDO",
       "price": 950,
       "mapperId": 1,
       "imageUrl": null,
       "quantity": 3,
-      "quantitySold": 0,
+      "quantitySold": 3,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         461664,
@@ -736,17 +699,17 @@
       ],
       "id": 690389,
       "createdAt": "2026-04-18T09:56:39.057Z",
-      "updatedAt": "2026-04-18T09:56:39.057Z"
+      "updatedAt": "2026-04-20T07:24:18.543Z"
     },
     {
       "name": "Guanteletes Rúnicos",
       "category": "ARMADURA",
-      "status": "EN_REGISTRO",
+      "status": "VENDIDO",
       "price": 950,
       "mapperId": 1,
       "imageUrl": null,
       "quantity": 5,
-      "quantitySold": 0,
+      "quantitySold": 5,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         461664,
@@ -755,17 +718,17 @@
       ],
       "id": 969759,
       "createdAt": "2026-04-18T09:57:01.925Z",
-      "updatedAt": "2026-04-18T09:57:01.925Z"
+      "updatedAt": "2026-04-20T07:24:10.936Z"
     },
     {
       "name": "Guanteletes Rúnicos",
       "category": "ARMADURA",
-      "status": "EN_REGISTRO",
+      "status": "VENDIDO",
       "price": 950,
       "mapperId": 1,
       "imageUrl": null,
       "quantity": 3,
-      "quantitySold": 0,
+      "quantitySold": 3,
       "quantitySoldInCycle": 0,
       "associatedCharacterIds": [
         461664,
@@ -774,7 +737,97 @@
       ],
       "id": 488461,
       "createdAt": "2026-04-18T09:57:22.255Z",
-      "updatedAt": "2026-04-18T09:57:22.255Z"
+      "updatedAt": "2026-04-20T07:24:05.399Z"
+    },
+    {
+      "name": "Lingote de Adamantium",
+      "category": "ARMADURA",
+      "status": "VENDIDO",
+      "price": 1000000,
+      "mapperId": 1,
+      "imageUrl": null,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        294977,
+        177644,
+        645672,
+        676516,
+        240999
+      ],
+      "id": 878556,
+      "createdAt": "2026-04-20T07:09:41.402Z",
+      "updatedAt": "2026-04-20T07:10:08.209Z"
+    },
+    {
+      "name": "Espada de Hielo +7",
+      "category": "ARMA",
+      "status": "VENDIDO",
+      "price": 1500,
+      "mapperId": 1,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        461664,
+        294977,
+        447240,
+        620936
+      ],
+      "id": 670128,
+      "createdAt": "2026-04-20T07:22:57.585Z",
+      "updatedAt": "2026-04-20T07:24:38.447Z"
+    },
+    {
+      "name": "Espada de Hielo +7",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1500,
+      "mapperId": 1,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        294977,
+        447240,
+        620936
+      ],
+      "id": 349091,
+      "createdAt": "2026-04-20T07:27:04.261Z",
+      "updatedAt": "2026-04-20T07:27:08.711Z"
+    },
+    {
+      "name": "weapon freya",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 132,
+      "mapperId": 1,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [],
+      "id": 407938,
+      "createdAt": "2026-04-20T07:59:27.095Z",
+      "updatedAt": "2026-04-20T09:22:13.215Z"
+    },
+    {
+      "name": "weapon freya",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 132,
+      "mapperId": 1,
+      "imageUrl": "https://www.kindpng.com/picc/m/540-5409923_weapons-freya-lineage-2-weapon-icon-hd-png.png",
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [],
+      "id": 367027,
+      "createdAt": "2026-04-20T08:08:30.855Z",
+      "updatedAt": "2026-04-20T09:22:12.457Z"
     }
   ],
   "salesCycles": [
@@ -1358,6 +1411,414 @@
         "116486",
         "871081"
       ]
+    },
+    {
+      "id": 366292,
+      "label": "Ciclo #4",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-20T06:41:59.617Z",
+      "closedAt": "2026-04-20T07:12:03.749Z",
+      "closedBy": "Super Admin",
+      "totalRevenue": 1000000,
+      "totalProfit": 1000000,
+      "characterEarnings": [
+        {
+          "characterId": "294977",
+          "characterName": "Mateo User",
+          "earnings": 200000
+        },
+        {
+          "characterId": "240999",
+          "characterName": "Paula User",
+          "earnings": 200000
+        },
+        {
+          "characterId": "177644",
+          "characterName": "Bruno User",
+          "earnings": 200000
+        },
+        {
+          "characterId": "645672",
+          "characterName": "Guild Storage A",
+          "earnings": 200000
+        },
+        {
+          "characterId": "676516",
+          "characterName": "Guild Storage B",
+          "earnings": 200000
+        }
+      ],
+      "soldItems": [
+        {
+          "itemId": "878556",
+          "itemName": "Lingote de Adamantium",
+          "category": "ARMADURA",
+          "price": 1000000,
+          "quantitySold": 1,
+          "totalRevenue": 1000000,
+          "associatedCharacterIds": [
+            "294977",
+            "177644",
+            "645672",
+            "676516",
+            "240999"
+          ],
+          "earningsPerCharacter": 200000
+        }
+      ],
+      "unsoldItemIds": [
+        "320968",
+        "751000",
+        "571872",
+        "121398",
+        "629682",
+        "317833",
+        "973521",
+        "121655",
+        "805808",
+        "805363",
+        "835608",
+        "903685",
+        "116486",
+        "871081",
+        "776597",
+        "690389",
+        "969759",
+        "488461"
+      ]
+    },
+    {
+      "id": 354909,
+      "label": "Ciclo #5",
+      "type": "SEMANAL",
+      "status": "CLOSED",
+      "startedAt": "2026-04-20T07:34:11.321Z",
+      "closedAt": "2026-04-20T07:34:44.759Z",
+      "closedBy": "Super Admin",
+      "totalRevenue": 286650,
+      "totalProfit": 286650,
+      "characterEarnings": [
+        {
+          "characterId": "461664",
+          "characterName": "Lucía User",
+          "earnings": 56408
+        },
+        {
+          "characterId": "294977",
+          "characterName": "Mateo User",
+          "earnings": 54408
+        },
+        {
+          "characterId": "447240",
+          "characterName": "Sofía Mapper",
+          "earnings": 53808
+        },
+        {
+          "characterId": "620936",
+          "characterName": "Tomás Mapper",
+          "earnings": 50458
+        },
+        {
+          "characterId": "988089",
+          "characterName": "Valeria Mapper",
+          "earnings": 4350
+        },
+        {
+          "characterId": "649528",
+          "characterName": "Diego User",
+          "earnings": 750
+        },
+        {
+          "characterId": "457774",
+          "characterName": "Camila User",
+          "earnings": 3300
+        },
+        {
+          "characterId": "291690",
+          "characterName": "Santiago User",
+          "earnings": 1800
+        },
+        {
+          "characterId": "240999",
+          "characterName": "Paula User",
+          "earnings": 3683
+        },
+        {
+          "characterId": "177644",
+          "characterName": "Bruno User",
+          "earnings": 52800
+        },
+        {
+          "characterId": "645672",
+          "characterName": "Guild Storage A",
+          "earnings": 2633
+        },
+        {
+          "characterId": "676516",
+          "characterName": "Guild Storage B",
+          "earnings": 2250
+        }
+      ],
+      "soldItems": [
+        {
+          "itemId": "320968",
+          "itemName": "Espada de Hielo +7",
+          "category": "ARMA",
+          "price": 1500,
+          "quantitySold": 1,
+          "totalRevenue": 1500,
+          "associatedCharacterIds": [
+            "240999"
+          ],
+          "earningsPerCharacter": 1500
+        },
+        {
+          "itemId": "751000",
+          "itemName": "Arco Élfico +5",
+          "category": "ARMA",
+          "price": 1200,
+          "quantitySold": 1,
+          "totalRevenue": 1200,
+          "associatedCharacterIds": [
+            "240999",
+            "461664"
+          ],
+          "earningsPerCharacter": 600
+        },
+        {
+          "itemId": "571872",
+          "itemName": "Daga de Obsidiana",
+          "category": "ARMA",
+          "price": 900,
+          "quantitySold": 2,
+          "totalRevenue": 1800,
+          "associatedCharacterIds": [
+            "461664",
+            "988089",
+            "177644"
+          ],
+          "earningsPerCharacter": 600
+        },
+        {
+          "itemId": "121398",
+          "itemName": "Armadura de Dragón",
+          "category": "ARMADURA",
+          "price": 2500,
+          "quantitySold": 1,
+          "totalRevenue": 2500,
+          "associatedCharacterIds": [
+            "620936",
+            "240999",
+            "645672"
+          ],
+          "earningsPerCharacter": 833
+        },
+        {
+          "itemId": "629682",
+          "itemName": "Coraza de Mithril",
+          "category": "ARMADURA",
+          "price": 2100,
+          "quantitySold": 1,
+          "totalRevenue": 2100,
+          "associatedCharacterIds": [
+            "457774"
+          ],
+          "earningsPerCharacter": 2100
+        },
+        {
+          "itemId": "317833",
+          "itemName": "Casco de Guerra",
+          "category": "ARMADURA",
+          "price": 800,
+          "quantitySold": 3,
+          "totalRevenue": 2400,
+          "associatedCharacterIds": [
+            "988089",
+            "676516"
+          ],
+          "earningsPerCharacter": 1200
+        },
+        {
+          "itemId": "973521",
+          "itemName": "Escudo de Acero",
+          "category": "ARMADURA",
+          "price": 700,
+          "quantitySold": 3,
+          "totalRevenue": 2100,
+          "associatedCharacterIds": [
+            "461664"
+          ],
+          "earningsPerCharacter": 2100
+        },
+        {
+          "itemId": "121655",
+          "itemName": "Anillo de Poder",
+          "category": "ACCESORIO",
+          "price": 1800,
+          "quantitySold": 2,
+          "totalRevenue": 3600,
+          "associatedCharacterIds": [
+            "291690",
+            "645672"
+          ],
+          "earningsPerCharacter": 1800
+        },
+        {
+          "itemId": "805808",
+          "itemName": "Capa del Viento",
+          "category": "ACCESORIO",
+          "price": 850,
+          "quantitySold": 3,
+          "totalRevenue": 2550,
+          "associatedCharacterIds": [
+            "988089"
+          ],
+          "earningsPerCharacter": 2550
+        },
+        {
+          "itemId": "805363",
+          "itemName": "Botas Aladas",
+          "category": "ACCESORIO",
+          "price": 1000,
+          "quantitySold": 1,
+          "totalRevenue": 1000,
+          "associatedCharacterIds": [
+            "620936",
+            "461664"
+          ],
+          "earningsPerCharacter": 500
+        },
+        {
+          "itemId": "835608",
+          "itemName": "Poción de Vida Mayor",
+          "category": "CONSUMIBLE",
+          "price": 150,
+          "quantitySold": 15,
+          "totalRevenue": 2250,
+          "associatedCharacterIds": [
+            "649528",
+            "240999",
+            "294977"
+          ],
+          "earningsPerCharacter": 750
+        },
+        {
+          "itemId": "903685",
+          "itemName": "Poción de Maná",
+          "category": "CONSUMIBLE",
+          "price": 120,
+          "quantitySold": 25,
+          "totalRevenue": 3000,
+          "associatedCharacterIds": [
+            "177644"
+          ],
+          "earningsPerCharacter": 3000
+        },
+        {
+          "itemId": "116486",
+          "itemName": "Elixir de Fuerza",
+          "category": "CONSUMIBLE",
+          "price": 300,
+          "quantitySold": 7,
+          "totalRevenue": 2100,
+          "associatedCharacterIds": [
+            "676516",
+            "294977"
+          ],
+          "earningsPerCharacter": 1050
+        },
+        {
+          "itemId": "871081",
+          "itemName": "Lingote de Adamantium",
+          "category": "MATERIAL",
+          "price": 600,
+          "quantitySold": 6,
+          "totalRevenue": 3600,
+          "associatedCharacterIds": [
+            "457774",
+            "177644",
+            "447240"
+          ],
+          "earningsPerCharacter": 1200
+        },
+        {
+          "itemId": "776597",
+          "itemName": "Lingote de Adamantium",
+          "category": "ARMADURA",
+          "price": 60000,
+          "quantitySold": 4,
+          "totalRevenue": 240000,
+          "associatedCharacterIds": [
+            "461664",
+            "294977",
+            "447240",
+            "620936",
+            "177644"
+          ],
+          "earningsPerCharacter": 48000
+        },
+        {
+          "itemId": "690389",
+          "itemName": "Guanteletes Rúnicos",
+          "category": "ARMADURA",
+          "price": 950,
+          "quantitySold": 3,
+          "totalRevenue": 2850,
+          "associatedCharacterIds": [
+            "461664",
+            "447240",
+            "294977"
+          ],
+          "earningsPerCharacter": 950
+        },
+        {
+          "itemId": "969759",
+          "itemName": "Guanteletes Rúnicos",
+          "category": "ARMADURA",
+          "price": 950,
+          "quantitySold": 5,
+          "totalRevenue": 4750,
+          "associatedCharacterIds": [
+            "461664",
+            "294977",
+            "447240"
+          ],
+          "earningsPerCharacter": 1583
+        },
+        {
+          "itemId": "488461",
+          "itemName": "Guanteletes Rúnicos",
+          "category": "ARMADURA",
+          "price": 950,
+          "quantitySold": 3,
+          "totalRevenue": 2850,
+          "associatedCharacterIds": [
+            "461664",
+            "294977",
+            "447240"
+          ],
+          "earningsPerCharacter": 950
+        },
+        {
+          "itemId": "670128",
+          "itemName": "Espada de Hielo +7",
+          "category": "ARMA",
+          "price": 1500,
+          "quantitySold": 3,
+          "totalRevenue": 4500,
+          "associatedCharacterIds": [
+            "461664",
+            "294977",
+            "447240",
+            "620936"
+          ],
+          "earningsPerCharacter": 1125
+        }
+      ],
+      "unsoldItemIds": [
+        "349091"
+      ]
     }
   ],
   "purchases": [
@@ -1701,6 +2162,292 @@
       "total": 900,
       "id": 16867,
       "createdAt": "2026-04-18T08:47:58.598Z"
+    },
+    {
+      "itemId": "878556",
+      "itemName": "Lingote de Adamantium",
+      "buyerId": "620936",
+      "buyerName": "Tomás Mapper",
+      "quantity": 1,
+      "price": 1000000,
+      "total": 1000000,
+      "id": 788775,
+      "createdAt": "2026-04-20T07:10:08.211Z"
+    },
+    {
+      "itemId": "488461",
+      "itemName": "Guanteletes Rúnicos",
+      "buyerId": "447240",
+      "buyerName": "Sofía Mapper",
+      "quantity": 3,
+      "price": 950,
+      "total": 2850,
+      "id": 226348,
+      "createdAt": "2026-04-20T07:24:05.401Z"
+    },
+    {
+      "itemId": "969759",
+      "itemName": "Guanteletes Rúnicos",
+      "buyerId": "177644",
+      "buyerName": "Bruno User",
+      "quantity": 5,
+      "price": 950,
+      "total": 4750,
+      "id": 238430,
+      "createdAt": "2026-04-20T07:24:10.939Z"
+    },
+    {
+      "itemId": "690389",
+      "itemName": "Guanteletes Rúnicos",
+      "buyerId": "676516",
+      "buyerName": "Guild Storage B",
+      "quantity": 3,
+      "price": 950,
+      "total": 2850,
+      "id": 133026,
+      "createdAt": "2026-04-20T07:24:18.545Z"
+    },
+    {
+      "itemId": "670128",
+      "itemName": "Espada de Hielo +7",
+      "buyerId": "988089",
+      "buyerName": "Valeria Mapper",
+      "quantity": 3,
+      "price": 1500,
+      "total": 4500,
+      "id": 87414,
+      "createdAt": "2026-04-20T07:24:38.449Z"
+    },
+    {
+      "itemId": "776597",
+      "itemName": "Lingote de Adamantium",
+      "buyerId": "447240",
+      "buyerName": "Sofía Mapper",
+      "quantity": 4,
+      "price": 60000,
+      "total": 240000,
+      "id": 11098,
+      "createdAt": "2026-04-20T07:24:43.669Z"
+    },
+    {
+      "itemId": "871081",
+      "itemName": "Lingote de Adamantium",
+      "buyerId": "620936",
+      "buyerName": "Tomás Mapper",
+      "quantity": 6,
+      "price": 600,
+      "total": 3600,
+      "id": 687126,
+      "createdAt": "2026-04-20T07:24:54.356Z"
+    },
+    {
+      "itemId": "116486",
+      "itemName": "Elixir de Fuerza",
+      "buyerId": "620936",
+      "buyerName": "Tomás Mapper",
+      "quantity": 7,
+      "price": 300,
+      "total": 2100,
+      "id": 843113,
+      "createdAt": "2026-04-20T07:25:11.269Z"
+    },
+    {
+      "itemId": "903685",
+      "itemName": "Poción de Maná",
+      "buyerId": "447240",
+      "buyerName": "Sofía Mapper",
+      "quantity": 25,
+      "price": 120,
+      "total": 3000,
+      "id": 893924,
+      "createdAt": "2026-04-20T07:25:21.000Z"
+    },
+    {
+      "itemId": "835608",
+      "itemName": "Poción de Vida Mayor",
+      "buyerId": "447240",
+      "buyerName": "Sofía Mapper",
+      "quantity": 15,
+      "price": 150,
+      "total": 2250,
+      "id": 591370,
+      "createdAt": "2026-04-20T07:25:28.007Z"
+    },
+    {
+      "itemId": "805363",
+      "itemName": "Botas Aladas",
+      "buyerId": "294977",
+      "buyerName": "Mateo User",
+      "quantity": 1,
+      "price": 1000,
+      "total": 1000,
+      "id": 958852,
+      "createdAt": "2026-04-20T07:25:33.652Z"
+    },
+    {
+      "itemId": "805808",
+      "itemName": "Capa del Viento",
+      "buyerId": "988089",
+      "buyerName": "Valeria Mapper",
+      "quantity": 1,
+      "price": 850,
+      "total": 850,
+      "id": 191880,
+      "createdAt": "2026-04-20T07:25:37.440Z"
+    },
+    {
+      "itemId": "805808",
+      "itemName": "Capa del Viento",
+      "buyerId": "177644",
+      "buyerName": "Bruno User",
+      "quantity": 1,
+      "price": 850,
+      "total": 850,
+      "id": 673605,
+      "createdAt": "2026-04-20T07:25:40.379Z"
+    },
+    {
+      "itemId": "805808",
+      "itemName": "Capa del Viento",
+      "buyerId": "177644",
+      "buyerName": "Bruno User",
+      "quantity": 1,
+      "price": 850,
+      "total": 850,
+      "id": 35453,
+      "createdAt": "2026-04-20T07:25:43.689Z"
+    },
+    {
+      "itemId": "121655",
+      "itemName": "Anillo de Poder",
+      "buyerId": "294977",
+      "buyerName": "Mateo User",
+      "quantity": 2,
+      "price": 1800,
+      "total": 3600,
+      "id": 897606,
+      "createdAt": "2026-04-20T07:25:48.575Z"
+    },
+    {
+      "itemId": "973521",
+      "itemName": "Escudo de Acero",
+      "buyerId": "240999",
+      "buyerName": "Paula User",
+      "quantity": 1,
+      "price": 700,
+      "total": 700,
+      "id": 548721,
+      "createdAt": "2026-04-20T07:25:53.036Z"
+    },
+    {
+      "itemId": "973521",
+      "itemName": "Escudo de Acero",
+      "buyerId": "240999",
+      "buyerName": "Paula User",
+      "quantity": 1,
+      "price": 700,
+      "total": 700,
+      "id": 629350,
+      "createdAt": "2026-04-20T07:25:57.133Z"
+    },
+    {
+      "itemId": "973521",
+      "itemName": "Escudo de Acero",
+      "buyerId": "645672",
+      "buyerName": "Guild Storage A",
+      "quantity": 1,
+      "price": 700,
+      "total": 700,
+      "id": 123869,
+      "createdAt": "2026-04-20T07:26:02.011Z"
+    },
+    {
+      "itemId": "317833",
+      "itemName": "Casco de Guerra",
+      "buyerId": "461664",
+      "buyerName": "Lucía User",
+      "quantity": 1,
+      "price": 800,
+      "total": 800,
+      "id": 883613,
+      "createdAt": "2026-04-20T07:26:05.496Z"
+    },
+    {
+      "itemId": "317833",
+      "itemName": "Casco de Guerra",
+      "buyerId": "240999",
+      "buyerName": "Paula User",
+      "quantity": 1,
+      "price": 800,
+      "total": 800,
+      "id": 483582,
+      "createdAt": "2026-04-20T07:26:09.068Z"
+    },
+    {
+      "itemId": "317833",
+      "itemName": "Casco de Guerra",
+      "buyerId": "447240",
+      "buyerName": "Sofía Mapper",
+      "quantity": 1,
+      "price": 800,
+      "total": 800,
+      "id": 836414,
+      "createdAt": "2026-04-20T07:26:13.502Z"
+    },
+    {
+      "itemId": "629682",
+      "itemName": "Coraza de Mithril",
+      "buyerId": "676516",
+      "buyerName": "Guild Storage B",
+      "quantity": 1,
+      "price": 2100,
+      "total": 2100,
+      "id": 52849,
+      "createdAt": "2026-04-20T07:26:17.360Z"
+    },
+    {
+      "itemId": "121398",
+      "itemName": "Armadura de Dragón",
+      "buyerId": "457774",
+      "buyerName": "Camila User",
+      "quantity": 1,
+      "price": 2500,
+      "total": 2500,
+      "id": 454093,
+      "createdAt": "2026-04-20T07:26:21.680Z"
+    },
+    {
+      "itemId": "571872",
+      "itemName": "Daga de Obsidiana",
+      "buyerId": "457774",
+      "buyerName": "Camila User",
+      "quantity": 2,
+      "price": 900,
+      "total": 1800,
+      "id": 864545,
+      "createdAt": "2026-04-20T07:26:26.370Z"
+    },
+    {
+      "itemId": "751000",
+      "itemName": "Arco Élfico +5",
+      "buyerId": "676516",
+      "buyerName": "Guild Storage B",
+      "quantity": 1,
+      "price": 1200,
+      "total": 1200,
+      "id": 271790,
+      "createdAt": "2026-04-20T07:26:30.671Z"
+    },
+    {
+      "itemId": "320968",
+      "itemName": "Espada de Hielo +7",
+      "buyerId": "676516",
+      "buyerName": "Guild Storage B",
+      "quantity": 1,
+      "price": 1500,
+      "total": 1500,
+      "id": 623894,
+      "createdAt": "2026-04-20T07:26:35.273Z"
     }
   ],
   "auditLogs": [
@@ -1952,6 +2699,797 @@
       },
       "id": 172471,
       "createdAt": "2026-04-20T05:47:39.691Z"
+    },
+    {
+      "userId": 1,
+      "action": "CREATE_ITEM",
+      "itemName": "Lingote de Adamantium",
+      "detail": "Creó el ítem \"Lingote de Adamantium\" (1 unidad(es)) en categoría ARMADURA.",
+      "details": {
+        "itemName": "Lingote de Adamantium",
+        "category": "ARMADURA",
+        "quantity": 1
+      },
+      "createdAt": "2026-04-20T07:09:41.404Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 535913
+    },
+    {
+      "userId": 1,
+      "action": "ITEM_RESERVED",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "itemId": "878556",
+      "detail": "Reservó 1 unidad(es) del ítem #878556.",
+      "details": {
+        "itemId": 878556,
+        "quantity": 1,
+        "characterName": "Super Admin"
+      },
+      "createdAt": "2026-04-20T07:09:50.184Z",
+      "id": 238671
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "878556",
+      "itemName": "Lingote de Adamantium",
+      "detail": "Confirmó el ítem \"Lingote de Adamantium\".",
+      "details": {
+        "itemId": 878556,
+        "itemName": "Lingote de Adamantium"
+      },
+      "createdAt": "2026-04-20T07:10:02.771Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 908627
+    },
+    {
+      "userId": 1,
+      "itemId": "878556",
+      "itemName": "Lingote de Adamantium",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Lingote de Adamantium\" a Tomás Mapper. Total: $1,000,000.",
+      "details": {
+        "itemId": 878556,
+        "quantity": 1,
+        "buyerName": "Tomás Mapper",
+        "totalRevenue": 1000000
+      },
+      "createdAt": "2026-04-20T07:10:08.216Z",
+      "id": 989397
+    },
+    {
+      "userId": 1,
+      "action": "CYCLE_CLOSED",
+      "detail": "Cerró Ciclo #4 (DIARIO) con $1,000,000 recaudados y 1 venta(s).",
+      "details": {
+        "cycle": "Ciclo #4",
+        "totalRevenue": 1000000,
+        "sold": 1
+      },
+      "createdAt": "2026-04-20T07:12:03.749Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 681331
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "488461",
+      "itemName": "Guanteletes Rúnicos",
+      "detail": "Confirmó el ítem \"Guanteletes Rúnicos\".",
+      "details": {
+        "itemId": 488461,
+        "itemName": "Guanteletes Rúnicos"
+      },
+      "createdAt": "2026-04-20T07:16:47.571Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 107725
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "969759",
+      "itemName": "Guanteletes Rúnicos",
+      "detail": "Confirmó el ítem \"Guanteletes Rúnicos\".",
+      "details": {
+        "itemId": 969759,
+        "itemName": "Guanteletes Rúnicos"
+      },
+      "createdAt": "2026-04-20T07:16:48.054Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 987715
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "690389",
+      "itemName": "Guanteletes Rúnicos",
+      "detail": "Confirmó el ítem \"Guanteletes Rúnicos\".",
+      "details": {
+        "itemId": 690389,
+        "itemName": "Guanteletes Rúnicos"
+      },
+      "createdAt": "2026-04-20T07:16:48.445Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 592575
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "776597",
+      "itemName": "Lingote de Adamantium",
+      "detail": "Confirmó el ítem \"Lingote de Adamantium\".",
+      "details": {
+        "itemId": 776597,
+        "itemName": "Lingote de Adamantium"
+      },
+      "createdAt": "2026-04-20T07:16:48.899Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 548457
+    },
+    {
+      "userId": 1,
+      "action": "CREATE_ITEM",
+      "itemName": "Espada de Hielo +7",
+      "detail": "Creó el ítem \"Espada de Hielo +7\" (3 unidad(es)) en categoría ARMA.",
+      "details": {
+        "itemName": "Espada de Hielo +7",
+        "category": "ARMA",
+        "quantity": 3
+      },
+      "createdAt": "2026-04-20T07:22:57.586Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 153946
+    },
+    {
+      "userId": 1,
+      "itemId": "488461",
+      "itemName": "Guanteletes Rúnicos",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 3 unidad(es) de \"Guanteletes Rúnicos\" a Sofía Mapper. Total: $2,850.",
+      "details": {
+        "itemId": 488461,
+        "quantity": 3,
+        "buyerName": "Sofía Mapper",
+        "totalRevenue": 2850
+      },
+      "createdAt": "2026-04-20T07:24:05.402Z",
+      "id": 513112
+    },
+    {
+      "userId": 1,
+      "itemId": "969759",
+      "itemName": "Guanteletes Rúnicos",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 5 unidad(es) de \"Guanteletes Rúnicos\" a Bruno User. Total: $4,750.",
+      "details": {
+        "itemId": 969759,
+        "quantity": 5,
+        "buyerName": "Bruno User",
+        "totalRevenue": 4750
+      },
+      "createdAt": "2026-04-20T07:24:10.940Z",
+      "id": 874503
+    },
+    {
+      "userId": 1,
+      "itemId": "690389",
+      "itemName": "Guanteletes Rúnicos",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 3 unidad(es) de \"Guanteletes Rúnicos\" a Guild Storage B. Total: $2,850.",
+      "details": {
+        "itemId": 690389,
+        "quantity": 3,
+        "buyerName": "Guild Storage B",
+        "totalRevenue": 2850
+      },
+      "createdAt": "2026-04-20T07:24:18.546Z",
+      "id": 379067
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "670128",
+      "itemName": "Espada de Hielo +7",
+      "detail": "Confirmó el ítem \"Espada de Hielo +7\".",
+      "details": {
+        "itemId": 670128,
+        "itemName": "Espada de Hielo +7"
+      },
+      "createdAt": "2026-04-20T07:24:30.511Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 780547
+    },
+    {
+      "userId": 1,
+      "itemId": "670128",
+      "itemName": "Espada de Hielo +7",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 3 unidad(es) de \"Espada de Hielo +7\" a Valeria Mapper. Total: $4,500.",
+      "details": {
+        "itemId": 670128,
+        "quantity": 3,
+        "buyerName": "Valeria Mapper",
+        "totalRevenue": 4500
+      },
+      "createdAt": "2026-04-20T07:24:38.450Z",
+      "id": 326348
+    },
+    {
+      "userId": 1,
+      "itemId": "776597",
+      "itemName": "Lingote de Adamantium",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 4 unidad(es) de \"Lingote de Adamantium\" a Sofía Mapper. Total: $240,000.",
+      "details": {
+        "itemId": 776597,
+        "quantity": 4,
+        "buyerName": "Sofía Mapper",
+        "totalRevenue": 240000
+      },
+      "createdAt": "2026-04-20T07:24:43.670Z",
+      "id": 810816
+    },
+    {
+      "userId": 1,
+      "itemId": "871081",
+      "itemName": "Lingote de Adamantium",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 6 unidad(es) de \"Lingote de Adamantium\" a Tomás Mapper. Total: $3,600.",
+      "details": {
+        "itemId": 871081,
+        "quantity": 6,
+        "buyerName": "Tomás Mapper",
+        "totalRevenue": 3600
+      },
+      "createdAt": "2026-04-20T07:24:54.357Z",
+      "id": 258041
+    },
+    {
+      "userId": 1,
+      "itemId": "116486",
+      "itemName": "Elixir de Fuerza",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 7 unidad(es) de \"Elixir de Fuerza\" a Tomás Mapper. Total: $2,100.",
+      "details": {
+        "itemId": 116486,
+        "quantity": 7,
+        "buyerName": "Tomás Mapper",
+        "totalRevenue": 2100
+      },
+      "createdAt": "2026-04-20T07:25:11.270Z",
+      "id": 902391
+    },
+    {
+      "userId": 1,
+      "itemId": "903685",
+      "itemName": "Poción de Maná",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 25 unidad(es) de \"Poción de Maná\" a Sofía Mapper. Total: $3,000.",
+      "details": {
+        "itemId": 903685,
+        "quantity": 25,
+        "buyerName": "Sofía Mapper",
+        "totalRevenue": 3000
+      },
+      "createdAt": "2026-04-20T07:25:21.002Z",
+      "id": 406008
+    },
+    {
+      "userId": 1,
+      "itemId": "835608",
+      "itemName": "Poción de Vida Mayor",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 15 unidad(es) de \"Poción de Vida Mayor\" a Sofía Mapper. Total: $2,250.",
+      "details": {
+        "itemId": 835608,
+        "quantity": 15,
+        "buyerName": "Sofía Mapper",
+        "totalRevenue": 2250
+      },
+      "createdAt": "2026-04-20T07:25:28.009Z",
+      "id": 225389
+    },
+    {
+      "userId": 1,
+      "itemId": "805363",
+      "itemName": "Botas Aladas",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Botas Aladas\" a Mateo User. Total: $1,000.",
+      "details": {
+        "itemId": 805363,
+        "quantity": 1,
+        "buyerName": "Mateo User",
+        "totalRevenue": 1000
+      },
+      "createdAt": "2026-04-20T07:25:33.653Z",
+      "id": 794875
+    },
+    {
+      "userId": 1,
+      "itemId": "805808",
+      "itemName": "Capa del Viento",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Capa del Viento\" a Valeria Mapper. Total: $850.",
+      "details": {
+        "itemId": 805808,
+        "quantity": 1,
+        "buyerName": "Valeria Mapper",
+        "totalRevenue": 850
+      },
+      "createdAt": "2026-04-20T07:25:37.441Z",
+      "id": 770159
+    },
+    {
+      "userId": 1,
+      "itemId": "805808",
+      "itemName": "Capa del Viento",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Capa del Viento\" a Bruno User. Total: $850.",
+      "details": {
+        "itemId": 805808,
+        "quantity": 1,
+        "buyerName": "Bruno User",
+        "totalRevenue": 850
+      },
+      "createdAt": "2026-04-20T07:25:40.381Z",
+      "id": 456676
+    },
+    {
+      "userId": 1,
+      "itemId": "805808",
+      "itemName": "Capa del Viento",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Capa del Viento\" a Bruno User. Total: $850.",
+      "details": {
+        "itemId": 805808,
+        "quantity": 1,
+        "buyerName": "Bruno User",
+        "totalRevenue": 850
+      },
+      "createdAt": "2026-04-20T07:25:43.690Z",
+      "id": 205168
+    },
+    {
+      "userId": 1,
+      "itemId": "121655",
+      "itemName": "Anillo de Poder",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 2 unidad(es) de \"Anillo de Poder\" a Mateo User. Total: $3,600.",
+      "details": {
+        "itemId": 121655,
+        "quantity": 2,
+        "buyerName": "Mateo User",
+        "totalRevenue": 3600
+      },
+      "createdAt": "2026-04-20T07:25:48.576Z",
+      "id": 34476
+    },
+    {
+      "userId": 1,
+      "itemId": "973521",
+      "itemName": "Escudo de Acero",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Escudo de Acero\" a Paula User. Total: $700.",
+      "details": {
+        "itemId": 973521,
+        "quantity": 1,
+        "buyerName": "Paula User",
+        "totalRevenue": 700
+      },
+      "createdAt": "2026-04-20T07:25:53.037Z",
+      "id": 692655
+    },
+    {
+      "userId": 1,
+      "itemId": "973521",
+      "itemName": "Escudo de Acero",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Escudo de Acero\" a Paula User. Total: $700.",
+      "details": {
+        "itemId": 973521,
+        "quantity": 1,
+        "buyerName": "Paula User",
+        "totalRevenue": 700
+      },
+      "createdAt": "2026-04-20T07:25:57.134Z",
+      "id": 857779
+    },
+    {
+      "userId": 1,
+      "itemId": "973521",
+      "itemName": "Escudo de Acero",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Escudo de Acero\" a Guild Storage A. Total: $700.",
+      "details": {
+        "itemId": 973521,
+        "quantity": 1,
+        "buyerName": "Guild Storage A",
+        "totalRevenue": 700
+      },
+      "createdAt": "2026-04-20T07:26:02.012Z",
+      "id": 288115
+    },
+    {
+      "userId": 1,
+      "itemId": "317833",
+      "itemName": "Casco de Guerra",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Casco de Guerra\" a Lucía User. Total: $800.",
+      "details": {
+        "itemId": 317833,
+        "quantity": 1,
+        "buyerName": "Lucía User",
+        "totalRevenue": 800
+      },
+      "createdAt": "2026-04-20T07:26:05.497Z",
+      "id": 681274
+    },
+    {
+      "userId": 1,
+      "itemId": "317833",
+      "itemName": "Casco de Guerra",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Casco de Guerra\" a Paula User. Total: $800.",
+      "details": {
+        "itemId": 317833,
+        "quantity": 1,
+        "buyerName": "Paula User",
+        "totalRevenue": 800
+      },
+      "createdAt": "2026-04-20T07:26:09.069Z",
+      "id": 484050
+    },
+    {
+      "userId": 1,
+      "itemId": "317833",
+      "itemName": "Casco de Guerra",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Casco de Guerra\" a Sofía Mapper. Total: $800.",
+      "details": {
+        "itemId": 317833,
+        "quantity": 1,
+        "buyerName": "Sofía Mapper",
+        "totalRevenue": 800
+      },
+      "createdAt": "2026-04-20T07:26:13.503Z",
+      "id": 923005
+    },
+    {
+      "userId": 1,
+      "itemId": "629682",
+      "itemName": "Coraza de Mithril",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Coraza de Mithril\" a Guild Storage B. Total: $2,100.",
+      "details": {
+        "itemId": 629682,
+        "quantity": 1,
+        "buyerName": "Guild Storage B",
+        "totalRevenue": 2100
+      },
+      "createdAt": "2026-04-20T07:26:17.361Z",
+      "id": 616507
+    },
+    {
+      "userId": 1,
+      "itemId": "121398",
+      "itemName": "Armadura de Dragón",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Armadura de Dragón\" a Camila User. Total: $2,500.",
+      "details": {
+        "itemId": 121398,
+        "quantity": 1,
+        "buyerName": "Camila User",
+        "totalRevenue": 2500
+      },
+      "createdAt": "2026-04-20T07:26:21.682Z",
+      "id": 451509
+    },
+    {
+      "userId": 1,
+      "itemId": "571872",
+      "itemName": "Daga de Obsidiana",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 2 unidad(es) de \"Daga de Obsidiana\" a Camila User. Total: $1,800.",
+      "details": {
+        "itemId": 571872,
+        "quantity": 2,
+        "buyerName": "Camila User",
+        "totalRevenue": 1800
+      },
+      "createdAt": "2026-04-20T07:26:26.371Z",
+      "id": 409637
+    },
+    {
+      "userId": 1,
+      "itemId": "751000",
+      "itemName": "Arco Élfico +5",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Arco Élfico +5\" a Guild Storage B. Total: $1,200.",
+      "details": {
+        "itemId": 751000,
+        "quantity": 1,
+        "buyerName": "Guild Storage B",
+        "totalRevenue": 1200
+      },
+      "createdAt": "2026-04-20T07:26:30.672Z",
+      "id": 865269
+    },
+    {
+      "userId": 1,
+      "itemId": "320968",
+      "itemName": "Espada de Hielo +7",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "SOLD_ITEM",
+      "detail": "Vendió 1 unidad(es) de \"Espada de Hielo +7\" a Guild Storage B. Total: $1,500.",
+      "details": {
+        "itemId": 320968,
+        "quantity": 1,
+        "buyerName": "Guild Storage B",
+        "totalRevenue": 1500
+      },
+      "createdAt": "2026-04-20T07:26:35.274Z",
+      "id": 90792
+    },
+    {
+      "userId": 1,
+      "action": "CREATE_ITEM",
+      "itemName": "Espada de Hielo +7",
+      "detail": "Creó el ítem \"Espada de Hielo +7\" (3 unidad(es)) en categoría ARMA.",
+      "details": {
+        "itemName": "Espada de Hielo +7",
+        "category": "ARMA",
+        "quantity": 3
+      },
+      "createdAt": "2026-04-20T07:27:04.262Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 627822
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "349091",
+      "itemName": "Espada de Hielo +7",
+      "detail": "Confirmó el ítem \"Espada de Hielo +7\".",
+      "details": {
+        "itemId": 349091,
+        "itemName": "Espada de Hielo +7"
+      },
+      "createdAt": "2026-04-20T07:27:08.712Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 383333
+    },
+    {
+      "userId": 1,
+      "action": "ITEM_RESERVED",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "itemId": "349091",
+      "detail": "Reservó 2 unidad(es) del ítem #349091.",
+      "details": {
+        "itemId": 349091,
+        "quantity": 2,
+        "characterName": "Super Admin"
+      },
+      "createdAt": "2026-04-20T07:27:14.022Z",
+      "id": 510669
+    },
+    {
+      "userId": 1,
+      "action": "CYCLE_CLOSED",
+      "detail": "Cerró Ciclo #5 (SEMANAL) con $286,650 recaudados y 19 venta(s).",
+      "details": {
+        "cycle": "Ciclo #5",
+        "totalRevenue": 286650,
+        "sold": 19
+      },
+      "createdAt": "2026-04-20T07:34:44.775Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 339151
+    },
+    {
+      "userId": 1,
+      "action": "CREATE_ITEM",
+      "itemName": "weapon freya",
+      "detail": "Creó el ítem \"weapon freya\" (2 unidad(es)) en categoría ARMA.",
+      "details": {
+        "itemName": "weapon freya",
+        "category": "ARMA",
+        "quantity": 2
+      },
+      "createdAt": "2026-04-20T07:59:27.096Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 584766
+    },
+    {
+      "userId": 1,
+      "action": "CREATE_ITEM",
+      "itemName": "weapon freya",
+      "detail": "Creó el ítem \"weapon freya\" (3 unidad(es)) en categoría ARMA.",
+      "details": {
+        "itemName": "weapon freya",
+        "category": "ARMA",
+        "quantity": 3
+      },
+      "createdAt": "2026-04-20T08:08:30.857Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 670827
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "367027",
+      "itemName": "weapon freya",
+      "detail": "Confirmó el ítem \"weapon freya\".",
+      "details": {
+        "itemId": 367027,
+        "itemName": "weapon freya"
+      },
+      "createdAt": "2026-04-20T09:22:12.458Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 172833
+    },
+    {
+      "userId": 1,
+      "action": "CONFIRM_ITEM",
+      "itemId": "407938",
+      "itemName": "weapon freya",
+      "detail": "Confirmó el ítem \"weapon freya\".",
+      "details": {
+        "itemId": 407938,
+        "itemName": "weapon freya"
+      },
+      "createdAt": "2026-04-20T09:22:13.216Z",
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "id": 533111
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_FAILED",
+      "details": "Password incorrecta · intento 1/5 · IP=127.0.0.1",
+      "createdAt": "2026-04-20T11:40:21.873Z",
+      "id": 277092
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_FAILED",
+      "details": "Password incorrecta · intento 2/5 · IP=127.0.0.1",
+      "createdAt": "2026-04-20T11:40:30.990Z",
+      "id": 417345
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_FAILED",
+      "details": "Password incorrecta · intento 3/5 · IP=127.0.0.1",
+      "createdAt": "2026-04-20T11:40:39.003Z",
+      "id": 253197
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_FAILED",
+      "details": "Password incorrecta · intento 4/5 · IP=127.0.0.1",
+      "createdAt": "2026-04-20T11:40:48.772Z",
+      "id": 492728
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_FAILED",
+      "details": "Password incorrecta · intento 5/5 · IP=127.0.0.1",
+      "createdAt": "2026-04-20T11:40:56.444Z",
+      "id": 470691
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_BLOCKED",
+      "details": "Cuenta bloqueada — faltan ~15min · IP=127.0.0.1",
+      "createdAt": "2026-04-20T11:41:08.694Z",
+      "id": 68064
+    },
+    {
+      "userId": 895289,
+      "actorName": "Lucía Admin",
+      "actorRole": "user",
+      "action": "LOGIN_SUCCESS",
+      "details": "Login exitoso · IP=127.0.0.1 · UA=\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36; Devin/1.0; +devin.ai\"",
+      "createdAt": "2026-04-20T11:42:40.555Z",
+      "id": 702103
+    },
+    {
+      "userId": 895289,
+      "actorName": "Lucía Admin",
+      "actorRole": "user",
+      "action": "LOGIN_SUCCESS",
+      "details": "Login exitoso · IP=127.0.0.1 · UA=\"curl/7.81.0\"",
+      "createdAt": "2026-04-20T11:43:13.218Z",
+      "id": 133628
+    },
+    {
+      "userId": 895289,
+      "actorName": "Lucía Admin",
+      "actorRole": "user",
+      "action": "LOGIN_SUCCESS",
+      "details": "Login exitoso · IP=127.0.0.1 · UA=\"curl/7.81.0\"",
+      "createdAt": "2026-04-20T11:43:13.321Z",
+      "id": 122392
     }
   ],
   "images": [],
@@ -2055,7 +3593,7 @@
       "level": 80,
       "notes": "Boss Anakim nivel 80",
       "createdAt": "2026-04-11T08:25:58.967Z",
-      "updatedAt": "2026-04-11T08:25:58.967Z"
+      "updatedAt": "2026-04-20T07:18:53.226Z"
     },
     {
       "id": 700242,
@@ -2154,8 +3692,8 @@
       "name": "Valhalla",
       "tag": "VLH",
       "description": "Clan principal de asalto",
-      "totalRaidEarnings": 65931,
-      "currentCycleEarnings": 51065,
+      "totalRaidEarnings": 116996,
+      "currentCycleEarnings": 0,
       "createdAt": "2026-04-11T08:25:58.967Z",
       "updatedAt": "2026-04-11T08:25:58.967Z"
     },
@@ -2164,8 +3702,8 @@
       "name": "Shadow Wolves",
       "tag": "SHW",
       "description": "Clan de apoyo PvE",
-      "totalRaidEarnings": 18432,
-      "currentCycleEarnings": 24325,
+      "totalRaidEarnings": 44923,
+      "currentCycleEarnings": 0,
       "createdAt": "2026-04-11T08:25:58.967Z",
       "updatedAt": "2026-04-11T08:25:58.967Z"
     },
@@ -2174,8 +3712,8 @@
       "name": "Dragon Fangs",
       "tag": "DRF",
       "description": "Clan veterano top-tier",
-      "totalRaidEarnings": 41143,
-      "currentCycleEarnings": 66432,
+      "totalRaidEarnings": 107575,
+      "currentCycleEarnings": 22222,
       "createdAt": "2026-04-11T08:25:58.967Z",
       "updatedAt": "2026-04-11T08:25:58.967Z"
     },
@@ -2184,8 +3722,8 @@
       "name": "Iron Brigade",
       "tag": "IRB",
       "description": "Clan de tanques y curación",
-      "totalRaidEarnings": 22432,
-      "currentCycleEarnings": 61990,
+      "totalRaidEarnings": 86588,
+      "currentCycleEarnings": 0,
       "createdAt": "2026-04-11T08:25:58.967Z",
       "updatedAt": "2026-04-11T08:25:58.967Z"
     },
@@ -2194,8 +3732,8 @@
       "name": "Moon Archers",
       "tag": "MNA",
       "description": "Clan de arqueros y magos",
-      "totalRaidEarnings": 64224,
-      "currentCycleEarnings": 56581,
+      "totalRaidEarnings": 122971,
+      "currentCycleEarnings": 0,
       "createdAt": "2026-04-11T08:25:58.967Z",
       "updatedAt": "2026-04-11T08:25:58.967Z"
     }
@@ -2352,8 +3890,236 @@
       "id": 804047,
       "label": "Ciclo de Raids #2",
       "type": "DIARIO",
-      "status": "OPEN",
+      "status": "CLOSED",
       "startedAt": "2026-04-17T08:25:58.967Z",
+      "closedAt": "2026-04-20T07:19:56.345Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 21,
+      "totalEvents": 21,
+      "totalRevenue": 248600,
+      "clansParticipated": [
+        {
+          "clanId": 520200,
+          "clanName": "Valhalla",
+          "eventsParticipated": 10,
+          "revenueShare": 51065
+        },
+        {
+          "clanId": 255825,
+          "clanName": "Shadow Wolves",
+          "eventsParticipated": 4,
+          "revenueShare": 26491
+        },
+        {
+          "clanId": 768908,
+          "clanName": "Iron Brigade",
+          "eventsParticipated": 11,
+          "revenueShare": 64156
+        },
+        {
+          "clanId": 904483,
+          "clanName": "Dragon Fangs",
+          "eventsParticipated": 8,
+          "revenueShare": 66432
+        },
+        {
+          "clanId": 644722,
+          "clanName": "Moon Archers",
+          "eventsParticipated": 8,
+          "revenueShare": 58747
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 496574,
+          "bossName": "Antharas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+          "kills": 1
+        },
+        {
+          "bossId": 745786,
+          "bossName": "Valakas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/a/ab/Valakas.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 917315,
+          "bossName": "Baium",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5f/Baium.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 947459,
+          "bossName": "Queen Ant",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/4/48/Queen_Ant.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 967505,
+          "bossName": "Orfen",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/0/0d/Orfen.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 268951,
+          "bossName": "Core",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 852750,
+          "bossName": "Frintezza",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+          "kills": 2
+        },
+        {
+          "bossId": 309846,
+          "bossName": "Zaken",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 751364,
+          "bossName": "Lilith",
+          "officialImageUrl": "https://picsum.photos/seed/lilith/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 891773,
+          "bossName": "Anakim",
+          "officialImageUrl": "https://picsum.photos/seed/anakim/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 700242,
+          "bossName": "Beleth",
+          "officialImageUrl": "https://picsum.photos/seed/beleth/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 733888,
+          "bossName": "Tauti",
+          "officialImageUrl": "https://picsum.photos/seed/tauti/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 197800,
+          "bossName": "Octavis",
+          "officialImageUrl": "https://picsum.photos/seed/octavis/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 518809,
+          "bossName": "Istina",
+          "officialImageUrl": "https://picsum.photos/seed/istina/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 834472,
+          "bossName": "Balok",
+          "officialImageUrl": "https://picsum.photos/seed/balok/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 560547,
+          "bossName": "Ekimus",
+          "officialImageUrl": "https://picsum.photos/seed/ekimus/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 643918,
+          "bossName": "Freya",
+          "officialImageUrl": "https://picsum.photos/seed/freya/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 435375,
+          "bossName": "Trasken",
+          "officialImageUrl": "https://picsum.photos/seed/trasken/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 408386,
+          "bossName": "Spezion",
+          "officialImageUrl": "https://picsum.photos/seed/spezion/400/400",
+          "kills": 1
+        },
+        {
+          "bossId": 444867,
+          "bossName": "Kelbim",
+          "officialImageUrl": "https://picsum.photos/seed/kelbim/400/400",
+          "kills": 1
+        }
+      ],
+      "summary": {
+        "events": 21,
+        "drops": 51,
+        "bosses": 21,
+        "clans": 5,
+        "totalRevenue": 248600,
+        "totalPotentialValue": 1291200
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T08:25:58.967Z",
+      "updatedAt": "2026-04-20T07:19:56.345Z"
+    },
+    {
+      "id": 845263045,
+      "label": "Ciclo de Raids #3",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-20T07:20:32.234Z",
+      "closedAt": "2026-04-20T07:21:03.237Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 2,
+      "totalEvents": 2,
+      "totalRevenue": 0,
+      "clansParticipated": [
+        {
+          "clanId": 768908,
+          "clanName": "Iron Brigade",
+          "eventsParticipated": 2,
+          "revenueShare": 0
+        },
+        {
+          "clanId": 644722,
+          "clanName": "Moon Archers",
+          "eventsParticipated": 1,
+          "revenueShare": 0
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 268951,
+          "bossName": "Core",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+          "kills": 1
+        },
+        {
+          "bossId": 852750,
+          "bossName": "Frintezza",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+          "kills": 1
+        }
+      ],
+      "summary": {
+        "events": 2,
+        "drops": 2,
+        "bosses": 2,
+        "clans": 2,
+        "totalRevenue": 0,
+        "totalPotentialValue": 1001800
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-20T07:20:32.234Z",
+      "updatedAt": "2026-04-20T07:21:03.237Z"
+    },
+    {
+      "id": 43254446,
+      "label": "Ciclo de Raids #4",
+      "type": "DIARIO",
+      "status": "OPEN",
+      "startedAt": "2026-04-20T08:03:08.307Z",
       "closedAt": null,
       "closedBy": null,
       "totalBosses": 0,
@@ -2363,8 +4129,8 @@
       "bossesKilled": [],
       "summary": null,
       "createdBy": 1,
-      "createdAt": "2026-04-17T08:25:58.967Z",
-      "updatedAt": "2026-04-17T08:25:58.967Z"
+      "createdAt": "2026-04-20T08:03:08.307Z",
+      "updatedAt": "2026-04-20T08:03:08.307Z"
     }
   ],
   "raidEvents": [
@@ -2717,6 +4483,56 @@
       "notes": "Evento 20: Kelbim caído con 2 clan(es)",
       "createdAt": "2026-04-18T04:25:58.968Z",
       "updatedAt": "2026-04-18T04:25:58.968Z"
+    },
+    {
+      "id": 264561814,
+      "raidBossId": 852750,
+      "cycleId": 804047,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-20T07:04:51.538Z",
+      "updatedAt": "2026-04-20T07:04:51.538Z"
+    },
+    {
+      "id": 562722977,
+      "raidBossId": 268951,
+      "cycleId": 845263045,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": "asdas",
+      "createdAt": "2026-04-20T07:20:42.764Z",
+      "updatedAt": "2026-04-20T07:20:42.764Z"
+    },
+    {
+      "id": 89130631,
+      "raidBossId": 852750,
+      "cycleId": 845263045,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-20T07:20:56.017Z",
+      "updatedAt": "2026-04-20T07:20:56.017Z"
+    },
+    {
+      "id": 299004461,
+      "raidBossId": 891773,
+      "cycleId": 43254446,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-20T08:35:54.315Z",
+      "updatedAt": "2026-04-20T08:35:54.315Z"
+    },
+    {
+      "id": 999773686,
+      "raidBossId": 834472,
+      "cycleId": 43254446,
+      "evidenceImageUrl": null,
+      "reportedByUserId": 1,
+      "notes": null,
+      "createdAt": "2026-04-20T09:59:11.610Z",
+      "updatedAt": "2026-04-20T09:59:11.610Z"
     }
   ],
   "raidEventClans": [
@@ -3133,6 +4949,72 @@
       "eventId": 828494,
       "clanId": 768908,
       "createdAt": "2026-04-18T04:25:58.968Z"
+    },
+    {
+      "id": 778168901,
+      "eventId": 264561814,
+      "clanId": 904483,
+      "createdAt": "2026-04-20T07:04:51.538Z"
+    },
+    {
+      "id": 370033966,
+      "eventId": 264561814,
+      "clanId": 520200,
+      "createdAt": "2026-04-20T07:04:51.538Z"
+    },
+    {
+      "id": 469673406,
+      "eventId": 562722977,
+      "clanId": 768908,
+      "createdAt": "2026-04-20T07:20:42.764Z"
+    },
+    {
+      "id": 772148536,
+      "eventId": 89130631,
+      "clanId": 768908,
+      "createdAt": "2026-04-20T07:20:56.017Z"
+    },
+    {
+      "id": 454624858,
+      "eventId": 89130631,
+      "clanId": 644722,
+      "createdAt": "2026-04-20T07:20:56.017Z"
+    },
+    {
+      "id": 73530608,
+      "eventId": 299004461,
+      "clanId": 904483,
+      "createdAt": "2026-04-20T08:35:54.315Z"
+    },
+    {
+      "id": 52815660,
+      "eventId": 999773686,
+      "clanId": 768908,
+      "createdAt": "2026-04-20T09:59:11.610Z"
+    },
+    {
+      "id": 629772320,
+      "eventId": 999773686,
+      "clanId": 644722,
+      "createdAt": "2026-04-20T09:59:11.610Z"
+    },
+    {
+      "id": 1299675,
+      "eventId": 999773686,
+      "clanId": 255825,
+      "createdAt": "2026-04-20T09:59:11.610Z"
+    },
+    {
+      "id": 830956608,
+      "eventId": 999773686,
+      "clanId": 520200,
+      "createdAt": "2026-04-20T09:59:11.610Z"
+    },
+    {
+      "id": 632658750,
+      "eventId": 999773686,
+      "clanId": 904483,
+      "createdAt": "2026-04-20T09:59:11.610Z"
     }
   ],
   "raidDropItems": [
@@ -3562,10 +5444,10 @@
       "category": "ARMADURA",
       "price": 6500,
       "quantity": 3,
-      "quantitySold": 2,
-      "quantitySoldInCycle": 0,
+      "quantitySold": 3,
+      "quantitySoldInCycle": 1,
       "imageUrl": "https://picsum.photos/seed/imperial-crusader-0/300/300",
-      "status": "EN_REGISTRO",
+      "status": "VENDIDO",
       "associatedClanIds": [
         255825,
         768908,
@@ -3573,7 +5455,7 @@
       ],
       "reportedByUserId": 876147,
       "createdAt": "2026-04-14T17:25:58.967Z",
-      "updatedAt": "2026-04-14T17:25:58.967Z"
+      "updatedAt": "2026-04-20T07:07:10.199Z"
     },
     {
       "id": 696201,
@@ -3904,7 +5786,7 @@
       "price": 600,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/forgotten-scroll-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -3924,7 +5806,7 @@
       "price": 5200,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/vorpal-leather-0/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -3945,7 +5827,7 @@
       "price": 7800,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/infinity-wing-1/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -3966,7 +5848,7 @@
       "price": 5200,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/vorpal-leather-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -3988,7 +5870,7 @@
       "price": 450,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/top-grade-life-stone-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4010,7 +5892,7 @@
       "price": 150,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/valakas-fragment-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4032,7 +5914,7 @@
       "price": 1800,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/recipe%3A-vesper-boots-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4052,7 +5934,7 @@
       "price": 6300,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/major-arcana-robe-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4072,7 +5954,7 @@
       "price": 3800,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/baium-ring-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4092,7 +5974,7 @@
       "price": 900,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-lair-key-3/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4112,7 +5994,7 @@
       "price": 6500,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/imperial-crusader-0/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4133,7 +6015,7 @@
       "price": 5000,
       "quantity": 3,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/valakas-necklace-0/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4155,7 +6037,7 @@
       "price": 6300,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/major-arcana-robe-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4177,7 +6059,7 @@
       "price": 4500,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-earring-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4197,7 +6079,7 @@
       "price": 5200,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/vorpal-leather-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4217,7 +6099,7 @@
       "price": 5000,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/dynasty-breastplate-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4237,7 +6119,7 @@
       "price": 6900,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/vesper-retributer-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4258,7 +6140,7 @@
       "price": 350,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/blessed-enchant-armor-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4279,7 +6161,7 @@
       "price": 900,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-2/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4300,7 +6182,7 @@
       "price": 1100,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/core-ring-3/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4321,7 +6203,7 @@
       "price": 2200,
       "quantity": 3,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/zaken-earring-0/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4343,7 +6225,7 @@
       "price": 350,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/blessed-enchant-armor-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4363,7 +6245,7 @@
       "price": 4200,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/frintezza-necklace-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4383,7 +6265,7 @@
       "price": 150,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/valakas-fragment-0/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4404,7 +6286,7 @@
       "price": 6500,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/imperial-crusader-1/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4425,7 +6307,7 @@
       "price": 1500,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/orfen-earring-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4446,7 +6328,7 @@
       "price": 5600,
       "quantity": 3,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/icarus-hammer-0/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4468,7 +6350,7 @@
       "price": 1800,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/recipe%3A-vesper-boots-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4490,7 +6372,7 @@
       "price": 6300,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/major-arcana-robe-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4512,7 +6394,7 @@
       "price": 900,
       "quantity": 3,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-lair-key-3/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4534,7 +6416,7 @@
       "price": 3800,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/baium-ring-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4554,7 +6436,7 @@
       "price": 600,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/forgotten-scroll-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4575,7 +6457,7 @@
       "price": 900,
       "quantity": 2,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-lair-key-1/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4596,7 +6478,7 @@
       "price": 4200,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/frintezza-necklace-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4618,7 +6500,7 @@
       "price": 600,
       "quantity": 3,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/forgotten-scroll-1/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4640,7 +6522,7 @@
       "price": 350,
       "quantity": 3,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/blessed-enchant-armor-2/300/300",
       "status": "EN_REGISTRO",
       "associatedClanIds": [
@@ -4662,7 +6544,7 @@
       "price": 900,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4682,7 +6564,7 @@
       "price": 4200,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/frintezza-necklace-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4702,7 +6584,7 @@
       "price": 350,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/blessed-enchant-armor-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4722,7 +6604,7 @@
       "price": 7200,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/elegia-bow-3/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4742,7 +6624,7 @@
       "price": 7200,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/elegia-bow-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4763,7 +6645,7 @@
       "price": 4500,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-earring-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4785,7 +6667,7 @@
       "price": 900,
       "quantity": 3,
       "quantitySold": 3,
-      "quantitySoldInCycle": 3,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-lair-key-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4807,7 +6689,7 @@
       "price": 1200,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/queen-ant-ring-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4827,7 +6709,7 @@
       "price": 450,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/top-grade-life-stone-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4847,7 +6729,7 @@
       "price": 4500,
       "quantity": 1,
       "quantitySold": 1,
-      "quantitySoldInCycle": 1,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/antharas-earring-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4867,7 +6749,7 @@
       "price": 2200,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/recipe%3A-dynasty-sword-0/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4888,7 +6770,7 @@
       "price": 1800,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/recipe%3A-vesper-boots-1/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4909,7 +6791,7 @@
       "price": 1100,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/core-ring-2/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4930,7 +6812,7 @@
       "price": 600,
       "quantity": 2,
       "quantitySold": 2,
-      "quantitySoldInCycle": 2,
+      "quantitySoldInCycle": 0,
       "imageUrl": "https://picsum.photos/seed/forgotten-scroll-3/300/300",
       "status": "VENDIDO",
       "associatedClanIds": [
@@ -4940,6 +6822,112 @@
       "reportedByUserId": 639001,
       "createdAt": "2026-04-18T04:28:58.968Z",
       "updatedAt": "2026-04-18T04:28:58.968Z"
+    },
+    {
+      "id": 694041276,
+      "eventId": 264561814,
+      "raidBossId": 852750,
+      "cycleId": 804047,
+      "name": "Draconic Leather Armor",
+      "category": "ARMADURA",
+      "price": 1000000,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/draconic-leather-armor-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        904483,
+        520200
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-20T07:04:51.538Z",
+      "updatedAt": "2026-04-20T07:04:51.538Z"
+    },
+    {
+      "id": 291310386,
+      "eventId": 562722977,
+      "raidBossId": 268951,
+      "cycleId": 845263045,
+      "name": "Draconic Leather Armor",
+      "category": "ARMADURA",
+      "price": 1000000,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/draconic-leather-armor-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        768908
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-20T07:20:42.764Z",
+      "updatedAt": "2026-04-20T07:20:42.764Z"
+    },
+    {
+      "id": 284177904,
+      "eventId": 89130631,
+      "raidBossId": 852750,
+      "cycleId": 845263045,
+      "name": "Blessed Enchant Weapon",
+      "category": "MATERIALES",
+      "price": 900,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://picsum.photos/seed/blessed-enchant-weapon-0/300/300",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        768908,
+        644722
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-20T07:20:56.017Z",
+      "updatedAt": "2026-04-20T07:20:56.017Z"
+    },
+    {
+      "id": 751559866,
+      "eventId": 299004461,
+      "raidBossId": 891773,
+      "cycleId": 43254446,
+      "name": "weapon freya",
+      "category": "ARMA",
+      "price": 11111,
+      "quantity": 2,
+      "quantitySold": 2,
+      "quantitySoldInCycle": 2,
+      "imageUrl": "https://www.kindpng.com/picc/m/540-5409923_weapons-freya-lineage-2-weapon-icon-hd-png.png",
+      "status": "VENDIDO",
+      "associatedClanIds": [
+        904483
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-20T08:35:54.315Z",
+      "updatedAt": "2026-04-20T08:38:21.349Z"
+    },
+    {
+      "id": 852285204,
+      "eventId": 999773686,
+      "raidBossId": 834472,
+      "cycleId": 43254446,
+      "name": "Draconic Leather Armor",
+      "category": "ARMA",
+      "price": 1000000,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "imageUrl": "https://www.kindpng.com/picc/m/540-5409923_weapons-freya-lineage-2-weapon-icon-hd-png.png",
+      "status": "EN_REGISTRO",
+      "associatedClanIds": [
+        768908,
+        644722,
+        255825,
+        520200,
+        904483
+      ],
+      "reportedByUserId": 1,
+      "createdAt": "2026-04-20T09:59:11.610Z",
+      "updatedAt": "2026-04-20T09:59:11.610Z"
     }
   ],
   "userRaidAccess": [
@@ -5206,11 +7194,765 @@
         ]
       },
       "createdAt": "2026-04-20T02:48:46.268Z"
+    },
+    {
+      "id": 195590604,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 264561814,
+        "bossId": 852750,
+        "bossName": "Frintezza",
+        "clanIds": [
+          904483,
+          520200
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-20T07:04:51.538Z"
+    },
+    {
+      "id": 175864924,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 821142,
+        "itemName": "Imperial Crusader",
+        "quantitySold": 1,
+        "revenue": 6500,
+        "clansShared": [
+          255825,
+          768908,
+          644722
+        ],
+        "buyerId": 758297,
+        "buyerName": "Mateo Admin",
+        "reservationsSnapshot": [
+          {
+            "userId": 876147,
+            "userName": "Tomás Mapper",
+            "characterName": "Tomás Mapper",
+            "quantity": 1,
+            "createdAt": "2026-04-20T01:02:53.888Z"
+          }
+        ]
+      },
+      "createdAt": "2026-04-20T07:07:10.202Z"
+    },
+    {
+      "id": 417092618,
+      "userId": 1,
+      "action": "RAID_BOSS_UPDATED",
+      "details": {
+        "bossId": 891773,
+        "changes": {
+          "name": "Anakim",
+          "officialImageUrl": "https://picsum.photos/seed/anakim/400/400",
+          "level": 80,
+          "notes": "Boss Anakim nivel 80"
+        }
+      },
+      "createdAt": "2026-04-20T07:18:53.227Z"
+    },
+    {
+      "id": 477833047,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 804047,
+        "label": "Ciclo de Raids #2",
+        "events": 21,
+        "drops": 51,
+        "bosses": 21,
+        "clans": 5,
+        "totalRevenue": 248600,
+        "totalPotentialValue": 1291200
+      },
+      "createdAt": "2026-04-20T07:19:56.346Z"
+    },
+    {
+      "id": 767527219,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 845263045,
+        "label": "Ciclo de Raids #3"
+      },
+      "createdAt": "2026-04-20T07:20:32.235Z"
+    },
+    {
+      "id": 500954818,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 562722977,
+        "bossId": 268951,
+        "bossName": "Core",
+        "clanIds": [
+          768908
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-20T07:20:42.765Z"
+    },
+    {
+      "id": 97431328,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 89130631,
+        "bossId": 852750,
+        "bossName": "Frintezza",
+        "clanIds": [
+          768908,
+          644722
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-20T07:20:56.018Z"
+    },
+    {
+      "id": 330778081,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 845263045,
+        "label": "Ciclo de Raids #3",
+        "events": 2,
+        "drops": 2,
+        "bosses": 2,
+        "clans": 2,
+        "totalRevenue": 0,
+        "totalPotentialValue": 1001800
+      },
+      "createdAt": "2026-04-20T07:21:03.238Z"
+    },
+    {
+      "id": 254892060,
+      "userId": 1,
+      "action": "RAID_CATEGORY_ICON_SET",
+      "details": {
+        "category": "ARMA"
+      },
+      "createdAt": "2026-04-20T07:59:09.436Z"
+    },
+    {
+      "id": 41928914,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 43254446,
+        "label": "Ciclo de Raids #4"
+      },
+      "createdAt": "2026-04-20T08:03:08.309Z"
+    },
+    {
+      "id": 142145212,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 299004461,
+        "bossId": 891773,
+        "bossName": "Anakim",
+        "clanIds": [
+          904483
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-20T08:35:54.317Z"
+    },
+    {
+      "id": 612633827,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 751559866,
+        "itemName": "weapon freya",
+        "quantitySold": 1,
+        "revenue": 11111,
+        "clansShared": [
+          904483
+        ],
+        "buyerId": 895289,
+        "buyerName": "Lucía Admin",
+        "reservationsSnapshot": []
+      },
+      "createdAt": "2026-04-20T08:38:12.963Z"
+    },
+    {
+      "id": 22618968,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 751559866,
+        "itemName": "weapon freya",
+        "quantitySold": 1,
+        "revenue": 11111,
+        "clansShared": [
+          904483
+        ],
+        "buyerId": 758297,
+        "buyerName": "Mateo Admin",
+        "reservationsSnapshot": []
+      },
+      "createdAt": "2026-04-20T08:38:21.352Z"
+    },
+    {
+      "id": 29426292,
+      "userId": 1,
+      "action": "RAID_DROP_RESERVED",
+      "details": {
+        "dropItemId": 284177904,
+        "itemName": "Blessed Enchant Weapon",
+        "quantity": 1,
+        "characterName": "Super Admin"
+      },
+      "createdAt": "2026-04-20T08:55:04.700Z"
+    },
+    {
+      "id": 882300848,
+      "userId": 1,
+      "action": "RAID_SALES_CYCLE_CLOSED",
+      "details": {
+        "salesCycleId": 631786964,
+        "label": "Ciclo de Ventas #1 · desde 14-abr",
+        "startedAt": "2026-04-14T08:25:58.967Z",
+        "closedAt": "2026-04-20T09:33:48.729Z",
+        "totalRevenue": 53722,
+        "totalUnitsSold": 10,
+        "totalItemsUnsold": 32,
+        "clansCount": 0,
+        "raidCyclesClosed": 3
+      },
+      "createdAt": "2026-04-20T09:33:48.730Z"
+    },
+    {
+      "id": 348740093,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 999773686,
+        "bossId": 834472,
+        "bossName": "Balok",
+        "clanIds": [
+          768908,
+          644722,
+          255825,
+          520200,
+          904483
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-20T09:59:11.611Z"
     }
   ],
   "raidSettings": [],
-  "raidCategoryIcons": [],
-  "raidSalesCycles": [],
+  "raidCategoryIcons": [
+    {
+      "id": 213497837,
+      "category": "ARMA",
+      "imageUrl": "https://www.kindpng.com/picc/m/540-5409923_weapons-freya-lineage-2-weapon-icon-hd-png.png",
+      "updatedAt": "2026-04-20T07:59:09.435Z"
+    }
+  ],
+  "raidSalesCycles": [
+    {
+      "id": 631786964,
+      "label": "Ciclo de Ventas #1 · desde 14-abr",
+      "status": "CLOSED",
+      "startedAt": "2026-04-14T08:25:58.967Z",
+      "closedAt": "2026-04-20T09:33:48.729Z",
+      "closedBy": "Super Admin",
+      "createdBy": 1,
+      "summary": {
+        "range": {
+          "startedAt": "2026-04-14T08:25:58.967Z",
+          "endAt": "2026-04-20T09:33:48.729Z"
+        },
+        "totals": {
+          "totalRevenue": 53722,
+          "totalUnitsSold": 10,
+          "totalSalesCount": 10,
+          "totalDropsInRange": 90,
+          "totalItemsSold": 58,
+          "totalItemsPartiallySold": 26,
+          "totalItemsUnsold": 32,
+          "totalEventsInRange": 39,
+          "potentialRemaining": 2170720
+        },
+        "clansParticipated": [],
+        "topBosses": [],
+        "topBuyers": [
+          {
+            "buyerName": "Mateo Admin",
+            "revenue": 19811,
+            "units": 3
+          },
+          {
+            "buyerName": "Diego Usuario",
+            "revenue": 12900,
+            "units": 3
+          },
+          {
+            "buyerName": "Lucía Admin",
+            "revenue": 11111,
+            "units": 1
+          },
+          {
+            "buyerName": "Tomás Mapper",
+            "revenue": 9900,
+            "units": 3
+          }
+        ],
+        "unsoldItems": [
+          {
+            "dropItemId": 694041276,
+            "itemName": "Draconic Leather Armor",
+            "category": "ARMADURA",
+            "price": 1000000,
+            "quantity": 1,
+            "quantitySold": 0,
+            "remainingQty": 1,
+            "potentialRevenue": 1000000,
+            "bossName": "Frintezza",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+            "eventCreatedAt": "2026-04-20T07:04:51.538Z"
+          },
+          {
+            "dropItemId": 291310386,
+            "itemName": "Draconic Leather Armor",
+            "category": "ARMADURA",
+            "price": 1000000,
+            "quantity": 1,
+            "quantitySold": 0,
+            "remainingQty": 1,
+            "potentialRevenue": 1000000,
+            "bossName": "Core",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+            "eventCreatedAt": "2026-04-20T07:20:42.764Z"
+          },
+          {
+            "dropItemId": 692663,
+            "itemName": "Vesper Retributer",
+            "category": "ARMA",
+            "price": 6900,
+            "quantity": 5,
+            "quantitySold": 0,
+            "remainingQty": 5,
+            "potentialRevenue": 34500,
+            "bossName": "Orfen",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/0/0d/Orfen.jpg",
+            "eventCreatedAt": "2026-04-14T13:25:58.967Z"
+          },
+          {
+            "dropItemId": 954347,
+            "itemName": "Antharas Earring",
+            "category": "JOYA",
+            "price": 4500,
+            "quantity": 5,
+            "quantitySold": 0,
+            "remainingQty": 5,
+            "potentialRevenue": 22500,
+            "bossName": "Core",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+            "eventCreatedAt": "2026-04-14T14:25:58.967Z"
+          },
+          {
+            "dropItemId": 107342,
+            "itemName": "Antharas Earring",
+            "category": "JOYA",
+            "price": 4500,
+            "quantity": 3,
+            "quantitySold": 0,
+            "remainingQty": 3,
+            "potentialRevenue": 13500,
+            "bossName": "Baium",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5f/Baium.jpg",
+            "eventCreatedAt": "2026-04-14T11:25:58.967Z"
+          },
+          {
+            "dropItemId": 276557,
+            "itemName": "Infinity Wing",
+            "category": "ARMA",
+            "price": 7800,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 7800,
+            "bossName": "Tauti",
+            "bossImageUrl": "https://picsum.photos/seed/tauti/400/400",
+            "eventCreatedAt": "2026-04-14T20:25:58.968Z"
+          },
+          {
+            "dropItemId": 899204,
+            "itemName": "Infinity Wing",
+            "category": "ARMA",
+            "price": 7800,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 7800,
+            "bossName": "Valakas",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/a/ab/Valakas.jpg",
+            "eventCreatedAt": "2026-04-17T10:25:58.968Z"
+          },
+          {
+            "dropItemId": 168126,
+            "itemName": "Elegia Bow",
+            "category": "ARMA",
+            "price": 7200,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 7200,
+            "bossName": "Core",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+            "eventCreatedAt": "2026-04-14T14:25:58.967Z"
+          },
+          {
+            "dropItemId": 124210,
+            "itemName": "Elegia Bow",
+            "category": "ARMA",
+            "price": 7200,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 7200,
+            "bossName": "Beleth",
+            "bossImageUrl": "https://picsum.photos/seed/beleth/400/400",
+            "eventCreatedAt": "2026-04-14T19:25:58.967Z"
+          },
+          {
+            "dropItemId": 945277,
+            "itemName": "Draconic Leather Armor",
+            "category": "ARMADURA",
+            "price": 6800,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 6800,
+            "bossName": "Tauti",
+            "bossImageUrl": "https://picsum.photos/seed/tauti/400/400",
+            "eventCreatedAt": "2026-04-14T20:25:58.968Z"
+          },
+          {
+            "dropItemId": 307563,
+            "itemName": "Imperial Crusader",
+            "category": "ARMADURA",
+            "price": 6500,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 6500,
+            "bossName": "Orfen",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/0/0d/Orfen.jpg",
+            "eventCreatedAt": "2026-04-17T13:25:58.968Z"
+          },
+          {
+            "dropItemId": 834511,
+            "itemName": "Imperial Crusader",
+            "category": "ARMADURA",
+            "price": 6500,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 6500,
+            "bossName": "Beleth",
+            "bossImageUrl": "https://picsum.photos/seed/beleth/400/400",
+            "eventCreatedAt": "2026-04-17T19:25:58.968Z"
+          },
+          {
+            "dropItemId": 959970,
+            "itemName": "Icarus Hammer",
+            "category": "ARMA",
+            "price": 5600,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 5600,
+            "bossName": "Tauti",
+            "bossImageUrl": "https://picsum.photos/seed/tauti/400/400",
+            "eventCreatedAt": "2026-04-17T20:25:58.968Z"
+          },
+          {
+            "dropItemId": 173924,
+            "itemName": "Vorpal Leather",
+            "category": "ARMADURA",
+            "price": 5200,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 5200,
+            "bossName": "Tauti",
+            "bossImageUrl": "https://picsum.photos/seed/tauti/400/400",
+            "eventCreatedAt": "2026-04-14T20:25:58.968Z"
+          },
+          {
+            "dropItemId": 940095,
+            "itemName": "Vorpal Leather",
+            "category": "ARMADURA",
+            "price": 5200,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 5200,
+            "bossName": "Valakas",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/a/ab/Valakas.jpg",
+            "eventCreatedAt": "2026-04-17T10:25:58.968Z"
+          },
+          {
+            "dropItemId": 367329,
+            "itemName": "Dynasty Breastplate",
+            "category": "ARMADURA",
+            "price": 5000,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 5000,
+            "bossName": "Beleth",
+            "bossImageUrl": "https://picsum.photos/seed/beleth/400/400",
+            "eventCreatedAt": "2026-04-14T19:25:58.967Z"
+          },
+          {
+            "dropItemId": 875320,
+            "itemName": "Dynasty Breastplate",
+            "category": "ARMADURA",
+            "price": 5000,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 5000,
+            "bossName": "Balok",
+            "bossImageUrl": "https://picsum.photos/seed/balok/400/400",
+            "eventCreatedAt": "2026-04-14T23:25:58.968Z"
+          },
+          {
+            "dropItemId": 210193,
+            "itemName": "Valakas Necklace",
+            "category": "JOYA",
+            "price": 5000,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 5000,
+            "bossName": "Core",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e2/Core.jpg",
+            "eventCreatedAt": "2026-04-17T14:25:58.968Z"
+          },
+          {
+            "dropItemId": 714565,
+            "itemName": "Antharas Earring",
+            "category": "JOYA",
+            "price": 4500,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 4500,
+            "bossName": "Zaken",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+            "eventCreatedAt": "2026-04-14T16:25:58.967Z"
+          },
+          {
+            "dropItemId": 777238,
+            "itemName": "Frintezza Necklace",
+            "category": "JOYA",
+            "price": 4200,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 4200,
+            "bossName": "Beleth",
+            "bossImageUrl": "https://picsum.photos/seed/beleth/400/400",
+            "eventCreatedAt": "2026-04-14T19:25:58.967Z"
+          },
+          {
+            "dropItemId": 583544,
+            "itemName": "Zaken Earring",
+            "category": "JOYA",
+            "price": 2200,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 2200,
+            "bossName": "Lilith",
+            "bossImageUrl": "https://picsum.photos/seed/lilith/400/400",
+            "eventCreatedAt": "2026-04-17T17:25:58.968Z"
+          },
+          {
+            "dropItemId": 668687,
+            "itemName": "Recipe: Vesper Boots",
+            "category": "RECIPE",
+            "price": 1800,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 1800,
+            "bossName": "Istina",
+            "bossImageUrl": "https://picsum.photos/seed/istina/400/400",
+            "eventCreatedAt": "2026-04-14T22:25:58.968Z"
+          },
+          {
+            "dropItemId": 284177904,
+            "itemName": "Blessed Enchant Weapon",
+            "category": "MATERIALES",
+            "price": 900,
+            "quantity": 2,
+            "quantitySold": 0,
+            "remainingQty": 2,
+            "potentialRevenue": 1800,
+            "bossName": "Frintezza",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/5/5a/Frintezza.jpg",
+            "eventCreatedAt": "2026-04-20T07:20:56.017Z"
+          },
+          {
+            "dropItemId": 686168,
+            "itemName": "Blessed Enchant Weapon",
+            "category": "MATERIALES",
+            "price": 900,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 900,
+            "bossName": "Zaken",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+            "eventCreatedAt": "2026-04-14T16:25:58.967Z"
+          },
+          {
+            "dropItemId": 868792,
+            "itemName": "Blessed Enchant Weapon",
+            "category": "MATERIALES",
+            "price": 900,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 900,
+            "bossName": "Zaken",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+            "eventCreatedAt": "2026-04-17T16:25:58.968Z"
+          },
+          {
+            "dropItemId": 677690,
+            "itemName": "Antharas Lair Key",
+            "category": "KEY",
+            "price": 900,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 900,
+            "bossName": "Tauti",
+            "bossImageUrl": "https://picsum.photos/seed/tauti/400/400",
+            "eventCreatedAt": "2026-04-17T20:25:58.968Z"
+          },
+          {
+            "dropItemId": 982570,
+            "itemName": "Antharas Lair Key",
+            "category": "KEY",
+            "price": 900,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 900,
+            "bossName": "Istina",
+            "bossImageUrl": "https://picsum.photos/seed/istina/400/400",
+            "eventCreatedAt": "2026-04-17T22:25:58.968Z"
+          },
+          {
+            "dropItemId": 527411,
+            "itemName": "Forgotten Scroll",
+            "category": "RECIPE",
+            "price": 600,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 600,
+            "bossName": "Balok",
+            "bossImageUrl": "https://picsum.photos/seed/balok/400/400",
+            "eventCreatedAt": "2026-04-17T23:25:58.968Z"
+          },
+          {
+            "dropItemId": 169022,
+            "itemName": "Blessed Enchant Armor",
+            "category": "MATERIALES",
+            "price": 350,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 350,
+            "bossName": "Balok",
+            "bossImageUrl": "https://picsum.photos/seed/balok/400/400",
+            "eventCreatedAt": "2026-04-17T23:25:58.968Z"
+          },
+          {
+            "dropItemId": 911840,
+            "itemName": "Valakas Fragment",
+            "category": "QUEST",
+            "price": 150,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 150,
+            "bossName": "Beleth",
+            "bossImageUrl": "https://picsum.photos/seed/beleth/400/400",
+            "eventCreatedAt": "2026-04-17T19:25:58.968Z"
+          },
+          {
+            "dropItemId": 760336,
+            "itemName": "Red Soul Stone",
+            "category": "MATERIALES",
+            "price": 120,
+            "quantity": 2,
+            "quantitySold": 1,
+            "remainingQty": 1,
+            "potentialRevenue": 120,
+            "bossName": "Zaken",
+            "bossImageUrl": "https://static.wikia.nocookie.net/lineage2/images/e/e6/Zaken.jpg",
+            "eventCreatedAt": "2026-04-14T16:25:58.967Z"
+          },
+          {
+            "dropItemId": 842444,
+            "itemName": "Ancient Adena Pouch",
+            "category": "ADENA",
+            "price": 100,
+            "quantity": 3,
+            "quantitySold": 2,
+            "remainingQty": 1,
+            "potentialRevenue": 100,
+            "bossName": "Balok",
+            "bossImageUrl": "https://picsum.photos/seed/balok/400/400",
+            "eventCreatedAt": "2026-04-14T23:25:58.968Z"
+          }
+        ],
+        "raidCyclesClosed": [
+          {
+            "cycleId": 845263045,
+            "label": "Ciclo de Raids #3",
+            "closedAt": "2026-04-20T07:21:03.237Z",
+            "totalRevenue": 0,
+            "totalEvents": 2,
+            "totalBosses": 2
+          },
+          {
+            "cycleId": 804047,
+            "label": "Ciclo de Raids #2",
+            "closedAt": "2026-04-20T07:19:56.345Z",
+            "totalRevenue": 248600,
+            "totalEvents": 21,
+            "totalBosses": 21
+          },
+          {
+            "cycleId": 594456,
+            "label": "Ciclo de Raids #1",
+            "closedAt": "2026-04-15T08:25:58.967Z",
+            "totalRevenue": 212170,
+            "totalEvents": 15,
+            "totalBosses": 15
+          }
+        ]
+      },
+      "createdAt": "2026-04-20T09:33:48.729Z",
+      "updatedAt": "2026-04-20T09:33:48.729Z"
+    }
+  ],
   "raidDropReservations": [
     {
       "id": 310390,
@@ -5348,13 +8090,13 @@
       "createdAt": "2026-04-20T01:11:53.888Z"
     },
     {
-      "id": 256718,
-      "dropItemId": 821142,
-      "userId": 876147,
-      "userName": "Tomás Mapper",
-      "characterName": "Tomás Mapper",
+      "id": 827054108,
+      "dropItemId": 284177904,
+      "userId": 1,
+      "userName": "Super Admin",
+      "characterName": "Super Admin",
       "quantity": 1,
-      "createdAt": "2026-04-20T01:02:53.888Z"
+      "createdAt": "2026-04-20T08:55:04.698Z"
     }
   ],
   "itemReservations": [
@@ -5402,6 +8144,24 @@
       "characterName": "Super Admin",
       "quantity": 1,
       "createdAt": "2026-04-20T05:47:39.690Z"
+    },
+    {
+      "id": 794805514,
+      "itemId": 878556,
+      "userId": 1,
+      "userName": "Super Admin",
+      "characterName": "Super Admin",
+      "quantity": 1,
+      "createdAt": "2026-04-20T07:09:50.183Z"
+    },
+    {
+      "id": 14611142,
+      "itemId": 349091,
+      "userId": 1,
+      "userName": "Super Admin",
+      "characterName": "Super Admin",
+      "quantity": 2,
+      "createdAt": "2026-04-20T07:27:14.021Z"
     }
   ]
 }
