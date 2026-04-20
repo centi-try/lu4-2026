@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Plus, Trash2, X, Check } from 'lucide-react';
+import { Plus, Trash2, X, Check } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
@@ -141,7 +141,7 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
             : 'Ver / crear reserva'
         }
       >
-        <Bookmark className="h-3.5 w-3.5" />
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[12px] font-black leading-none">R</span>
         {hasReservations ? (
           <span className="font-mono">
             {reservedCount} · {reservedUnits} uds
@@ -167,7 +167,12 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
             style={{ borderColor: 'rgba(255,255,255,0.06)' }}
           >
             <div className="flex items-center gap-2">
-              <Bookmark className="h-3.5 w-3.5" style={{ color: '#fbbf24' }} />
+              <span
+                className="inline-flex h-3.5 w-3.5 items-center justify-center text-[12px] font-black leading-none"
+                style={{ color: '#fbbf24' }}
+              >
+                R
+              </span>
               <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
                 Reservas
               </span>
@@ -457,7 +462,7 @@ export function ReservationQuickButton({
           background: 'rgba(251,191,36,0.08)',
         }}
       >
-        <Bookmark className="h-3.5 w-3.5" />
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">R</span>
       </button>
 
       {open && (
@@ -484,7 +489,12 @@ export function ReservationQuickButton({
                     border: '1px solid rgba(251,191,36,0.35)',
                   }}
                 >
-                  <Bookmark className="h-5 w-5" style={{ color: '#fbbf24' }} />
+                  <span
+                    className="inline-flex h-5 w-5 items-center justify-center text-[16px] font-black leading-none"
+                    style={{ color: '#fbbf24' }}
+                  >
+                    R
+                  </span>
                 </div>
                 <div>
                   <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
@@ -735,7 +745,7 @@ export function ReservationsPill({
         color: '#fbbf24',
       }}
     >
-      <Bookmark className="h-2.5 w-2.5" />
+      <span className="inline-flex h-2.5 w-2.5 items-center justify-center text-[10px] font-black leading-none">R</span>
       {totalUnits} uds
     </span>
   );
