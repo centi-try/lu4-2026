@@ -16,6 +16,10 @@ const CreateItemSchema = z.object({
   // FIX: Aceptar associatedCharacterIds en la creación
   associatedCharacterIds: z.array(z.number()).optional(),
   quantity: z.number().positive().optional(),
+  // Icono por categoría (seteado en /raids/settings) o URL manual. El cliente
+  // lo resuelve y lo envía; el backend lo persiste tal cual. Antes se forzaba
+  // a null en el insert, por eso los ítems recién creados no mostraban imagen.
+  imageUrl: z.string().nullable().optional(),
 });
 
 const UpdateItemSchema = z.object({
@@ -49,7 +53,7 @@ export const itemsRouter = router({
         status: input.status,
         price: input.price,
         mapperId: input.mapperId,
-        imageUrl: null,
+        imageUrl: input.imageUrl ?? null,
         quantity: input.quantity || 1,
         quantitySold: 0,
         quantitySoldInCycle: 0,

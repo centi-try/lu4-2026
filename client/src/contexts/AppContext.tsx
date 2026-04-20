@@ -261,6 +261,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((data: Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>) => {
     if (currentUser.role === 'USER') return;
 
+    // Enviamos imageUrl para que el backend persista el icono global de la
+    // categoría (seteado en /raids/settings) o la URL manual ingresada. Antes
+    // este campo no viajaba al server y el item quedaba con imageUrl=null.
+    const imageUrlToPersist = String(data.image?.publicUrl || '').trim() || null;
     createItemMutation.mutate({
       name: data.name,
       category: data.category,
@@ -269,6 +273,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       mapperId: parseInt(currentUser.id.replace('auth-', '')) || 0,
       associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
       quantity: data.quantity || 1,
+      imageUrl: imageUrlToPersist,
     });
 
     const now = new Date().toISOString();
