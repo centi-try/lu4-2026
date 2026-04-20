@@ -388,17 +388,19 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
                         {hasReservations && (
+                          // Mismo pill que /raids/inventory (ReservationsPill en
+                          // DropReservationsCell.tsx): "R {unidades} uds".
                           <span
-                            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
                             style={{
                               background: 'rgba(251,191,36,0.12)',
-                              border: '1px solid rgba(251,191,36,0.3)',
+                              border: '1px solid rgba(251,191,36,0.35)',
                               color: '#fbbf24',
                             }}
-                            title={`${reservedCount} reserva(s) activa(s) · ${reservedUnits} unidad(es)`}
+                            title={`${reservedCount} reserva(s) · ${reservedUnits} unidad(es)`}
                           >
                             <span className="inline-flex h-2.5 w-2.5 items-center justify-center text-[10px] font-black leading-none">R</span>
-                            <span className="font-mono">{reservedCount}</span>
+                            {reservedUnits} uds
                           </span>
                         )}
                       </div>
