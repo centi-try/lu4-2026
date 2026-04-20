@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import * as bcrypt from 'bcryptjs';
 
 export const DEFAULT_SUPER_ADMIN_EMAIL = 'superadmin@inventory.com';
 export const DEFAULT_SUPER_ADMIN_PASSWORD = 'SuperAdmin123!';
@@ -96,8 +97,49 @@ const initialSchema: DatabaseSchema = {
   raidSalesCycles: [],
 };
 
-function hashLocalPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+// ============================================================================
+// Hash de contraseñas (bcrypt + migración transparente del legacy SHA-256)
+// ============================================================================
+// Nuevos hashes usan bcrypt (work factor 10 — razonable para ~100ms por login).
+// Legacy: hashes SHA-256 hex (64 chars). Al hacer login con un hash legacy y
+// password correcto, se re-hashea con bcrypt al vuelo (ver `verifyStoredPassword`
+// + updateUserPassword en el endpoint de login).
+const BCRYPT_ROUNDS = 10;
+
+export function hashLocalPassword(password: string): string {
+  // Mantenemos la firma síncrona para no romper llamadas existentes dentro del
+  // bootstrap (ensureDefaultSuperAdmin). bcryptjs tiene API síncrona además.
+  return bcrypt.hashSync(password, BCRYPT_ROUNDS);
+}
+
+// Detecta si un hash ya es bcrypt (empieza con $2a$ / $2b$ / $2y$).
+export function isBcryptHash(hash: string | undefined | null): boolean {
+  if (!hash) return false;
+  return /^\$2[aby]\$/.test(hash);
+}
+
+// Verifica contraseña soportando tanto bcrypt como el formato legacy
+// SHA-256 (hex de 64 chars). Retorna objeto con el resultado y si el hash
+// necesita re-hashearse (migración transparente).
+export function verifyStoredPassword(
+  password: string,
+  hash: string | undefined | null,
+): { ok: boolean; needsRehash: boolean } {
+  if (!hash) return { ok: false, needsRehash: false };
+  if (isBcryptHash(hash)) {
+    try {
+      return { ok: bcrypt.compareSync(password, hash), needsRehash: false };
+    } catch {
+      return { ok: false, needsRehash: false };
+    }
+  }
+  // Legacy SHA-256 (64 hex chars)
+  if (/^[a-f0-9]{64}$/i.test(hash)) {
+    const legacy = crypto.createHash('sha256').update(password).digest('hex');
+    const ok = legacy === hash;
+    return { ok, needsRehash: ok };
+  }
+  return { ok: false, needsRehash: false };
 }
 
 function normalizeRole(role: unknown): string {
@@ -1034,6 +1076,73 @@ export const updateUserPassword = async (userId: number, passwordHash: string) =
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], passwordHash, updatedAt: new Date() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
+};
+
+// ============================================================================
+// Tracking de intentos de login (anti brute-force)
+// ============================================================================
+// Persistimos en el usuario dos campos nuevos:
+//   - failedLoginAttempts: counter que se incrementa en cada fallo y se
+//     resetea en cada login exitoso.
+//   - lockedUntil: timestamp ISO hasta el cual la cuenta queda bloqueada.
+// El backend los lee/escribe a través de estas helpers para evitar tocar
+// directamente dbInstance desde los endpoints.
+export const LOGIN_MAX_FAILED_ATTEMPTS = 5;
+export const LOGIN_LOCKOUT_MINUTES = 15;
+
+export interface LoginLockStatus {
+  locked: boolean;
+  remainingMs: number;
+  until: string | null;
+}
+
+export const getLoginLockStatus = (user: any): LoginLockStatus => {
+  const lockedUntilRaw = user?.lockedUntil;
+  if (!lockedUntilRaw) return { locked: false, remainingMs: 0, until: null };
+  const until = new Date(lockedUntilRaw).getTime();
+  if (Number.isNaN(until)) return { locked: false, remainingMs: 0, until: null };
+  const now = Date.now();
+  if (until > now) {
+    return { locked: true, remainingMs: until - now, until: new Date(until).toISOString() };
+  }
+  return { locked: false, remainingMs: 0, until: null };
+};
+
+export const registerFailedLogin = async (userId: number) => {
+  const idx = dbInstance.users.findIndex(u => u.id === userId);
+  if (idx === -1) return null;
+  const current = dbInstance.users[idx];
+  const attempts = Number(current.failedLoginAttempts || 0) + 1;
+  let lockedUntil: string | null = current.lockedUntil || null;
+  // Si llegó al umbral, bloqueamos N minutos. Cada fallo adicional estando
+  // bloqueado refresca la ventana (mantiene al atacante fuera mientras sigue
+  // probando).
+  if (attempts >= LOGIN_MAX_FAILED_ATTEMPTS) {
+    lockedUntil = new Date(Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000).toISOString();
+  }
+  dbInstance.users[idx] = {
+    ...current,
+    failedLoginAttempts: attempts,
+    lockedUntil,
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.users[idx];
+};
+
+export const resetLoginAttempts = async (userId: number) => {
+  const idx = dbInstance.users.findIndex(u => u.id === userId);
+  if (idx === -1) return null;
+  const current = dbInstance.users[idx];
+  if (!current.failedLoginAttempts && !current.lockedUntil) return current;
+  dbInstance.users[idx] = {
+    ...current,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.users[idx];
 };
 
 // ============================================================================

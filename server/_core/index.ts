@@ -6,7 +6,24 @@ import crypto from "crypto";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { DEFAULT_SUPER_ADMIN_EMAIL, DEFAULT_SUPER_ADMIN_NAME, getDb, getUserByEmail, hashStoredPassword, upsertUser, startDailyBackupScheduler, STORAGE_PATHS } from "../db";
+import {
+  DEFAULT_SUPER_ADMIN_EMAIL,
+  DEFAULT_SUPER_ADMIN_NAME,
+  getDb,
+  getUserByEmail,
+  hashStoredPassword,
+  upsertUser,
+  startDailyBackupScheduler,
+  STORAGE_PATHS,
+  verifyStoredPassword,
+  getLoginLockStatus,
+  registerFailedLogin,
+  resetLoginAttempts,
+  updateUserPassword,
+  LOGIN_MAX_FAILED_ATTEMPTS,
+  LOGIN_LOCKOUT_MINUTES,
+  createAuditLog,
+} from "../db";
 
 // Esquemas dummy para compatibilidad
 const users = { name: 'users' };
@@ -139,43 +156,163 @@ async function startServer() {
     }
   });
   
+  // ============================================================
+  // Rate limit por IP (anti brute-force global)
+  // ============================================================
+  // Cola in-memory por IP: ventana deslizante de 15 min, máximo 20
+  // intentos (exitosos o fallidos). Si se pasa devolvemos 429 sin tocar
+  // la DB. Se limpia lazy cada vez que llega un request.
+  const LOGIN_RATE_WINDOW_MS = 15 * 60 * 1000;
+  const LOGIN_RATE_MAX = 20;
+  const loginAttemptsByIp = new Map<string, number[]>();
+
+  function getClientIp(req: express.Request): string {
+    const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    return fwd || req.ip || req.socket.remoteAddress || 'unknown';
+  }
+
+  function checkIpRateLimit(ip: string): { allowed: boolean; remaining: number; retryAfterSec: number } {
+    const now = Date.now();
+    const list = (loginAttemptsByIp.get(ip) || []).filter((t) => now - t < LOGIN_RATE_WINDOW_MS);
+    loginAttemptsByIp.set(ip, list);
+    if (list.length >= LOGIN_RATE_MAX) {
+      const oldest = list[0];
+      const retryAfterSec = Math.max(1, Math.ceil((LOGIN_RATE_WINDOW_MS - (now - oldest)) / 1000));
+      return { allowed: false, remaining: 0, retryAfterSec };
+    }
+    return { allowed: true, remaining: LOGIN_RATE_MAX - list.length, retryAfterSec: 0 };
+  }
+
+  function trackIpAttempt(ip: string) {
+    const list = loginAttemptsByIp.get(ip) || [];
+    list.push(Date.now());
+    loginAttemptsByIp.set(ip, list);
+  }
+
+  // Mensaje genérico para no filtrar si el email existe o no.
+  const GENERIC_LOGIN_ERROR = 'Email o contraseña incorrectos';
+
   app.post('/api/auth/login', express.json(), async (req, res) => {
+    const ip = getClientIp(req);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+    const emailRaw = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+
     try {
-      const email = String(req.body?.email || '').trim().toLowerCase();
-      const password = String(req.body?.password || '');
-      if (!email || !password) {
+      // 1) Rate limit por IP (antes de cualquier cosa — no toca la DB)
+      const rate = checkIpRateLimit(ip);
+      if (!rate.allowed) {
+        res.setHeader('Retry-After', String(rate.retryAfterSec));
+        return res.status(429).json({
+          message: `Demasiados intentos desde esta IP. Probá de nuevo en ${Math.ceil(rate.retryAfterSec / 60)} min.`,
+        });
+      }
+      trackIpAttempt(ip);
+
+      if (!emailRaw || !password) {
         return res.status(400).json({ message: 'Email y contraseña requeridos' });
       }
 
       const db = await getDb();
       const usersTable = { name: 'users' };
-      const result = await db.select().from(usersTable).where({ email }).limit(1);
-      
+      const result = await db.select().from(usersTable).where({ email: emailRaw }).limit(1);
+
+      // 2) Usuario inexistente → mensaje genérico (no filtra si el email existe)
       if (result.length === 0) {
-        return res.status(401).json({ message: 'Usuario no encontrado' });
+        try {
+          await createAuditLog({
+            userId: null,
+            actorName: emailRaw,
+            actorRole: 'anonymous',
+            action: 'LOGIN_FAILED',
+            details: `Intento con email inexistente · IP=${ip} · UA="${userAgent}"`,
+          });
+        } catch { /* ignore */ }
+        return res.status(401).json({ message: GENERIC_LOGIN_ERROR });
       }
 
       const user = result[0];
 
-      // Middleware de seguridad: bloquear usuarios desactivados en el login
+      // 3) Cuenta desactivada
       if (user.isActive === false) {
+        try {
+          await createAuditLog({
+            userId: user.id,
+            actorName: user.characterName || user.name || user.email,
+            actorRole: user.role || 'user',
+            action: 'LOGIN_FAILED',
+            details: `Intento sobre cuenta desactivada · IP=${ip}`,
+          });
+        } catch { /* ignore */ }
         return res.status(403).json({ message: 'Tu cuenta ha sido desactivada. Contacta al administrador.' });
       }
-      
-      const passwordHash = await hashPassword(password);
 
-      if (!user.passwordHash || user.passwordHash !== passwordHash) {
-        return res.status(401).json({ message: 'Contraseña incorrecta' });
+      // 4) ¿Cuenta bloqueada por intentos fallidos?
+      const lock = getLoginLockStatus(user);
+      if (lock.locked) {
+        const minutes = Math.max(1, Math.ceil(lock.remainingMs / 60000));
+        try {
+          await createAuditLog({
+            userId: user.id,
+            actorName: user.characterName || user.name || user.email,
+            actorRole: user.role || 'user',
+            action: 'LOGIN_BLOCKED',
+            details: `Cuenta bloqueada — faltan ~${minutes}min · IP=${ip}`,
+          });
+        } catch { /* ignore */ }
+        return res.status(423).json({
+          message: `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Probá de nuevo en ~${minutes} min.`,
+        });
       }
-      
+
+      // 5) Verificar password (bcrypt + migración legacy SHA-256)
+      const verify = verifyStoredPassword(password, user.passwordHash);
+      if (!verify.ok) {
+        const updated = await registerFailedLogin(user.id);
+        const attempts = Number(updated?.failedLoginAttempts || 0);
+        const remaining = Math.max(0, LOGIN_MAX_FAILED_ATTEMPTS - attempts);
+        try {
+          await createAuditLog({
+            userId: user.id,
+            actorName: user.characterName || user.name || user.email,
+            actorRole: user.role || 'user',
+            action: 'LOGIN_FAILED',
+            details: `Password incorrecta · intento ${attempts}/${LOGIN_MAX_FAILED_ATTEMPTS} · IP=${ip}`,
+          });
+        } catch { /* ignore */ }
+        if (attempts >= LOGIN_MAX_FAILED_ATTEMPTS) {
+          return res.status(423).json({
+            message: `Cuenta bloqueada ${LOGIN_LOCKOUT_MINUTES} min por demasiados intentos fallidos.`,
+          });
+        }
+        // No revelar en el mensaje cuántos intentos restan si es bajo — solo advertir en últimos 2.
+        const suffix = remaining <= 2 && remaining > 0 ? ` (te quedan ${remaining} intentos)` : '';
+        return res.status(401).json({ message: `${GENERIC_LOGIN_ERROR}${suffix}` });
+      }
+
+      // 6) Password OK → migrar hash si es legacy
+      if (verify.needsRehash) {
+        try {
+          const newHash = await hashPassword(password);
+          await updateUserPassword(user.id, newHash);
+          console.log(`[auth] Migrado hash legacy → bcrypt para user ${user.id}`);
+        } catch (err) {
+          console.error('[auth] Error migrando hash legacy:', err);
+          /* no bloquea login */
+        }
+      }
+
+      // 7) Reset intentos + setear sesión
+      await resetLoginAttempts(user.id);
+
       const { sdk } = await import("./sdk");
       const { getSessionCookieOptions } = await import("./cookies");
       const { COOKIE_NAME, ONE_YEAR_MS } = await import("@shared/const");
-      
+
       const sessionToken = await sdk.createSessionToken(user.openId, {
         name: user.characterName || user.name || '',
       });
-      
+
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, {
         ...cookieOptions,
@@ -188,6 +325,16 @@ async function startServer() {
         openId: user.openId,
         lastSignedIn: new Date().toISOString(),
       });
+
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: 'LOGIN_SUCCESS',
+          details: `Login exitoso · IP=${ip} · UA="${userAgent}"`,
+        });
+      } catch { /* ignore */ }
 
       res.json({
         success: true,
