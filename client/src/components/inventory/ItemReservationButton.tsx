@@ -405,14 +405,14 @@ export function ItemReservationButton({ item, reservations }: Props) {
                 <button
                   type="button"
                   onClick={handleCreate}
-                  disabled={createMut.isPending}
+                  disabled={createMut.isPending || !qtyInput}
                   className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all"
                   style={{
                     background: 'rgba(251,191,36,0.18)',
                     border: '1px solid rgba(251,191,36,0.4)',
                     color: '#fbbf24',
-                    cursor: createMut.isPending ? 'not-allowed' : 'pointer',
-                    opacity: createMut.isPending ? 0.6 : 1,
+                    cursor: createMut.isPending || !qtyInput ? 'not-allowed' : 'pointer',
+                    opacity: createMut.isPending || !qtyInput ? 0.6 : 1,
                   }}
                 >
                   <Plus className="h-3.5 w-3.5" />
