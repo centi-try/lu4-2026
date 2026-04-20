@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, statusMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory, ItemStatus } from '../../lib/types';
 import { toast } from 'sonner';
+import { trpc } from '../../lib/trpc';
+import { useAuth } from '../../contexts/AuthContext';
+import { ItemReservationButton, type ItemReservationRecord } from './ItemReservationButton';
 
 interface Props {
   items?: Item[];
@@ -12,7 +15,27 @@ interface Props {
 
 export function ItemTable({ items: propItems, compact = false }: Props) {
   const { items: allItems, currentUser, confirmItem, deleteItem, updateItem, sellItem, characters } = useApp();
+  const { user: authUser } = useAuth();
   const items = propItems ?? allItems;
+
+  // Reservas de items (waitlist). Compartidas con Dashboard porque ambos usan
+  // este componente. La query se re-valida automáticamente al crear/cancelar.
+  const { data: reservationsData } = trpc.items.reservations.list.useQuery(
+    undefined,
+    { enabled: !!authUser }
+  );
+  const reservations: ItemReservationRecord[] = (reservationsData as any[]) || [];
+
+  // Map itemId -> reservas vivas del item, para pill y highlight.
+  const reservationsByItem = useMemo(() => {
+    const m = new Map<string, ItemReservationRecord[]>();
+    for (const r of reservations) {
+      const key = String(r.itemId);
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(r);
+    }
+    return m;
+  }, [reservations]);
 
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<ItemCategory | 'ALL'>('ALL');
@@ -27,6 +50,16 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
+
+  const reservedTotals = useMemo(() => {
+    let drops = 0;
+    let units = 0;
+    reservationsByItem.forEach((rs) => {
+      drops += 1;
+      for (const r of rs) units += Number(r.quantity) || 0;
+    });
+    return { drops, units };
+  }, [reservationsByItem]);
 
   const filtered = items
     .filter(i => {
@@ -143,6 +176,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
               Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
             </p>
+            {reservedTotals.drops > 0 && (
+              <div
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs"
+                style={{
+                  background: 'rgba(251,191,36,0.1)',
+                  border: '1px solid rgba(251,191,36,0.28)',
+                  color: '#fbbf24',
+                }}
+                title="Ítems con reservas de compra activas"
+              >
+                <span className="inline-flex h-3 w-3 items-center justify-center text-[11px] font-black leading-none">R</span>
+                <span className="font-mono">
+                  {reservedTotals.drops} item{reservedTotals.drops === 1 ? '' : 's'} · {reservedTotals.units} uds
+                </span>
+              </div>
+            )}
           </div>
 
           {!compact && (
@@ -212,9 +261,21 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const isEditing = editId === item.id;
                 const remaining = item.quantity - item.quantitySold;
                 const assocChars = characters.filter(c => item.associatedCharacterIds.includes(c.id));
+                const itemReservations = reservationsByItem.get(String(item.id)) || [];
+                const reservedCount = itemReservations.length;
+                const reservedUnits = itemReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+                const hasReservations = reservedCount > 0;
 
                 return (
-                  <tr key={item.id} className="table-row-hover border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                  <tr
+                    key={item.id}
+                    className="table-row-hover border-t"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.04)',
+                      background: hasReservations ? 'rgba(251,191,36,0.05)' : undefined,
+                      boxShadow: hasReservations ? 'inset 3px 0 0 0 #fbbf24' : undefined,
+                    }}
+                  >
                     {/* Image */}
                     <td className="px-4 py-3">
                       <div className="h-[30px] w-[30px] overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
@@ -229,7 +290,23 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     </td>
                     {/* Name */}
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                        {hasReservations && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{
+                              background: 'rgba(251,191,36,0.12)',
+                              border: '1px solid rgba(251,191,36,0.3)',
+                              color: '#fbbf24',
+                            }}
+                            title={`${reservedCount} reserva(s) activa(s) · ${reservedUnits} unidad(es)`}
+                          >
+                            <span className="inline-flex h-2.5 w-2.5 items-center justify-center text-[10px] font-black leading-none">R</span>
+                            <span className="font-mono">{reservedCount}</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
                     </td>
                     {/* Category */}
@@ -345,7 +422,20 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {!canEdit && !canConfirm && !canSell && !canDelete && (
+                          {/* Reservar (waitlist) — visible para todos los roles. */}
+                          {authUser && (
+                            <ItemReservationButton
+                              item={{
+                                id: item.id,
+                                name: item.name,
+                                quantity: item.quantity,
+                                quantitySold: item.quantitySold,
+                                status: item.status,
+                              }}
+                              reservations={reservations}
+                            />
+                          )}
+                          {!canEdit && !canConfirm && !canSell && !canDelete && !authUser && (
                             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
                           )}
                         </div>

@@ -18,6 +18,12 @@ interface DatabaseSchema {
   auditLogs: any[];
   purchases: any[];
   settings: any[];
+  // Reservas sobre ítems del inventario legacy. Mismo patrón waitlist que
+  // las reservas del módulo raid: cualquier usuario logueado puede reservar,
+  // múltiples usuarios pueden anotarse aunque la suma supere el stock; solo
+  // se valida que la cantidad individual ≤ stock disponible. El dueño o un
+  // admin/mapper pueden cancelar.
+  itemReservations: any[];
   // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
@@ -51,6 +57,7 @@ const initialSchema: DatabaseSchema = {
   auditLogs: [],
   purchases: [],
   settings: [],
+  itemReservations: [],
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -157,6 +164,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     auditLogs: ensureArray(data?.auditLogs),
     purchases: ensureArray(data?.purchases),
     settings: Array.isArray(data?.settings) ? data.settings : (data?.settings ? [data.settings] : []),
+    itemReservations: ensureArray(data?.itemReservations),
     // ============================================================
     // Raid module collections
     // ============================================================
@@ -1503,6 +1511,106 @@ export const clearReservationsForDrop = async (dropItemId: number): Promise<Raid
   );
   dbInstance.raidDropReservations = dbInstance.raidDropReservations.filter(
     (r: RaidDropReservation) => Number(r.dropItemId) !== Number(dropItemId)
+  );
+  if (matched.length > 0) saveDb(dbInstance);
+  return matched;
+};
+
+// ---------- Item Reservations (legacy inventory) ---------------------------
+// Mismo patrón waitlist que raidDropReservations, pero sobre items del
+// inventario legacy. Cualquier usuario logueado puede reservar; múltiples
+// usuarios pueden anotarse aunque la suma supere el stock. Solo se valida
+// que la cantidad individual <= stock disponible. El dueño o admin/mapper
+// pueden cancelar.
+
+export interface ItemReservation {
+  id: number;
+  itemId: number;
+  userId: number;
+  userName: string;
+  characterName: string;
+  quantity: number;
+  createdAt: string;
+}
+
+export const getItemReservations = async (filter?: {
+  itemId?: number;
+  userId?: number;
+}): Promise<ItemReservation[]> => {
+  let list: ItemReservation[] = (dbInstance.itemReservations || []).slice();
+  if (filter?.itemId != null) {
+    list = list.filter(r => Number(r.itemId) === Number(filter.itemId));
+  }
+  if (filter?.userId != null) {
+    list = list.filter(r => Number(r.userId) === Number(filter.userId));
+  }
+  return list.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+};
+
+export const getReservedQuantityForItem = async (itemId: number): Promise<number> => {
+  const list = (dbInstance.itemReservations || []).filter(
+    (r: ItemReservation) => Number(r.itemId) === Number(itemId)
+  );
+  return list.reduce((acc: number, r: ItemReservation) => acc + (Number(r.quantity) || 0), 0);
+};
+
+export const createItemReservation = async (data: {
+  itemId: number;
+  userId: number;
+  userName: string;
+  characterName: string;
+  quantity: number;
+}): Promise<ItemReservation> => {
+  const items = dbInstance.items || [];
+  const item = items.find((it: any) => Number(it.id) === Number(data.itemId));
+  if (!item) throw new Error('Ítem no encontrado.');
+  const totalQty = Number(item.quantity) || 0;
+  const sold = Number(item.quantitySold) || 0;
+  const availableStock = Math.max(0, totalQty - sold);
+  if (availableStock <= 0 || String(item.status || '').toUpperCase() === 'VENDIDO') {
+    throw new Error('Este ítem ya no tiene stock disponible.');
+  }
+  if (data.quantity <= 0) {
+    throw new Error('La cantidad reservada debe ser mayor a 0.');
+  }
+  if (data.quantity > availableStock) {
+    throw new Error(
+      `Este ítem solo tiene ${availableStock} unidad(es) disponibles — no podés reservar más que eso.`
+    );
+  }
+  if (!dbInstance.itemReservations) dbInstance.itemReservations = [];
+  const reservation: ItemReservation = {
+    id: genId(),
+    itemId: Number(data.itemId),
+    userId: Number(data.userId),
+    userName: String(data.userName || '').trim(),
+    characterName: String(data.characterName || '').trim(),
+    quantity: Number(data.quantity),
+    createdAt: nowIso(),
+  };
+  dbInstance.itemReservations.push(reservation);
+  saveDb(dbInstance);
+  return reservation;
+};
+
+export const deleteItemReservation = async (id: number): Promise<ItemReservation | null> => {
+  if (!dbInstance.itemReservations) return null;
+  const idx = dbInstance.itemReservations.findIndex(
+    (r: ItemReservation) => Number(r.id) === Number(id)
+  );
+  if (idx === -1) return null;
+  const [removed] = dbInstance.itemReservations.splice(idx, 1);
+  saveDb(dbInstance);
+  return removed;
+};
+
+export const clearReservationsForItem = async (itemId: number): Promise<ItemReservation[]> => {
+  if (!dbInstance.itemReservations) return [];
+  const matched: ItemReservation[] = dbInstance.itemReservations.filter(
+    (r: ItemReservation) => Number(r.itemId) === Number(itemId)
+  );
+  dbInstance.itemReservations = dbInstance.itemReservations.filter(
+    (r: ItemReservation) => Number(r.itemId) !== Number(itemId)
   );
   if (matched.length > 0) saveDb(dbInstance);
   return matched;

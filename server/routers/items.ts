@@ -1,6 +1,11 @@
 import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance } from "../db";
+import {
+  getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance,
+  // reservations (waitlist sobre items del inventario legacy)
+  getItemReservations, createItemReservation, deleteItemReservation,
+} from "../db";
 
 const CreateItemSchema = z.object({
   name: z.string().min(1),
@@ -189,5 +194,105 @@ export const itemsRouter = router({
 
   listPurchases: protectedProcedure.query(async () => {
     return await getPurchases();
+  }),
+
+  // ---------------- Reservas de compra sobre items legacy --------------------
+  // Misma semántica waitlist que las reservas del módulo raid: cualquier
+  // usuario logueado puede reservar, múltiples usuarios pueden anotarse aunque
+  // la suma supere el stock. Solo se valida que la cantidad individual no
+  // supere el stock disponible. El dueño o un admin/mapper pueden cancelar.
+  reservations: router({
+    list: protectedProcedure
+      .input(z.object({
+        itemId: z.number().int().optional(),
+        userId: z.number().int().optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        return await getItemReservations(input);
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        itemId: z.number().int(),
+        quantity: z.number().int().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // characterName del registro (fallback al name si no tiene).
+        const characterName = String(
+          (ctx.user as any)?.characterName ||
+          ctx.user?.name ||
+          ctx.user?.email ||
+          ''
+        ).trim();
+        if (!characterName) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Tu perfil no tiene un personaje configurado. Configuralo antes de reservar.',
+          });
+        }
+        try {
+          const reservation = await createItemReservation({
+            itemId: input.itemId,
+            userId: Number(ctx.user?.id || 0),
+            userName: String(ctx.user?.name || ctx.user?.email || 'Usuario').trim(),
+            characterName,
+            quantity: input.quantity,
+          });
+          await createAuditLog({
+            userId: Number(ctx.user?.id || 0),
+            action: 'ITEM_RESERVED',
+            actorName: characterName,
+            actorRole: String(ctx.user?.role || 'USER'),
+            itemId: String(input.itemId),
+            detail: `Reservó ${input.quantity} unidad(es) del ítem #${input.itemId}.`,
+            details: {
+              itemId: input.itemId,
+              quantity: input.quantity,
+              characterName,
+            },
+          });
+          return { success: true, reservation };
+        } catch (err: any) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: err?.message || 'No se pudo registrar la reserva.',
+          });
+        }
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const all = await getItemReservations();
+        const target = all.find(r => Number(r.id) === Number(input.id));
+        if (!target) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Reserva no encontrada.',
+          });
+        }
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const isAdmin = role === 'super_admin' || role === 'mapper';
+        const isOwner = Number(target.userId) === Number(ctx.user?.id || -1);
+        if (!isOwner && !isAdmin) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No tenés permiso para borrar esta reserva.',
+          });
+        }
+        const removed = await deleteItemReservation(input.id);
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'ITEM_RESERVATION_DELETED',
+          actorName: String((ctx.user as any)?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          itemId: String(target.itemId),
+          detail: `Canceló reserva #${input.id} (${isOwner ? 'propia' : 'ajena'}) del ítem #${target.itemId}.`,
+          details: {
+            reservationId: input.id,
+            itemId: target.itemId,
+            deletedBy: isOwner ? 'owner' : 'admin',
+          },
+        });
+        return { success: true, reservation: removed };
+      }),
   }),
 });
