@@ -568,7 +568,7 @@ export function ReservationQuickButton({
               >
                 <span>Reservas actuales</span>
                 <span style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {rowReservations.length} · {reservedUnits} uds
+                  {rowReservations.length}
                 </span>
               </div>
               <div
