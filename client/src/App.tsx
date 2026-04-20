@@ -39,7 +39,7 @@ function Router() {
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} allowedRoles={["super_admin"]} />} />
       <Route path="/raids" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidDashboard} required="view" />} />} />
-      <Route path="/raids/inventory" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidInventory} required="view" />} />} />
+      <Route path="/raids/inventory" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidInventory} required="interact" />} />} />
       <Route path="/raids/clans" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidClans} required="view" />} />} />
       <Route path="/raids/cycles" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidCycles} required="view" />} />} />
       <Route path="/raids/purchases" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidPurchases} required="view" />} />} />

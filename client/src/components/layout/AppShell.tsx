@@ -35,9 +35,18 @@ const adminNavItems = [
   { href: '/raids/settings', label: 'Config. Raids', icon: Crown, desc: 'Catálogo de bosses y clanes' },
 ];
 
-const raidNavItems = [
+// `requiresInteract: true` → solo raid_mapper, raid_admin o super_admin ven el
+// link. Es el mismo gate que el guard de ruta (`required="interact"`), así
+// evitamos mostrar un menú al que después el usuario no puede entrar.
+const raidNavItems: Array<{
+  href: string;
+  label: string;
+  icon: any;
+  desc: string;
+  requiresInteract?: boolean;
+}> = [
   { href: '/raids', label: 'Raid Dashboard', icon: LayoutDashboard, desc: 'Métricas y KPIs de raids' },
-  { href: '/raids/inventory', label: 'Raid Inventario', icon: Swords, desc: 'Drops y eventos raid' },
+  { href: '/raids/inventory', label: 'Raid Inventario', icon: Swords, desc: 'Drops y eventos raid', requiresInteract: true },
   { href: '/raids/clans', label: 'Clanes', icon: Flag, desc: 'Ranking y stats por clan' },
   { href: '/raids/purchases', label: 'Compras Raid', icon: ShoppingBag, desc: 'Historial de compras de drops' },
   { href: '/raids/cycles', label: 'Historial de Ciclos', icon: Skull, desc: 'Ciclos cerrados y resúmenes' },
@@ -157,7 +166,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </span>
                 )}
               </div>
-              {raidNavItems.map(item => {
+              {raidNavItems.filter(item => {
+                if (item.requiresInteract && !raidAccess?.canInteract) return false;
+                return true;
+              }).map(item => {
                 const Icon = item.icon;
                 const isActive = location === item.href;
                 return (

@@ -110,7 +110,52 @@ export default function RaidProtectedRoute({
   }
 
   if (required === 'interact' && !access.canInteract) {
-    // Allow landing but the page will render read-only
+    // Bloqueo explícito para niveles raid_user / viewer_only. El inventario
+    // raid es una sección operativa (registrar drops, vender, reservar) y
+    // solo deben entrar raid_mapper / raid_admin / super_admin. Usamos el
+    // mismo tono de mensaje que el guard de /inventory legacy para UX
+    // consistente — "Sin acceso" + CTA a volver.
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{
+          background:
+            'radial-gradient(circle at 10% 10%, rgba(232,121,249,0.08) 0%, transparent 30%), linear-gradient(180deg, #060910 0%, #080c14 50%, #040608 100%)',
+        }}
+      >
+        <div
+          className="max-w-md rounded-2xl border p-8 text-center space-y-4"
+          style={{ background: 'rgba(10,14,22,0.95)', borderColor: 'rgba(255,255,255,0.08)' }}
+        >
+          <div
+            className="mx-auto h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)' }}
+          >
+            <span className="text-2xl">🔒</span>
+          </div>
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              Sin acceso
+            </h1>
+            <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Esta sección no está disponible para tu rol. Si necesitás acceder, pedile al super
+              admin que ajuste tus permisos.
+            </p>
+          </div>
+          <button
+            onClick={() => setLocation('/raids')}
+            className="w-full rounded-xl py-2.5 text-sm font-semibold transition-all"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.9)',
+            }}
+          >
+            Volver al Dashboard Raid
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (required === 'admin' && !access.canAdmin) {
