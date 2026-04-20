@@ -72,6 +72,15 @@ interface DatabaseSchema {
   // sobre los raid cycles diarios. Solo agrupa/resume ventas, no modifica
   // drops, eventos ni clanes.
   raidSalesCycles: any[];
+  // ============================================================
+  // Tokens de autenticación secundaria (reset password + verificación email)
+  // ============================================================
+  // Cada entry tiene: { id, userId, email, tokenHash, purpose, expiresAt,
+  // usedAt?, createdAt, ip?, userAgent? }. Guardamos solo el HASH del token
+  // (sha256 hex) para que un leak de data_storage.json no permita reusar
+  // tokens pendientes. El token plano solo viaja por email.
+  passwordResetTokens: any[];
+  emailVerifications: any[];
 }
 
 const initialSchema: DatabaseSchema = {
@@ -95,6 +104,8 @@ const initialSchema: DatabaseSchema = {
   raidCategoryIcons: [],
   raidDropReservations: [],
   raidSalesCycles: [],
+  passwordResetTokens: [],
+  emailVerifications: [],
 };
 
 // ============================================================================
@@ -169,6 +180,15 @@ function normalizeUser(rawUser: any, index: number) {
   const characterName = rawUser?.characterName || rawUser?.displayName || rawUser?.name || rawUser?.username || (role === 'super_admin' ? DEFAULT_SUPER_ADMIN_NAME : 'Usuario');
   const passwordHash = rawUser?.passwordHash || (rawUser?.password && /^[a-f0-9]{64}$/i.test(String(rawUser.password)) ? rawUser.password : undefined) || (role === 'super_admin' && email === DEFAULT_SUPER_ADMIN_EMAIL ? hashLocalPassword(DEFAULT_SUPER_ADMIN_PASSWORD) : undefined);
 
+  // Flag de verificación de email (PR5). El super admin default arranca
+  // verificado; cualquier registro legacy anterior a esta feature (sin el
+  // campo) se considera verificado por retrocompatibilidad (no vamos a
+  // bloquear usuarios que ya existían). Los registros NUEVOS que pasen por
+  // /api/auth/register van a setear explícitamente emailVerified=false.
+  const emailVerified = rawUser?.emailVerified === undefined
+    ? true
+    : Boolean(rawUser.emailVerified);
+
   return {
     ...rawUser,
     id: Number(rawUser?.id) || Math.floor(Math.random() * 1000000),
@@ -180,6 +200,7 @@ function normalizeUser(rawUser: any, index: number) {
     loginMethod: rawUser?.loginMethod || 'local',
     isActive: rawUser?.isActive !== false,
     passwordHash,
+    emailVerified,
     createdAt: rawUser?.createdAt || new Date().toISOString(),
     updatedAt: rawUser?.updatedAt || rawUser?.createdAt || new Date().toISOString(),
     lastSignedIn: rawUser?.lastSignedIn || rawUser?.updatedAt || rawUser?.createdAt || null,
@@ -246,6 +267,8 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     raidCategoryIcons: ensureArray(data?.raidCategoryIcons),
     raidDropReservations: ensureArray(data?.raidDropReservations),
     raidSalesCycles: ensureArray(data?.raidSalesCycles),
+    passwordResetTokens: ensureArray(data?.passwordResetTokens),
+    emailVerifications: ensureArray(data?.emailVerifications),
   };
 }
 
@@ -1076,6 +1099,224 @@ export const updateUserPassword = async (userId: number, passwordHash: string) =
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], passwordHash, updatedAt: new Date() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
+};
+
+export const markUserEmailVerified = async (userId: number) => {
+  const userIndex = dbInstance.users.findIndex(u => u.id === userId);
+  if (userIndex === -1) return null;
+  if (dbInstance.users[userIndex].emailVerified === true) {
+    return dbInstance.users[userIndex];
+  }
+  dbInstance.users[userIndex] = {
+    ...dbInstance.users[userIndex],
+    emailVerified: true,
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.users[userIndex];
+};
+
+// ============================================================================
+// Tokens de reset de contraseña + verificación de email (PR5)
+// ============================================================================
+// Guardamos solo el hash del token (sha256 hex de 64 chars) para que si
+// data_storage.json se filtra, un atacante no pueda reusar tokens pendientes
+// sin tener acceso al mailbox del usuario. El token plano (crypto.randomBytes
+// de 32 bytes → 64 chars hex) solo existe en el email y en el link que el
+// usuario clickea. Al validar, volvemos a hashear el token que llega y lo
+// comparamos contra los hashes almacenados.
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;         // 1 hora
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+// Throttle de re-envío: evitamos que un atacante spamee emails a un buzón
+// real. Si hay un token activo (no usado, no expirado) emitido hace menos
+// de RESEND_THROTTLE_MS, no creamos uno nuevo.
+const RESEND_THROTTLE_MS = 60 * 1000; // 1 minuto
+
+export const PASSWORD_RESET_TTL_MINUTES = Math.round(PASSWORD_RESET_TTL_MS / 60000);
+export const EMAIL_VERIFICATION_TTL_HOURS = Math.round(EMAIL_VERIFICATION_TTL_MS / (60 * 60 * 1000));
+
+function hashToken(raw: string): string {
+  return crypto.createHash('sha256').update(raw).digest('hex');
+}
+
+function genRawToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+interface IssueTokenContext {
+  userId: number;
+  email: string;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
+interface IssuedToken {
+  rawToken: string;
+  tokenHash: string;
+  expiresAt: string;
+}
+
+function getActiveTokenFor(
+  collection: 'passwordResetTokens' | 'emailVerifications',
+  userId: number,
+): any | null {
+  const now = Date.now();
+  const list = dbInstance[collection] || [];
+  // Devolvemos el más reciente activo (no usado + no expirado).
+  for (let i = list.length - 1; i >= 0; i--) {
+    const t = list[i];
+    if (!t || t.userId !== userId) continue;
+    if (t.usedAt) continue;
+    const exp = new Date(t.expiresAt).getTime();
+    if (Number.isNaN(exp) || exp <= now) continue;
+    return t;
+  }
+  return null;
+}
+
+export const issuePasswordResetToken = async (
+  ctx: IssueTokenContext,
+): Promise<{ issued: IssuedToken | null; throttled: boolean }> => {
+  // Si hay un token activo emitido hace < RESEND_THROTTLE_MS, throttle.
+  const active = getActiveTokenFor('passwordResetTokens', ctx.userId);
+  if (active) {
+    const age = Date.now() - new Date(active.createdAt).getTime();
+    if (age < RESEND_THROTTLE_MS) {
+      return { issued: null, throttled: true };
+    }
+    // Invalidamos el anterior antes de emitir uno nuevo (evita tener N tokens
+    // vivos a la vez). Lo marcamos como usado con una nota.
+    const idx = dbInstance.passwordResetTokens.findIndex((t: any) => t.id === active.id);
+    if (idx >= 0) {
+      dbInstance.passwordResetTokens[idx] = {
+        ...active,
+        usedAt: new Date().toISOString(),
+        supersededAt: new Date().toISOString(),
+      };
+    }
+  }
+  const rawToken = genRawToken();
+  const tokenHash = hashToken(rawToken);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + PASSWORD_RESET_TTL_MS).toISOString();
+  const record = {
+    id: genId(),
+    userId: ctx.userId,
+    email: ctx.email,
+    tokenHash,
+    purpose: 'password_reset',
+    createdAt: now.toISOString(),
+    expiresAt,
+    usedAt: null,
+    ip: ctx.ip || null,
+    userAgent: (ctx.userAgent || '').slice(0, 200) || null,
+  };
+  dbInstance.passwordResetTokens.push(record);
+  saveDb(dbInstance);
+  return { issued: { rawToken, tokenHash, expiresAt }, throttled: false };
+};
+
+export const consumePasswordResetToken = async (
+  rawToken: string,
+): Promise<{ ok: boolean; userId?: number; reason?: 'not_found' | 'expired' | 'used' }> => {
+  const tokenHash = hashToken(rawToken);
+  const idx = (dbInstance.passwordResetTokens || []).findIndex(
+    (t: any) => t.tokenHash === tokenHash,
+  );
+  if (idx < 0) return { ok: false, reason: 'not_found' };
+  const record = dbInstance.passwordResetTokens[idx];
+  if (record.usedAt) return { ok: false, reason: 'used' };
+  const exp = new Date(record.expiresAt).getTime();
+  if (Number.isNaN(exp) || exp <= Date.now()) return { ok: false, reason: 'expired' };
+  dbInstance.passwordResetTokens[idx] = {
+    ...record,
+    usedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return { ok: true, userId: record.userId };
+};
+
+export const issueEmailVerificationToken = async (
+  ctx: IssueTokenContext,
+): Promise<{ issued: IssuedToken | null; throttled: boolean }> => {
+  const active = getActiveTokenFor('emailVerifications', ctx.userId);
+  if (active) {
+    const age = Date.now() - new Date(active.createdAt).getTime();
+    if (age < RESEND_THROTTLE_MS) {
+      return { issued: null, throttled: true };
+    }
+    const idx = dbInstance.emailVerifications.findIndex((t: any) => t.id === active.id);
+    if (idx >= 0) {
+      dbInstance.emailVerifications[idx] = {
+        ...active,
+        usedAt: new Date().toISOString(),
+        supersededAt: new Date().toISOString(),
+      };
+    }
+  }
+  const rawToken = genRawToken();
+  const tokenHash = hashToken(rawToken);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TTL_MS).toISOString();
+  const record = {
+    id: genId(),
+    userId: ctx.userId,
+    email: ctx.email,
+    tokenHash,
+    purpose: 'email_verification',
+    createdAt: now.toISOString(),
+    expiresAt,
+    usedAt: null,
+    ip: ctx.ip || null,
+    userAgent: (ctx.userAgent || '').slice(0, 200) || null,
+  };
+  dbInstance.emailVerifications.push(record);
+  saveDb(dbInstance);
+  return { issued: { rawToken, tokenHash, expiresAt }, throttled: false };
+};
+
+export const consumeEmailVerificationToken = async (
+  rawToken: string,
+): Promise<{ ok: boolean; userId?: number; reason?: 'not_found' | 'expired' | 'used' }> => {
+  const tokenHash = hashToken(rawToken);
+  const idx = (dbInstance.emailVerifications || []).findIndex(
+    (t: any) => t.tokenHash === tokenHash,
+  );
+  if (idx < 0) return { ok: false, reason: 'not_found' };
+  const record = dbInstance.emailVerifications[idx];
+  if (record.usedAt) return { ok: false, reason: 'used' };
+  const exp = new Date(record.expiresAt).getTime();
+  if (Number.isNaN(exp) || exp <= Date.now()) return { ok: false, reason: 'expired' };
+  dbInstance.emailVerifications[idx] = {
+    ...record,
+    usedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return { ok: true, userId: record.userId };
+};
+
+// Purga de tokens vencidos y usados viejos (> 7 días). Idempotente, barato.
+// Conservamos los usados recientes para que el audit log tenga contexto.
+export const pruneExpiredAuthTokens = () => {
+  const now = Date.now();
+  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  let changed = false;
+  const filterCollection = (list: any[]): any[] => {
+    const filtered = list.filter((t: any) => {
+      const exp = new Date(t.expiresAt).getTime();
+      const usedAt = t.usedAt ? new Date(t.usedAt).getTime() : null;
+      // Si ya se usó hace > 1 semana → descartar.
+      if (usedAt && usedAt < weekAgo) return false;
+      // Si expiró hace > 1 semana y nunca se usó → descartar.
+      if (!usedAt && !Number.isNaN(exp) && exp < weekAgo) return false;
+      return true;
+    });
+    if (filtered.length !== list.length) changed = true;
+    return filtered;
+  };
+  dbInstance.passwordResetTokens = filterCollection(dbInstance.passwordResetTokens || []);
+  dbInstance.emailVerifications = filterCollection(dbInstance.emailVerifications || []);
+  if (changed) saveDb(dbInstance);
 };
 
 // ============================================================================

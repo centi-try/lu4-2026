@@ -11,6 +11,7 @@ import {
   DEFAULT_SUPER_ADMIN_NAME,
   getDb,
   getUserByEmail,
+  getUserById,
   hashStoredPassword,
   upsertUser,
   startDailyBackupScheduler,
@@ -23,7 +24,16 @@ import {
   LOGIN_MAX_FAILED_ATTEMPTS,
   LOGIN_LOCKOUT_MINUTES,
   createAuditLog,
+  issuePasswordResetToken,
+  consumePasswordResetToken,
+  issueEmailVerificationToken,
+  consumeEmailVerificationToken,
+  markUserEmailVerified,
+  pruneExpiredAuthTokens,
+  PASSWORD_RESET_TTL_MINUTES,
+  EMAIL_VERIFICATION_TTL_HOURS,
 } from "../db";
+import { sendPasswordResetEmail, sendEmailVerificationEmail, isEmailEnabled } from "./email";
 
 // Esquemas dummy para compatibilidad
 const users = { name: 'users' };
@@ -83,9 +93,31 @@ async function startServer() {
         loginMethod: 'local',
         role: 'user',
         isActive: true,
+        emailVerified: false,
         openId: `local-${email}`
       });
-      
+
+      // Emitir token de verificación de email y disparar el send (no bloquea
+      // el registro si el envío falla — se puede reintentar desde la UI).
+      try {
+        const ip = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim() || null;
+        const userAgent = String(req.headers['user-agent'] || '').slice(0, 200) || null;
+        const { issued } = await issueEmailVerificationToken({
+          userId: user.id,
+          email: user.email,
+          ip,
+          userAgent,
+        });
+        if (issued) {
+          const result = await sendEmailVerificationEmail(user.email, issued.rawToken);
+          if (!result.ok) {
+            console.warn('[auth/register] No se pudo enviar el email de verificación:', result.error);
+          }
+        }
+      } catch (err) {
+        console.error('[auth/register] Error emitiendo token de verificación:', err);
+      }
+
       // Establecer cookie de sesión
       const { sdk } = await import("./sdk");
       const { getSessionCookieOptions } = await import("./cookies");
@@ -103,8 +135,9 @@ async function startServer() {
       
       res.json({ 
         success: true, 
-        message: 'Usuario registrado exitosamente',
-        user
+        message: 'Usuario registrado exitosamente. Te enviamos un email para confirmar tu cuenta.',
+        user,
+        emailVerificationSent: isEmailEnabled(),
       });
     } catch (error) {
       console.error('Register error:', error);
@@ -135,6 +168,7 @@ async function startServer() {
           characterName: user.characterName,
           role: user.role,
           isActive: user.isActive !== false,
+          emailVerified: user.emailVerified !== false,
         },
       });
     } catch (error) {
@@ -356,11 +390,292 @@ async function startServer() {
           characterName: user.characterName,
           role: user.role,
           isActive: user.isActive !== undefined ? user.isActive : true,
+          emailVerified: user.emailVerified !== false,
         }
       });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: 'Error al iniciar sesión' });
+    }
+  });
+
+  // ============================================================
+  // PR5 — Forgot password + reset password + email verification
+  // ============================================================
+  //
+  // Rate limit para todo este conjunto: reusamos la cola per-IP del login
+  // (loginAttemptsByIp) porque queremos una protección común ante spam.
+  // Un atacante no podría usar /forgot-password para enumerar mails si lo
+  // throttleamos igual que el login.
+  //
+  // Notas de seguridad:
+  //   - /forgot-password SIEMPRE responde 200 "si existe, enviamos email".
+  //     Nunca revela si un email está registrado (protección contra
+  //     enumeración).
+  //   - Tokens son sha256(randomBytes(32)) almacenados hasheados. Link con
+  //     el token plano solo se envía por email.
+  //   - Al consumir un token de reset exitosamente, reseteamos los intentos
+  //     fallidos de login (el user ya probó su identidad vía email).
+  //   - Los endpoints son todos rate-limited por IP (misma ventana que
+  //     login → max 20 intentos / 15 min).
+
+  function rateLimitedOrRespond(req: express.Request, res: express.Response): boolean {
+    const ip = getClientIp(req);
+    const rate = checkIpRateLimit(ip);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', String(rate.retryAfterSec));
+      res.status(429).json({
+        message: `Demasiados intentos desde esta IP. Probá de nuevo en ${Math.ceil(rate.retryAfterSec / 60)} min.`,
+      });
+      return true;
+    }
+    trackIpAttempt(ip);
+    return false;
+  }
+
+  // Purgar tokens vencidos periódicamente (una vez por día además de al startup)
+  pruneExpiredAuthTokens();
+  setInterval(() => {
+    try { pruneExpiredAuthTokens(); } catch (err) { console.error('[auth] pruneExpiredAuthTokens error:', err); }
+  }, 24 * 60 * 60 * 1000).unref?.();
+
+  // ---- Forgot password: solicita el email de reset --------------------------
+  app.post('/api/auth/forgot-password', express.json(), async (req, res) => {
+    if (rateLimitedOrRespond(req, res)) return;
+    const ip = getClientIp(req);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+    const emailRaw = String(req.body?.email || '').trim().toLowerCase();
+
+    try {
+      // Respuesta genérica — NO distinguimos si el email existe o no (evita
+      // enumeración). Igual validamos el formato básico para no disparar el
+      // mail loop si vino basura.
+      if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+        return res.status(400).json({ message: 'Email inválido' });
+      }
+
+      const user = await getUserByEmail(emailRaw);
+      if (user && user.isActive !== false) {
+        const { issued, throttled } = await issuePasswordResetToken({
+          userId: user.id,
+          email: user.email,
+          ip,
+          userAgent,
+        });
+        if (issued) {
+          const result = await sendPasswordResetEmail(user.email, issued.rawToken);
+          try {
+            await createAuditLog({
+              userId: user.id,
+              actorName: user.characterName || user.name || user.email,
+              actorRole: user.role || 'user',
+              action: result.ok ? 'PASSWORD_RESET_REQUESTED' : 'PASSWORD_RESET_EMAIL_FAILED',
+              details: `IP=${ip} · UA="${userAgent}"${result.ok ? '' : ` · err=${result.error}`}`,
+            });
+          } catch { /* ignore */ }
+        } else if (throttled) {
+          try {
+            await createAuditLog({
+              userId: user.id,
+              actorName: user.characterName || user.name || user.email,
+              actorRole: user.role || 'user',
+              action: 'PASSWORD_RESET_THROTTLED',
+              details: `Reintento rápido de reset · IP=${ip}`,
+            });
+          } catch { /* ignore */ }
+        }
+      } else {
+        // Log del intento contra email inexistente (útil para detectar probing)
+        try {
+          await createAuditLog({
+            userId: null,
+            actorName: emailRaw,
+            actorRole: 'anonymous',
+            action: 'PASSWORD_RESET_REQUESTED',
+            details: `Email inexistente o inactivo · IP=${ip} · UA="${userAgent}"`,
+          });
+        } catch { /* ignore */ }
+      }
+
+      // Respuesta SIEMPRE idéntica.
+      return res.json({
+        success: true,
+        message: 'Si el email está registrado, te enviamos un enlace para restablecer la contraseña. Revisá tu bandeja de entrada.',
+      });
+    } catch (error) {
+      console.error('[auth/forgot-password] error:', error);
+      return res.json({
+        success: true,
+        message: 'Si el email está registrado, te enviamos un enlace para restablecer la contraseña.',
+      });
+    }
+  });
+
+  // ---- Reset password: consume el token y setea nueva contraseña -----------
+  app.post('/api/auth/reset-password', express.json(), async (req, res) => {
+    if (rateLimitedOrRespond(req, res)) return;
+    const ip = getClientIp(req);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+
+    try {
+      const token = String(req.body?.token || '').trim();
+      const newPassword = String(req.body?.password || '');
+      if (!token) {
+        return res.status(400).json({ message: 'Token inválido' });
+      }
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
+      }
+
+      const consumed = await consumePasswordResetToken(token);
+      if (!consumed.ok || !consumed.userId) {
+        const msg = consumed.reason === 'expired'
+          ? 'El enlace expiró. Solicitá uno nuevo.'
+          : consumed.reason === 'used'
+            ? 'Este enlace ya fue usado. Solicitá uno nuevo si querés volver a resetear.'
+            : 'Enlace inválido. Solicitá uno nuevo.';
+        return res.status(400).json({ message: msg });
+      }
+
+      const user = await getUserById(consumed.userId);
+      if (!user || user.isActive === false) {
+        return res.status(400).json({ message: 'No se puede resetear esta cuenta.' });
+      }
+
+      const newHash = await hashPassword(newPassword);
+      await updateUserPassword(user.id, newHash);
+      // Tras reset exitoso: liberamos cualquier lockout/intentos previos
+      // (el user probó identidad vía email → merece entrar).
+      await resetLoginAttempts(user.id);
+
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: 'PASSWORD_RESET_COMPLETED',
+          details: `Contraseña cambiada vía reset · IP=${ip} · UA="${userAgent}"`,
+        });
+      } catch { /* ignore */ }
+
+      return res.json({ success: true, message: 'Contraseña actualizada. Ya podés iniciar sesión.' });
+    } catch (error) {
+      console.error('[auth/reset-password] error:', error);
+      return res.status(500).json({ message: 'Error al restablecer la contraseña' });
+    }
+  });
+
+  // ---- Verify email: consume token y marca emailVerified=true --------------
+  app.post('/api/auth/verify-email', express.json(), async (req, res) => {
+    if (rateLimitedOrRespond(req, res)) return;
+    const ip = getClientIp(req);
+
+    try {
+      const token = String(req.body?.token || '').trim();
+      if (!token) {
+        return res.status(400).json({ message: 'Token inválido' });
+      }
+
+      const consumed = await consumeEmailVerificationToken(token);
+      if (!consumed.ok || !consumed.userId) {
+        const msg = consumed.reason === 'expired'
+          ? 'El enlace de verificación expiró. Solicitá uno nuevo desde tu perfil.'
+          : consumed.reason === 'used'
+            ? 'Este enlace ya fue usado.'
+            : 'Enlace de verificación inválido.';
+        return res.status(400).json({ message: msg });
+      }
+
+      const user = await markUserEmailVerified(consumed.userId);
+      if (!user) {
+        return res.status(400).json({ message: 'Usuario no encontrado' });
+      }
+
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: 'EMAIL_VERIFIED',
+          details: `Email verificado · IP=${ip}`,
+        });
+      } catch { /* ignore */ }
+
+      return res.json({
+        success: true,
+        message: 'Email verificado correctamente.',
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: true,
+        },
+      });
+    } catch (error) {
+      console.error('[auth/verify-email] error:', error);
+      return res.status(500).json({ message: 'Error al verificar el email' });
+    }
+  });
+
+  // ---- Resend verification: regenera token y lo envía al usuario logueado --
+  app.post('/api/auth/resend-verification', async (req, res) => {
+    if (rateLimitedOrRespond(req, res)) return;
+    const ip = getClientIp(req);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+
+    try {
+      const { sdk } = await import("./sdk");
+      let sessionUser: any;
+      try {
+        sessionUser = await sdk.authenticateRequest(req as any);
+      } catch {
+        return res.status(401).json({ message: 'Sesión no válida' });
+      }
+      const user = await getUserById(sessionUser.id);
+      if (!user) return res.status(401).json({ message: 'Sesión no válida' });
+      if (user.emailVerified === true) {
+        return res.json({ success: true, message: 'Tu email ya estaba verificado.' });
+      }
+
+      const { issued, throttled } = await issueEmailVerificationToken({
+        userId: user.id,
+        email: user.email,
+        ip,
+        userAgent,
+      });
+      if (throttled) {
+        return res.status(429).json({
+          message: 'Recién enviamos un email. Esperá un momento antes de reintentar.',
+        });
+      }
+      if (!issued) {
+        return res.status(500).json({ message: 'No se pudo generar el enlace de verificación.' });
+      }
+      const result = await sendEmailVerificationEmail(user.email, issued.rawToken);
+      if (!result.ok) {
+        try {
+          await createAuditLog({
+            userId: user.id,
+            actorName: user.characterName || user.name || user.email,
+            actorRole: user.role || 'user',
+            action: 'EMAIL_VERIFICATION_SEND_FAILED',
+            details: `err=${result.error} · IP=${ip}`,
+          });
+        } catch { /* ignore */ }
+        return res.status(500).json({ message: 'No se pudo enviar el email. Probá en unos minutos.' });
+      }
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: 'EMAIL_VERIFICATION_RESENT',
+          details: `IP=${ip}`,
+        });
+      } catch { /* ignore */ }
+      return res.json({ success: true, message: 'Email de verificación reenviado.' });
+    } catch (error) {
+      console.error('[auth/resend-verification] error:', error);
+      return res.status(500).json({ message: 'Error al reenviar email' });
     }
   });
   

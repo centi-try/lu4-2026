@@ -7,6 +7,7 @@ interface User {
   characterName: string;
   role: string;
   isActive?: boolean;
+  emailVerified?: boolean;
 }
 
 interface AuthContextType {
@@ -78,12 +79,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [fetchMe]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
     const data = await response.json();
     if (!response.ok) {

@@ -4,6 +4,7 @@ import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
+import EmailVerificationBanner from '../EmailVerificationBanner';
 
 // Lista completa de menús del sistema legacy. Cada entrada declara sus roles
 // permitidos; el sidebar filtra según el rol global del usuario logueado.
@@ -305,6 +306,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-auto p-4 lg:p-6">
+          <EmailVerificationBanner />
           {children}
         </main>
       </div>

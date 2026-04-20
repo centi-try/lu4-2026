@@ -16,6 +16,9 @@ import Backups from "./pages/Backups";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RaidProtectedRoute from "./components/RaidProtectedRoute";
 import RaidDashboard from "./pages/raid/RaidDashboard";
@@ -31,6 +34,9 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password/:token" component={ResetPassword} />
+      <Route path="/verify-email/:token" component={VerifyEmail} />
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/inventory" component={() => <ProtectedRoute component={Inventory} />} />
       <Route path="/characters" component={() => <ProtectedRoute component={Characters} />} />

@@ -51,7 +51,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, rememberMe);
       toast.success('¡Sesión iniciada!');
       setLocation('/');
     } catch (error) {
@@ -209,20 +209,31 @@ export default function Login() {
               )}
             </div>
 
-            <label
-              className="flex items-center gap-2 cursor-pointer select-none pt-1"
-              style={{ color: 'rgba(255,255,255,0.65)' }}
-            >
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
+            <div className="flex items-center justify-between pt-1">
+              <label
+                className="flex items-center gap-2 cursor-pointer select-none"
+                style={{ color: 'rgba(255,255,255,0.65)' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={loading}
+                  className="h-4 w-4 rounded cursor-pointer"
+                  style={{ accentColor: '#7bf1d6' }}
+                />
+                <span className="text-sm">Recordarme (30 días)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setLocation('/forgot-password')}
                 disabled={loading}
-                className="h-4 w-4 rounded cursor-pointer"
-                style={{ accentColor: '#7bf1d6' }}
-              />
-              <span className="text-sm">Recordarme en este navegador (30 días)</span>
-            </label>
+                className="text-sm font-medium transition hover:opacity-80"
+                style={{ color: '#7bf1d6' }}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
 
             <button
               type="submit"
