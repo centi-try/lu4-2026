@@ -714,11 +714,13 @@ export const raidRouter = router({
         quantity: z.number().int().min(1),
       }))
       .mutation(async ({ ctx, input }) => {
-        // Verificar que el usuario tenga acceso raid real (no viewer_only que
-        // solo puede mirar). Para reservar se necesita al menos raid_user.
-        const access = await getUserRaidAccess(ctx.user.id);
-        const allowedLevels = new Set(['raid_admin', 'raid_mapper', 'raid_user']);
-        if (!access || !allowedLevels.has(String(access.accessLevel))) {
+        // Super Admin tiene bypass total (no necesita entry en userRaidAccess).
+        // Para el resto: se requiere nivel raid_admin / raid_mapper / raid_user
+        // (viewer_only solo puede mirar). `canUserAccessRaidModule` ya centraliza
+        // el bypass del super admin y devuelve el accessLevel efectivo.
+        const moduleAccess = await canUserAccessRaidModule(ctx.user);
+        const allowedLevels = new Set(['raid_admin', 'raid_mapper', 'raid_user', 'super_admin']);
+        if (!allowedLevels.has(String(moduleAccess.accessLevel))) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: 'Necesitás rol raid_user o superior para reservar.',
