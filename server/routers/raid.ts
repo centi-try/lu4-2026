@@ -287,9 +287,14 @@ export const raidRouter = router({
 
   // ---------------- Category Icons (super admin) ---------------------------
   // Iconos por categoría de drop — el super admin los setea una vez y se usan
-  // como imagen automática en el formulario de eventos de raid.
+  // como imagen automática en el formulario de eventos de raid Y TAMBIÉN
+  // en el formulario de registro del inventario legacy (/inventory).
+  // Por eso `list` se expone a todo usuario autenticado (no solo a usuarios con
+  // acceso al módulo raid): los roles USER / MAPPER / SUPER_ADMIN del inventario
+  // legacy también necesitan resolver la imagen al seleccionar categoría.
+  // La escritura (set/delete) sigue restringida a super admin raid.
   categoryIcons: router({
-    list: raidViewerProcedure.query(async () => {
+    list: protectedProcedure.query(async () => {
       return await getRaidCategoryIcons();
     }),
     set: raidSuperAdminProcedure

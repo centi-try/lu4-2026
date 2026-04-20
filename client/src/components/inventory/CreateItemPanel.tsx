@@ -1,23 +1,19 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp, Copy, Check, AlertCircle } from 'lucide-react';
 import { ItemTypeahead } from './ItemTypeahead';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory } from '../../lib/types';
+import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 
-// Íconos por categoría — se asignan automáticamente cuando el usuario elige
-// categoría (mismo patrón visual que /raids/inventory → drops).
-const DEFAULT_IMAGES: Record<ItemCategory, string> = {
-  ARMADURA:   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=80&q=80',
-  ARMA:       'https://images.unsplash.com/photo-1589656966895-2f33e7653819?auto=format&fit=crop&w=80&q=80',
-  JOYA:       'https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&w=80&q=80',
-  KEY:        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=80&q=80',
-  RECIPE:     'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=80&q=80',
-  MATERIALES: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=80&q=80',
-  QUEST:      'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=80&q=80',
-  ADENA:      'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=80&q=80',
-};
+// Íconos por categoría — ya no están hardcodeados. El super admin los setea
+// en /raids/settings → "Iconos por categoría de drop" y el mismo mapa se
+// usa acá al seleccionar categoría (fuente única, categorías compartidas
+// entre inventario legacy y raid). Si una categoría no tiene icono cargado,
+// la imagen queda vacía y el usuario puede subir la suya manualmente.
+// Endpoint: trpc.raid.categoryIcons.list (protectedProcedure — accesible a
+// USER / MAPPER / SUPER_ADMIN aunque no tengan acceso al módulo raid).
 
 // ============================================================================
 // Registro de ítems — layout compacto multi-fila, mismo patrón que el
@@ -72,6 +68,24 @@ export function CreateItemPanel() {
   const { addItem, currentUser, characters } = useApp();
   const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Mapa categoría (uppercase) → imageUrl, leído desde raid.categoryIcons.
+  // Re-usamos el mismo catálogo que /raids/settings para que al seleccionar
+  // Categoría en el form legacy se asigne automáticamente la imagen global.
+  const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery(undefined, {
+    staleTime: 60_000,
+  });
+  const categoryIconMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    (categoryIconsQ.data || []).forEach((r: { category: string; imageUrl: string }) => {
+      map[String(r.category).toUpperCase()] = r.imageUrl;
+    });
+    return map;
+  }, [categoryIconsQ.data]);
+  const resolveCategoryIcon = (cat: ItemCategory | ''): string => {
+    if (!cat) return '';
+    return categoryIconMap[String(cat).toUpperCase()] || '';
+  };
 
   // Una vez que el usuario intenta submitir al menos una vez, cualquier fila
   // con cantidad inválida queda permanentemente en rojo hasta que la corrija.
@@ -146,9 +160,13 @@ export function CreateItemPanel() {
     setRows(prev =>
       prev.map(r => {
         if (r.id !== rowId) return r;
+        // Al elegir categoría sobrescribimos siempre la imagen con el icono
+        // global de la categoría (o vacío si la categoría no tiene icono
+        // cargado en /raids/settings). Si el usuario ya había subido/pegado
+        // una imagen manual, queda reemplazada — misma lógica que raid.
         const nextImg =
           newCat && CATEGORIES.includes(newCat as ItemCategory)
-            ? DEFAULT_IMAGES[newCat as ItemCategory]
+            ? resolveCategoryIcon(newCat)
             : '';
         return { ...r, category: newCat, imageUrl: nextImg };
       }),
@@ -183,9 +201,11 @@ export function CreateItemPanel() {
   const applyTypeaheadSelection = (rowId: string, item: Item) => {
     const pickedCat = item.category;
     const picked = item.image?.publicUrl;
+    // Si el ítem histórico tiene imagen propia la reutilizamos; si no, caemos
+    // al icono global de la categoría (cargado en /raids/settings).
     const fallback =
       pickedCat && CATEGORIES.includes(pickedCat as ItemCategory)
-        ? DEFAULT_IMAGES[pickedCat as ItemCategory]
+        ? resolveCategoryIcon(pickedCat)
         : '';
     updateRow(rowId, {
       name: item.name,
@@ -260,7 +280,7 @@ export function CreateItemPanel() {
       rows.forEach(r => {
         const cat = r.category as ItemCategory;
         const qty = parseInt(r.quantity) || 1;
-        const finalImage = r.imageUrl || DEFAULT_IMAGES[cat];
+        const finalImage = r.imageUrl || resolveCategoryIcon(cat);
         addItem({
           name: r.name.trim(),
           category: cat,
