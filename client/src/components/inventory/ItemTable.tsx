@@ -710,7 +710,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   <Users className="h-3.5 w-3.5" />
                   Distribución de ganancias
                 </p>
-                <div className="space-y-1 overflow-y-auto pr-1" style={{ maxHeight: 120 }}>
+                <div className="space-y-1 overflow-y-auto pr-1" style={{ maxHeight: 80 }}>
                   {sellModalItem.associatedCharacterIds.map(cid => {
                     const char = characters.find(c => c.id === cid);
                     if (!char) return null;
