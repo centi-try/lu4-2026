@@ -759,6 +759,9 @@ function normalizeCharacterEarnings(cycle: any): any[] {
       characterId: String(ce.characterId),
       characterName: ce.characterName || String(ce.characterId),
       earnings: Number(ce.earnings) || 0,
+      paidOut: Boolean(ce.paidOut),
+      paidAt: ce.paidAt || null,
+      paidBy: ce.paidBy || null,
     }));
   }
   // Si viene como profitByCharacter (objeto { charId: amount })
@@ -959,6 +962,89 @@ export const closeSalesCycle = async (id: number, data: any) => {
 
   saveDb(dbInstance);
   return newCycle;
+};
+
+// Marca (o desmarca) el pago manual de la adena a un personaje dentro de un
+// ciclo cerrado. Es solo un flag visual de control — no afecta totales ni
+// mueve plata, es un recordatorio para el admin de "a éste ya le pagué".
+export const setSalesCycleCharacterPaid = async (
+  cycleId: string,
+  characterId: string,
+  paidOut: boolean,
+  actorName?: string,
+  actorUserId?: number,
+) => {
+  const cycles = dbInstance.salesCycles || [];
+  const idx = cycles.findIndex((c: any) => String(c.id) === String(cycleId));
+  if (idx === -1) throw new Error(`Ciclo ${cycleId} no encontrado`);
+  const cycle: any = cycles[idx];
+  if (!Array.isArray(cycle.characterEarnings)) cycle.characterEarnings = [];
+  const ceIdx = cycle.characterEarnings.findIndex(
+    (ce: any) => String(ce.characterId) === String(characterId)
+  );
+  if (ceIdx === -1) throw new Error(`Personaje ${characterId} no registrado en este ciclo`);
+  const ce = cycle.characterEarnings[ceIdx];
+  ce.paidOut = paidOut;
+  ce.paidAt = paidOut ? new Date().toISOString() : null;
+  ce.paidBy = paidOut ? (actorName || 'Administrador') : null;
+  cycle.characterEarnings[ceIdx] = ce;
+  cycles[idx] = cycle;
+  dbInstance.salesCycles = cycles;
+
+  await createAuditLog({
+    userId: actorUserId,
+    action: paidOut ? 'CYCLE_PAYOUT_MARKED' : 'CYCLE_PAYOUT_UNMARKED',
+    detail: `${paidOut ? 'Marcó' : 'Desmarcó'} como pagado a ${ce.characterName} ($${(ce.earnings ?? 0).toLocaleString()}) en ${cycle.label || cycle.id}.`,
+    details: {
+      cycle: cycle.label || String(cycle.id),
+      cycleId: String(cycle.id),
+      characterId: String(characterId),
+      characterName: ce.characterName,
+      earnings: ce.earnings,
+      paidOut,
+    },
+  });
+
+  saveDb(dbInstance);
+  return normalizeCycle(cycle);
+};
+
+// Marca a todos los personajes del ciclo como pagados. Útil cuando el admin
+// ya distribuyó la adena completa y quiere cerrar el ciclo de pagos de una.
+export const setSalesCycleAllPaid = async (
+  cycleId: string,
+  actorName?: string,
+  actorUserId?: number,
+) => {
+  const cycles = dbInstance.salesCycles || [];
+  const idx = cycles.findIndex((c: any) => String(c.id) === String(cycleId));
+  if (idx === -1) throw new Error(`Ciclo ${cycleId} no encontrado`);
+  const cycle: any = cycles[idx];
+  if (!Array.isArray(cycle.characterEarnings)) cycle.characterEarnings = [];
+  const now = new Date().toISOString();
+  const by = actorName || 'Administrador';
+  let changed = 0;
+  cycle.characterEarnings = cycle.characterEarnings.map((ce: any) => {
+    if (!ce.paidOut) changed += 1;
+    return { ...ce, paidOut: true, paidAt: ce.paidAt || now, paidBy: ce.paidBy || by };
+  });
+  cycles[idx] = cycle;
+  dbInstance.salesCycles = cycles;
+
+  await createAuditLog({
+    userId: actorUserId,
+    action: 'CYCLE_PAYOUT_ALL_MARKED',
+    detail: `Marcó a todos los personajes como pagados (${changed} cambiado(s)) en ${cycle.label || cycle.id}.`,
+    details: {
+      cycle: cycle.label || String(cycle.id),
+      cycleId: String(cycle.id),
+      charactersChanged: changed,
+      totalCharacters: cycle.characterEarnings.length,
+    },
+  });
+
+  saveDb(dbInstance);
+  return normalizeCycle(cycle);
 };
 
 // Normaliza y enriquece un log de auditoría antes de persistirlo.

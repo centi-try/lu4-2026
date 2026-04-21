@@ -72,6 +72,10 @@ export interface CycleCharacterEarning {
   characterId: string;
   characterName: string;
   earnings: number;
+  // Estado de pago manual (admin marca cuando ya le pagó la adena al personaje)
+  paidOut?: boolean;
+  paidAt?: string;
+  paidBy?: string;
 }
 
 // Resumen de un item vendido dentro de un ciclo

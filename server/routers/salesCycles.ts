@@ -1,6 +1,13 @@
 import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
-import { getSalesCycles, createSalesCycle, closeSalesCycle, createBackup } from "../db";
+import {
+  getSalesCycles,
+  createSalesCycle,
+  closeSalesCycle,
+  createBackup,
+  setSalesCycleCharacterPaid,
+  setSalesCycleAllPaid,
+} from "../db";
 
 const CreateSalesCycleSchema = z.object({
   name: z.string(),
@@ -61,5 +68,34 @@ export const salesCyclesRouter = router({
         startedAt: input.startedAt,
       });
       return { success: true };
+    }),
+
+  // Marca (o desmarca) que ya se le pagó la adena de un ciclo a un personaje.
+  // Es un flag manual para control del admin — no mueve plata ni totales.
+  markCharacterPaid: protectedProcedure
+    .input(z.object({
+      cycleId: z.string(),
+      characterId: z.string(),
+      paidOut: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const actorName = ctx.user?.characterName || ctx.user?.name || "Administrador";
+      const cycle = await setSalesCycleCharacterPaid(
+        input.cycleId,
+        input.characterId,
+        input.paidOut,
+        actorName,
+        ctx.user?.id,
+      );
+      return { success: true, cycle };
+    }),
+
+  // Marca a todos los personajes del ciclo como pagados de una.
+  markAllPaid: protectedProcedure
+    .input(z.object({ cycleId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const actorName = ctx.user?.characterName || ctx.user?.name || "Administrador";
+      const cycle = await setSalesCycleAllPaid(input.cycleId, actorName, ctx.user?.id);
+      return { success: true, cycle };
     }),
 });
