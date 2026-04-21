@@ -9,6 +9,7 @@
 //      + cuántos backup codes quedan.
 // ============================================================================
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ShieldCheck, ShieldOff, Loader2, Copy, Check, AlertTriangle, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -292,10 +293,10 @@ export function TwoFactorSection() {
         </div>
       )}
 
-      {/* Modal de activación */}
-      {activateOpen && (
+      {/* Modal de activación — renderizado vía portal para escapar del stacking context creado por backdrop-filter en card-glass padre */}
+      {activateOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           onClick={(e) => { if (e.target === e.currentTarget) closeActivate(); }}
         >
@@ -480,13 +481,14 @@ export function TwoFactorSection() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Modal de desactivación */}
-      {disableOpen && (
+      {/* Modal de desactivación — renderizado vía portal para escapar del stacking context creado por backdrop-filter en card-glass padre */}
+      {disableOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setDisableOpen(false); }}
         >
@@ -556,7 +558,8 @@ export function TwoFactorSection() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
