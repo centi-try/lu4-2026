@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, TrendingUp, Package, Users, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, PlayCircle, StopCircle, Check, X, Coins } from 'lucide-react';
+import { Calendar, TrendingUp, Package, Users, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, PlayCircle, StopCircle, Check, X, Coins, Lock as LockIcon, ShoppingCart, User as UserIcon } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
 import { trpc } from '../lib/trpc';
@@ -340,7 +340,7 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
 }
 
 export default function SalesCyclesPage() {
-  const { salesCycles, currentUser, closeCycle, currentCycleStartedAt, cycleNumber, items } = useApp();
+  const { salesCycles, currentUser, closeCycle, currentCycleStartedAt, cycleNumber, items, characters } = useApp();
   const [closeType, setCloseType] = useState<'DIARIO' | 'SEMANAL'>('SEMANAL');
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -349,6 +349,21 @@ export default function SalesCyclesPage() {
   const activeItems = items.filter(i => i.status !== 'VENDIDO');
   const soldInCycle = items.filter(i => i.quantitySoldInCycle > 0);
   const totalCycleRevenue = soldInCycle.reduce((s, i) => s + (i.price ?? 0) * i.quantitySoldInCycle, 0);
+  const unsoldRemainingCount = activeItems.filter(i => (i.quantity - i.quantitySold) > 0).length;
+
+  // Preview del cierre — lista de personajes con ganancias del ciclo actual.
+  const preview = useMemo(() => {
+    const chars = characters
+      .filter(c => (c.currentCycleEarnings || 0) > 0)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        earnings: Number(c.currentCycleEarnings) || 0,
+      }))
+      .sort((a, b) => b.earnings - a.earnings);
+    const totalPayout = chars.reduce((s, c) => s + c.earnings, 0);
+    return { chars, totalPayout };
+  }, [characters]);
 
   const handleCloseCycle = () => {
     closeCycle(closeType);
@@ -406,64 +421,216 @@ export default function SalesCyclesPage() {
         {/* Acción de cierre (solo admin) */}
         {isAdmin && (
           <div className="mt-5 border-t pt-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-            {!showConfirm ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Cerrar ciclo como:
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCloseType('DIARIO')}
-                    className="rounded-xl px-3 py-1.5 text-xs font-medium transition-all"
-                    style={{
-                      background: closeType === 'DIARIO' ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${closeType === 'DIARIO' ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                      color: closeType === 'DIARIO' ? '#fbbf24' : 'rgba(255,255,255,0.5)',
-                    }}>
-                    📆 Diario
-                  </button>
-                  <button
-                    onClick={() => setCloseType('SEMANAL')}
-                    className="rounded-xl px-3 py-1.5 text-xs font-medium transition-all"
-                    style={{
-                      background: closeType === 'SEMANAL' ? 'rgba(123,241,214,0.2)' : 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${closeType === 'SEMANAL' ? 'rgba(123,241,214,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                      color: closeType === 'SEMANAL' ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
-                    }}>
-                    📅 Semanal
-                  </button>
-                </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Cerrar ciclo como:
+              </p>
+              <div className="flex gap-2">
                 <button
-                  onClick={() => setShowConfirm(true)}
-                  className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ml-auto"
-                  style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
-                  <StopCircle className="h-4 w-4" />
-                  Cerrar ciclo actual
+                  onClick={() => setCloseType('DIARIO')}
+                  className="rounded-xl px-3 py-1.5 text-xs font-medium transition-all"
+                  style={{
+                    background: closeType === 'DIARIO' ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${closeType === 'DIARIO' ? 'rgba(251,191,36,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                    color: closeType === 'DIARIO' ? '#fbbf24' : 'rgba(255,255,255,0.5)',
+                  }}>
+                  📆 Diario
+                </button>
+                <button
+                  onClick={() => setCloseType('SEMANAL')}
+                  className="rounded-xl px-3 py-1.5 text-xs font-medium transition-all"
+                  style={{
+                    background: closeType === 'SEMANAL' ? 'rgba(123,241,214,0.2)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${closeType === 'SEMANAL' ? 'rgba(123,241,214,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                    color: closeType === 'SEMANAL' ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
+                  }}>
+                  📅 Semanal
                 </button>
               </div>
-            ) : (
-              <div className="rounded-xl p-4" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>
-                <p className="text-sm font-semibold mb-1" style={{ color: '#f87171' }}>
-                  ¿Confirmar cierre del ciclo #{cycleNumber}?
-                </p>
-                <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  Se guardarán las ganancias de {soldInCycle.length} ítem(s) vendidos.
-                  Los {activeItems.filter(i => i.quantity - i.quantitySold > 0).length} ítem(s) restantes se acumularán al ciclo #{cycleNumber + 1}.
-                </p>
-                <div className="flex gap-2">
-                  <button onClick={() => setShowConfirm(false)} className="btn-ghost px-4 py-2 text-sm">
-                    Cancelar
-                  </button>
-                  <button onClick={handleCloseCycle}
-                    className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
-                    style={{ background: '#f87171', color: '#000' }}>
-                    <CheckCircle className="h-4 w-4" />
-                    Sí, cerrar ciclo
-                  </button>
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ml-auto"
+                style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}>
+                <StopCircle className="h-4 w-4" />
+                Cerrar ciclo actual
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de confirmación — preview del cierre con stats + personajes a pagar */}
+        {showConfirm && createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+            onClick={e => { if (e.target === e.currentTarget) setShowConfirm(false); }}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"
+              style={{
+                background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+                border: '1px solid rgba(248,113,113,0.3)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <LockIcon className="h-5 w-5" style={{ color: '#f87171' }} />
+                    <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                      Cerrar ciclo #{cycleNumber}
+                    </h3>
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{
+                        background: closeType === 'SEMANAL' ? 'rgba(123,241,214,0.12)' : 'rgba(251,191,36,0.12)',
+                        color: closeType === 'SEMANAL' ? '#7bf1d6' : '#fbbf24',
+                        border: `1px solid ${closeType === 'SEMANAL' ? 'rgba(123,241,214,0.25)' : 'rgba(251,191,36,0.25)'}`,
+                      }}>
+                      {closeType === 'SEMANAL' ? '📅 Semanal' : '📆 Diario'}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Esta acción persiste el resumen y no se puede deshacer. Los ítems sin vender se acumulan al próximo ciclo.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="rounded-lg p-1.5 transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.6)',
+                  }}
+                  aria-label="Cerrar"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                {/* Info del ciclo */}
+                <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Ciclo</div>
+                  <div className="font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Ciclo #{cycleNumber}</div>
+                  <div className="text-xs mt-1 font-mono" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Iniciado el {formatDate(currentCycleStartedAt)}
+                  </div>
+                </div>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <StatLite
+                    label="Recaudado"
+                    value={`$${totalCycleRevenue.toLocaleString()}`}
+                    color="#10b981"
+                    icon={<Coins className="h-3.5 w-3.5" />}
+                  />
+                  <StatLite
+                    label="Ítems con ventas"
+                    value={soldInCycle.length}
+                    color="#a78bfa"
+                    icon={<ShoppingCart className="h-3.5 w-3.5" />}
+                  />
+                  <StatLite
+                    label="Personajes a cobrar"
+                    value={preview.chars.length}
+                    color="#7bf1d6"
+                    icon={<Users className="h-3.5 w-3.5" />}
+                  />
+                  <StatLite
+                    label="Ítems sin vender"
+                    value={unsoldRemainingCount}
+                    color="#fbbf24"
+                    icon={<AlertTriangle className="h-3.5 w-3.5" />}
+                  />
+                </div>
+
+                {/* Reparto por personaje */}
+                {preview.chars.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      Reparto por personaje ({preview.chars.length})
+                    </p>
+                    <div
+                      className="rounded-xl p-2 space-y-1 overflow-y-auto"
+                      style={{
+                        background: 'rgba(16,185,129,0.05)',
+                        border: '1px solid rgba(16,185,129,0.15)',
+                        maxHeight: '180px',
+                      }}
+                    >
+                      {preview.chars.map(c => (
+                        <div key={c.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
+                          style={{ background: 'rgba(255,255,255,0.02)' }}>
+                          <span className="text-xs font-medium flex items-center gap-1.5"
+                            style={{ color: 'rgba(255,255,255,0.85)' }}>
+                            <UserIcon className="h-3 w-3" style={{ color: '#7bf1d6' }} />
+                            {c.name}
+                          </span>
+                          <span className="text-xs font-mono font-bold" style={{ color: '#10b981' }}>
+                            ${c.earnings.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {preview.chars.length === 0 && (
+                  <div
+                    className="rounded-xl p-3 text-xs"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      color: 'rgba(255,255,255,0.55)',
+                    }}
+                  >
+                    No hay personajes con ganancias en este ciclo. Igual podés cerrarlo para empezar uno nuevo.
+                  </div>
+                )}
+
+                {/* Aviso */}
+                <div
+                  className="rounded-xl p-3 text-xs"
+                  style={{
+                    background: 'rgba(248,113,113,0.08)',
+                    border: '1px solid rgba(248,113,113,0.2)',
+                    color: 'rgba(255,255,255,0.8)',
+                  }}
+                >
+                  Al confirmar, el resumen se persiste como <strong>Ciclo #{cycleNumber}</strong> en el historial (inmutable).
+                  {unsoldRemainingCount > 0 && (
+                    <> Los <strong>{unsoldRemainingCount}</strong> ítem(s) sin vender se acumulan automáticamente al ciclo #{cycleNumber + 1}.</>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Acciones */}
+              <div className="flex justify-end gap-2 mt-5">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium"
+                  style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCloseCycle}
+                  className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(239,68,68,0.25), rgba(220,38,38,0.35))',
+                    border: '1px solid rgba(239,68,68,0.4)',
+                    color: '#f87171',
+                  }}
+                >
+                  <LockIcon className="h-4 w-4" />
+                  Sí, cerrar ciclo
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
         )}
 
         {!isAdmin && (
@@ -517,5 +684,38 @@ export default function SalesCyclesPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function StatLite({
+  label,
+  value,
+  color,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  color: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-lg p-2"
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      <div
+        className="flex items-center gap-1 text-[10px] uppercase tracking-wider mb-0.5"
+        style={{ color }}
+      >
+        {icon}
+        {label}
+      </div>
+      <div className="text-sm font-bold font-mono" style={{ color: 'rgba(255,255,255,0.9)' }}>
+        {value}
+      </div>
+    </div>
   );
 }
