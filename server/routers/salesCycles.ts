@@ -1,4 +1,4 @@
-import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
 import { getSalesCycles, createSalesCycle, closeSalesCycle, createBackup } from "../db";
 
@@ -20,7 +20,9 @@ const CloseSalesCycleSchema = z.object({
 });
 
 export const salesCyclesRouter = router({
-  list: publicProcedure.query(async () => {
+  // Requiere sesión. Los ciclos incluyen revenue/profit agregados que son
+  // datos financieros internos — antes eran públicos.
+  list: protectedProcedure.query(async () => {
     return await getSalesCycles();
   }),
 
