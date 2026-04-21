@@ -8,6 +8,7 @@ import { trpc } from '../../lib/trpc';
 import { useAuth } from '../../contexts/AuthContext';
 import { ItemReservationButton, type ItemReservationRecord } from './ItemReservationButton';
 import { FancySelect, type FancyOption } from '../ui/FancySelect';
+import { ImageHoverPreview } from '../ui/ImageHoverPreview';
 
 interface Props {
   items?: Item[];
@@ -384,15 +385,17 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   >
                     {/* Image */}
                     <td className="px-4 py-3">
-                      <div className="h-[30px] w-[30px] overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-                        {item.image?.publicUrl ? (
-                          <img src={item.image.publicUrl} alt={item.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-white/5">
-                            <ShoppingCart className="h-4 w-4 text-white/20" />
-                          </div>
-                        )}
-                      </div>
+                      <ImageHoverPreview src={item.image?.publicUrl} caption={item.name} size={320}>
+                        <div className="h-[30px] w-[30px] overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                          {item.image?.publicUrl ? (
+                            <img src={item.image.publicUrl} alt={item.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-white/5">
+                              <ShoppingCart className="h-4 w-4 text-white/20" />
+                            </div>
+                          )}
+                        </div>
+                      </ImageHoverPreview>
                     </td>
                     {/* Name */}
                     <td className="px-4 py-3">

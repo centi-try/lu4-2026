@@ -1199,7 +1199,7 @@ export default function RaidInventory({ raidAccess }: Props) {
               }}
             >
               {deleteEventTarget.bossImageUrl ? (
-                <ImageHoverPreview src={deleteEventTarget.bossImageUrl} caption={deleteEventTarget.bossName || ''} size={260}>
+                <ImageHoverPreview src={deleteEventTarget.bossImageUrl} caption={deleteEventTarget.bossName || ''} size={400}>
                   <img
                     src={deleteEventTarget.bossImageUrl}
                     alt={deleteEventTarget.bossName || ''}
@@ -1403,7 +1403,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     {boss?.officialImageUrl && (
-                      <ImageHoverPreview src={boss.officialImageUrl} caption={boss.name} size={260}>
+                      <ImageHoverPreview src={boss.officialImageUrl} caption={boss.name} size={400}>
                         <img src={boss.officialImageUrl} alt="" className="h-8 w-8 rounded object-cover" />
                       </ImageHoverPreview>
                     )}
@@ -1633,7 +1633,7 @@ function EventCard({
         aria-expanded={open}
         className="w-full flex items-center gap-3 p-3 text-left cursor-pointer"
       >
-        <ImageHoverPreview src={event.bossImageUrl} caption={event.bossName} size={260}>
+        <ImageHoverPreview src={event.bossImageUrl} caption={event.bossName} size={400}>
           <div
             className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
             style={{
@@ -1734,12 +1734,14 @@ function EventCard({
           )}
 
           {event.evidenceImageUrl && (
-            <img
-              src={event.evidenceImageUrl}
-              alt="evidencia"
-              className="rounded-lg max-h-48"
-              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-            />
+            <ImageHoverPreview src={event.evidenceImageUrl} caption="Evidencia" size={420} block>
+              <img
+                src={event.evidenceImageUrl}
+                alt="evidencia"
+                className="rounded-lg max-h-48"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+            </ImageHoverPreview>
           )}
 
           <div className="space-y-1.5">
@@ -1764,16 +1766,18 @@ function EventCard({
                     boxShadow: hasReservations ? 'inset 3px 0 0 0 #fbbf24' : undefined,
                   }}
                 >
-                  <div
-                    className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.05)' }}
-                  >
-                    {d.imageUrl ? (
-                      <img src={d.imageUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
-                    )}
-                  </div>
+                  <ImageHoverPreview src={d.imageUrl} caption={d.name} size={260}>
+                    <div
+                      className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+                      style={{ background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      {d.imageUrl ? (
+                        <img src={d.imageUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                      )}
+                    </div>
+                  </ImageHoverPreview>
                   <div className="flex-1 min-w-0">
                     <p
                       className="text-xs font-medium flex items-center gap-1.5"

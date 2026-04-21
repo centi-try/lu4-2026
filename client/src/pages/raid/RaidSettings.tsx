@@ -320,7 +320,7 @@ export default function RaidSettings({ raidAccess }: Props) {
                     border: '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  <ImageHoverPreview src={b.officialImageUrl} caption={b.name} size={280}>
+                  <ImageHoverPreview src={b.officialImageUrl} caption={b.name} size={400}>
                     <div
                       className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
                       style={{

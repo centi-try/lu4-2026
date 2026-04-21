@@ -104,7 +104,7 @@ export function BossSelect({
         {selected ? (
           <>
             {selected.officialImageUrl ? (
-              <ImageHoverPreview src={selected.officialImageUrl} caption={selected.name} size={240}>
+              <ImageHoverPreview src={selected.officialImageUrl} caption={selected.name} size={400}>
                 <img
                   src={selected.officialImageUrl}
                   alt=""
@@ -206,7 +206,7 @@ export function BossSelect({
                     }}
                   >
                     {boss.officialImageUrl ? (
-                      <ImageHoverPreview src={boss.officialImageUrl} caption={boss.name} size={240}>
+                      <ImageHoverPreview src={boss.officialImageUrl} caption={boss.name} size={400}>
                         <img
                           src={boss.officialImageUrl}
                           alt=""

@@ -301,7 +301,7 @@ export default function RaidDashboard({ raidAccess }: Props) {
                   border: '1px solid rgba(167,139,250,0.15)',
                 }}
               >
-                <ImageHoverPreview src={e.bossImageUrl} caption={e.bossName} size={260}>
+                <ImageHoverPreview src={e.bossImageUrl} caption={e.bossName} size={400}>
                   {e.bossImageUrl ? (
                     <img
                       src={e.bossImageUrl}
@@ -413,7 +413,7 @@ function DashboardEventCard({ event }: { event: any }) {
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-3 p-3 text-left"
       >
-        <ImageHoverPreview src={event.bossImageUrl} caption={event.bossName} size={260}>
+        <ImageHoverPreview src={event.bossImageUrl} caption={event.bossName} size={400}>
           <div
             className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
             style={{
@@ -506,7 +506,7 @@ function DashboardEventCard({ event }: { event: any }) {
                     border: '1px solid rgba(255,255,255,0.05)',
                   }}
                 >
-                  <ImageHoverPreview src={d.imageUrl} caption={d.name} size={220}>
+                  <ImageHoverPreview src={d.imageUrl} caption={d.name} size={260}>
                     <div
                       className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
                       style={{ background: 'rgba(255,255,255,0.05)' }}

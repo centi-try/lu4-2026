@@ -7,6 +7,7 @@ import type { Item, ItemCategory } from '../../lib/types';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import { FancySelect, type FancyOption } from '../ui/FancySelect';
+import { ImageHoverPreview } from '../ui/ImageHoverPreview';
 
 // Íconos por categoría — ya no están hardcodeados. El super admin los setea
 // en /raids/settings → "Iconos por categoría de drop" y el mismo mapa se
@@ -558,11 +559,13 @@ export function CreateItemPanel() {
                     >
                       {row.imageUrl ? (
                         <>
-                          <img
-                            src={row.imageUrl}
-                            alt=""
-                            className="h-7 w-7 rounded object-cover shrink-0"
-                          />
+                          <ImageHoverPreview src={row.imageUrl} caption={catOk ? row.category : ''} size={240}>
+                            <img
+                              src={row.imageUrl}
+                              alt=""
+                              className="h-7 w-7 rounded object-cover shrink-0"
+                            />
+                          </ImageHoverPreview>
                           <span
                             className="text-[10px] truncate"
                             style={{ color: 'rgba(255,255,255,0.5)' }}
