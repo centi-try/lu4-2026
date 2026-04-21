@@ -94,9 +94,6 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
           )}
         </span>
       )}
-      <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
-        {chars.length}
-      </span>
     </div>
   );
 }
