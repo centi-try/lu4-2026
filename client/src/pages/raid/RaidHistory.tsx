@@ -451,8 +451,8 @@ export default function RaidHistory() {
           </div>
         )}
 
-        {/* Lista agrupada por día */}
-        <div className="px-5 overflow-y-auto" style={{ maxHeight: 600 }}>
+        {/* Lista agrupada por día — sin scroll interno, fluye con la página (mismo patrón que /purchases) */}
+        <div className="px-5 pb-5">
           {logsQ.isLoading ? (
             <p className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
               Cargando actividad…
