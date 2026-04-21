@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 
 /**
  * Tab "Ciclos de Venta" dentro de /raids/cycles.
@@ -300,11 +301,13 @@ function CurrentSalesCycleCard({
               >
                 <div className="flex items-center gap-2 min-w-0">
                   {it.bossImageUrl ? (
-                    <img
-                      src={it.bossImageUrl}
-                      alt=""
-                      className="h-6 w-6 rounded object-cover shrink-0"
-                    />
+                    <ImageHoverPreview src={it.bossImageUrl} caption={it.itemName} size={400}>
+                      <img
+                        src={it.bossImageUrl}
+                        alt=""
+                        className="h-6 w-6 rounded object-cover shrink-0"
+                      />
+                    </ImageHoverPreview>
                   ) : (
                     <Swords className="h-4 w-4 shrink-0" style={{ color: '#e879f9' }} />
                   )}
@@ -556,11 +559,13 @@ function ClosedSalesCycleCard({ cycle }: { cycle: any }) {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       {it.bossImageUrl ? (
-                        <img
-                          src={it.bossImageUrl}
-                          alt=""
-                          className="h-6 w-6 rounded object-cover shrink-0"
-                        />
+                        <ImageHoverPreview src={it.bossImageUrl} caption={it.itemName} size={400}>
+                          <img
+                            src={it.bossImageUrl}
+                            alt=""
+                            className="h-6 w-6 rounded object-cover shrink-0"
+                          />
+                        </ImageHoverPreview>
                       ) : (
                         <Swords
                           className="h-4 w-4 shrink-0"

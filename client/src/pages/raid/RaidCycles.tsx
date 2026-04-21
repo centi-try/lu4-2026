@@ -4,6 +4,7 @@ import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import RaidSalesCyclesTab from './RaidSalesCyclesTab';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 
 interface Props {
   raidAccess?: RaidAccessInfo;
@@ -268,12 +269,14 @@ function ClosedCycleCard({ cycle }: { cycle: any }) {
                   >
                     <div className="flex items-center gap-2">
                       {b.officialImageUrl ? (
-                        <img
-                          src={b.officialImageUrl}
-                          alt={b.bossName}
-                          className="h-6 w-6 rounded object-cover"
-                          style={{ border: '1px solid rgba(232,121,249,0.25)' }}
-                        />
+                        <ImageHoverPreview src={b.officialImageUrl} caption={b.bossName} size={400}>
+                          <img
+                            src={b.officialImageUrl}
+                            alt={b.bossName}
+                            className="h-6 w-6 rounded object-cover"
+                            style={{ border: '1px solid rgba(232,121,249,0.25)' }}
+                          />
+                        </ImageHoverPreview>
                       ) : (
                         <Skull className="h-4 w-4" style={{ color: '#e879f9' }} />
                       )}

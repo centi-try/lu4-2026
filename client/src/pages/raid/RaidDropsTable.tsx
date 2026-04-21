@@ -560,7 +560,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                             }}
                           >
                             {d.imageUrl ? (
-                              <ImageHoverPreview src={d.imageUrl} caption={d.name} size={240}>
+                              <ImageHoverPreview src={d.imageUrl} caption={d.name} size={320}>
                                 <img
                                   src={d.imageUrl}
                                   alt={d.name}
@@ -619,7 +619,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
                           {d.bossImageUrl && (
-                            <ImageHoverPreview src={d.bossImageUrl} caption={d.bossName} size={240}>
+                            <ImageHoverPreview src={d.bossImageUrl} caption={d.bossName} size={400}>
                               <img
                                 src={d.bossImageUrl}
                                 alt={d.bossName}
@@ -892,11 +892,13 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                     style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                   >
                     {sellModalDrop.imageUrl ? (
-                      <img
-                        src={sellModalDrop.imageUrl}
-                        alt={sellModalDrop.name}
-                        className="h-full w-full object-cover"
-                      />
+                      <ImageHoverPreview src={sellModalDrop.imageUrl} caption={sellModalDrop.name} size={320}>
+                        <img
+                          src={sellModalDrop.imageUrl}
+                          alt={sellModalDrop.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </ImageHoverPreview>
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-white/5">
                         <ShoppingCart className="h-6 w-6 text-white/20" />
@@ -1248,11 +1250,13 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                 }}
               >
                 {deleteModalDrop.imageUrl && (
-                  <img
-                    src={deleteModalDrop.imageUrl}
-                    alt={deleteModalDrop.name}
-                    className="h-full w-full object-cover"
-                  />
+                  <ImageHoverPreview src={deleteModalDrop.imageUrl} caption={deleteModalDrop.name} size={320}>
+                    <img
+                      src={deleteModalDrop.imageUrl}
+                      alt={deleteModalDrop.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </ImageHoverPreview>
                 )}
               </div>
               <div className="min-w-0">
