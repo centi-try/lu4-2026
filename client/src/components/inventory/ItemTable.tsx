@@ -553,27 +553,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     </td>
                     {/* Associated Characters */}
                     <td className="px-4 py-3">
-                      {assocChars.length > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <div className="flex -space-x-1">
-                            {assocChars.slice(0, 3).map(char => (
-                              <div key={char.id} title={char.name}
-                                className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white border`}
-                                style={{ fontSize: '8px', fontWeight: 'bold', borderColor: 'rgba(10,14,22,0.8)' }}>
-                                {char.name.slice(0, 1).toUpperCase()}
-                              </div>
-                            ))}
-                          </div>
-                          {assocChars.length > 3 && (
-                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>+{assocChars.length - 3}</span>
-                          )}
-                          <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                            {assocChars.length}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
-                      )}
+                      <AssocCharactersCell chars={assocChars} />
                     </td>
                     {/* Actions — reglas replicadas de RaidDropsTable:
                         - ✏️ editar precio: deshabilitado si todo vendido (no tiene sentido cambiar el precio)
