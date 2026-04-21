@@ -6,6 +6,7 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
 import RaidActivityFeed from './RaidActivityFeed';
 import RaidDropsTable from './RaidDropsTable';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 import {
   BarChart,
   Bar,
@@ -300,24 +301,26 @@ export default function RaidDashboard({ raidAccess }: Props) {
                   border: '1px solid rgba(167,139,250,0.15)',
                 }}
               >
-                {e.bossImageUrl ? (
-                  <img
-                    src={e.bossImageUrl}
-                    alt={e.bossName}
-                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                    style={{ border: '1px solid rgba(167,139,250,0.3)' }}
-                  />
-                ) : (
-                  <div
-                    className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center"
-                    style={{
-                      background: 'rgba(167,139,250,0.1)',
-                      border: '1px solid rgba(167,139,250,0.25)',
-                    }}
-                  >
-                    <Skull className="h-5 w-5" style={{ color: '#a78bfa' }} />
-                  </div>
-                )}
+                <ImageHoverPreview src={e.bossImageUrl} caption={e.bossName} size={260}>
+                  {e.bossImageUrl ? (
+                    <img
+                      src={e.bossImageUrl}
+                      alt={e.bossName}
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      style={{ border: '1px solid rgba(167,139,250,0.3)' }}
+                    />
+                  ) : (
+                    <div
+                      className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center"
+                      style={{
+                        background: 'rgba(167,139,250,0.1)',
+                        border: '1px solid rgba(167,139,250,0.25)',
+                      }}
+                    >
+                      <Skull className="h-5 w-5" style={{ color: '#a78bfa' }} />
+                    </div>
+                  )}
+                </ImageHoverPreview>
                 <div className="flex-1 min-w-0">
                   <p
                     className="text-sm font-semibold"
@@ -330,12 +333,14 @@ export default function RaidDashboard({ raidAccess }: Props) {
                   </p>
                 </div>
                 {e.evidenceImageUrl && (
-                  <img
-                    src={e.evidenceImageUrl}
-                    alt="evidencia"
-                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                    style={{ border: '1px solid rgba(255,255,255,0.1)' }}
-                  />
+                  <ImageHoverPreview src={e.evidenceImageUrl} caption="Evidencia" size={320}>
+                    <img
+                      src={e.evidenceImageUrl}
+                      alt="evidencia"
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                  </ImageHoverPreview>
                 )}
               </div>
             ))}
@@ -408,19 +413,21 @@ function DashboardEventCard({ event }: { event: any }) {
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-3 p-3 text-left"
       >
-        <div
-          className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
-          style={{
-            background: 'rgba(232,121,249,0.1)',
-            border: '1px solid rgba(232,121,249,0.25)',
-          }}
-        >
-          {event.bossImageUrl ? (
-            <img src={event.bossImageUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Skull className="h-6 w-6" style={{ color: '#e879f9' }} />
-          )}
-        </div>
+        <ImageHoverPreview src={event.bossImageUrl} caption={event.bossName} size={260}>
+          <div
+            className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+            style={{
+              background: 'rgba(232,121,249,0.1)',
+              border: '1px solid rgba(232,121,249,0.25)',
+            }}
+          >
+            {event.bossImageUrl ? (
+              <img src={event.bossImageUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Skull className="h-6 w-6" style={{ color: '#e879f9' }} />
+            )}
+          </div>
+        </ImageHoverPreview>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
             {event.bossName}
@@ -476,12 +483,14 @@ function DashboardEventCard({ event }: { event: any }) {
           )}
 
           {event.evidenceImageUrl && (
-            <img
-              src={event.evidenceImageUrl}
-              alt="evidencia"
-              className="rounded-lg max-h-48"
-              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-            />
+            <ImageHoverPreview src={event.evidenceImageUrl} caption="Evidencia" size={400} block>
+              <img
+                src={event.evidenceImageUrl}
+                alt="evidencia"
+                className="rounded-lg max-h-48"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+              />
+            </ImageHoverPreview>
           )}
 
           <div className="space-y-1.5">
@@ -497,16 +506,18 @@ function DashboardEventCard({ event }: { event: any }) {
                     border: '1px solid rgba(255,255,255,0.05)',
                   }}
                 >
-                  <div
-                    className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
-                    style={{ background: 'rgba(255,255,255,0.05)' }}
-                  >
-                    {d.imageUrl ? (
-                      <img src={d.imageUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
-                    )}
-                  </div>
+                  <ImageHoverPreview src={d.imageUrl} caption={d.name} size={220}>
+                    <div
+                      className="h-9 w-9 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+                      style={{ background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      {d.imageUrl ? (
+                        <img src={d.imageUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                      )}
+                    </div>
+                  </ImageHoverPreview>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
                       {d.name}

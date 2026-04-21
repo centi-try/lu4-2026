@@ -12,6 +12,7 @@ import { RaidDropTypeahead, type DropSuggestion } from './RaidDropTypeahead';
 import { BossSelect } from './BossSelect';
 import { ReservationQuickButton, ReservationsPill } from './DropReservationsCell';
 import { FancySelect, type FancyOption } from '../../components/ui/FancySelect';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 
 // Nota: las imágenes de categoría ya no están hardcodeadas. El super admin las
 // carga desde /raids/settings → "Iconos por categoría de drop" y el frontend
@@ -922,11 +923,13 @@ export default function RaidInventory({ raidAccess }: Props) {
                           >
                             {d.imageUrl ? (
                               <>
-                                <img
-                                  src={d.imageUrl}
-                                  alt=""
-                                  className="h-7 w-7 rounded object-cover shrink-0"
-                                />
+                                <ImageHoverPreview src={d.imageUrl} caption={catOk ? d.category : ''} size={200}>
+                                  <img
+                                    src={d.imageUrl}
+                                    alt=""
+                                    className="h-7 w-7 rounded object-cover shrink-0"
+                                  />
+                                </ImageHoverPreview>
                                 <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
                                   auto · {catOk ? d.category : ''}
                                 </span>
@@ -1196,12 +1199,14 @@ export default function RaidInventory({ raidAccess }: Props) {
               }}
             >
               {deleteEventTarget.bossImageUrl ? (
-                <img
-                  src={deleteEventTarget.bossImageUrl}
-                  alt={deleteEventTarget.bossName || ''}
-                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                  style={{ border: '1px solid rgba(239,68,68,0.3)' }}
-                />
+                <ImageHoverPreview src={deleteEventTarget.bossImageUrl} caption={deleteEventTarget.bossName || ''} size={260}>
+                  <img
+                    src={deleteEventTarget.bossImageUrl}
+                    alt={deleteEventTarget.bossName || ''}
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    style={{ border: '1px solid rgba(239,68,68,0.3)' }}
+                  />
+                </ImageHoverPreview>
               ) : (
                 <div
                   className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center"
@@ -1398,7 +1403,9 @@ export default function RaidInventory({ raidAccess }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     {boss?.officialImageUrl && (
-                      <img src={boss.officialImageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                      <ImageHoverPreview src={boss.officialImageUrl} caption={boss.name} size={260}>
+                        <img src={boss.officialImageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                      </ImageHoverPreview>
                     )}
                     <div className="font-semibold" style={{ color: '#e879f9' }}>
                       {boss?.name || '—'}
@@ -1441,7 +1448,9 @@ export default function RaidInventory({ raidAccess }: Props) {
                   </div>
                   {evidenceUrl ? (
                     <div className="flex items-center gap-2">
-                      <img src={evidenceUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                      <ImageHoverPreview src={evidenceUrl} caption="Evidencia" size={360}>
+                        <img src={evidenceUrl} alt="" className="h-10 w-10 rounded object-cover" />
+                      </ImageHoverPreview>
                       <span className="text-xs" style={{ color: '#7bf1d6' }}>Cargada</span>
                     </div>
                   ) : (
@@ -1470,7 +1479,9 @@ export default function RaidInventory({ raidAccess }: Props) {
                           style={{ color: 'rgba(255,255,255,0.8)' }}
                         >
                           {d.imageUrl && (
-                            <img src={d.imageUrl} alt="" className="h-6 w-6 rounded object-cover shrink-0" />
+                            <ImageHoverPreview src={d.imageUrl} caption={d.name} size={220}>
+                              <img src={d.imageUrl} alt="" className="h-6 w-6 rounded object-cover shrink-0" />
+                            </ImageHoverPreview>
                           )}
                           <span className="flex-1 truncate">
                             <span style={{ color: 'rgba(255,255,255,0.5)' }}>{meta.emoji}</span>{' '}
@@ -1622,19 +1633,21 @@ function EventCard({
         aria-expanded={open}
         className="w-full flex items-center gap-3 p-3 text-left cursor-pointer"
       >
-        <div
-          className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
-          style={{
-            background: 'rgba(232,121,249,0.1)',
-            border: '1px solid rgba(232,121,249,0.25)',
-          }}
-        >
-          {event.bossImageUrl ? (
-            <img src={event.bossImageUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Skull className="h-6 w-6" style={{ color: '#e879f9' }} />
-          )}
-        </div>
+        <ImageHoverPreview src={event.bossImageUrl} caption={event.bossName} size={260}>
+          <div
+            className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+            style={{
+              background: 'rgba(232,121,249,0.1)',
+              border: '1px solid rgba(232,121,249,0.25)',
+            }}
+          >
+            {event.bossImageUrl ? (
+              <img src={event.bossImageUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Skull className="h-6 w-6" style={{ color: '#e879f9' }} />
+            )}
+          </div>
+        </ImageHoverPreview>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
             {event.bossName}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Skull, ChevronDown, Search, Check } from 'lucide-react';
+import { ImageHoverPreview } from '@/components/ui/ImageHoverPreview';
 
 export interface BossOption {
   id: number;
@@ -103,11 +104,13 @@ export function BossSelect({
         {selected ? (
           <>
             {selected.officialImageUrl ? (
-              <img
-                src={selected.officialImageUrl}
-                alt=""
-                className="h-6 w-6 rounded-md object-cover shrink-0"
-              />
+              <ImageHoverPreview src={selected.officialImageUrl} caption={selected.name} size={240}>
+                <img
+                  src={selected.officialImageUrl}
+                  alt=""
+                  className="h-6 w-6 rounded-md object-cover shrink-0"
+                />
+              </ImageHoverPreview>
             ) : (
               <div
                 className="h-6 w-6 rounded-md flex items-center justify-center shrink-0"
@@ -203,11 +206,13 @@ export function BossSelect({
                     }}
                   >
                     {boss.officialImageUrl ? (
-                      <img
-                        src={boss.officialImageUrl}
-                        alt=""
-                        className="h-8 w-8 rounded-md object-cover shrink-0"
-                      />
+                      <ImageHoverPreview src={boss.officialImageUrl} caption={boss.name} size={240}>
+                        <img
+                          src={boss.officialImageUrl}
+                          alt=""
+                          className="h-8 w-8 rounded-md object-cover shrink-0"
+                        />
+                      </ImageHoverPreview>
                     ) : (
                       <div
                         className="h-8 w-8 rounded-md flex items-center justify-center shrink-0"

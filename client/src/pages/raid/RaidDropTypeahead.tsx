@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Loader2, Package } from 'lucide-react';
 import { categoryMeta } from '../../lib/category-meta';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 
 /**
  * Representa un drop "sugerido" desde el histórico de drops raid.
@@ -231,22 +232,24 @@ export function RaidDropTypeahead({
                   background: isActive ? 'rgba(123,241,214,0.06)' : 'transparent',
                 }}
               >
-                <div
-                  className="relative h-[30px] w-[30px] shrink-0 overflow-hidden rounded-lg border"
-                  style={{ borderColor: 'rgba(255,255,255,0.1)' }}
-                >
-                  {s.imageUrl ? (
-                    <img
-                      src={s.imageUrl}
-                      alt={s.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-white/5">
-                      <Package className="h-4 w-4 text-white/20" />
-                    </div>
-                  )}
-                </div>
+                <ImageHoverPreview src={s.imageUrl} caption={s.name} size={220}>
+                  <div
+                    className="relative h-[30px] w-[30px] shrink-0 overflow-hidden rounded-lg border"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                  >
+                    {s.imageUrl ? (
+                      <img
+                        src={s.imageUrl}
+                        alt={s.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-white/5">
+                        <Package className="h-4 w-4 text-white/20" />
+                      </div>
+                    )}
+                  </div>
+                </ImageHoverPreview>
                 <div className="min-w-0 flex-1">
                   <p
                     className="truncate text-sm font-medium"

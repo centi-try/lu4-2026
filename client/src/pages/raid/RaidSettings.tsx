@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import { FancySelect } from '../../components/ui/FancySelect';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 
 // Límite para imágenes de iconos (base64 data URL). 2 MB alcanza para un ícono.
 const ICON_MAX_BYTES = 2 * 1024 * 1024;
@@ -319,23 +320,25 @@ export default function RaidSettings({ raidAccess }: Props) {
                     border: '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  <div
-                    className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
-                    style={{
-                      background: 'rgba(232,121,249,0.1)',
-                      border: '1px solid rgba(232,121,249,0.25)',
-                    }}
-                  >
-                    {b.officialImageUrl ? (
-                      <img
-                        src={b.officialImageUrl}
-                        alt={b.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Skull className="h-5 w-5" style={{ color: '#e879f9' }} />
-                    )}
-                  </div>
+                  <ImageHoverPreview src={b.officialImageUrl} caption={b.name} size={280}>
+                    <div
+                      className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
+                      style={{
+                        background: 'rgba(232,121,249,0.1)',
+                        border: '1px solid rgba(232,121,249,0.25)',
+                      }}
+                    >
+                      {b.officialImageUrl ? (
+                        <img
+                          src={b.officialImageUrl}
+                          alt={b.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Skull className="h-5 w-5" style={{ color: '#e879f9' }} />
+                      )}
+                    </div>
+                  </ImageHoverPreview>
                   <div className="min-w-0 flex-1">
                     <p
                       className="text-sm font-medium truncate"
@@ -954,16 +957,18 @@ function CategoryIconRow({
       }}
     >
       <div className="flex items-center gap-3">
-        <div
-          className="h-12 w-12 shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          {currentUrl ? (
-            <img src={currentUrl} alt={category} className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="h-5 w-5" style={{ color: 'rgba(255,255,255,0.25)' }} />
-          )}
-        </div>
+        <ImageHoverPreview src={currentUrl} caption={`${emoji} ${label}`} size={220}>
+          <div
+            className="h-12 w-12 shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            {currentUrl ? (
+              <img src={currentUrl} alt={category} className="h-full w-full object-cover" />
+            ) : (
+              <ImageIcon className="h-5 w-5" style={{ color: 'rgba(255,255,255,0.25)' }} />
+            )}
+          </div>
+        </ImageHoverPreview>
         <div className="min-w-0">
           <div className="text-sm font-semibold" style={{ color }}>
             {emoji} {label}

@@ -18,6 +18,7 @@ import type { ItemCategory } from '../../lib/types';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { ReservationQuickButton, ReservationsPill } from './DropReservationsCell';
 import { FancySelect, type FancyOption } from '../../components/ui/FancySelect';
+import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 
 // ============================================================================
 // Tabla consolidada de todos los raid drops registrados.
@@ -559,11 +560,13 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                             }}
                           >
                             {d.imageUrl ? (
-                              <img
-                                src={d.imageUrl}
-                                alt={d.name}
-                                className="h-full w-full object-cover"
-                              />
+                              <ImageHoverPreview src={d.imageUrl} caption={d.name} size={240}>
+                                <img
+                                  src={d.imageUrl}
+                                  alt={d.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              </ImageHoverPreview>
                             ) : (
                               <ImageIcon
                                 className="h-4 w-4"
@@ -616,11 +619,13 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
                           {d.bossImageUrl && (
-                            <img
-                              src={d.bossImageUrl}
-                              alt={d.bossName}
-                              className="h-6 w-6 rounded object-cover"
-                            />
+                            <ImageHoverPreview src={d.bossImageUrl} caption={d.bossName} size={240}>
+                              <img
+                                src={d.bossImageUrl}
+                                alt={d.bossName}
+                                className="h-6 w-6 rounded object-cover"
+                              />
+                            </ImageHoverPreview>
                           )}
                           <span
                             className="text-xs truncate max-w-[120px]"
