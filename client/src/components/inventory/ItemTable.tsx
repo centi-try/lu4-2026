@@ -9,6 +9,97 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ItemReservationButton, type ItemReservationRecord } from './ItemReservationButton';
 import { FancySelect, type FancyOption } from '../ui/FancySelect';
 import { ImageHoverPreview } from '../ui/ImageHoverPreview';
+import type { Character } from '../../lib/types';
+
+// Lista compacta de personajes asociados a un ítem.
+// Muestra los primeros MAX_CHAR_AVATARS como avatars apilados y colapsa el
+// resto en un chip "+N" con popover al hover — mismo patrón que
+// ClansPillList en RaidDropsTable.tsx para "+N más".
+const MAX_CHAR_AVATARS = 3;
+
+function AssocCharactersCell({ chars }: { chars: Character[] }) {
+  const [hover, setHover] = useState(false);
+  if (!chars || chars.length === 0) {
+    return <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>;
+  }
+  const visible = chars.slice(0, MAX_CHAR_AVATARS);
+  const overflow = chars.slice(MAX_CHAR_AVATARS);
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex -space-x-1">
+        {visible.map(char => (
+          <div
+            key={char.id}
+            title={char.name}
+            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white border`}
+            style={{ fontSize: '8px', fontWeight: 'bold', borderColor: 'rgba(10,14,22,0.8)' }}
+          >
+            {char.name.slice(0, 1).toUpperCase()}
+          </div>
+        ))}
+      </div>
+      {overflow.length > 0 && (
+        <span
+          className="relative"
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+        >
+          <span
+            className="rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap cursor-default"
+            style={{
+              background: 'rgba(232,121,249,0.12)',
+              color: '#e879f9',
+              border: '1px solid rgba(232,121,249,0.3)',
+              fontWeight: 600,
+            }}
+          >
+            +{overflow.length} más
+          </span>
+          {hover && (
+            <div
+              className="absolute z-50 rounded-lg shadow-2xl"
+              style={{
+                top: 'calc(100% + 6px)',
+                left: 0,
+                minWidth: 180,
+                maxWidth: 260,
+                background: '#0a0e16',
+                border: '1px solid rgba(232,121,249,0.35)',
+                padding: 8,
+              }}
+            >
+              <p
+                className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+                style={{ color: 'rgba(232,121,249,0.7)' }}
+              >
+                Otros personajes ({overflow.length})
+              </p>
+              <div className="flex flex-col gap-1">
+                {overflow.map(char => (
+                  <div key={char.id} className="flex items-center gap-2">
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                      style={{ fontSize: '8px', fontWeight: 'bold' }}
+                    >
+                      {char.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                      {char.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </span>
+      )}
+      <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+        {chars.length}
+      </span>
+    </div>
+  );
+}
 
 interface Props {
   items?: Item[];
