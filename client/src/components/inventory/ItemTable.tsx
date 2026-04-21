@@ -646,8 +646,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={e => { if (e.target === e.currentTarget) setSellModalItem(null); }}>
-          <div className="w-full max-w-md rounded-2xl p-6"
-            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 overflow-y-auto"
+            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh' }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
@@ -710,7 +710,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   <Users className="h-3.5 w-3.5" />
                   Distribución de ganancias
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-1 overflow-y-auto pr-1" style={{ maxHeight: 200 }}>
                   {sellModalItem.associatedCharacterIds.map(cid => {
                     const char = characters.find(c => c.id === cid);
                     if (!char) return null;
