@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CheckCircle, ImageIcon, Plus, Pencil, Trash2, Shield, DollarSign, BarChart3,
-  Bookmark, BookmarkX, UserPlus, UserMinus, UserCog, Key,
+  Bookmark, BookmarkX, UserPlus, UserMinus, UserCog, Key, Coins, CircleDollarSign,
 } from 'lucide-react';
 import type { AuditLog } from '../../lib/types';
 
@@ -34,6 +34,10 @@ const actionMeta: Record<string, { icon: React.ElementType; color: string; label
   SOLD_ITEM:                { icon: DollarSign,  color: '#a78bfa', label: 'Vendió ítem' },
   CYCLE_CLOSED:             { icon: BarChart3,   color: '#e879f9', label: 'Cerró ciclo' },
   CYCLE_STARTED:            { icon: BarChart3,   color: '#7bf1d6', label: 'Inició ciclo' },
+  // Pagos de adena a personajes tras cerrar un ciclo
+  CYCLE_PAYOUT_MARKED:      { icon: Coins,            color: '#10b981', label: 'Marcó pago a personaje' },
+  CYCLE_PAYOUT_UNMARKED:    { icon: Coins,            color: '#fbbf24', label: 'Desmarcó pago a personaje' },
+  CYCLE_PAYOUT_ALL_MARKED:  { icon: CircleDollarSign, color: '#10b981', label: 'Marcó pago a todos los personajes' },
   // Reservas de ítems (waitlist)
   ITEM_RESERVED:            { icon: Bookmark,    color: '#fbbf24', label: 'Reservó ítem' },
   ITEM_RESERVATION_DELETED: { icon: BookmarkX,   color: '#f59e0b', label: 'Canceló reserva' },

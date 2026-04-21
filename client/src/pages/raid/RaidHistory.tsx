@@ -3,6 +3,7 @@ import {
   Search, Shield, AlertTriangle,
   Skull, Pencil, Trash2, Flag, Image as ImageIcon, UserPlus, UserMinus,
   Unlock, Lock, Swords, DollarSign, CalendarClock, Bookmark, BookmarkX,
+  Coins, CircleDollarSign,
 } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
@@ -65,6 +66,10 @@ const actionMeta: Record<string, ActionMeta> = {
   RAID_DROP_RESERVATION_DELETED: { icon: BookmarkX, color: '#f59e0b', label: 'Canceló reserva',  desc: 'Reserva de drop cancelada' },
   // Ciclo de ventas semanal
   RAID_SALES_CYCLE_CLOSED:    { icon: CalendarClock, color: '#10b981', label: 'Cerró ciclo ventas', desc: 'Ciclo de ventas raid cerrado y archivado' },
+  // Pagos de adena por clan tras cerrar un ciclo de ventas raid
+  RAID_SALES_CYCLE_CLAN_PAID:     { icon: Coins,            color: '#10b981', label: 'Marcó pago a clan',             desc: 'Adena registrada como entregada a un clan' },
+  RAID_SALES_CYCLE_CLAN_UNPAID:   { icon: Coins,            color: '#fbbf24', label: 'Desmarcó pago a clan',          desc: 'Pago de adena a un clan revertido' },
+  RAID_SALES_CYCLE_CLAN_ALL_PAID: { icon: CircleDollarSign, color: '#10b981', label: 'Pagó a todos los clanes',       desc: 'Todos los clanes del ciclo marcados como pagados' },
 };
 
 function metaFor(action: string): ActionMeta {
@@ -162,6 +167,25 @@ function describe(log: RaidLog): string {
       else if (d.dropItemId != null) bits.push(`drop #${d.dropItemId}`);
       if (d.quantity != null) bits.push(`${d.quantity} unid`);
       if (d.characterName) bits.push(`para ${d.characterName}`);
+      return bits.join(' · ');
+    }
+    case 'RAID_SALES_CYCLE_CLAN_PAID':
+    case 'RAID_SALES_CYCLE_CLAN_UNPAID': {
+      const bits: string[] = [];
+      if (d.clanName) bits.push(d.clanName);
+      else if (d.clanId != null) bits.push(`Clan #${d.clanId}`);
+      if (d.revenueShare != null)
+        bits.push(`$${Number(d.revenueShare).toLocaleString()}`);
+      if (d.label) bits.push(`en ${d.label}`);
+      return bits.join(' · ');
+    }
+    case 'RAID_SALES_CYCLE_CLAN_ALL_PAID': {
+      const bits: string[] = [];
+      if (d.clansChanged != null && d.totalClans != null)
+        bits.push(`${d.clansChanged}/${d.totalClans} clan${d.totalClans === 1 ? '' : 'es'} marcados`);
+      else if (d.totalClans != null)
+        bits.push(`${d.totalClans} clan${d.totalClans === 1 ? '' : 'es'}`);
+      if (d.label) bits.push(`en ${d.label}`);
       return bits.join(' · ');
     }
     case 'RAID_DROP_RESERVATION_DELETED': {

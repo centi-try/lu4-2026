@@ -18,6 +18,8 @@ import {
   CalendarClock,
   Bookmark,
   BookmarkX,
+  Coins,
+  CircleDollarSign,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 
@@ -72,6 +74,11 @@ const actionMeta: Record<
   RAID_DROP_RESERVATION_DELETED:  { icon: BookmarkX, color: '#f59e0b', label: 'Canceló reserva' },
 
   RAID_SALES_CYCLE_CLOSED: { icon: CalendarClock, color: '#10b981', label: 'Cerró ciclo de ventas' },
+
+  // Pagos de adena por clan tras cerrar un ciclo de ventas raid
+  RAID_SALES_CYCLE_CLAN_PAID:     { icon: Coins,            color: '#10b981', label: 'Marcó pago a clan' },
+  RAID_SALES_CYCLE_CLAN_UNPAID:   { icon: Coins,            color: '#fbbf24', label: 'Desmarcó pago a clan' },
+  RAID_SALES_CYCLE_CLAN_ALL_PAID: { icon: CircleDollarSign, color: '#10b981', label: 'Marcó pago a todos los clanes' },
 };
 
 function timeAgo(iso: string): string {
@@ -172,6 +179,25 @@ function describe(log: any): string {
       if (d.quantity != null) bits.push(`${d.quantity} unid`);
       if (d.characterName) bits.push(`de ${d.characterName}`);
       if (d.deletedBy === 'admin') bits.push('(cancelada por admin)');
+      return bits.join(' · ');
+    }
+    case 'RAID_SALES_CYCLE_CLAN_PAID':
+    case 'RAID_SALES_CYCLE_CLAN_UNPAID': {
+      const bits: string[] = [];
+      if (d.clanName) bits.push(d.clanName);
+      else if (d.clanId != null) bits.push(`Clan #${d.clanId}`);
+      if (d.revenueShare != null)
+        bits.push(`$${Number(d.revenueShare).toLocaleString()}`);
+      if (d.label) bits.push(`en ${d.label}`);
+      return bits.join(' · ');
+    }
+    case 'RAID_SALES_CYCLE_CLAN_ALL_PAID': {
+      const bits: string[] = [];
+      if (d.clansChanged != null && d.totalClans != null)
+        bits.push(`${d.clansChanged}/${d.totalClans} clan${d.totalClans === 1 ? '' : 'es'} marcados`);
+      else if (d.totalClans != null)
+        bits.push(`${d.totalClans} clan${d.totalClans === 1 ? '' : 'es'}`);
+      if (d.label) bits.push(`en ${d.label}`);
       return bits.join(' · ');
     }
     case 'RAID_SALES_CYCLE_CLOSED': {

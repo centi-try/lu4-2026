@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   CheckCircle, ImageIcon, Plus, Pencil, Trash2, Shield, Search, DollarSign,
   UserMinus, UserX, UserCog, KeyRound, RefreshCcw, Bookmark, BookmarkX, AlertTriangle,
+  Coins, CircleDollarSign,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
@@ -50,6 +51,10 @@ const actionMeta: Record<string, ActionMeta> = {
   // Ciclos
   CYCLE_STARTED:  { icon: RefreshCcw,  color: '#7bf1d6', label: 'Inició ciclo',     desc: 'Nuevo ciclo de ventas iniciado' },
   CYCLE_CLOSED:   { icon: CheckCircle, color: '#34d399', label: 'Cerró ciclo',      desc: 'Ciclo de ventas cerrado y archivado' },
+  // Pagos de adena post-cierre
+  CYCLE_PAYOUT_MARKED:     { icon: Coins,            color: '#10b981', label: 'Marcó pago',              desc: 'Adena registrada como entregada a un personaje' },
+  CYCLE_PAYOUT_UNMARKED:   { icon: Coins,            color: '#fbbf24', label: 'Desmarcó pago',           desc: 'Pago de adena a un personaje revertido' },
+  CYCLE_PAYOUT_ALL_MARKED: { icon: CircleDollarSign, color: '#10b981', label: 'Pagó a todos', desc: 'Todos los personajes del ciclo marcados como pagados' },
   // Usuarios
   USER_ACTIVATED:                 { icon: UserCog,  color: '#34d399', label: 'Activó usuario',      desc: 'Cuenta de usuario activada' },
   USER_DEACTIVATED:               { icon: UserX,    color: '#f87171', label: 'Desactivó usuario',   desc: 'Cuenta de usuario desactivada' },
