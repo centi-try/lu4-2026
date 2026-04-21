@@ -4,6 +4,8 @@ import { AppShell } from '../components/layout/AppShell';
 import { categoryMeta, CATEGORIES } from '../lib/category-meta';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { TwoFactorSection } from '../components/settings/TwoFactorSection';
 
 const rules = [
   {
@@ -74,6 +76,8 @@ const rules = [
 ];
 
 export default function Settings() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -191,6 +195,9 @@ export default function Settings() {
               </button>
             </form>
           </div>
+
+          {/* 2FA (solo super_admin — PR6) */}
+          {isSuperAdmin && <TwoFactorSection />}
 
           {/* Categories reference */}
           <div className="card-glass rounded-2xl p-5">

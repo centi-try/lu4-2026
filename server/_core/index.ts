@@ -32,8 +32,23 @@ import {
   pruneExpiredAuthTokens,
   PASSWORD_RESET_TTL_MINUTES,
   EMAIL_VERIFICATION_TTL_HOURS,
+  setUserTwoFactorPending,
+  enableUserTwoFactor,
+  disableUserTwoFactor,
+  consumeBackupCodeHash,
 } from "../db";
 import { sendPasswordResetEmail, sendEmailVerificationEmail, isEmailEnabled } from "./email";
+import {
+  generateSecret as generate2faSecret,
+  getOtpAuthUrl,
+  getQrDataUrl,
+  verifyTotp,
+  generateBackupCodes,
+  hashBackupCode,
+  normalizeBackupCode,
+  generateChallengeToken,
+  verifyChallengeToken,
+} from "./twofactor";
 
 // Esquemas dummy para compatibilidad
 const users = { name: 'users' };
@@ -169,6 +184,7 @@ async function startServer() {
           role: user.role,
           isActive: user.isActive !== false,
           emailVerified: user.emailVerified !== false,
+          twoFactorEnabled: Boolean(user.twoFactorEnabled),
         },
       });
     } catch (error) {
@@ -340,6 +356,35 @@ async function startServer() {
         }
       }
 
+      // 6.5) 2FA — si el user tiene 2FA activado, NO emitimos sesión todavía.
+      // Devolvemos un challengeToken firmado con el userId + rememberMe que el
+      // cliente debe presentar junto al código TOTP (o backup code) en el
+      // siguiente paso (POST /api/auth/login/2fa). Reseteamos los intentos
+      // fallidos solo después de completar el segundo paso.
+      if (user.twoFactorEnabled === true && user.twoFactorSecret) {
+        const challengeToken = generateChallengeToken(user.id, rememberMe);
+        try {
+          await createAuditLog({
+            userId: user.id,
+            actorName: user.characterName || user.name || user.email,
+            actorRole: user.role || 'user',
+            action: 'LOGIN_2FA_CHALLENGE',
+            details: `Password OK · esperando código 2FA · IP=${ip}`,
+          });
+        } catch { /* ignore */ }
+        return res.json({
+          success: true,
+          requires2fa: true,
+          challengeToken,
+          // Hint mínimo: cuántos backup codes le quedan al user (no expone
+          // los códigos en sí — solo el contador es útil para mostrarle un
+          // warning si está bajo).
+          backupCodesRemaining: Array.isArray(user.twoFactorBackupCodeHashes)
+            ? user.twoFactorBackupCodeHashes.length
+            : 0,
+        });
+      }
+
       // 7) Reset intentos + setear sesión
       await resetLoginAttempts(user.id);
 
@@ -391,11 +436,307 @@ async function startServer() {
           role: user.role,
           isActive: user.isActive !== undefined ? user.isActive : true,
           emailVerified: user.emailVerified !== false,
+          twoFactorEnabled: Boolean(user.twoFactorEnabled),
         }
       });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: 'Error al iniciar sesión' });
+    }
+  });
+
+  // ============================================================
+  // PR6 — 2FA TOTP (paso 2 del login + setup/enable/disable)
+  // ============================================================
+  //
+  // Paso 2 del login: el cliente recibió `requires2fa + challengeToken` del
+  // primer POST /api/auth/login, y acá valida el código TOTP (o un backup
+  // code) para obtener la cookie de sesión. El challengeToken es HMAC firmado
+  // con userId + rememberMe y TTL de 5 minutos — sin él no se puede completar
+  // el login (aunque uno tenga el código).
+  //
+  // Brute-force:
+  //   - Reusamos el rate limit por IP (mismas ventanas que /login).
+  //   - Un código TOTP tiene 6 dígitos → 1M combinaciones. Con 20 intentos/15min
+  //     un atacante necesitaría décadas para cubrir el espacio. Suficiente.
+  //
+  // Backup codes:
+  //   - Se consumen en el momento de usarlos (hash borrado del array).
+  //   - Si el user se queda sin códigos, puede regenerar desde /settings
+  //     (requiere password + TOTP para regenerar → out of scope de este PR).
+  app.post('/api/auth/login/2fa', express.json(), async (req, res) => {
+    const ip = getClientIp(req);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+
+    if (rateLimitedOrRespond(req, res)) return;
+
+    try {
+      const challengeToken = String(req.body?.challengeToken || '');
+      const codeRaw = String(req.body?.code || '').trim();
+
+      const payload = verifyChallengeToken(challengeToken);
+      if (!payload) {
+        return res.status(401).json({
+          message: 'Tu sesión de verificación expiró. Volvé a iniciar sesión.',
+        });
+      }
+
+      const user = await getUserById(payload.userId);
+      if (!user || user.isActive === false || !user.twoFactorEnabled || !user.twoFactorSecret) {
+        return res.status(401).json({ message: 'Verificación 2FA inválida.' });
+      }
+
+      if (!codeRaw) {
+        return res.status(400).json({ message: 'Ingresá el código de 6 dígitos.' });
+      }
+
+      // Intentar primero como TOTP (6 dígitos). Si no parsea, intentar como
+      // backup code. Así el user puede pegar cualquiera de los dos.
+      let usedMethod: 'totp' | 'backup' | null = null;
+      if (/^\d{6}$/.test(codeRaw)) {
+        if (verifyTotp(user.twoFactorSecret, codeRaw)) {
+          usedMethod = 'totp';
+        }
+      }
+      if (!usedMethod) {
+        const normalized = normalizeBackupCode(codeRaw);
+        if (normalized.length >= 10) {
+          const candidateHash = hashBackupCode(normalized);
+          const ok = await consumeBackupCodeHash(user.id, candidateHash);
+          if (ok) usedMethod = 'backup';
+        }
+      }
+
+      if (!usedMethod) {
+        try {
+          await createAuditLog({
+            userId: user.id,
+            actorName: user.characterName || user.name || user.email,
+            actorRole: user.role || 'user',
+            action: 'LOGIN_2FA_FAILED',
+            details: `Código 2FA inválido · IP=${ip}`,
+          });
+        } catch { /* ignore */ }
+        return res.status(401).json({ message: 'Código incorrecto. Probá de nuevo.' });
+      }
+
+      // Código OK → reset intentos fallidos + emitir sesión.
+      await resetLoginAttempts(user.id);
+
+      const { sdk } = await import("./sdk");
+      const { getSessionCookieOptions } = await import("./cookies");
+      const { COOKIE_NAME, REMEMBER_ME_MS } = await import("@shared/const");
+
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.characterName || user.name || '',
+      });
+      const cookieOptions = getSessionCookieOptions(req);
+      if (payload.rememberMe) {
+        res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: REMEMBER_ME_MS });
+      } else {
+        res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
+      }
+
+      await upsertUser({
+        id: user.id,
+        email: user.email,
+        openId: user.openId,
+        lastSignedIn: new Date().toISOString(),
+      });
+
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: 'LOGIN_SUCCESS',
+          details: `Login exitoso con 2FA (${usedMethod}) · IP=${ip} · UA="${userAgent}"`,
+        });
+      } catch { /* ignore */ }
+
+      return res.json({
+        success: true,
+        usedMethod,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.characterName || user.name,
+          characterName: user.characterName,
+          role: user.role,
+          isActive: user.isActive !== false,
+          emailVerified: user.emailVerified !== false,
+          twoFactorEnabled: true,
+        },
+      });
+    } catch (err) {
+      console.error('[2fa/login] error:', err);
+      return res.status(500).json({ message: 'Error al verificar el código.' });
+    }
+  });
+
+  // --- Setup: genera un secret nuevo + QR. NO activa todavía. ---------------
+  app.post('/api/auth/2fa/setup', express.json(), async (req, res) => {
+    try {
+      const { sdk } = await import("./sdk");
+      const user = await sdk.authenticateRequest(req as any);
+      if (!user) return res.status(401).json({ message: 'Sesión requerida.' });
+      if (user.twoFactorEnabled) {
+        return res.status(409).json({
+          message: '2FA ya está activado en tu cuenta. Desactivalo antes de reconfigurar.',
+        });
+      }
+      const secret = generate2faSecret();
+      const otpauthUrl = getOtpAuthUrl(user.email, secret);
+      const qrDataUrl = await getQrDataUrl(otpauthUrl);
+      await setUserTwoFactorPending(user.id, secret);
+      return res.json({
+        success: true,
+        secretBase32: secret,
+        otpauthUrl,
+        qrDataUrl,
+      });
+    } catch (err) {
+      console.error('[2fa/setup] error:', err);
+      return res.status(500).json({ message: 'No se pudo iniciar el setup de 2FA.' });
+    }
+  });
+
+  // --- Enable: confirma con un código válido y activa 2FA -------------------
+  // Requiere re-confirmar password para que si un atacante roba una sesión
+  // activa no pueda bindear su propio authenticator al vuelo.
+  app.post('/api/auth/2fa/enable', express.json(), async (req, res) => {
+    try {
+      const { sdk } = await import("./sdk");
+      const authUser = await sdk.authenticateRequest(req as any);
+      if (!authUser) return res.status(401).json({ message: 'Sesión requerida.' });
+
+      const code = String(req.body?.code || '').replace(/\D/g, '');
+      const password = String(req.body?.password || '');
+      if (!code || code.length !== 6) {
+        return res.status(400).json({ message: 'Ingresá el código de 6 dígitos generado por tu app.' });
+      }
+      if (!password) {
+        return res.status(400).json({ message: 'Necesitamos tu contraseña actual para confirmar.' });
+      }
+
+      const user = await getUserById(authUser.id);
+      if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
+      if (user.twoFactorEnabled) {
+        return res.status(409).json({ message: '2FA ya está activado.' });
+      }
+      if (!user.twoFactorPendingSecret) {
+        return res.status(400).json({ message: 'No hay un setup pendiente. Iniciá el flow desde el principio.' });
+      }
+
+      const verify = verifyStoredPassword(password, user.passwordHash);
+      if (!verify.ok) {
+        return res.status(401).json({ message: 'Contraseña incorrecta.' });
+      }
+
+      if (!verifyTotp(user.twoFactorPendingSecret, code)) {
+        return res.status(401).json({ message: 'Código inválido. Asegurate que la hora del dispositivo esté sincronizada.' });
+      }
+
+      const backupCodes = generateBackupCodes();
+      const backupHashes = backupCodes.map(hashBackupCode);
+      await enableUserTwoFactor(user.id, user.twoFactorPendingSecret, backupHashes);
+
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: '2FA_ENABLED',
+          details: `2FA TOTP activado`,
+        });
+      } catch { /* ignore */ }
+
+      return res.json({
+        success: true,
+        message: '2FA activado correctamente.',
+        backupCodes, // <-- única vez que se muestran en claro
+      });
+    } catch (err) {
+      console.error('[2fa/enable] error:', err);
+      return res.status(500).json({ message: 'No se pudo activar 2FA.' });
+    }
+  });
+
+  // --- Disable: apaga 2FA. Requiere password + código TOTP activo. ----------
+  app.post('/api/auth/2fa/disable', express.json(), async (req, res) => {
+    try {
+      const { sdk } = await import("./sdk");
+      const authUser = await sdk.authenticateRequest(req as any);
+      if (!authUser) return res.status(401).json({ message: 'Sesión requerida.' });
+
+      const password = String(req.body?.password || '');
+      const code = String(req.body?.code || '').trim();
+      if (!password || !code) {
+        return res.status(400).json({ message: 'Contraseña y código son requeridos.' });
+      }
+
+      const user = await getUserById(authUser.id);
+      if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
+      if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+        return res.status(409).json({ message: '2FA no está activo en esta cuenta.' });
+      }
+
+      const verify = verifyStoredPassword(password, user.passwordHash);
+      if (!verify.ok) {
+        return res.status(401).json({ message: 'Contraseña incorrecta.' });
+      }
+
+      // Aceptamos TOTP o backup code para desactivar (si el user perdió el
+      // dispositivo necesita poder apagarlo con un backup code).
+      let ok = false;
+      if (/^\d{6}$/.test(code) && verifyTotp(user.twoFactorSecret, code)) {
+        ok = true;
+      } else {
+        const normalized = normalizeBackupCode(code);
+        if (normalized.length >= 10) {
+          const candidateHash = hashBackupCode(normalized);
+          if (await consumeBackupCodeHash(user.id, candidateHash)) ok = true;
+        }
+      }
+      if (!ok) {
+        return res.status(401).json({ message: 'Código inválido.' });
+      }
+
+      await disableUserTwoFactor(user.id);
+      try {
+        await createAuditLog({
+          userId: user.id,
+          actorName: user.characterName || user.name || user.email,
+          actorRole: user.role || 'user',
+          action: '2FA_DISABLED',
+          details: `2FA TOTP desactivado`,
+        });
+      } catch { /* ignore */ }
+
+      return res.json({ success: true, message: '2FA desactivado.' });
+    } catch (err) {
+      console.error('[2fa/disable] error:', err);
+      return res.status(500).json({ message: 'No se pudo desactivar 2FA.' });
+    }
+  });
+
+  // --- Status: expone si está activo + cuántos backup codes quedan ----------
+  app.get('/api/auth/2fa/status', async (req, res) => {
+    try {
+      const { sdk } = await import("./sdk");
+      const authUser = await sdk.authenticateRequest(req as any);
+      if (!authUser) return res.status(401).json({ message: 'Sesión requerida.' });
+      const user = await getUserById(authUser.id);
+      if (!user) return res.status(404).json({ message: 'Usuario no encontrado.' });
+      return res.json({
+        success: true,
+        enabled: Boolean(user.twoFactorEnabled),
+        backupCodesRemaining: Array.isArray(user.twoFactorBackupCodeHashes)
+          ? user.twoFactorBackupCodeHashes.length
+          : 0,
+      });
+    } catch (err) {
+      return res.status(500).json({ message: 'Error al consultar estado.' });
     }
   });
 

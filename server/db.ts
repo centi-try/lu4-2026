@@ -189,6 +189,18 @@ function normalizeUser(rawUser: any, index: number) {
     ? true
     : Boolean(rawUser.emailVerified);
 
+  // 2FA TOTP (PR6). Por defecto desactivado. `twoFactorSecret` es el base32
+  // confirmado y activo. `twoFactorPendingSecret` es el secret emitido por
+  // /2fa/setup que aún no fue confirmado con un código válido — se descarta
+  // si el user no completa el flow. `twoFactorBackupCodeHashes` son sha256
+  // hex de cada backup code; al consumir uno se elimina del array.
+  const twoFactorEnabled = Boolean(rawUser?.twoFactorEnabled);
+  const twoFactorSecret = twoFactorEnabled ? (rawUser?.twoFactorSecret || null) : null;
+  const twoFactorPendingSecret = rawUser?.twoFactorPendingSecret || null;
+  const twoFactorBackupCodeHashes = Array.isArray(rawUser?.twoFactorBackupCodeHashes)
+    ? rawUser.twoFactorBackupCodeHashes.filter((h: any) => typeof h === 'string')
+    : [];
+
   return {
     ...rawUser,
     id: Number(rawUser?.id) || Math.floor(Math.random() * 1000000),
@@ -201,6 +213,10 @@ function normalizeUser(rawUser: any, index: number) {
     isActive: rawUser?.isActive !== false,
     passwordHash,
     emailVerified,
+    twoFactorEnabled,
+    twoFactorSecret,
+    twoFactorPendingSecret,
+    twoFactorBackupCodeHashes,
     createdAt: rawUser?.createdAt || new Date().toISOString(),
     updatedAt: rawUser?.updatedAt || rawUser?.createdAt || new Date().toISOString(),
     lastSignedIn: rawUser?.lastSignedIn || rawUser?.updatedAt || rawUser?.createdAt || null,
@@ -1099,6 +1115,78 @@ export const updateUserPassword = async (userId: number, passwordHash: string) =
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], passwordHash, updatedAt: new Date() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
+};
+
+// ============================================================================
+// 2FA TOTP (PR6)
+// ============================================================================
+
+export const setUserTwoFactorPending = async (userId: number, secret: string) => {
+  const idx = dbInstance.users.findIndex(u => u.id === userId);
+  if (idx === -1) return null;
+  dbInstance.users[idx] = {
+    ...dbInstance.users[idx],
+    twoFactorPendingSecret: secret,
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.users[idx];
+};
+
+export const enableUserTwoFactor = async (
+  userId: number,
+  secret: string,
+  backupCodeHashes: string[],
+) => {
+  const idx = dbInstance.users.findIndex(u => u.id === userId);
+  if (idx === -1) return null;
+  dbInstance.users[idx] = {
+    ...dbInstance.users[idx],
+    twoFactorEnabled: true,
+    twoFactorSecret: secret,
+    twoFactorPendingSecret: null,
+    twoFactorBackupCodeHashes: backupCodeHashes,
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.users[idx];
+};
+
+export const disableUserTwoFactor = async (userId: number) => {
+  const idx = dbInstance.users.findIndex(u => u.id === userId);
+  if (idx === -1) return null;
+  dbInstance.users[idx] = {
+    ...dbInstance.users[idx],
+    twoFactorEnabled: false,
+    twoFactorSecret: null,
+    twoFactorPendingSecret: null,
+    twoFactorBackupCodeHashes: [],
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.users[idx];
+};
+
+// Consume un backup code: si el hash está en la lista lo remueve y devuelve true.
+export const consumeBackupCodeHash = async (
+  userId: number,
+  candidateHash: string,
+): Promise<boolean> => {
+  const idx = dbInstance.users.findIndex(u => u.id === userId);
+  if (idx === -1) return false;
+  const list: string[] = Array.isArray(dbInstance.users[idx].twoFactorBackupCodeHashes)
+    ? dbInstance.users[idx].twoFactorBackupCodeHashes
+    : [];
+  const hashIdx = list.indexOf(candidateHash);
+  if (hashIdx === -1) return false;
+  const newList = [...list.slice(0, hashIdx), ...list.slice(hashIdx + 1)];
+  dbInstance.users[idx] = {
+    ...dbInstance.users[idx],
+    twoFactorBackupCodeHashes: newList,
+    updatedAt: new Date().toISOString(),
+  };
+  saveDb(dbInstance);
+  return true;
 };
 
 export const markUserEmailVerified = async (userId: number) => {

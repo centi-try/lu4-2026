@@ -8,13 +8,23 @@ interface User {
   role: string;
   isActive?: boolean;
   emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
 }
+
+// El login puede terminar en dos estados:
+//   - ok: cookie emitida, user cargado.
+//   - 2fa: el server pidió un segundo paso (TOTP). El caller recibe el
+//     challengeToken y debe llamar a verify2fa(challengeToken, code).
+export type LoginResult =
+  | { kind: 'ok' }
+  | { kind: '2fa'; challengeToken: string; backupCodesRemaining: number };
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<LoginResult>;
+  verify2fa: (challengeToken: string, code: string) => Promise<void>;
   register: (email: string, password: string, characterName: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -79,7 +89,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [fetchMe]);
 
-  const login = async (email: string, password: string, rememberMe: boolean = false) => {
+  const login = async (
+    email: string,
+    password: string,
+    rememberMe: boolean = false,
+  ): Promise<LoginResult> => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -90,8 +104,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) {
       throw new Error(data?.message || 'Error al iniciar sesión');
     }
-    // Confiamos en la cookie emitida por el backend — revalidamos vía /me
-    // para obtener el shape canónico y dejar el estado consistente.
+    // El server pidió un segundo paso 2FA → NO cargamos el user todavía.
+    // El llamador mostrará el input OTP y completará con verify2fa().
+    if (data?.requires2fa && data?.challengeToken) {
+      return {
+        kind: '2fa',
+        challengeToken: String(data.challengeToken),
+        backupCodesRemaining: Number(data?.backupCodesRemaining ?? 0),
+      };
+    }
+    if (data?.user) {
+      setUser(data.user);
+    } else {
+      await fetchMe();
+    }
+    return { kind: 'ok' };
+  };
+
+  const verify2fa = async (challengeToken: string, code: string) => {
+    const response = await fetch('/api/auth/login/2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ challengeToken, code }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.message || 'Código inválido');
+    }
     if (data?.user) {
       setUser(data.user);
     } else {
@@ -138,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isAuthenticated: !!user,
         login,
+        verify2fa,
         register,
         logout,
         refresh: fetchMe,

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 // Regex de validación mínima de formato de email. El backend ya re-valida.
@@ -9,7 +9,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { login, verify2fa } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,12 +22,27 @@ export default function Login() {
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Estado del paso 2FA (si el server devolvió requires2fa=true).
+  const [twoFa, setTwoFa] = useState<{
+    challengeToken: string;
+    backupCodesRemaining: number;
+  } | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [useBackupCode, setUseBackupCode] = useState(false);
+
   const emailInputRef = useRef<HTMLInputElement | null>(null);
+  const otpInputRef = useRef<HTMLInputElement | null>(null);
 
   // autoFocus al montar (evita click extra del user).
   useEffect(() => {
     emailInputRef.current?.focus();
   }, []);
+
+  // Cuando entramos al paso 2FA, enfocamos el input del código.
+  useEffect(() => {
+    if (twoFa) otpInputRef.current?.focus();
+  }, [twoFa]);
 
   // Validación inline (sin submit). Se muestra solo si el field ya fue tocado
   // (evita mensajes rojos apenas carga la página).
@@ -51,7 +66,18 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await login(email.trim(), password, rememberMe);
+      const result = await login(email.trim(), password, rememberMe);
+      if (result.kind === '2fa') {
+        // El server pide un segundo paso. Pasamos al screen de OTP.
+        setTwoFa({
+          challengeToken: result.challengeToken,
+          backupCodesRemaining: result.backupCodesRemaining,
+        });
+        setOtpCode('');
+        setOtpError(null);
+        setUseBackupCode(false);
+        return;
+      }
       toast.success('¡Sesión iniciada!');
       setLocation('/');
     } catch (error) {
@@ -62,6 +88,42 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFa) return;
+    setOtpError(null);
+    const cleaned = useBackupCode
+      ? otpCode.trim()
+      : otpCode.replace(/\D/g, '');
+    if (!cleaned) {
+      setOtpError('Ingresá el código.');
+      return;
+    }
+    if (!useBackupCode && cleaned.length !== 6) {
+      setOtpError('El código debe tener 6 dígitos.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await verify2fa(twoFa.challengeToken, cleaned);
+      toast.success('¡Sesión iniciada!');
+      setLocation('/');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Error de conexión';
+      setOtpError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelTwoFa = () => {
+    setTwoFa(null);
+    setOtpCode('');
+    setOtpError(null);
+    setUseBackupCode(false);
   };
 
   const inputStyle = {
@@ -111,10 +173,103 @@ export default function Login() {
             backdropFilter: 'blur(20px)',
           }}
         >
-          <h2 className="text-xl font-bold mb-6" style={{ color: 'rgba(255,255,255,0.95)' }}>
-            Iniciar Sesión
+          <h2 className="text-xl font-bold mb-6 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.95)' }}>
+            {twoFa && <ShieldCheck size={20} style={{ color: '#7bf1d6' }} />}
+            {twoFa ? 'Verificación en dos pasos' : 'Iniciar Sesión'}
           </h2>
 
+          {twoFa ? (
+            <form onSubmit={handleOtpSubmit} className="space-y-4" noValidate>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                {useBackupCode
+                  ? 'Ingresá uno de tus códigos de respaldo (formato XXXXX-XXXXX).'
+                  : 'Abrí tu app de autenticación (Google Authenticator, Authy, 1Password…) e ingresá el código de 6 dígitos que muestra para tu cuenta.'}
+              </p>
+
+              <div>
+                <label
+                  htmlFor="login-otp"
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'rgba(255,255,255,0.7)' }}
+                >
+                  {useBackupCode ? 'Código de respaldo' : 'Código de 6 dígitos'}
+                </label>
+                <input
+                  ref={otpInputRef}
+                  id="login-otp"
+                  name="otp"
+                  type="text"
+                  inputMode={useBackupCode ? 'text' : 'numeric'}
+                  autoComplete="one-time-code"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  maxLength={useBackupCode ? 16 : 6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  placeholder={useBackupCode ? 'XXXXX-XXXXX' : '000000'}
+                  className="w-full rounded-xl border bg-transparent px-4 py-3 text-center text-lg tracking-[0.4em] outline-none transition-all placeholder:text-white/20 font-mono"
+                  style={otpError ? inputErrorStyle : inputStyle}
+                  disabled={loading}
+                  aria-invalid={!!otpError}
+                />
+                {otpError && (
+                  <p className="text-xs mt-1.5" style={{ color: 'rgba(252, 165, 165, 0.9)' }}>
+                    {otpError}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-xl py-3 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                style={{
+                  background: loading
+                    ? 'rgba(123,241,214,0.1)'
+                    : 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(123,241,214,0.15))',
+                  color: '#7bf1d6',
+                  border: '1px solid rgba(123,241,214,0.3)',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loading && <Loader2 size={16} className="animate-spin" />}
+                {loading ? 'Verificando...' : 'Verificar código'}
+              </button>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={cancelTwoFa}
+                  disabled={loading}
+                  className="flex items-center gap-1 text-sm font-medium transition hover:opacity-80"
+                  style={{ color: 'rgba(255,255,255,0.6)' }}
+                >
+                  <ArrowLeft size={14} /> Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseBackupCode((v) => !v);
+                    setOtpCode('');
+                    setOtpError(null);
+                  }}
+                  disabled={loading}
+                  className="text-sm font-medium transition hover:opacity-80"
+                  style={{ color: '#7bf1d6' }}
+                >
+                  {useBackupCode ? 'Usar código de la app' : '¿Perdiste tu dispositivo? Usar código de respaldo'}
+                </button>
+              </div>
+
+              {twoFa.backupCodesRemaining <= 2 && twoFa.backupCodesRemaining > 0 && (
+                <p className="text-xs" style={{ color: 'rgba(252, 211, 77, 0.9)' }}>
+                  Te quedan {twoFa.backupCodesRemaining} {twoFa.backupCodesRemaining === 1 ? 'código de respaldo' : 'códigos de respaldo'}. Regenerá nuevos desde Ajustes después de iniciar sesión.
+                </p>
+              )}
+            </form>
+          ) : (
+          <>
           {submitError && (
             <div
               className="mb-4 rounded-lg border px-3 py-2 text-sm"
@@ -268,6 +423,8 @@ export default function Login() {
               </button>
             </p>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
