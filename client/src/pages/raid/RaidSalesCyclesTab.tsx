@@ -560,31 +560,36 @@ function ClosedSalesCycleCard({ cycle, canAdmin }: { cycle: any; canAdmin: boole
                 {clans.map((c: any) => {
                   const isPaid = !!c.paidOut;
                   const busy = busyClanId === Number(c.clanId);
+                  const paidTitle = isPaid && c.paidAt
+                    ? `Pagado ${new Date(c.paidAt).toLocaleString('es-CL')}${c.paidBy ? ` por ${c.paidBy}` : ''}`
+                    : undefined;
                   return (
                     <div
                       key={c.clanId}
-                      className="rounded-lg p-3"
+                      className="rounded-lg p-3 transition-colors"
                       style={{
-                        background: isPaid ? 'rgba(16,185,129,0.08)' : 'rgba(123,241,214,0.05)',
-                        border: `1px solid ${isPaid ? 'rgba(16,185,129,0.3)' : 'rgba(123,241,214,0.15)'}`,
+                        background: isPaid ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${isPaid ? 'rgba(16,185,129,0.28)' : 'rgba(255,255,255,0.05)'}`,
                       }}
+                      title={paidTitle}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span
                           className="text-sm font-semibold flex items-center gap-1.5 min-w-0"
-                          style={{ color: 'rgba(255,255,255,0.9)' }}
+                          style={{ color: isPaid ? '#10b981' : 'rgba(255,255,255,0.85)' }}
                         >
                           <Flag
                             className="h-3.5 w-3.5 shrink-0"
-                            style={{ color: isPaid ? '#10b981' : '#7bf1d6' }}
+                            style={{ color: isPaid ? '#10b981' : 'rgba(255,255,255,0.45)' }}
                           />
                           <span className="truncate">{c.clanName || `Clan #${c.clanId}`}</span>
+                          {isPaid && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: '#10b981' }} />}
                         </span>
                         <span
-                          className="text-xs font-mono font-bold shrink-0"
-                          style={{ color: '#10b981' }}
+                          className="text-sm font-bold font-mono shrink-0"
+                          style={{ color: isPaid ? '#10b981' : '#a78bfa' }}
                         >
-                          ${(Number(c.revenueShare) || 0).toLocaleString()}
+                          +${(Number(c.revenueShare) || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex items-center justify-between mt-1.5 gap-2">
@@ -593,7 +598,7 @@ function ClosedSalesCycleCard({ cycle, canAdmin }: { cycle: any; canAdmin: boole
                           style={{ color: 'rgba(255,255,255,0.4)' }}
                         >
                           {c.salesCount} venta{c.salesCount === 1 ? '' : 's'}
-                          {isPaid && c.paidAt && (
+                          {isPaid && (
                             <>
                               <span className="mx-1">·</span>
                               <span style={{ color: '#10b981' }}>
@@ -607,21 +612,15 @@ function ClosedSalesCycleCard({ cycle, canAdmin }: { cycle: any; canAdmin: boole
                             type="button"
                             onClick={() => toggleClanPaid(c)}
                             disabled={busy}
-                            className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition-all shrink-0"
+                            className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
                             style={{
-                              background: isPaid
-                                ? 'rgba(16,185,129,0.18)'
-                                : 'rgba(255,255,255,0.05)',
-                              border: `1px solid ${
-                                isPaid ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.12)'
-                              }`,
-                              color: isPaid ? '#10b981' : 'rgba(255,255,255,0.65)',
-                              opacity: busy ? 0.5 : 1,
+                              background: isPaid ? 'rgba(16,185,129,0.15)' : 'rgba(167,139,250,0.12)',
+                              color: isPaid ? '#10b981' : '#a78bfa',
+                              border: `1px solid ${isPaid ? 'rgba(16,185,129,0.35)' : 'rgba(167,139,250,0.3)'}`,
                             }}
                             title={isPaid ? 'Desmarcar pago' : 'Marcar como pagado'}
                           >
-                            <Check className="h-3 w-3" />
-                            {isPaid ? 'Pagado' : 'Pagar'}
+                            {isPaid ? '✓ Pagado' : 'Pagar'}
                           </button>
                         )}
                       </div>
