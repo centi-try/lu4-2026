@@ -463,9 +463,11 @@ export function listBackups(): BackupInfo[] {
     const full = path.join(BACKUPS_DIR, file);
     try {
       const stat = fs.statSync(full);
-      // Intentar parsear el sufijo: data_storage_<stamp>_<reason>.json
-      const match = file.match(/^data_storage_(.+?)_(.+)\.json$/);
-      const reason = match ? match[2] : undefined;
+      // Parseamos el sufijo del archivo: data_storage_YYYY-MM-DD_HHMMSS_<reason>.json.
+      // Usamos regex anclado al formato de timestamp para no contaminar `reason`
+      // con el horario — antes `(.+?)_(.+)` dejaba reason como "111921_daily".
+      const match = file.match(/^data_storage_\d{4}-\d{2}-\d{2}_\d{6}_(.+)\.json$/);
+      const reason = match ? match[1] : undefined;
       result.push({
         file,
         fullPath: full,
