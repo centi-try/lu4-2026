@@ -1602,10 +1602,25 @@ function EventCard({
         border: '1px solid rgba(255,255,255,0.06)',
       }}
     >
-      <button
-        type="button"
+      {/*
+        Antes era un <button> envolviendo todo el header, pero dentro hay otro
+        <button> (eliminar evento) y HTML no permite botones anidados — dispara
+        una hydration warning en React. Lo convertimos en un <div> con rol
+        accesible de button + soporte de teclado (Enter/Space) para que siga
+        funcionando igual para lectores de pantalla.
+      */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 p-3 text-left"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen((o) => !o);
+          }
+        }}
+        aria-expanded={open}
+        className="w-full flex items-center gap-3 p-3 text-left cursor-pointer"
       >
         <div
           className="h-12 w-12 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
@@ -1675,7 +1690,7 @@ function EventCard({
             </button>
           )}
         </div>
-      </button>
+      </div>
 
       {open && (
         <div
