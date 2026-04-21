@@ -13,10 +13,18 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
   const [busyId, setBusyId] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const markPaid = trpc.salesCycles.markCharacterPaid.useMutation({
-    onSuccess: () => utils.salesCycles.list.invalidate(),
+    onSuccess: () => {
+      utils.salesCycles.list.invalidate();
+      // Refrescar Actividad Reciente del dashboard + /history para que
+      // el nuevo log aparezca inmediatamente sin recargar la página.
+      utils.auditLogs.list.invalidate();
+    },
   });
   const markAll = trpc.salesCycles.markAllPaid.useMutation({
-    onSuccess: () => utils.salesCycles.list.invalidate(),
+    onSuccess: () => {
+      utils.salesCycles.list.invalidate();
+      utils.auditLogs.list.invalidate();
+    },
   });
 
   const formatDate = (iso: string) =>
