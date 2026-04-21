@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import {
   Coins,
@@ -14,6 +15,8 @@ import {
   ShoppingCart,
   CircleDollarSign,
   Lock,
+  Check,
+  CheckCircle,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
@@ -103,7 +106,7 @@ export default function RaidSalesCyclesTab({ raidAccess }: Props) {
         ) : (
           <div className="space-y-3">
             {closed.map((c: any) => (
-              <ClosedSalesCycleCard key={c.id} cycle={c} />
+              <ClosedSalesCycleCard key={c.id} cycle={c} canAdmin={canAdmin} />
             ))}
           </div>
         )}
@@ -357,14 +360,64 @@ function CurrentSalesCycleCard({
 // Ciclo cerrado (acordeón)
 // ----------------------------------------------------------------------------
 
-function ClosedSalesCycleCard({ cycle }: { cycle: any }) {
+function ClosedSalesCycleCard({ cycle, canAdmin }: { cycle: any; canAdmin: boolean }) {
   const [open, setOpen] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [busyClanId, setBusyClanId] = useState<number | null>(null);
+  const utils = trpc.useUtils();
   const summary = cycle.summary || {};
   const totals = summary.totals || {};
   const clans: any[] = summary.clansParticipated || [];
   const unsold: any[] = summary.unsoldItems || [];
   const raidCyclesClosed: any[] = summary.raidCyclesClosed || [];
   const topBosses: any[] = summary.topBosses || [];
+
+  const paidCount = clans.filter((c: any) => c.paidOut).length;
+  const allPaid = clans.length > 0 && paidCount === clans.length;
+
+  const markClan = trpc.raid.salesCycles.markClanPaid.useMutation({
+    onSuccess: () => {
+      utils.raid.salesCycles.list.invalidate();
+      utils.raid.auditLogs.invalidate();
+    },
+  });
+  const markAll = trpc.raid.salesCycles.markAllClansPaid.useMutation({
+    onSuccess: () => {
+      utils.raid.salesCycles.list.invalidate();
+      utils.raid.auditLogs.invalidate();
+    },
+  });
+
+  const toggleClanPaid = (c: any) => {
+    if (!canAdmin) return;
+    setBusyClanId(Number(c.clanId));
+    markClan.mutate(
+      { cycleId: Number(cycle.id), clanId: Number(c.clanId), paidOut: !c.paidOut },
+      {
+        onSettled: () => setBusyClanId(null),
+        onSuccess: () =>
+          toast.success(
+            c.paidOut
+              ? `Pago desmarcado a ${c.clanName || `Clan #${c.clanId}`}`
+              : `Pago registrado a ${c.clanName || `Clan #${c.clanId}`}`
+          ),
+        onError: err => toast.error(err.message || 'No se pudo actualizar el pago'),
+      }
+    );
+  };
+
+  const markAllPaid = () => {
+    markAll.mutate(
+      { cycleId: Number(cycle.id) },
+      {
+        onSuccess: () => {
+          toast.success('Todos los clanes marcados como pagados');
+          setConfirmAll(false);
+        },
+        onError: (err: any) => toast.error(err?.message || 'No se pudo marcar a todos'),
+      }
+    );
+  };
 
   return (
     <div
@@ -468,47 +521,176 @@ function ClosedSalesCycleCard({ cycle }: { cycle: any }) {
           {/* Clanes */}
           {clans.length > 0 && (
             <div>
-              <p
-                className="text-xs uppercase tracking-wider mb-2"
-                style={{ color: 'rgba(255,255,255,0.4)' }}
-              >
-                Reparto por clan ({clans.length})
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {clans.map((c: any) => (
-                  <div
-                    key={c.clanId}
-                    className="rounded-lg p-3"
+              <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <p
+                    className="text-xs uppercase tracking-wider"
+                    style={{ color: 'rgba(255,255,255,0.4)' }}
+                  >
+                    Reparto por clan ({clans.length})
+                  </p>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold font-mono"
                     style={{
-                      background: 'rgba(123,241,214,0.05)',
-                      border: '1px solid rgba(123,241,214,0.15)',
+                      background: allPaid ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                      color: allPaid ? '#10b981' : 'rgba(255,255,255,0.55)',
+                      border: `1px solid ${allPaid ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="text-sm font-semibold flex items-center gap-1.5"
-                        style={{ color: 'rgba(255,255,255,0.9)' }}
-                      >
-                        <Flag className="h-3.5 w-3.5" style={{ color: '#7bf1d6' }} />
-                        {c.clanName || `Clan #${c.clanId}`}
-                      </span>
-                      <span
-                        className="text-xs font-mono font-bold"
-                        style={{ color: '#10b981' }}
-                      >
-                        ${(Number(c.revenueShare) || 0).toLocaleString()}
-                      </span>
-                    </div>
-                    <p
-                      className="text-xs mt-1"
-                      style={{ color: 'rgba(255,255,255,0.4)' }}
+                    Pagados {paidCount}/{clans.length}
+                  </span>
+                </div>
+                {canAdmin && !allPaid && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAll(true)}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                    style={{
+                      background: 'rgba(16,185,129,0.12)',
+                      border: '1px solid rgba(16,185,129,0.3)',
+                      color: '#10b981',
+                    }}
+                  >
+                    <CheckCircle className="h-3 w-3" />
+                    Marcar todos
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {clans.map((c: any) => {
+                  const isPaid = !!c.paidOut;
+                  const busy = busyClanId === Number(c.clanId);
+                  return (
+                    <div
+                      key={c.clanId}
+                      className="rounded-lg p-3"
+                      style={{
+                        background: isPaid ? 'rgba(16,185,129,0.08)' : 'rgba(123,241,214,0.05)',
+                        border: `1px solid ${isPaid ? 'rgba(16,185,129,0.3)' : 'rgba(123,241,214,0.15)'}`,
+                      }}
                     >
-                      {c.salesCount} venta{c.salesCount === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className="text-sm font-semibold flex items-center gap-1.5 min-w-0"
+                          style={{ color: 'rgba(255,255,255,0.9)' }}
+                        >
+                          <Flag
+                            className="h-3.5 w-3.5 shrink-0"
+                            style={{ color: isPaid ? '#10b981' : '#7bf1d6' }}
+                          />
+                          <span className="truncate">{c.clanName || `Clan #${c.clanId}`}</span>
+                        </span>
+                        <span
+                          className="text-xs font-mono font-bold shrink-0"
+                          style={{ color: '#10b981' }}
+                        >
+                          ${(Number(c.revenueShare) || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5 gap-2">
+                        <p
+                          className="text-xs"
+                          style={{ color: 'rgba(255,255,255,0.4)' }}
+                        >
+                          {c.salesCount} venta{c.salesCount === 1 ? '' : 's'}
+                          {isPaid && c.paidAt && (
+                            <>
+                              <span className="mx-1">·</span>
+                              <span style={{ color: '#10b981' }}>
+                                Pagado{c.paidBy ? ` por ${c.paidBy}` : ''}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                        {canAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => toggleClanPaid(c)}
+                            disabled={busy}
+                            className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition-all shrink-0"
+                            style={{
+                              background: isPaid
+                                ? 'rgba(16,185,129,0.18)'
+                                : 'rgba(255,255,255,0.05)',
+                              border: `1px solid ${
+                                isPaid ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.12)'
+                              }`,
+                              color: isPaid ? '#10b981' : 'rgba(255,255,255,0.65)',
+                              opacity: busy ? 0.5 : 1,
+                            }}
+                            title={isPaid ? 'Desmarcar pago' : 'Marcar como pagado'}
+                          >
+                            <Check className="h-3 w-3" />
+                            {isPaid ? 'Pagado' : 'Pagar'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          )}
+
+          {/* Modal de confirmación — marcar todos los clanes como pagados */}
+          {confirmAll && createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+              style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+              onClick={e => { if (e.target === e.currentTarget) setConfirmAll(false); }}
+            >
+              <div
+                className="w-full max-w-md rounded-2xl p-6"
+                style={{
+                  background: 'rgba(10,14,22,0.98)',
+                  border: '1px solid rgba(16,185,129,0.25)',
+                }}
+              >
+                <div className="flex items-start gap-3 mb-4">
+                  <CheckCircle className="h-6 w-6 shrink-0" style={{ color: '#10b981' }} />
+                  <div>
+                    <h3 className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                      Marcar todos los clanes como pagados
+                    </h3>
+                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Registrá el pago de adena a los {clans.length - paidCount} clan(es)
+                      pendiente(s) de <strong>{cycle.label}</strong>. Es una marca manual
+                      reversible — podés desmarcar clanes individualmente después.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAll(false)}
+                    disabled={markAll.isPending}
+                    className="rounded-lg px-4 py-2 text-sm font-medium"
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      color: 'rgba(255,255,255,0.7)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={markAllPaid}
+                    disabled={markAll.isPending}
+                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.35))',
+                      border: '1px solid rgba(16,185,129,0.4)',
+                      color: '#10b981',
+                    }}
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    {markAll.isPending ? 'Marcando...' : 'Sí, marcar todos'}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
           )}
 
           {/* Top bosses vendidos */}

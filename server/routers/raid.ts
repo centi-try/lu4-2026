@@ -18,6 +18,7 @@ import {
   getRaidSalesCycles, getCurrentRaidSalesCycle,
   getCurrentRaidSalesCyclePeriodStart,
   closeRaidSalesCycle, computeRaidSalesCycleLiveSnapshot,
+  setRaidSalesCycleClanPaid, setRaidSalesCycleAllClansPaid,
   // events
   getRaidEvents, getRaidEventById, createRaidEvent, updateRaidEvent, deleteRaidEvent,
   getRaidEventClans,
@@ -486,6 +487,57 @@ export const raidRouter = router({
         });
       }
     }),
+    // Marca (o desmarca) como pagado el reparto a un clan en un ciclo cerrado.
+    // Flag manual para control del admin — no mueve plata ni totales.
+    markClanPaid: raidAdminProcedure
+      .input(z.object({
+        cycleId: z.number().int(),
+        clanId: z.number().int(),
+        paidOut: z.boolean(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const actorName =
+            (ctx.user as any)?.characterName ||
+            ctx.user?.name ||
+            'Administrador';
+          const cycle = await setRaidSalesCycleClanPaid(
+            input.cycleId,
+            input.clanId,
+            input.paidOut,
+            actorName,
+            ctx.user?.id,
+          );
+          return { success: true, cycle };
+        } catch (e: any) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: e?.message || 'No se pudo marcar el pago del clan.',
+          });
+        }
+      }),
+    // Marca a todos los clanes del ciclo como pagados de una.
+    markAllClansPaid: raidAdminProcedure
+      .input(z.object({ cycleId: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const actorName =
+            (ctx.user as any)?.characterName ||
+            ctx.user?.name ||
+            'Administrador';
+          const cycle = await setRaidSalesCycleAllClansPaid(
+            input.cycleId,
+            actorName,
+            ctx.user?.id,
+          );
+          return { success: true, cycle };
+        } catch (e: any) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: e?.message || 'No se pudo marcar a todos los clanes.',
+          });
+        }
+      }),
   }),
 
   // ---------------- Events (registro de raids) ------------------------------

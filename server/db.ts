@@ -1047,6 +1047,100 @@ export const setSalesCycleAllPaid = async (
   return normalizeCycle(cycle);
 };
 
+// ---------------------------------------------------------------------------
+// Pagos por clan en ciclos de venta de raid. Mismo patrón que el legacy:
+// flag manual `paidOut` dentro de cada clan de `summary.clansParticipated`,
+// audit log del módulo raid, access control se valida en el router.
+// ---------------------------------------------------------------------------
+export const setRaidSalesCycleClanPaid = async (
+  cycleId: number | string,
+  clanId: number | string,
+  paidOut: boolean,
+  actorName?: string,
+  actorUserId?: number,
+) => {
+  const cycles = dbInstance.raidSalesCycles || [];
+  const idx = cycles.findIndex((c: any) => Number(c.id) === Number(cycleId));
+  if (idx === -1) throw new Error(`Ciclo de venta raid ${cycleId} no encontrado`);
+  const cycle: any = cycles[idx];
+  if (!cycle.summary) throw new Error('El ciclo no tiene resumen persistido');
+  if (!Array.isArray(cycle.summary.clansParticipated)) {
+    cycle.summary.clansParticipated = [];
+  }
+  const cIdx = cycle.summary.clansParticipated.findIndex(
+    (c: any) => Number(c.clanId) === Number(clanId)
+  );
+  if (cIdx === -1) throw new Error(`Clan ${clanId} no registrado en este ciclo`);
+  const clanRow = cycle.summary.clansParticipated[cIdx];
+  clanRow.paidOut = paidOut;
+  clanRow.paidAt = paidOut ? new Date().toISOString() : null;
+  clanRow.paidBy = paidOut ? (actorName || 'Administrador') : null;
+  cycle.summary.clansParticipated[cIdx] = clanRow;
+  cycle.updatedAt = new Date().toISOString();
+  cycles[idx] = cycle;
+  dbInstance.raidSalesCycles = cycles;
+
+  await createRaidAuditLog({
+    userId: actorUserId || 0,
+    action: paidOut ? 'RAID_SALES_CYCLE_CLAN_PAID' : 'RAID_SALES_CYCLE_CLAN_UNPAID',
+    details: {
+      salesCycleId: Number(cycle.id),
+      label: cycle.label,
+      clanId: Number(clanId),
+      clanName: clanRow.clanName,
+      revenueShare: clanRow.revenueShare,
+      paidOut,
+    },
+  });
+
+  saveDb(dbInstance);
+  return cycle;
+};
+
+export const setRaidSalesCycleAllClansPaid = async (
+  cycleId: number | string,
+  actorName?: string,
+  actorUserId?: number,
+) => {
+  const cycles = dbInstance.raidSalesCycles || [];
+  const idx = cycles.findIndex((c: any) => Number(c.id) === Number(cycleId));
+  if (idx === -1) throw new Error(`Ciclo de venta raid ${cycleId} no encontrado`);
+  const cycle: any = cycles[idx];
+  if (!cycle.summary) throw new Error('El ciclo no tiene resumen persistido');
+  if (!Array.isArray(cycle.summary.clansParticipated)) {
+    cycle.summary.clansParticipated = [];
+  }
+  const now = new Date().toISOString();
+  const by = actorName || 'Administrador';
+  let changed = 0;
+  cycle.summary.clansParticipated = cycle.summary.clansParticipated.map((c: any) => {
+    if (!c.paidOut) changed += 1;
+    return {
+      ...c,
+      paidOut: true,
+      paidAt: c.paidAt || now,
+      paidBy: c.paidBy || by,
+    };
+  });
+  cycle.updatedAt = now;
+  cycles[idx] = cycle;
+  dbInstance.raidSalesCycles = cycles;
+
+  await createRaidAuditLog({
+    userId: actorUserId || 0,
+    action: 'RAID_SALES_CYCLE_CLAN_ALL_PAID',
+    details: {
+      salesCycleId: Number(cycle.id),
+      label: cycle.label,
+      clansChanged: changed,
+      totalClans: cycle.summary.clansParticipated.length,
+    },
+  });
+
+  saveDb(dbInstance);
+  return cycle;
+};
+
 // Normaliza y enriquece un log de auditoría antes de persistirlo.
 // Reglas:
 //   1) `createdAt` siempre ISO string (no Date object — el cliente deserializa mal).
