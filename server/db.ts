@@ -2771,7 +2771,13 @@ export const computeRaidSalesCycleLiveSnapshot = async (
     const d = log.details || {};
     const revenue = Number(d.revenue) || 0;
     const qty = Number(d.quantitySold) || 0;
-    const clanIds: number[] = Array.isArray(d.clanIds) ? d.clanIds.map(Number) : [];
+    // FIX: Back-compat — logs viejos guardaban `clansShared` en vez de `clanIds`.
+    const rawClanIds = Array.isArray(d.clanIds)
+      ? d.clanIds
+      : Array.isArray(d.clansShared)
+        ? d.clansShared
+        : [];
+    const clanIds: number[] = rawClanIds.map(Number);
     totalRevenue += revenue;
     totalUnitsSold += qty;
 
@@ -2960,3 +2966,42 @@ export const closeRaidSalesCycle = async (closedByUser: any) => {
 
   return cycle;
 };
+
+// ----------------------------------------------------------------------------
+// Migración one-shot (idempotente): recalcular `summary` de los ciclos de venta
+// de raid ya cerrados que tengan `clansParticipated: []` pero cuyos logs del
+// período sí tenían clanes. Era un bug: `sellRaidDropItem` guardaba `clansShared`
+// mientras que el builder del summary leía `clanIds` → todos los cycles cerrados
+// antes del fix quedaron con clan breakdown vacío.
+// ----------------------------------------------------------------------------
+(async () => {
+  try {
+    const cycles = dbInstance.raidSalesCycles || [];
+    let fixed = 0;
+    for (const cycle of cycles) {
+      if (cycle.status !== 'CLOSED') continue;
+      const currentClans = cycle.summary?.clansParticipated;
+      if (Array.isArray(currentClans) && currentClans.length > 0) continue;
+      if (!cycle.startedAt || !cycle.closedAt) continue;
+      const snapshot = await computeRaidSalesCycleLiveSnapshot(
+        String(cycle.startedAt),
+        String(cycle.closedAt)
+      );
+      if (
+        !snapshot.clansParticipated ||
+        snapshot.clansParticipated.length === 0
+      ) continue;
+      cycle.summary = snapshot;
+      cycle.updatedAt = nowIso();
+      fixed += 1;
+    }
+    if (fixed > 0) {
+      saveDb(dbInstance);
+      // eslint-disable-next-line no-console
+      console.log(`[migration] Backfilled clansParticipated en ${fixed} ciclo(s) de venta raid`);
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[migration] backfill raid sales clansParticipated falló:', err);
+  }
+})();
