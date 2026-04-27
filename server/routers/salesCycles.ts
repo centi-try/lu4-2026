@@ -7,6 +7,7 @@ import {
   createBackup,
   setSalesCycleCharacterPaid,
   setSalesCycleAllPaid,
+  setSalesCycleClanPaid,
 } from "../db";
 
 const CreateSalesCycleSchema = z.object({
@@ -24,6 +25,7 @@ const CloseSalesCycleSchema = z.object({
   itemsSold: z.array(z.object({ itemId: z.number(), quantity: z.number() })).optional(),
   closedBy: z.string().optional(),
   startedAt: z.string().optional(),
+  clanFundAmount: z.number().optional(),
 });
 
 export const salesCyclesRouter = router({
@@ -66,6 +68,7 @@ export const salesCyclesRouter = router({
         closedBy: ctx.user?.characterName || ctx.user?.name || "Administrador",
         closedByUserId: ctx.user?.id,
         startedAt: input.startedAt,
+        clanFundAmount: input.clanFundAmount,
       });
       return { success: true };
     }),

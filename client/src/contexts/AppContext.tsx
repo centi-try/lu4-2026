@@ -12,6 +12,7 @@ interface SellItemOptions {
   quantityToSell: number;
   buyerId: string;
   buyerName: string;
+  isInternalSale?: boolean;
 }
 
 interface AppContextType {
@@ -368,7 +369,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [currentUser, addLog, deleteItemMutation]);
 
-  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName }: SellItemOptions) => {
+  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale }: SellItemOptions) => {
     if (currentUser.role === 'USER') return;
     if (currentUser.role !== 'SUPER_ADMIN') return;
 
@@ -377,7 +378,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: isNaN(numericId) ? 0 : numericId,
       quantity: quantityToSell,
       buyerId,
-      buyerName
+      buyerName,
+      isInternalSale: isInternalSale || false,
     });
 
     setItems(prevItems => {

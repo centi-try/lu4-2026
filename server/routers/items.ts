@@ -5,6 +5,7 @@ import {
   getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance,
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
+  getClanFundSettings, addClanFundTransaction,
 } from "../db";
 
 const CreateItemSchema = z.object({
@@ -37,6 +38,7 @@ const SellItemSchema = z.object({
   quantity: z.number().positive(),
   buyerId: z.string(),
   buyerName: z.string(),
+  isInternalSale: z.boolean().optional(),
 });
 
 export const itemsRouter = router({
@@ -172,8 +174,17 @@ export const itemsRouter = router({
         ? item.associatedCharacterIds.map(Number)
         : [];
       const associatedCount = associatedCharacterIds.length || 1;
-      const totalRevenue = (Number(item.price) || 0) * input.quantity;
-      const earningsPerChar = Math.floor(totalRevenue / associatedCount);
+
+      // Clan fund: apply internal discount and clan tax
+      const clanSettings = getClanFundSettings();
+      const basePrice = Number(item.price) || 0;
+      const discountPct = input.isInternalSale ? (Number(clanSettings.internalDiscountPercent) || 0) : 0;
+      const effectivePrice = Math.floor(basePrice * (1 - discountPct / 100));
+      const totalRevenue = effectivePrice * input.quantity;
+      const clanTaxPct = Number(clanSettings.clanTaxPercent) || 0;
+      const clanTaxAmount = Math.floor(totalRevenue * clanTaxPct / 100);
+      const revenueAfterTax = totalRevenue - clanTaxAmount;
+      const earningsPerChar = Math.floor(revenueAfterTax / associatedCount);
 
       // FIX: Actualizar ganancias de los personajes en la base de datos
       // Comparar IDs como números para evitar problemas de tipo
@@ -195,6 +206,18 @@ export const itemsRouter = router({
         saveDbToDisk();
       }
 
+      // Registrar ingreso al fondo del clan si hay retención
+      if (clanTaxAmount > 0) {
+        await addClanFundTransaction({
+          type: 'income',
+          amount: clanTaxAmount,
+          description: `Retención ${clanTaxPct}% de venta de "${item.name}" (${input.quantity} ud.)${input.isInternalSale ? ' [Venta Interna]' : ''}`,
+          relatedItemId: String(item.id),
+          createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+          createdByUserId: ctx.user?.id,
+        });
+      }
+
       // Crear registro de compra persistente
       await createPurchase({
         itemId: String(item.id),
@@ -202,7 +225,7 @@ export const itemsRouter = router({
         buyerId: input.buyerId,
         buyerName: input.buyerName,
         quantity: input.quantity,
-        price: Number(item.price),
+        price: effectivePrice,
         total: totalRevenue,
       });
 
@@ -213,12 +236,16 @@ export const itemsRouter = router({
         actorName: ctx.user?.characterName || ctx.user?.name || "Sistema",
         actorRole: ctx.user?.role || "USER",
         action: "SOLD_ITEM",
-        detail: `Vendió ${input.quantity} unidad(es) de "${item.name}" a ${input.buyerName}. Total: $${totalRevenue.toLocaleString()}.`,
+        detail: `Vendió ${input.quantity} unidad(es) de "${item.name}" a ${input.buyerName}. Total: $${totalRevenue.toLocaleString()}${clanTaxAmount > 0 ? ` (Clan: $${clanTaxAmount.toLocaleString()})` : ''}${input.isInternalSale ? ' [Venta Interna]' : ''}.`,
         details: {
           itemId: input.id,
           quantity: input.quantity,
           buyerName: input.buyerName,
-          totalRevenue: totalRevenue,
+          totalRevenue,
+          clanTaxAmount,
+          isInternalSale: input.isInternalSale || false,
+          effectivePrice,
+          discountPct,
         },
       });
 

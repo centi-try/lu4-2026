@@ -138,6 +138,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [sellModalItem, setSellModalItem] = useState<Item | null>(null);
   const [sellQty, setSellQty] = useState('1');
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
+  const [isInternalSale, setIsInternalSale] = useState(false);
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
 
@@ -256,10 +257,13 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setEditId(null);
   };
 
+  const { data: clanFundSettings } = trpc.clanFund.getSettings.useQuery(undefined, { staleTime: 30_000 });
+
   const openSellModal = (item: Item) => {
     setSellModalItem(item);
     setSellQty('1');
     setSelectedBuyerId('');
+    setIsInternalSale(false);
   };
 
   const handleSell = () => {
@@ -285,7 +289,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       itemId: sellModalItem.id, 
       quantityToSell: qty,
       buyerId: buyer.id,
-      buyerName: buyer.name
+      buyerName: buyer.name,
+      isInternalSale,
     });
 
     const newRemaining = remaining - qty;
@@ -715,8 +720,12 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     const char = characters.find(c => c.id === cid);
                     if (!char) return null;
                     const qty = parseInt(sellQty) || 0;
-                    const totalRev = (sellModalItem.price ?? 0) * qty;
-                    const perChar = Math.floor(totalRev / sellModalItem.associatedCharacterIds.length);
+                    const basePriceCalc = sellModalItem.price ?? 0;
+                    const discPctCalc = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+                    const effPriceCalc = Math.floor(basePriceCalc * (1 - discPctCalc / 100));
+                    const totalRev = effPriceCalc * qty;
+                    const clanTaxCalc = Math.floor(totalRev * (Number(clanFundSettings?.clanTaxPercent) || 0) / 100);
+                    const perChar = Math.floor((totalRev - clanTaxCalc) / sellModalItem.associatedCharacterIds.length);
                     return (
                       <div key={cid} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -758,6 +767,30 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               />
             </div>
 
+            {/* Venta Interna Clan toggle */}
+            {clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
+              <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                {Number(clanFundSettings.internalDiscountPercent) > 0 && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isInternalSale}
+                      onChange={e => setIsInternalSale(e.target.checked)}
+                      className="accent-yellow-400"
+                    />
+                    <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
+                      Venta Interna Clan (−{clanFundSettings.internalDiscountPercent}% descuento)
+                    </span>
+                  </label>
+                )}
+                {Number(clanFundSettings.clanTaxPercent) > 0 && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Input cantidad */}
             <div className="mb-5">
               <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
@@ -774,19 +807,40 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <p className="mt-1.5 text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
                 Máximo disponible: {sellModalItem.quantity - sellModalItem.quantitySold} unidad(es)
               </p>
-              {parseInt(sellQty) > 0 && sellModalItem.price && (
-                <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
-                  <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
-                    ${((sellModalItem.price ?? 0) * (parseInt(sellQty) || 0)).toLocaleString()}
-                  </p>
-                  {parseInt(sellQty) < sellModalItem.quantity - sellModalItem.quantitySold && (
-                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - parseInt(sellQty)} unidad(es) activas
+              {parseInt(sellQty) > 0 && sellModalItem.price && (() => {
+                const qty = parseInt(sellQty) || 0;
+                const baseTotal = (sellModalItem.price ?? 0) * qty;
+                const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+                const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+                const totalAfterDiscount = effPrice * qty;
+                const clanPct = Number(clanFundSettings?.clanTaxPercent) || 0;
+                const clanAmt = Math.floor(totalAfterDiscount * clanPct / 100);
+                const netAmount = totalAfterDiscount - clanAmt;
+
+                return (
+                  <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
+                    <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
+                      ${totalAfterDiscount.toLocaleString()}
                     </p>
-                  )}
-                </div>
-              )}
+                    {discPct > 0 && (
+                      <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                        Descuento interno: -${(baseTotal - totalAfterDiscount).toLocaleString()} ({discPct}%)
+                      </p>
+                    )}
+                    {clanAmt > 0 && (
+                      <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                        🏰 Clan: ${clanAmt.toLocaleString()} ({clanPct}%) · Neto: ${netAmount.toLocaleString()}
+                      </p>
+                    )}
+                    {qty < sellModalItem.quantity - sellModalItem.quantitySold && (
+                      <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - qty} unidad(es) activas
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Buttons */}

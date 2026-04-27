@@ -81,6 +81,8 @@ interface DatabaseSchema {
   // tokens pendientes. El token plano solo viaja por email.
   passwordResetTokens: any[];
   emailVerifications: any[];
+  clanFundSettings: any;
+  clanFundTransactions: any[];
 }
 
 const initialSchema: DatabaseSchema = {
@@ -106,6 +108,8 @@ const initialSchema: DatabaseSchema = {
   raidSalesCycles: [],
   passwordResetTokens: [],
   emailVerifications: [],
+  clanFundSettings: { clanTaxPercent: 0, internalDiscountPercent: 0 },
+  clanFundTransactions: [],
 };
 
 // ============================================================================
@@ -285,6 +289,10 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     raidSalesCycles: ensureArray(data?.raidSalesCycles),
     passwordResetTokens: ensureArray(data?.passwordResetTokens),
     emailVerifications: ensureArray(data?.emailVerifications),
+    clanFundSettings: data?.clanFundSettings && typeof data.clanFundSettings === 'object'
+      ? data.clanFundSettings
+      : { clanTaxPercent: 0, internalDiscountPercent: 0 },
+    clanFundTransactions: ensureArray(data?.clanFundTransactions),
   };
 }
 
@@ -749,6 +757,11 @@ function normalizeCycle(cycle: any): any {
     unsoldItemIds: Array.isArray(cycle.unsoldItemIds)
       ? cycle.unsoldItemIds.map(String)
       : [],
+    clanFundAmount: Number(cycle.clanFundAmount) || 0,
+    clanTaxPercent: Number(cycle.clanTaxPercent) || 0,
+    clanFundPaidOut: Boolean(cycle.clanFundPaidOut),
+    clanFundPaidAt: cycle.clanFundPaidAt || null,
+    clanFundPaidBy: cycle.clanFundPaidBy || null,
   };
 }
 
@@ -895,6 +908,13 @@ export const closeSalesCycle = async (id: number, data: any) => {
   const closedCyclesCount = (dbInstance.salesCycles || []).filter(c => c.status === 'CLOSED').length;
   const cycleLabel = data.label || `Ciclo #${closedCyclesCount + 1}`;
 
+  // Calcular retención del clan para el resumen del ciclo
+  const clanSettings = dbInstance.clanFundSettings || { clanTaxPercent: 0 };
+  const clanTaxPct = Number(clanSettings.clanTaxPercent) || 0;
+  const clanFundAmount = data.clanFundAmount !== undefined
+    ? Number(data.clanFundAmount)
+    : Math.floor(totalRevenue * clanTaxPct / 100);
+
   // 2. FIX: Guardar el ciclo con el shape UNIFICADO que espera el cliente
   const newCycle = {
     id: Math.floor(Math.random() * 1000000),
@@ -910,6 +930,11 @@ export const closeSalesCycle = async (id: number, data: any) => {
     characterEarnings,
     soldItems,
     unsoldItemIds,
+    clanFundAmount,
+    clanTaxPercent: clanTaxPct,
+    clanFundPaidOut: false,
+    clanFundPaidAt: null,
+    clanFundPaidBy: null,
   };
 
   if (!dbInstance.salesCycles) dbInstance.salesCycles = [];
@@ -1234,6 +1259,110 @@ export const getDashboardMetrics = async () => {
     totalRevenue: cycles.reduce((acc, c) => acc + (Number(c.revenue || c.totalRevenue || c.totalProfit) || 0), 0),
     activeCycleNumber: cycles.length > 0 ? cycles.length : 1,
   };
+};
+
+// ============================================================================
+// Fondo del Clan — funciones de acceso y mutación
+// ============================================================================
+
+export const getClanFundSettings = () => {
+  return dbInstance.clanFundSettings || { clanTaxPercent: 0, internalDiscountPercent: 0 };
+};
+
+export const updateClanFundSettings = async (
+  updates: { clanTaxPercent?: number; internalDiscountPercent?: number },
+  actorUserId?: number,
+) => {
+  const prev = dbInstance.clanFundSettings || { clanTaxPercent: 0, internalDiscountPercent: 0 };
+  dbInstance.clanFundSettings = { ...prev, ...updates };
+  await createAuditLog({
+    userId: actorUserId,
+    action: 'CLAN_FUND_SETTINGS_UPDATED',
+    detail: `Actualizó configuración del fondo del clan: ${JSON.stringify(updates)}.`,
+    details: { previous: prev, updated: updates },
+  });
+  saveDb(dbInstance);
+  return dbInstance.clanFundSettings;
+};
+
+export const getClanFundTransactions = () => {
+  return dbInstance.clanFundTransactions || [];
+};
+
+export const addClanFundTransaction = async (tx: {
+  type: 'income' | 'expense';
+  amount: number;
+  description: string;
+  evidenceUrl?: string;
+  relatedItemId?: string;
+  relatedCycleId?: string;
+  createdBy: string;
+  createdByUserId?: number;
+}) => {
+  if (!dbInstance.clanFundTransactions) dbInstance.clanFundTransactions = [];
+  const entry = {
+    id: Math.floor(Math.random() * 1000000),
+    ...tx,
+    createdAt: new Date().toISOString(),
+  };
+  dbInstance.clanFundTransactions.push(entry);
+  await createAuditLog({
+    userId: tx.createdByUserId,
+    action: tx.type === 'income' ? 'CLAN_FUND_INCOME' : 'CLAN_FUND_EXPENSE',
+    detail: tx.type === 'income'
+      ? `Ingreso al fondo del clan: $${tx.amount.toLocaleString()} — ${tx.description}`
+      : `Gasto del fondo del clan: $${tx.amount.toLocaleString()} — ${tx.description}`,
+    details: entry,
+  });
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const getClanFundSummary = () => {
+  const txs = dbInstance.clanFundTransactions || [];
+  const totalIncome = txs
+    .filter((t: any) => t.type === 'income')
+    .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+  const totalExpense = txs
+    .filter((t: any) => t.type === 'expense')
+    .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+  return {
+    totalIncome,
+    totalExpense,
+    balance: totalIncome - totalExpense,
+  };
+};
+
+export const setSalesCycleClanPaid = async (
+  cycleId: string,
+  paidOut: boolean,
+  actorName?: string,
+  actorUserId?: number,
+) => {
+  const cycles = dbInstance.salesCycles || [];
+  const idx = cycles.findIndex((c: any) => String(c.id) === String(cycleId));
+  if (idx === -1) throw new Error(`Ciclo ${cycleId} no encontrado`);
+  const cycle: any = cycles[idx];
+  cycle.clanFundPaidOut = paidOut;
+  cycle.clanFundPaidAt = paidOut ? new Date().toISOString() : null;
+  cycle.clanFundPaidBy = paidOut ? (actorName || 'Administrador') : null;
+  cycles[idx] = cycle;
+  dbInstance.salesCycles = cycles;
+
+  await createAuditLog({
+    userId: actorUserId,
+    action: paidOut ? 'CLAN_FUND_CYCLE_PAID' : 'CLAN_FUND_CYCLE_UNPAID',
+    detail: `${paidOut ? 'Marcó' : 'Desmarcó'} como pagado el aporte del clan ($${(cycle.clanFundAmount ?? 0).toLocaleString()}) en ${cycle.label || cycle.id}.`,
+    details: {
+      cycle: cycle.label || String(cycle.id),
+      cycleId: String(cycle.id),
+      clanFundAmount: cycle.clanFundAmount,
+      paidOut,
+    },
+  });
+
+  saveDb(dbInstance);
+  return normalizeCycle(cycle);
 };
 
 export const getUserByOpenId = async (openId: string) => {

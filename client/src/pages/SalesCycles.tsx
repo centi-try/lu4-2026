@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, TrendingUp, Package, Users, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, PlayCircle, StopCircle, Check, X, Coins, Lock as LockIcon, ShoppingCart, User as UserIcon } from 'lucide-react';
+import { Calendar, TrendingUp, Package, Users, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, PlayCircle, StopCircle, Check, X, Coins, Lock as LockIcon, ShoppingCart, User as UserIcon, DollarSign } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
 import { trpc } from '../lib/trpc';
@@ -33,6 +33,30 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
   const characterEarnings = Array.isArray(cycle.characterEarnings) ? cycle.characterEarnings : [];
   const soldItems = Array.isArray(cycle.soldItems) ? cycle.soldItems : [];
   const unsoldItemIds = Array.isArray(cycle.unsoldItemIds) ? cycle.unsoldItemIds : [];
+
+  // Clan fund data
+  const clanFundAmount = Number((cycle as any).clanFundAmount) || 0;
+  const clanFundPaidOut = Boolean((cycle as any).clanFundPaidOut);
+  const clanTaxPercent = Number((cycle as any).clanTaxPercent) || 0;
+
+  const markClanPaid = trpc.clanFund.markCyclePaid.useMutation({
+    onSuccess: () => {
+      utils.salesCycles.list.invalidate();
+      utils.auditLogs.list.invalidate();
+    },
+  });
+
+  const toggleClanPaid = () => {
+    if (!canPay) return;
+    markClanPaid.mutate(
+      { cycleId: String(cycle.id), paidOut: !clanFundPaidOut },
+      {
+        onSuccess: () =>
+          toast.success(clanFundPaidOut ? 'Pago del clan desmarcado' : 'Pago del clan registrado'),
+        onError: err => toast.error(err.message || 'No se pudo actualizar'),
+      }
+    );
+  };
 
   const paidCount = characterEarnings.filter(ce => ce.paidOut).length;
   const allPaid = characterEarnings.length > 0 && paidCount === characterEarnings.length;
@@ -152,6 +176,12 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
               <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Ítems acumulados</p>
               <p className="text-xl font-bold font-mono" style={{ color: '#f87171' }}>{unsoldItemIds.length}</p>
             </div>
+            {clanFundAmount > 0 && (
+              <div className="rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Adena Clan ({clanTaxPercent}%)</p>
+                <p className="text-xl font-bold font-mono" style={{ color: '#fbbf24' }}>${clanFundAmount.toLocaleString()}</p>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-5 mt-5 lg:grid-cols-2">
@@ -237,6 +267,53 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
                         </div>
                       );
                     })}
+                </div>
+              )}
+
+              {/* Fondo del Clan — misma visualización que personajes */}
+              {clanFundAmount > 0 && (
+                <div className="mt-3">
+                  <h4 className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    🏰 Fondo del Clan
+                  </h4>
+                  <div
+                    className="flex items-center justify-between rounded-xl px-3 py-2 transition-colors"
+                    style={{
+                      background: clanFundPaidOut ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${clanFundPaidOut ? 'rgba(16,185,129,0.28)' : 'rgba(255,255,255,0.05)'}`,
+                    }}
+                    title={clanFundPaidOut && (cycle as any).clanFundPaidAt
+                      ? `Pagado ${new Date((cycle as any).clanFundPaidAt).toLocaleString('es-CL')}${(cycle as any).clanFundPaidBy ? ` por ${(cycle as any).clanFundPaidBy}` : ''}`
+                      : undefined}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span style={{ color: '#fbbf24' }}>🏰</span>
+                      <p className="text-sm font-medium truncate" style={{ color: clanFundPaidOut ? '#10b981' : 'rgba(255,255,255,0.85)' }}>
+                        Clan ({clanTaxPercent}%)
+                      </p>
+                      {clanFundPaidOut && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: '#10b981' }} />}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold font-mono" style={{ color: clanFundPaidOut ? '#10b981' : '#a78bfa' }}>
+                        +${clanFundAmount.toLocaleString()}
+                      </span>
+                      {canPay && (
+                        <button
+                          onClick={toggleClanPaid}
+                          disabled={markClanPaid.isPending}
+                          className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 whitespace-nowrap"
+                          style={{
+                            background: clanFundPaidOut ? 'rgba(16,185,129,0.15)' : 'rgba(167,139,250,0.12)',
+                            color: clanFundPaidOut ? '#10b981' : '#a78bfa',
+                            border: `1px solid ${clanFundPaidOut ? 'rgba(16,185,129,0.35)' : 'rgba(167,139,250,0.3)'}`,
+                          }}
+                          title={clanFundPaidOut ? 'Desmarcar pago' : 'Marcar como pagado'}
+                        >
+                          {clanFundPaidOut ? '✓ Pagado' : 'Pagar'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Shield, Lock, CheckCircle, ImageIcon, Zap, Package, AlertTriangle, Key, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Lock, CheckCircle, ImageIcon, Zap, Package, AlertTriangle, Key, RefreshCw, Coins } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { categoryMeta, CATEGORIES } from '../lib/category-meta';
 import { trpc } from '../lib/trpc';
@@ -199,6 +199,9 @@ export default function Settings() {
           {/* 2FA (solo super_admin — PR6) */}
           {isSuperAdmin && <TwoFactorSection />}
 
+          {/* Fondo del Clan — solo visible para super_admin */}
+          {isSuperAdmin && <ClanFundSettingsCard />}
+
           {/* Categories reference */}
           <div className="card-glass rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-4">
@@ -240,5 +243,101 @@ export default function Settings() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function ClanFundSettingsCard() {
+  const { data: settings, isLoading } = trpc.clanFund.getSettings.useQuery();
+  const utils = trpc.useUtils();
+  const updateMutation = trpc.clanFund.updateSettings.useMutation({
+    onSuccess: () => {
+      utils.clanFund.getSettings.invalidate();
+      toast.success('Configuración del Fondo del Clan actualizada');
+    },
+    onError: (err) => toast.error(err.message || 'Error al guardar'),
+  });
+
+  const [taxPct, setTaxPct] = useState('0');
+  const [discPct, setDiscPct] = useState('0');
+
+  useEffect(() => {
+    if (settings) {
+      setTaxPct(String(settings.clanTaxPercent ?? 0));
+      setDiscPct(String(settings.internalDiscountPercent ?? 0));
+    }
+  }, [settings]);
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const tax = parseFloat(taxPct);
+    const disc = parseFloat(discPct);
+    if (isNaN(tax) || tax < 0 || tax > 100) { toast.error('Porcentaje clan debe estar entre 0 y 100'); return; }
+    if (isNaN(disc) || disc < 0 || disc > 100) { toast.error('Descuento debe estar entre 0 y 100'); return; }
+    updateMutation.mutate({ clanTaxPercent: tax, internalDiscountPercent: disc });
+  };
+
+  if (isLoading) return null;
+
+  return (
+    <div className="card-glass rounded-2xl p-5" style={{ border: '1px solid rgba(251,191,36,0.15)' }}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}>
+          <Coins className="h-5 w-5" style={{ color: '#fbbf24' }} />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Fondo del Clan</h3>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Retención y descuento interno</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Porcentaje Retención Clan (%)
+          </label>
+          <input
+            type="number"
+            value={taxPct}
+            onChange={e => setTaxPct(e.target.value)}
+            min="0" max="100" step="0.1"
+            className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all font-mono"
+            style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+          />
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Porcentaje de cada venta que se destina al fondo del clan (sobre precio real cobrado).
+          </p>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Descuento Venta Interna (%)
+          </label>
+          <input
+            type="number"
+            value={discPct}
+            onChange={e => setDiscPct(e.target.value)}
+            min="0" max="100" step="0.1"
+            className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all font-mono"
+            style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+          />
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Descuento aplicado al precio cuando se marca como "Venta Interna Clan".
+          </p>
+        </div>
+        <button
+          type="submit"
+          disabled={updateMutation.isPending}
+          className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+          style={{ background: '#fbbf24', color: '#000' }}
+        >
+          {updateMutation.isPending ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Coins className="h-4 w-4" />
+          )}
+          {updateMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
+        </button>
+      </form>
+    </div>
   );
 }
