@@ -5,7 +5,7 @@ import {
   getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance,
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
-  getClanFundSettings, addClanFundTransaction,
+  getClanFundSettings,
 } from "../db";
 
 const CreateItemSchema = z.object({
@@ -206,16 +206,10 @@ export const itemsRouter = router({
         saveDbToDisk();
       }
 
-      // Registrar ingreso al fondo del clan si hay retención
+      // Acumular retención del clan (se registra como transacción al cerrar el ciclo)
       if (clanTaxAmount > 0) {
-        await addClanFundTransaction({
-          type: 'income',
-          amount: clanTaxAmount,
-          description: `Retención ${clanTaxPct}% de venta de "${item.name}" (${input.quantity} ud.)${input.isInternalSale ? ' [Venta Interna]' : ''}`,
-          relatedItemId: String(item.id),
-          createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
-          createdByUserId: ctx.user?.id,
-        });
+        dbInstance.clanFundCurrentCycleAccrued = (Number(dbInstance.clanFundCurrentCycleAccrued) || 0) + clanTaxAmount;
+        saveDbToDisk();
       }
 
       // Crear registro de compra persistente

@@ -43,6 +43,8 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
     onSuccess: () => {
       utils.salesCycles.list.invalidate();
       utils.auditLogs.list.invalidate();
+      utils.clanFund.getSummary.invalidate();
+      utils.clanFund.listTransactions.invalidate();
     },
   });
 

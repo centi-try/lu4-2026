@@ -952,6 +952,19 @@ export const closeSalesCycle = async (id: number, data: any) => {
     details: { cycle: newCycle.label, totalRevenue, sold: soldItems.length },
   });
 
+  // Registrar transacción de retención del clan al cerrar el ciclo (settled=false hasta que se pague)
+  if (clanFundAmount > 0) {
+    await addClanFundTransaction({
+      type: 'income',
+      amount: clanFundAmount,
+      description: `Retención ${clanTaxPct}% — ${newCycle.label} ($${totalRevenue.toLocaleString()} recaudados)`,
+      relatedCycleId: String(newCycle.id),
+      settled: false,
+      createdBy: data.closedBy || 'Administrador',
+      createdByUserId: data.closedByUserId,
+    });
+  }
+
   // 3. FIX: Resetear quantitySoldInCycle en todos los items
   // IMPORTANTE: NO resetear quantitySold (es el histórico acumulado)
   // IMPORTANTE: NO tocar associatedCharacterIds (relación permanente)
@@ -1303,6 +1316,7 @@ export const addClanFundTransaction = async (tx: {
   evidenceUrl?: string;
   relatedItemId?: string;
   relatedCycleId?: string;
+  settled?: boolean;
   createdBy: string;
   createdByUserId?: number;
 }) => {
@@ -1310,12 +1324,10 @@ export const addClanFundTransaction = async (tx: {
   const entry = {
     id: Math.floor(Math.random() * 1000000),
     ...tx,
+    settled: tx.type === 'expense' ? true : (tx.settled ?? false),
     createdAt: new Date().toISOString(),
   };
   dbInstance.clanFundTransactions.push(entry);
-  if (tx.type === 'income') {
-    dbInstance.clanFundCurrentCycleAccrued = (Number(dbInstance.clanFundCurrentCycleAccrued) || 0) + tx.amount;
-  }
   await createAuditLog({
     userId: tx.createdByUserId,
     action: tx.type === 'income' ? 'CLAN_FUND_INCOME' : 'CLAN_FUND_EXPENSE',
@@ -1330,16 +1342,22 @@ export const addClanFundTransaction = async (tx: {
 
 export const getClanFundSummary = () => {
   const txs = dbInstance.clanFundTransactions || [];
+  // Solo contar ingresos de ciclos pagados (settled=true)
   const totalIncome = txs
-    .filter((t: any) => t.type === 'income')
+    .filter((t: any) => t.type === 'income' && t.settled === true)
     .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
   const totalExpense = txs
     .filter((t: any) => t.type === 'expense')
+    .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+  // Ingresos pendientes (ciclos cerrados pero no pagados)
+  const pendingIncome = txs
+    .filter((t: any) => t.type === 'income' && t.settled !== true)
     .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
   return {
     totalIncome,
     totalExpense,
     balance: totalIncome - totalExpense,
+    pendingIncome,
   };
 };
 
@@ -1358,6 +1376,14 @@ export const setSalesCycleClanPaid = async (
   cycle.clanFundPaidBy = paidOut ? (actorName || 'Administrador') : null;
   cycles[idx] = cycle;
   dbInstance.salesCycles = cycles;
+
+  // Marcar/desmarcar las transacciones de ingreso del clan como settled
+  const txs = dbInstance.clanFundTransactions || [];
+  for (const tx of txs) {
+    if (tx.type === 'income' && String(tx.relatedCycleId) === String(cycleId)) {
+      tx.settled = paidOut;
+    }
+  }
 
   await createAuditLog({
     userId: actorUserId,

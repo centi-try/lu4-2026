@@ -165,10 +165,14 @@ export default function Dashboard() {
       </div>
 
       {/* Fondo del Clan KPIs */}
-      {clanSummary && (clanSummary.totalIncome > 0 || clanSummary.totalExpense > 0) && (
-        <div className="grid gap-4 sm:grid-cols-3 mb-6">
+      {clanSummary && (clanSummary.totalIncome > 0 || clanSummary.totalExpense > 0 || (clanSummary as any).pendingIncome > 0) && (
+        <div className="grid gap-4 sm:grid-cols-4 mb-6">
           <KpiCard title="Clan: Recaudado" value={`$${(clanSummary.totalIncome ?? 0).toLocaleString()}`}
-            subtitle="Total acumulado por retenciones" icon={Coins} accentColor="#fbbf24" />
+            subtitle="Ciclos pagados" icon={Coins} accentColor="#fbbf24" />
+          {(clanSummary as any).pendingIncome > 0 && (
+            <KpiCard title="Clan: Pendiente" value={`$${((clanSummary as any).pendingIncome ?? 0).toLocaleString()}`}
+              subtitle="Ciclos cerrados sin pagar" icon={Coins} accentColor="#f59e0b" />
+          )}
           <KpiCard title="Clan: Gastado" value={`$${(clanSummary.totalExpense ?? 0).toLocaleString()}`}
             subtitle="Total de gastos registrados" icon={Receipt} accentColor="#f87171" />
           <KpiCard title="Clan: Saldo" value={`$${(clanSummary.balance ?? 0).toLocaleString()}`}
@@ -265,6 +269,15 @@ export default function Dashboard() {
                     <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{tx.description}</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {tx.type === 'income' && (
+                      <span className="text-[10px] font-semibold rounded px-1.5 py-0.5"
+                        style={{
+                          background: tx.settled ? 'rgba(16,185,129,0.15)' : 'rgba(251,191,36,0.15)',
+                          color: tx.settled ? '#10b981' : '#f59e0b',
+                        }}>
+                        {tx.settled ? '✓ PAGADO' : 'PENDIENTE'}
+                      </span>
+                    )}
                     <span className="text-xs font-mono font-semibold" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
                       {tx.type === 'income' ? '+' : '-'}${(tx.amount ?? 0).toLocaleString()}
                     </span>
