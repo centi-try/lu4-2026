@@ -47,15 +47,31 @@ export default function Dashboard() {
   const evidenceInputRef = useRef<HTMLInputElement>(null);
   const uploadEvidenceMutation = trpc.clanFund.uploadEvidence.useMutation();
 
-  const handleEvidenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processEvidenceFile = (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('Solo se permiten imágenes'); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error('Máximo 5 MB'); return; }
     setEvidenceFile(file);
     const reader = new FileReader();
     reader.onload = () => setEvidencePreview(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleEvidenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processEvidenceFile(file);
+  };
+
+  const handleEvidencePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) processEvidenceFile(file);
+        return;
+      }
+    }
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
@@ -215,7 +231,7 @@ export default function Dashboard() {
 
           {/* Expense form (gastos tab only) */}
           {showExpenseForm && isSuperAdmin && clanMovTab === 'gastos' && (
-            <form onSubmit={handleExpenseSubmit} className="mb-4 p-3 rounded-xl space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <form onSubmit={handleExpenseSubmit} onPaste={handleEvidencePaste} className="mb-4 p-3 rounded-xl space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
                   placeholder="Monto (adena)" min="1" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
@@ -231,7 +247,7 @@ export default function Dashboard() {
                   className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm w-full"
                   style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', background: 'transparent' }}>
                   <Upload className="h-4 w-4" />
-                  {evidenceFile ? evidenceFile.name : 'Subir imagen de evidencia (opcional)'}
+                  {evidenceFile ? evidenceFile.name : 'Subir o pegar imagen (Ctrl+V)'}
                 </button>
                 {evidencePreview && (
                   <div className="mt-2 flex items-center gap-2">
@@ -305,7 +321,7 @@ export default function Dashboard() {
             {showExpenseForm ? 'Cancelar' : 'Registrar Gasto del Clan'}
           </button>
           {showExpenseForm && (
-            <form onSubmit={handleExpenseSubmit} className="mt-3 p-3 rounded-xl space-y-3 card-glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+            <form onSubmit={handleExpenseSubmit} onPaste={handleEvidencePaste} className="mt-3 p-3 rounded-xl space-y-3 card-glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
                   placeholder="Monto (adena)" min="1" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
@@ -314,12 +330,27 @@ export default function Dashboard() {
                   placeholder="Descripción" className="rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
                   style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
               </div>
-              <input type="text" value={expenseEvidence} onChange={e => setExpenseEvidence(e.target.value)}
-                placeholder="URL evidencia (opcional)" className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
-                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
-              <button type="submit" disabled={addExpenseMutation.isPending}
+              <div>
+                <input ref={evidenceInputRef} type="file" accept="image/*" onChange={handleEvidenceFileChange}
+                  className="hidden" />
+                <button type="button" onClick={() => evidenceInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm w-full"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', background: 'transparent' }}>
+                  <Upload className="h-4 w-4" />
+                  {evidenceFile ? evidenceFile.name : 'Subir o pegar imagen (Ctrl+V)'}
+                </button>
+                {evidencePreview && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src={evidencePreview} alt="preview" className="h-12 w-12 rounded-lg object-cover"
+                      style={{ border: '1px solid rgba(251,191,36,0.3)' }} />
+                    <button type="button" onClick={() => { setEvidenceFile(null); setEvidencePreview(''); if (evidenceInputRef.current) evidenceInputRef.current.value = ''; }}
+                      className="text-xs" style={{ color: '#f87171' }}>Quitar</button>
+                  </div>
+                )}
+              </div>
+              <button type="submit" disabled={addExpenseMutation.isPending || uploadingEvidence}
                 className="rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-50" style={{ background: '#fbbf24', color: '#000' }}>
-                {addExpenseMutation.isPending ? 'Guardando...' : 'Registrar Gasto'}
+                {uploadingEvidence ? 'Subiendo imagen...' : addExpenseMutation.isPending ? 'Guardando...' : 'Registrar Gasto'}
               </button>
             </form>
           )}
