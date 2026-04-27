@@ -8,6 +8,16 @@ import {
   getClanFundSummary,
   setSalesCycleClanPaid,
 } from "../db";
+import fs from "fs";
+import path from "path";
+
+const EVIDENCE_DIR = path.resolve(process.cwd(), "uploads", "clan-evidence");
+
+function ensureEvidenceDir() {
+  if (!fs.existsSync(EVIDENCE_DIR)) {
+    fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+  }
+}
 
 export const clanFundRouter = router({
   getSettings: protectedProcedure.query(async () => {
@@ -29,6 +39,24 @@ export const clanFundRouter = router({
   listTransactions: protectedProcedure.query(async () => {
     return getClanFundTransactions();
   }),
+
+  uploadEvidence: protectedProcedure
+    .input(z.object({
+      fileName: z.string(),
+      base64Data: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user?.role !== 'super_admin') {
+        throw new Error('Solo el Super Admin puede subir evidencia.');
+      }
+      ensureEvidenceDir();
+      const ext = path.extname(input.fileName) || '.png';
+      const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      const filePath = path.join(EVIDENCE_DIR, safeName);
+      const buffer = Buffer.from(input.base64Data, 'base64');
+      fs.writeFileSync(filePath, buffer);
+      return { url: `/api/clan-evidence/${safeName}` };
+    }),
 
   addExpense: protectedProcedure
     .input(z.object({

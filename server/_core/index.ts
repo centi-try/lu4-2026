@@ -3,6 +3,7 @@ import express from "express";
 import http from "http";
 import net from "net";
 import crypto from "crypto";
+import path from "path";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -1030,6 +1031,10 @@ async function startServer() {
       maxBodySize: 8 * 1024 * 1024,
     })
   );
+
+  // Servir imágenes de evidencia del clan fund
+  const evidencePath = path.resolve(process.cwd(), "uploads", "clan-evidence");
+  app.use("/api/clan-evidence", express.static(evidencePath));
 
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

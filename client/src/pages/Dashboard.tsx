@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Boxes, CheckCircle2, CircleDollarSign, TrendingUp, Users, Coins, Receipt, Plus, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Boxes, CheckCircle2, CircleDollarSign, TrendingUp, Users, Coins, Receipt, Plus, X, Upload } from 'lucide-react';
+import { ImageHoverPreview } from '../components/ui/ImageHoverPreview';
 import { AppShell } from '../components/layout/AppShell';
 import { KpiCard } from '../components/dashboard/KpiCard';
 import { CategoryChart } from '../components/dashboard/CategoryChart';
@@ -39,17 +40,55 @@ export default function Dashboard() {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseEvidence, setExpenseEvidence] = useState('');
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [evidencePreview, setEvidencePreview] = useState('');
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [clanMovTab, setClanMovTab] = useState<'retenciones' | 'gastos'>('retenciones');
+  const evidenceInputRef = useRef<HTMLInputElement>(null);
+  const uploadEvidenceMutation = trpc.clanFund.uploadEvidence.useMutation();
 
-  const handleExpenseSubmit = (e: React.FormEvent) => {
+  const handleEvidenceFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Solo se permiten imágenes'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Máximo 5 MB'); return; }
+    setEvidenceFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setEvidencePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(expenseAmount);
     if (isNaN(amt) || amt <= 0) { toast.error('Monto inválido'); return; }
     if (!expenseDesc.trim()) { toast.error('Descripción requerida'); return; }
+
+    let evidenceUrl: string | undefined;
+    if (evidenceFile) {
+      setUploadingEvidence(true);
+      try {
+        const base64 = evidencePreview.split(',')[1];
+        const result = await uploadEvidenceMutation.mutateAsync({
+          fileName: evidenceFile.name,
+          base64Data: base64,
+        });
+        evidenceUrl = result.url;
+      } catch {
+        toast.error('Error al subir la imagen de evidencia');
+        setUploadingEvidence(false);
+        return;
+      }
+      setUploadingEvidence(false);
+    }
+
     addExpenseMutation.mutate({
       amount: amt,
       description: expenseDesc.trim(),
-      evidenceUrl: expenseEvidence.trim() || undefined,
+      evidenceUrl,
     });
+    setEvidenceFile(null);
+    setEvidencePreview('');
   };
 
   const totalEarnings = characters.reduce((sum, c) => sum + c.totalEarnings, 0);
@@ -137,7 +176,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Gastos del Clan */}
+      {/* Movimientos del Fondo del Clan — con tabs */}
       {clanTransactions && clanTransactions.length > 0 && (
         <div className="card-glass rounded-2xl p-5 mb-6" style={{ border: '1px solid rgba(251,191,36,0.15)' }}>
           <div className="flex items-center justify-between mb-4">
@@ -145,7 +184,7 @@ export default function Dashboard() {
               <Coins className="h-5 w-5" style={{ color: '#fbbf24' }} />
               <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>Movimientos del Fondo del Clan</h3>
             </div>
-            {isSuperAdmin && (
+            {isSuperAdmin && clanMovTab === 'gastos' && (
               <button onClick={() => setShowExpenseForm(!showExpenseForm)}
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold"
                 style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>
@@ -154,7 +193,24 @@ export default function Dashboard() {
               </button>
             )}
           </div>
-          {showExpenseForm && isSuperAdmin && (
+
+          {/* Tabs */}
+          <div className="flex gap-1 mb-4 rounded-lg p-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            {(['retenciones', 'gastos'] as const).map(tab => (
+              <button key={tab} onClick={() => { setClanMovTab(tab); if (tab !== 'gastos') setShowExpenseForm(false); }}
+                className="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all"
+                style={{
+                  background: clanMovTab === tab ? 'rgba(251,191,36,0.15)' : 'transparent',
+                  color: clanMovTab === tab ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                  border: clanMovTab === tab ? '1px solid rgba(251,191,36,0.25)' : '1px solid transparent',
+                }}>
+                {tab === 'retenciones' ? '▲ Retenciones' : '▼ Registro de Gastos'}
+              </button>
+            ))}
+          </div>
+
+          {/* Expense form (gastos tab only) */}
+          {showExpenseForm && isSuperAdmin && clanMovTab === 'gastos' && (
             <form onSubmit={handleExpenseSubmit} className="mb-4 p-3 rounded-xl space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
@@ -164,35 +220,64 @@ export default function Dashboard() {
                   placeholder="Descripción (en qué se gastó)" className="rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
                   style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
               </div>
-              <input type="text" value={expenseEvidence} onChange={e => setExpenseEvidence(e.target.value)}
-                placeholder="URL evidencia (opcional)" className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
-                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
-              <button type="submit" disabled={addExpenseMutation.isPending}
+              <div>
+                <input ref={evidenceInputRef} type="file" accept="image/*" onChange={handleEvidenceFileChange}
+                  className="hidden" />
+                <button type="button" onClick={() => evidenceInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm w-full"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', background: 'transparent' }}>
+                  <Upload className="h-4 w-4" />
+                  {evidenceFile ? evidenceFile.name : 'Subir imagen de evidencia (opcional)'}
+                </button>
+                {evidencePreview && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src={evidencePreview} alt="preview" className="h-12 w-12 rounded-lg object-cover"
+                      style={{ border: '1px solid rgba(251,191,36,0.3)' }} />
+                    <button type="button" onClick={() => { setEvidenceFile(null); setEvidencePreview(''); if (evidenceInputRef.current) evidenceInputRef.current.value = ''; }}
+                      className="text-xs" style={{ color: '#f87171' }}>Quitar</button>
+                  </div>
+                )}
+              </div>
+              <button type="submit" disabled={addExpenseMutation.isPending || uploadingEvidence}
                 className="rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-50" style={{ background: '#fbbf24', color: '#000' }}>
-                {addExpenseMutation.isPending ? 'Guardando...' : 'Registrar Gasto'}
+                {uploadingEvidence ? 'Subiendo imagen...' : addExpenseMutation.isPending ? 'Guardando...' : 'Registrar Gasto'}
               </button>
             </form>
           )}
-          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-            {[...(clanTransactions as any[])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 20).map((tx: any) => (
-              <div key={tx.id} className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
-                    {tx.type === 'income' ? '▲' : '▼'}
-                  </span>
-                  <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{tx.description}</span>
+
+          {/* Transaction list filtered by tab */}
+          <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+            {(() => {
+              const filtered = [...(clanTransactions as any[])]
+                .filter(tx => clanMovTab === 'retenciones' ? tx.type === 'income' : tx.type === 'expense')
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              if (filtered.length === 0) return (
+                <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  {clanMovTab === 'retenciones' ? 'No hay retenciones registradas' : 'No hay gastos registrados'}
+                </p>
+              );
+              return filtered.slice(0, 30).map((tx: any) => (
+                <div key={tx.id} className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
+                      {tx.type === 'income' ? '▲' : '▼'}
+                    </span>
+                    <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{tx.description}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-mono font-semibold" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
+                      {tx.type === 'income' ? '+' : '-'}${(tx.amount ?? 0).toLocaleString()}
+                    </span>
+                    {tx.evidenceUrl && (
+                      <ImageHoverPreview src={tx.evidenceUrl} size={300} caption="Evidencia de gasto">
+                        <img src={tx.evidenceUrl} alt="evidencia" className="h-6 w-6 rounded object-cover cursor-pointer"
+                          style={{ border: '1px solid rgba(167,139,250,0.3)' }} />
+                      </ImageHoverPreview>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-mono font-semibold" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
-                    {tx.type === 'income' ? '+' : '-'}${(tx.amount ?? 0).toLocaleString()}
-                  </span>
-                  {tx.evidenceUrl && (
-                    <a href={tx.evidenceUrl} target="_blank" rel="noopener noreferrer"
-                      className="text-[10px] underline" style={{ color: '#a78bfa' }}>evidencia</a>
-                  )}
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       )}
