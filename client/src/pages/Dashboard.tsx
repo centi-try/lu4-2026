@@ -55,6 +55,20 @@ export default function Dashboard() {
   const [editEvidenceFile, setEditEvidenceFile] = useState<File | null>(null);
   const [editEvidencePreview, setEditEvidencePreview] = useState('');
 
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmLabel?: string;
+    danger?: boolean;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
+
+  const showConfirm = (opts: { title: string; message: string; onConfirm: () => void; confirmLabel?: string; danger?: boolean }) => {
+    setConfirmModal({ open: true, ...opts });
+  };
+
   const editExpenseMutation = trpc.clanFund.editExpense.useMutation({
     onSuccess: () => {
       utils.clanFund.getSummary.invalidate();
@@ -159,12 +173,8 @@ export default function Dashboard() {
     }
   };
 
-  const handleExpenseSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doExpenseSubmit = async () => {
     const amt = parseFloat(expenseAmount);
-    if (isNaN(amt) || amt <= 0) { toast.error('Monto inválido'); return; }
-    if (!expenseDesc.trim()) { toast.error('Descripción requerida'); return; }
-
     let evidenceUrl: string | undefined;
     if (evidenceFile) {
       setUploadingEvidence(true);
@@ -182,7 +192,6 @@ export default function Dashboard() {
       }
       setUploadingEvidence(false);
     }
-
     addExpenseMutation.mutate({
       amount: amt,
       description: expenseDesc.trim(),
@@ -190,6 +199,19 @@ export default function Dashboard() {
     });
     setEvidenceFile(null);
     setEvidencePreview('');
+  };
+
+  const handleExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(expenseAmount);
+    if (isNaN(amt) || amt <= 0) { toast.error('Monto inválido'); return; }
+    if (!expenseDesc.trim()) { toast.error('Descripción requerida'); return; }
+    showConfirm({
+      title: 'Registrar gasto',
+      message: `¿Registrar gasto de $${amt.toLocaleString()} — "${expenseDesc.trim()}"?`,
+      confirmLabel: 'Registrar',
+      onConfirm: doExpenseSubmit,
+    });
   };
 
   const totalEarnings = characters.reduce((sum, c) => sum + c.totalEarnings, 0);
@@ -390,7 +412,12 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => handleEditSubmit(tx.id)}
+                        <button onClick={() => showConfirm({
+                            title: 'Guardar cambios',
+                            message: `¿Guardar los cambios en este gasto? Monto: $${parseFloat(editAmount || '0').toLocaleString()}`,
+                            confirmLabel: 'Guardar',
+                            onConfirm: () => handleEditSubmit(tx.id),
+                          })}
                           disabled={editExpenseMutation.isPending}
                           className="rounded px-3 py-1 text-xs font-bold disabled:opacity-50"
                           style={{ background: '#fbbf24', color: '#000' }}>
@@ -436,8 +463,13 @@ export default function Dashboard() {
                               className="rounded p-0.5 hover:bg-white/10 transition-colors">
                               <Pencil className="h-3 w-3" style={{ color: '#a78bfa' }} />
                             </button>
-                            <button onClick={() => { if (confirm('¿Eliminar este gasto? Esta acción no se puede deshacer.')) deleteExpenseMutation.mutate({ txId: tx.id }); }}
-                              title="Eliminar" className="rounded p-0.5 hover:bg-white/10 transition-colors">
+                            <button onClick={() => showConfirm({
+                                title: 'Eliminar gasto',
+                                message: `¿Eliminar gasto de $${(tx.amount ?? 0).toLocaleString()} — "${tx.description}"? Esta acción no se puede deshacer.`,
+                                confirmLabel: 'Eliminar',
+                                danger: true,
+                                onConfirm: () => deleteExpenseMutation.mutate({ txId: tx.id }),
+                              })} title="Eliminar" className="rounded p-0.5 hover:bg-white/10 transition-colors">
                               <Trash2 className="h-3 w-3" style={{ color: '#f87171' }} />
                             </button>
                           </div>
@@ -607,6 +639,33 @@ export default function Dashboard() {
           <ActivityFeed logs={auditLogs.slice(0, 8)} />
         </div>
       </div>
+      {/* Confirmation Modal */}
+      {confirmModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}>
+          <div className="rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4"
+            style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{confirmModal.title}</h3>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{confirmModal.message}</p>
+            <div className="flex gap-3 justify-end pt-2">
+              <button onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+                className="rounded-lg px-4 py-2 text-sm font-semibold"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({ ...prev, open: false })); }}
+                className="rounded-lg px-4 py-2 text-sm font-bold"
+                style={{
+                  background: confirmModal.danger ? '#ef4444' : '#fbbf24',
+                  color: confirmModal.danger ? '#fff' : '#000',
+                }}>
+                {confirmModal.confirmLabel || 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
