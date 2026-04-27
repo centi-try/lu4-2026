@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Boxes, CheckCircle2, CircleDollarSign, TrendingUp, Users, Coins, Receipt, Plus, X, Upload } from 'lucide-react';
+import { Boxes, CheckCircle2, CircleDollarSign, TrendingUp, Users, Coins, Receipt, Plus, X, Upload, Pencil, Trash2 } from 'lucide-react';
 import { ImageHoverPreview } from '../components/ui/ImageHoverPreview';
 import { AppShell } from '../components/layout/AppShell';
 import { KpiCard } from '../components/dashboard/KpiCard';
@@ -45,7 +45,92 @@ export default function Dashboard() {
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [clanMovTab, setClanMovTab] = useState<'retenciones' | 'gastos'>('retenciones');
   const evidenceInputRef = useRef<HTMLInputElement>(null);
+  const editEvidenceInputRef = useRef<HTMLInputElement>(null);
   const uploadEvidenceMutation = trpc.clanFund.uploadEvidence.useMutation();
+
+  // Edit/delete state
+  const [editingTxId, setEditingTxId] = useState<number | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editEvidenceFile, setEditEvidenceFile] = useState<File | null>(null);
+  const [editEvidencePreview, setEditEvidencePreview] = useState('');
+
+  const editExpenseMutation = trpc.clanFund.editExpense.useMutation({
+    onSuccess: () => {
+      utils.clanFund.getSummary.invalidate();
+      utils.clanFund.listTransactions.invalidate();
+      utils.auditLogs.list.invalidate();
+      toast.success('Gasto actualizado');
+      setEditingTxId(null);
+    },
+    onError: (err) => toast.error(err.message || 'Error al editar gasto'),
+  });
+
+  const deleteExpenseMutation = trpc.clanFund.deleteExpense.useMutation({
+    onSuccess: () => {
+      utils.clanFund.getSummary.invalidate();
+      utils.clanFund.listTransactions.invalidate();
+      utils.auditLogs.list.invalidate();
+      toast.success('Gasto eliminado');
+    },
+    onError: (err) => toast.error(err.message || 'Error al eliminar gasto'),
+  });
+
+  const startEditing = (tx: any) => {
+    setEditingTxId(tx.id);
+    setEditAmount(String(tx.amount));
+    setEditDesc(tx.description);
+    setEditEvidenceFile(null);
+    setEditEvidencePreview(tx.evidenceUrl || '');
+  };
+
+  const handleEditSubmit = async (txId: number) => {
+    const amt = parseFloat(editAmount);
+    if (isNaN(amt) || amt <= 0) { toast.error('Monto inválido'); return; }
+    if (!editDesc.trim()) { toast.error('Descripción requerida'); return; }
+
+    let evidenceUrl: string | undefined;
+    if (editEvidenceFile) {
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(editEvidenceFile);
+        });
+        const base64 = await base64Promise;
+        const result = await uploadEvidenceMutation.mutateAsync({
+          fileName: editEvidenceFile.name,
+          base64Data: base64,
+        });
+        evidenceUrl = result.url;
+      } catch {
+        toast.error('Error al subir imagen');
+        return;
+      }
+    } else if (editEvidencePreview && !editEvidencePreview.startsWith('data:')) {
+      evidenceUrl = editEvidencePreview;
+    }
+
+    editExpenseMutation.mutate({ txId, amount: amt, description: editDesc.trim(), evidenceUrl });
+  };
+
+  const handleEditEvidencePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          setEditEvidenceFile(file);
+          const reader = new FileReader();
+          reader.onload = () => setEditEvidencePreview(reader.result as string);
+          reader.readAsDataURL(file);
+        }
+        return;
+      }
+    }
+  };
 
   const processEvidenceFile = (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('Solo se permiten imágenes'); return; }
@@ -277,33 +362,89 @@ export default function Dashboard() {
                 </p>
               );
               return filtered.slice(0, 30).map((tx: any) => (
-                <div key={tx.id} className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
-                      {tx.type === 'income' ? '▲' : '▼'}
-                    </span>
-                    <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{tx.description}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {tx.type === 'income' && (
-                      <span className="text-[10px] font-semibold rounded px-1.5 py-0.5"
-                        style={{
-                          background: tx.settled ? 'rgba(16,185,129,0.15)' : 'rgba(251,191,36,0.15)',
-                          color: tx.settled ? '#10b981' : '#f59e0b',
-                        }}>
-                        {tx.settled ? '✓ PAGADO' : 'PENDIENTE'}
-                      </span>
-                    )}
-                    <span className="text-xs font-mono font-semibold" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
-                      {tx.type === 'income' ? '+' : '-'}${(tx.amount ?? 0).toLocaleString()}
-                    </span>
-                    {tx.evidenceUrl && (
-                      <ImageHoverPreview src={tx.evidenceUrl} size={480} caption="Evidencia de gasto">
-                        <img src={tx.evidenceUrl} alt="evidencia" className="h-6 w-6 rounded object-cover cursor-pointer"
-                          style={{ border: '1px solid rgba(167,139,250,0.3)' }} />
-                      </ImageHoverPreview>
-                    )}
-                  </div>
+                <div key={tx.id}>
+                  {editingTxId === tx.id ? (
+                    /* Inline edit form */
+                    <div className="rounded-lg p-2 space-y-2" onPaste={handleEditEvidencePaste}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                          placeholder="Monto" min="1" className="rounded border bg-transparent px-2 py-1 text-xs font-mono outline-none"
+                          style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
+                        <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)}
+                          placeholder="Descripción" className="rounded border bg-transparent px-2 py-1 text-xs outline-none"
+                          style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input ref={editEvidenceInputRef} type="file" accept="image/*" className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) { setEditEvidenceFile(f); const r = new FileReader(); r.onload = () => setEditEvidencePreview(r.result as string); r.readAsDataURL(f); } }} />
+                        <button type="button" onClick={() => editEvidenceInputRef.current?.click()}
+                          className="flex items-center gap-1 rounded border px-2 py-1 text-[10px]"
+                          style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+                          <Upload className="h-3 w-3" />
+                          {editEvidenceFile ? editEvidenceFile.name : 'Cambiar imagen (o Ctrl+V)'}
+                        </button>
+                        {editEvidencePreview && (
+                          <img src={editEvidencePreview} alt="preview" className="h-8 w-8 rounded object-cover"
+                            style={{ border: '1px solid rgba(251,191,36,0.3)' }} />
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditSubmit(tx.id)}
+                          disabled={editExpenseMutation.isPending}
+                          className="rounded px-3 py-1 text-xs font-bold disabled:opacity-50"
+                          style={{ background: '#fbbf24', color: '#000' }}>
+                          {editExpenseMutation.isPending ? 'Guardando...' : 'Guardar'}
+                        </button>
+                        <button onClick={() => setEditingTxId(null)}
+                          className="rounded px-3 py-1 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Normal row */
+                    <div className="flex items-center justify-between rounded-lg px-2 py-1.5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
+                          {tx.type === 'income' ? '▲' : '▼'}
+                        </span>
+                        <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{tx.description}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {tx.type === 'income' && (
+                          <span className="text-[10px] font-semibold rounded px-1.5 py-0.5"
+                            style={{
+                              background: tx.settled ? 'rgba(16,185,129,0.15)' : 'rgba(251,191,36,0.15)',
+                              color: tx.settled ? '#10b981' : '#f59e0b',
+                            }}>
+                            {tx.settled ? '✓ PAGADO' : 'PENDIENTE'}
+                          </span>
+                        )}
+                        <span className="text-xs font-mono font-semibold" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>
+                          {tx.type === 'income' ? '+' : '-'}${(tx.amount ?? 0).toLocaleString()}
+                        </span>
+                        {tx.evidenceUrl && (
+                          <ImageHoverPreview src={tx.evidenceUrl} size={480} caption="Evidencia de gasto">
+                            <img src={tx.evidenceUrl} alt="evidencia" className="h-6 w-6 rounded object-cover cursor-pointer"
+                              style={{ border: '1px solid rgba(167,139,250,0.3)' }} />
+                          </ImageHoverPreview>
+                        )}
+                        {isSuperAdmin && tx.type === 'expense' && (
+                          <div className="flex items-center gap-1 ml-1">
+                            <button onClick={() => startEditing(tx)} title="Editar"
+                              className="rounded p-0.5 hover:bg-white/10 transition-colors">
+                              <Pencil className="h-3 w-3" style={{ color: '#a78bfa' }} />
+                            </button>
+                            <button onClick={() => { if (confirm('¿Eliminar este gasto? Esta acción no se puede deshacer.')) deleteExpenseMutation.mutate({ txId: tx.id }); }}
+                              title="Eliminar" className="rounded p-0.5 hover:bg-white/10 transition-colors">
+                              <Trash2 className="h-3 w-3" style={{ color: '#f87171' }} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ));
             })()}

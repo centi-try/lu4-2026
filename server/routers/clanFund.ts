@@ -7,6 +7,8 @@ import {
   addClanFundTransaction,
   getClanFundSummary,
   setSalesCycleClanPaid,
+  updateClanFundTransaction,
+  deleteClanFundTransaction,
 } from "../db";
 import fs from "fs";
 import path from "path";
@@ -95,5 +97,29 @@ export const clanFundRouter = router({
         actorName,
         ctx.user?.id,
       );
+    }),
+
+  editExpense: protectedProcedure
+    .input(z.object({
+      txId: z.number(),
+      amount: z.number().positive().optional(),
+      description: z.string().min(1).optional(),
+      evidenceUrl: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user?.role !== 'super_admin') {
+        throw new Error('Solo el Super Admin puede editar gastos del clan.');
+      }
+      const { txId, ...updates } = input;
+      return await updateClanFundTransaction(txId, updates, ctx.user?.id);
+    }),
+
+  deleteExpense: protectedProcedure
+    .input(z.object({ txId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user?.role !== 'super_admin') {
+        throw new Error('Solo el Super Admin puede eliminar gastos del clan.');
+      }
+      return await deleteClanFundTransaction(input.txId, ctx.user?.id);
     }),
 });

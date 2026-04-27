@@ -1361,6 +1361,54 @@ export const getClanFundSummary = () => {
   };
 };
 
+export const updateClanFundTransaction = async (
+  txId: number,
+  updates: { amount?: number; description?: string; evidenceUrl?: string },
+  actorUserId?: number,
+) => {
+  const txs = dbInstance.clanFundTransactions || [];
+  const idx = txs.findIndex((t: any) => Number(t.id) === Number(txId));
+  if (idx === -1) throw new Error(`Transacción ${txId} no encontrada`);
+  const tx = txs[idx] as any;
+  if (tx.type !== 'expense') throw new Error('Solo se pueden editar gastos');
+  const oldAmount = tx.amount;
+  if (updates.amount !== undefined) tx.amount = updates.amount;
+  if (updates.description !== undefined) tx.description = updates.description;
+  if (updates.evidenceUrl !== undefined) tx.evidenceUrl = updates.evidenceUrl;
+  tx.updatedAt = new Date().toISOString();
+  txs[idx] = tx;
+  dbInstance.clanFundTransactions = txs;
+  await createAuditLog({
+    userId: actorUserId,
+    action: 'CLAN_FUND_EXPENSE_UPDATED',
+    detail: `Editó gasto del fondo del clan: $${oldAmount.toLocaleString()} → $${tx.amount.toLocaleString()} — ${tx.description}`,
+    details: { txId, oldAmount, newAmount: tx.amount, description: tx.description },
+  });
+  saveDb(dbInstance);
+  return tx;
+};
+
+export const deleteClanFundTransaction = async (
+  txId: number,
+  actorUserId?: number,
+) => {
+  const txs = dbInstance.clanFundTransactions || [];
+  const idx = txs.findIndex((t: any) => Number(t.id) === Number(txId));
+  if (idx === -1) throw new Error(`Transacción ${txId} no encontrada`);
+  const tx = txs[idx] as any;
+  if (tx.type !== 'expense') throw new Error('Solo se pueden eliminar gastos');
+  txs.splice(idx, 1);
+  dbInstance.clanFundTransactions = txs;
+  await createAuditLog({
+    userId: actorUserId,
+    action: 'CLAN_FUND_EXPENSE_DELETED',
+    detail: `Eliminó gasto del fondo del clan: $${tx.amount.toLocaleString()} — ${tx.description}`,
+    details: { txId, amount: tx.amount, description: tx.description },
+  });
+  saveDb(dbInstance);
+  return { success: true };
+};
+
 export const setSalesCycleClanPaid = async (
   cycleId: string,
   paidOut: boolean,
