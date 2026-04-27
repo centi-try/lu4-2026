@@ -83,6 +83,7 @@ interface DatabaseSchema {
   emailVerifications: any[];
   clanFundSettings: any;
   clanFundTransactions: any[];
+  clanFundCurrentCycleAccrued: number;
 }
 
 const initialSchema: DatabaseSchema = {
@@ -110,6 +111,7 @@ const initialSchema: DatabaseSchema = {
   emailVerifications: [],
   clanFundSettings: { clanTaxPercent: 0, internalDiscountPercent: 0 },
   clanFundTransactions: [],
+  clanFundCurrentCycleAccrued: 0,
 };
 
 // ============================================================================
@@ -293,6 +295,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
       ? data.clanFundSettings
       : { clanTaxPercent: 0, internalDiscountPercent: 0 },
     clanFundTransactions: ensureArray(data?.clanFundTransactions),
+    clanFundCurrentCycleAccrued: Number(data?.clanFundCurrentCycleAccrued) || 0,
   };
 }
 
@@ -908,12 +911,13 @@ export const closeSalesCycle = async (id: number, data: any) => {
   const closedCyclesCount = (dbInstance.salesCycles || []).filter(c => c.status === 'CLOSED').length;
   const cycleLabel = data.label || `Ciclo #${closedCyclesCount + 1}`;
 
-  // Calcular retención del clan para el resumen del ciclo
+  // Usar el monto REAL acumulado de retenciones del clan en este ciclo
+  // (no recalcular, para evitar discrepancias con las transacciones individuales)
   const clanSettings = dbInstance.clanFundSettings || { clanTaxPercent: 0 };
   const clanTaxPct = Number(clanSettings.clanTaxPercent) || 0;
   const clanFundAmount = data.clanFundAmount !== undefined
     ? Number(data.clanFundAmount)
-    : Math.floor(totalRevenue * clanTaxPct / 100);
+    : (Number(dbInstance.clanFundCurrentCycleAccrued) || 0);
 
   // 2. FIX: Guardar el ciclo con el shape UNIFICADO que espera el cliente
   const newCycle = {
@@ -984,6 +988,9 @@ export const closeSalesCycle = async (id: number, data: any) => {
       currentCycleEarnings: 0,
     }));
   }
+
+  // 6. Resetear acumulado del clan para el próximo ciclo
+  dbInstance.clanFundCurrentCycleAccrued = 0;
 
   saveDb(dbInstance);
   return newCycle;
@@ -1306,6 +1313,9 @@ export const addClanFundTransaction = async (tx: {
     createdAt: new Date().toISOString(),
   };
   dbInstance.clanFundTransactions.push(entry);
+  if (tx.type === 'income') {
+    dbInstance.clanFundCurrentCycleAccrued = (Number(dbInstance.clanFundCurrentCycleAccrued) || 0) + tx.amount;
+  }
   await createAuditLog({
     userId: tx.createdByUserId,
     action: tx.type === 'income' ? 'CLAN_FUND_INCOME' : 'CLAN_FUND_EXPENSE',
