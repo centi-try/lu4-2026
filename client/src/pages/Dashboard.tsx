@@ -246,7 +246,7 @@ export default function Dashboard() {
           )}
 
           {/* Transaction list filtered by tab */}
-          <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
             {(() => {
               const filtered = [...(clanTransactions as any[])]
                 .filter(tx => clanMovTab === 'retenciones' ? tx.type === 'income' : tx.type === 'expense')
@@ -269,7 +269,7 @@ export default function Dashboard() {
                       {tx.type === 'income' ? '+' : '-'}${(tx.amount ?? 0).toLocaleString()}
                     </span>
                     {tx.evidenceUrl && (
-                      <ImageHoverPreview src={tx.evidenceUrl} size={300} caption="Evidencia de gasto">
+                      <ImageHoverPreview src={tx.evidenceUrl} size={480} caption="Evidencia de gasto">
                         <img src={tx.evidenceUrl} alt="evidencia" className="h-6 w-6 rounded object-cover cursor-pointer"
                           style={{ border: '1px solid rgba(167,139,250,0.3)' }} />
                       </ImageHoverPreview>
