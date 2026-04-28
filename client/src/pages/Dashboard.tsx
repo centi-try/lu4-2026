@@ -639,27 +639,41 @@ export default function Dashboard() {
           <ActivityFeed logs={auditLogs.slice(0, 8)} />
         </div>
       </div>
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal — same style as "Eliminar ítem" modal */}
       {confirmModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}
-          onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}>
-          <div className="rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4"
-            style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)' }}
-            onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{confirmModal.title}</h3>
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{confirmModal.message}</p>
-            <div className="flex gap-3 justify-end pt-2">
-              <button onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
-                className="rounded-lg px-4 py-2 text-sm font-semibold"
-                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setConfirmModal(prev => ({ ...prev, open: false })); }}>
+          <div className="w-full max-w-md rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: `1px solid ${confirmModal.danger ? 'rgba(239,68,68,0.3)' : 'rgba(251,191,36,0.3)'}`,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                {confirmModal.danger
+                  ? <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+                  : <Receipt className="h-5 w-5" style={{ color: '#fbbf24' }} />}
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  {confirmModal.title}
+                </h3>
+              </div>
+              <button type="button" onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))} className="btn-ghost p-1.5">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              {confirmModal.message}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))} className="btn-ghost flex-1 py-2.5">
                 Cancelar
               </button>
               <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({ ...prev, open: false })); }}
-                className="rounded-lg px-4 py-2 text-sm font-bold"
-                style={{
-                  background: confirmModal.danger ? '#ef4444' : '#fbbf24',
-                  color: confirmModal.danger ? '#fff' : '#000',
-                }}>
+                className={`flex-1 py-2.5 flex items-center justify-center gap-2 rounded-lg text-sm font-bold ${confirmModal.danger ? 'btn-danger' : ''}`}
+                style={confirmModal.danger ? {} : { background: '#fbbf24', color: '#000' }}>
+                {confirmModal.danger && <Trash2 className="h-4 w-4" />}
                 {confirmModal.confirmLabel || 'Confirmar'}
               </button>
             </div>
