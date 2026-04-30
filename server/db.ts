@@ -68,6 +68,9 @@ interface DatabaseSchema {
   // super admin al momento de vender. Se archivan en el audit log y se
   // borran cuando el drop se vende completamente.
   raidDropReservations: any[];
+  // Command Parties — sub-grupos dentro de cada clan (para menú raid).
+  // Cada CP pertenece a un clan y tiene un leader opcional.
+  raidCommandParties: any[];
   // Ciclos de VENTA del módulo raid — capa semanal (Lun→Dom) de agregación
   // sobre los raid cycles diarios. Solo agrupa/resume ventas, no modifica
   // drops, eventos ni clanes.
@@ -106,6 +109,7 @@ const initialSchema: DatabaseSchema = {
   raidSettings: [],
   raidCategoryIcons: [],
   raidDropReservations: [],
+  raidCommandParties: [],
   raidSalesCycles: [],
   passwordResetTokens: [],
   emailVerifications: [],
@@ -1473,6 +1477,9 @@ export const getAllUsers = async () => {
     createdAt: u.createdAt,
     lastSignedIn: u.lastSignedIn,
     openId: u.openId,
+    raidClanId: u.raidClanId || null,
+    raidCpId: u.raidCpId || null,
+    cpStatus: u.cpStatus || null,
   }));
 };
 
@@ -2015,6 +2022,149 @@ export const countClanUsage = async (id: number) => {
   return (dbInstance.raidEventClans || []).filter(
     ec => Number(ec.clanId) === Number(id)
   ).length;
+};
+
+// ---------- Command Parties (CP) — sub-grupos dentro de clanes ---------------
+
+export const getCommandParties = async () => {
+  return (dbInstance.raidCommandParties || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getCommandPartiesByClan = async (clanId: number) => {
+  return (dbInstance.raidCommandParties || []).filter(
+    (cp: any) => Number(cp.clanId) === Number(clanId)
+  );
+};
+
+export const getCommandPartyById = async (id: number) => {
+  return (dbInstance.raidCommandParties || []).find((cp: any) => Number(cp.id) === Number(id));
+};
+
+export const createCommandParty = async (data: { name: string; clanId: number }) => {
+  if (!dbInstance.raidCommandParties) dbInstance.raidCommandParties = [];
+  const newCp = {
+    id: genId(),
+    name: data.name.trim(),
+    clanId: Number(data.clanId),
+    leaderId: null as number | null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.raidCommandParties.push(newCp);
+  saveDb(dbInstance);
+  return newCp;
+};
+
+export const updateCommandParty = async (id: number, data: Partial<{
+  name: string;
+  clanId: number;
+  leaderId: number | null;
+}>) => {
+  if (!dbInstance.raidCommandParties) dbInstance.raidCommandParties = [];
+  const idx = dbInstance.raidCommandParties.findIndex((cp: any) => Number(cp.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.raidCommandParties[idx] = {
+    ...dbInstance.raidCommandParties[idx],
+    ...data,
+    updatedAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.raidCommandParties[idx];
+};
+
+export const deleteCommandParty = async (id: number) => {
+  if (!dbInstance.raidCommandParties) dbInstance.raidCommandParties = [];
+  const cp = dbInstance.raidCommandParties.find((c: any) => Number(c.id) === Number(id));
+  if (!cp) return null;
+  dbInstance.raidCommandParties = dbInstance.raidCommandParties.filter(
+    (c: any) => Number(c.id) !== Number(id)
+  );
+  // Clear CP assignment from users who belonged to this CP
+  (dbInstance.users || []).forEach((u: any) => {
+    if (Number(u.raidCpId) === Number(id)) {
+      u.raidCpId = null;
+      u.cpStatus = 'removed';
+    }
+  });
+  saveDb(dbInstance);
+  return cp;
+};
+
+// Get users by CP
+export const getUsersByCp = async (cpId: number) => {
+  return (dbInstance.users || []).filter(
+    (u: any) => Number(u.raidCpId) === Number(cpId)
+  );
+};
+
+// Get users by clan
+export const getUsersByClan = async (clanId: number) => {
+  return (dbInstance.users || []).filter(
+    (u: any) => Number(u.raidClanId) === Number(clanId)
+  );
+};
+
+// Get users without CP (removed or unassigned)
+export const getUsersWithoutCp = async () => {
+  return (dbInstance.users || []).filter(
+    (u: any) => u.raidClanId && !u.raidCpId && u.cpStatus === 'removed'
+  );
+};
+
+// Set user CP status (confirm / remove)
+export const setUserCpStatus = async (
+  userId: number,
+  status: 'confirmed' | 'removed',
+  actorUserId?: number,
+) => {
+  const user = (dbInstance.users || []).find((u: any) => Number(u.id) === Number(userId));
+  if (!user) throw new Error(`Usuario ${userId} no encontrado`);
+  user.cpStatus = status;
+  if (status === 'removed') {
+    user.raidCpId = null;
+  }
+  user.updatedAt = nowIso();
+  saveDb(dbInstance);
+  await createRaidAuditLog({
+    userId: actorUserId || 0,
+    action: status === 'confirmed' ? 'CP_MEMBER_CONFIRMED' : 'CP_MEMBER_REMOVED',
+    details: {
+      targetUserId: userId,
+      targetUserName: user.name || user.characterName || user.email,
+      cpId: user.raidCpId,
+      clanId: user.raidClanId,
+    },
+  });
+  return user;
+};
+
+// Reassign user to a different CP
+export const reassignUserCp = async (
+  userId: number,
+  clanId: number | null,
+  cpId: number | null,
+  actorUserId?: number,
+) => {
+  const user = (dbInstance.users || []).find((u: any) => Number(u.id) === Number(userId));
+  if (!user) throw new Error(`Usuario ${userId} no encontrado`);
+  user.raidClanId = clanId;
+  user.raidCpId = cpId;
+  user.cpStatus = cpId ? 'pending' : null;
+  user.updatedAt = nowIso();
+  saveDb(dbInstance);
+  await createRaidAuditLog({
+    userId: actorUserId || 0,
+    action: 'CP_MEMBER_REASSIGNED',
+    details: {
+      targetUserId: userId,
+      targetUserName: user.name || user.characterName || user.email,
+      newClanId: clanId,
+      newCpId: cpId,
+    },
+  });
+  return user;
 };
 
 // ---------- Acceso al módulo raid por usuario -------------------------------

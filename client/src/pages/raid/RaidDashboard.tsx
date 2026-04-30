@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Skull, Flag, Swords, TrendingUp, Package, Coins, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, Skull, Flag, Swords, TrendingUp, Package, Coins, Image as ImageIcon, Shield } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import EventsGroupedByCycle from './EventsGroupedByCycle';
 import RaidActivityFeed from './RaidActivityFeed';
 import RaidDropsTable from './RaidDropsTable';
+import RaidClansAndCps from './RaidClansAndCps';
 import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
 import {
   BarChart,
@@ -36,7 +37,7 @@ export default function RaidDashboard({ raidAccess }: Props) {
   // Separamos en tabs para que el listado de eventos, el feed de actividad
   // y la tabla de drops puedan crecer cada uno sin empujar a los otros
   // hacia abajo (pedido explícito del usuario).
-  const [tab, setTab] = useState<'summary' | 'drops'>('summary');
+  const [tab, setTab] = useState<'summary' | 'drops' | 'clans'>('summary');
 
   if (metricsQ.isLoading || !m) {
     return (
@@ -114,7 +115,28 @@ export default function RaidDashboard({ raidAccess }: Props) {
           <Package className="h-4 w-4" />
           Drops disponibles
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('clans')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background:
+              tab === 'clans'
+                ? 'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(232,121,249,0.25))'
+                : 'transparent',
+            color: tab === 'clans' ? '#7bf1d6' : 'rgba(255,255,255,0.55)',
+            border:
+              tab === 'clans' ? '1px solid rgba(123,241,214,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Shield className="h-4 w-4" />
+          Clanes & CPs
+        </button>
       </div>
+
+      {tab === 'clans' && (
+        <RaidClansAndCps raidAccess={raidAccess} />
+      )}
 
       {tab === 'drops' && (
         <div>

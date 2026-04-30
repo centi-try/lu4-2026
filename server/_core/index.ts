@@ -37,6 +37,8 @@ import {
   enableUserTwoFactor,
   disableUserTwoFactor,
   consumeBackupCodeHash,
+  getClans,
+  getCommandParties,
 } from "../db";
 import { sendPasswordResetEmail, sendEmailVerificationEmail, isEmailEnabled } from "./email";
 import {
@@ -89,6 +91,8 @@ async function startServer() {
       const email = String(req.body?.email || '').trim().toLowerCase();
       const characterName = String(req.body?.characterName || '').trim();
       const password = String(req.body?.password || '');
+      const raidClanId = req.body?.raidClanId ? Number(req.body.raidClanId) : null;
+      const raidCpId = req.body?.raidCpId ? Number(req.body.raidCpId) : null;
 
       if (!email || !characterName || password.length < 6) {
         return res.status(400).json({ message: 'Datos de registro inválidos' });
@@ -110,7 +114,10 @@ async function startServer() {
         role: 'user',
         isActive: true,
         emailVerified: false,
-        openId: `local-${email}`
+        openId: `local-${email}`,
+        raidClanId: raidClanId || null,
+        raidCpId: raidCpId || null,
+        cpStatus: raidCpId ? 'pending' : null,
       });
 
       // Emitir token de verificación de email y disparar el send (no bloquea
@@ -164,6 +171,25 @@ async function startServer() {
   // Endpoint de seeding desactivado para producción
   app.post('/api/seed-demo', express.json(), async (req, res) => {
     res.status(403).json({ message: 'Seeding is disabled in production' });
+  });
+
+  // Public endpoint for registration form: list clans + CPs (no auth required)
+  app.get('/api/public/clans-and-cps', async (_req, res) => {
+    try {
+      const clans = await getClans();
+      const cps = await getCommandParties();
+      res.json({
+        clans: clans.map((c: any) => ({ id: Number(c.id), name: c.name })),
+        commandParties: cps.map((cp: any) => ({
+          id: Number(cp.id),
+          name: cp.name,
+          clanId: Number(cp.clanId),
+        })),
+      });
+    } catch (error) {
+      console.error('Error fetching clans and CPs:', error);
+      res.status(500).json({ clans: [], commandParties: [] });
+    }
   });
 
   app.get('/api/auth/me', async (req, res) => {

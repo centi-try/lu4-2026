@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LEN = 6;
 const MIN_CHARACTER_LEN = 2;
+
+interface PublicClan { id: number; name: string; }
+interface PublicCp { id: number; name: string; clanId: number; }
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -25,7 +28,30 @@ export default function Register() {
     character: boolean;
     password: boolean;
     confirm: boolean;
-  }>({ email: false, character: false, password: false, confirm: false });
+    clan: boolean;
+    cp: boolean;
+  }>({ email: false, character: false, password: false, confirm: false, clan: false, cp: false });
+
+  // Clan & CP selection
+  const [clans, setClans] = useState<PublicClan[]>([]);
+  const [commandParties, setCommandParties] = useState<PublicCp[]>([]);
+  const [selectedClanId, setSelectedClanId] = useState<string>('');
+  const [selectedCpId, setSelectedCpId] = useState<string>('');
+
+  useEffect(() => {
+    fetch('/api/public/clans-and-cps')
+      .then(r => r.json())
+      .then(data => {
+        setClans(data.clans || []);
+        setCommandParties(data.commandParties || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  const filteredCps = useMemo(() => {
+    if (!selectedClanId) return [];
+    return commandParties.filter(cp => cp.clanId === Number(selectedClanId));
+  }, [commandParties, selectedClanId]);
 
   const emailInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -58,17 +84,37 @@ export default function Register() {
     return null;
   }, [confirmPassword, password]);
 
-  const formValid = !emailError && !characterError && !passwordError && !confirmError;
+  const clanError = useMemo(() => {
+    if (clans.length === 0) return null; // no clans created yet, skip validation
+    if (!selectedClanId) return 'Selecciona un clan';
+    return null;
+  }, [selectedClanId, clans]);
+
+  const cpError = useMemo(() => {
+    if (clans.length === 0) return null;
+    if (!selectedClanId) return null;
+    if (filteredCps.length === 0) return null; // no CPs for this clan, skip
+    if (!selectedCpId) return 'Selecciona un CP';
+    return null;
+  }, [selectedCpId, selectedClanId, filteredCps, clans]);
+
+  const formValid = !emailError && !characterError && !passwordError && !confirmError && !clanError && !cpError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
-    setTouched({ email: true, character: true, password: true, confirm: true });
+    setTouched({ email: true, character: true, password: true, confirm: true, clan: true, cp: true });
     if (!formValid) return;
 
     setLoading(true);
     try {
-      await register(email.trim(), password, characterName.trim());
+      await register(
+        email.trim(),
+        password,
+        characterName.trim(),
+        selectedClanId ? Number(selectedClanId) : null,
+        selectedCpId ? Number(selectedCpId) : null,
+      );
       toast.success('¡Registro exitoso! Iniciando sesión...');
       setLocation('/');
     } catch (error) {
@@ -162,6 +208,71 @@ export default function Register() {
                 </p>
               )}
             </div>
+
+            {/* Clan dropdown — only shown if clans exist */}
+            {clans.length > 0 && (
+              <div>
+                <label htmlFor="register-clan" className="block text-sm font-medium text-white mb-2">
+                  Clan
+                </label>
+                <div className="relative">
+                  <select
+                    id="register-clan"
+                    value={selectedClanId}
+                    onChange={(e) => {
+                      setSelectedClanId(e.target.value);
+                      setSelectedCpId('');
+                    }}
+                    onBlur={() => setTouched((t) => ({ ...t, clan: true }))}
+                    className={inputClass}
+                    disabled={loading}
+                    style={{ appearance: 'none', paddingRight: '2.5rem' }}
+                  >
+                    <option value="">Seleccionar clan...</option>
+                    {clans.map(c => (
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                </div>
+                {touched.clan && clanError && (
+                  <p className="text-xs mt-1.5" style={{ color: 'rgba(252, 165, 165, 0.9)' }}>
+                    {clanError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* CP dropdown — only shown if clan selected and CPs exist for that clan */}
+            {selectedClanId && filteredCps.length > 0 && (
+              <div>
+                <label htmlFor="register-cp" className="block text-sm font-medium text-white mb-2">
+                  Command Party (CP)
+                </label>
+                <div className="relative">
+                  <select
+                    id="register-cp"
+                    value={selectedCpId}
+                    onChange={(e) => setSelectedCpId(e.target.value)}
+                    onBlur={() => setTouched((t) => ({ ...t, cp: true }))}
+                    className={inputClass}
+                    disabled={loading}
+                    style={{ appearance: 'none', paddingRight: '2.5rem' }}
+                  >
+                    <option value="">Seleccionar CP...</option>
+                    {filteredCps.map(cp => (
+                      <option key={cp.id} value={String(cp.id)}>{cp.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                </div>
+                {touched.cp && cpError && (
+                  <p className="text-xs mt-1.5" style={{ color: 'rgba(252, 165, 165, 0.9)' }}>
+                    {cpError}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div>
               <label htmlFor="register-password" className="block text-sm font-medium text-white mb-2">

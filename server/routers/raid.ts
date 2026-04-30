@@ -27,6 +27,11 @@ import {
   sellRaidDropItem,
   // drop reservations (señales de intención de compra sobre drops disponibles)
   getRaidDropReservations, createRaidDropReservation, deleteRaidDropReservation,
+  // command parties
+  getCommandParties, getCommandPartiesByClan, getCommandPartyById,
+  createCommandParty, updateCommandParty, deleteCommandParty,
+  getUsersByCp, getUsersByClan, getUsersWithoutCp,
+  setUserCpStatus, reassignUserCp,
   // dashboard + stats
   getRaidDashboardMetrics, getClanStats,
   // audit
@@ -933,6 +938,244 @@ export const raidRouter = router({
             createdAt: log.createdAt,
           };
         });
+    }),
+  }),
+
+  // ============================================================================
+  // COMMAND PARTIES (CPs) — Sub-grupos dentro de clanes
+  // ============================================================================
+  commandParties: router({
+    // Lista todas las CPs (solo admin / super admin ve todas; leader ve solo su CP)
+    list: raidViewerProcedure.query(async ({ ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      const userId = Number(ctx.user?.id);
+      const allCps = await getCommandParties();
+      const allClans = await getClans();
+      const allUsers = await getAllUsers();
+
+      // Super admin ve todo
+      if (role === 'super_admin') {
+        return allCps.map((cp: any) => {
+          const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
+          const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
+          const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
+          return {
+            ...cp,
+            clanName: clan?.name || '—',
+            leaderName: leader?.name || leader?.characterName || null,
+            memberCount: members.length,
+            confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
+            pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
+          };
+        });
+      }
+
+      // Admins can see all CPs too
+      const access = await canUserAccessRaidModule(ctx.user);
+      if (access.canAdmin) {
+        return allCps.map((cp: any) => {
+          const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
+          const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
+          const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
+          return {
+            ...cp,
+            clanName: clan?.name || '—',
+            leaderName: leader?.name || leader?.characterName || null,
+            memberCount: members.length,
+            confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
+            pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
+          };
+        });
+      }
+
+      // Regular users: only see CPs of their own clan, and only if confirmed
+      const me = allUsers.find((u: any) => Number(u.id) === userId);
+      if (!me?.raidClanId || me.cpStatus !== 'confirmed') return [];
+      const myClanCps = allCps.filter((cp: any) => Number(cp.clanId) === Number(me.raidClanId));
+      return myClanCps.map((cp: any) => {
+        const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
+        const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
+        const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id) && u.cpStatus === 'confirmed');
+        return {
+          ...cp,
+          clanName: clan?.name || '—',
+          leaderName: leader?.name || leader?.characterName || null,
+          memberCount: members.length,
+          confirmedCount: members.length,
+          pendingCount: 0,
+        };
+      });
+    }),
+
+    // Members of a specific CP (privacy-aware)
+    members: raidViewerProcedure
+      .input(z.object({ cpId: z.number().int() }))
+      .query(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id);
+        const cp = await getCommandPartyById(input.cpId);
+        if (!cp) throw new TRPCError({ code: 'NOT_FOUND', message: 'CP no encontrada' });
+
+        // Super admin / raid_admin can see all members
+        const access = await canUserAccessRaidModule(ctx.user);
+        if (role === 'super_admin' || access.canAdmin) {
+          const members = await getUsersByCp(input.cpId);
+          return members.map((u: any) => ({
+            id: Number(u.id),
+            name: u.name || u.characterName || u.email,
+            characterName: u.characterName,
+            email: u.email,
+            cpStatus: u.cpStatus || 'pending',
+            isLeader: Number(cp.leaderId) === Number(u.id),
+          }));
+        }
+
+        // Leader can see their own CP members
+        if (Number(cp.leaderId) === userId) {
+          const members = await getUsersByCp(input.cpId);
+          return members.map((u: any) => ({
+            id: Number(u.id),
+            name: u.name || u.characterName || u.email,
+            characterName: u.characterName,
+            email: u.email,
+            cpStatus: u.cpStatus || 'pending',
+            isLeader: Number(cp.leaderId) === Number(u.id),
+          }));
+        }
+
+        // Regular confirmed user: only see confirmed members of their own clan CPs
+        const me = (await getAllUsers()).find((u: any) => Number(u.id) === userId);
+        if (!me || me.cpStatus !== 'confirmed' || Number(me.raidClanId) !== Number(cp.clanId)) {
+          return [];
+        }
+        const members = (await getUsersByCp(input.cpId)).filter((u: any) => u.cpStatus === 'confirmed');
+        return members.map((u: any) => ({
+          id: Number(u.id),
+          name: u.name || u.characterName || u.email,
+          characterName: u.characterName,
+          email: u.email,
+          cpStatus: 'confirmed' as const,
+          isLeader: Number(cp.leaderId) === Number(u.id),
+        }));
+      }),
+
+    // Create CP (super admin only)
+    create: raidSuperAdminProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        clanId: z.number().int(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const clan = await getClanById(input.clanId);
+        if (!clan) throw new TRPCError({ code: 'NOT_FOUND', message: 'Clan no encontrado' });
+        const cp = await createCommandParty({ name: input.name, clanId: input.clanId });
+        await createRaidAuditLog({
+          userId: Number(ctx.user?.id),
+          action: 'CP_CREATED',
+          details: { cpId: cp.id, name: cp.name, clanId: cp.clanId, clanName: clan.name },
+        });
+        return cp;
+      }),
+
+    // Update CP (super admin only)
+    update: raidSuperAdminProcedure
+      .input(z.object({
+        id: z.number().int(),
+        name: z.string().min(1).max(100).optional(),
+        clanId: z.number().int().optional(),
+        leaderId: z.number().int().nullable().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        const cp = await updateCommandParty(id, data);
+        if (!cp) throw new TRPCError({ code: 'NOT_FOUND', message: 'CP no encontrada' });
+        await createRaidAuditLog({
+          userId: Number(ctx.user?.id),
+          action: 'CP_UPDATED',
+          details: { cpId: id, updates: data },
+        });
+        return cp;
+      }),
+
+    // Delete CP (super admin only)
+    delete: raidSuperAdminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const cp = await deleteCommandParty(input.id);
+        if (!cp) throw new TRPCError({ code: 'NOT_FOUND', message: 'CP no encontrada' });
+        await createRaidAuditLog({
+          userId: Number(ctx.user?.id),
+          action: 'CP_DELETED',
+          details: { cpId: input.id, name: cp.name },
+        });
+        return { success: true };
+      }),
+
+    // Confirm / Remove member (leader or admin/super admin)
+    setMemberStatus: raidViewerProcedure
+      .input(z.object({
+        userId: z.number().int(),
+        status: z.enum(['confirmed', 'removed']),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const actorId = Number(ctx.user?.id);
+        const allUsers = await getAllUsers();
+        const target = allUsers.find((u: any) => Number(u.id) === input.userId);
+        if (!target) throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado' });
+        if (!target.raidCpId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Usuario no tiene CP asignada' });
+
+        // Check permissions: super admin, raid_admin, or leader of the CP
+        const access = await canUserAccessRaidModule(ctx.user);
+        if (role !== 'super_admin' && !access.canAdmin) {
+          const cp = await getCommandPartyById(Number(target.raidCpId));
+          if (!cp || Number(cp.leaderId) !== actorId) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el leader, admin o super admin puede cambiar el estado de miembros' });
+          }
+        }
+
+        return await setUserCpStatus(input.userId, input.status, actorId);
+      }),
+
+    // Reassign user to different clan/CP (super admin only)
+    reassignMember: raidSuperAdminProcedure
+      .input(z.object({
+        userId: z.number().int(),
+        clanId: z.number().int().nullable(),
+        cpId: z.number().int().nullable(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return await reassignUserCp(input.userId, input.clanId, input.cpId, Number(ctx.user?.id));
+      }),
+
+    // Users without CP (removed / unassigned) — super admin only
+    unassigned: raidSuperAdminProcedure.query(async () => {
+      const users = await getUsersWithoutCp();
+      return users.map((u: any) => ({
+        id: Number(u.id),
+        name: u.name || u.characterName || u.email,
+        characterName: u.characterName,
+        email: u.email,
+        raidClanId: u.raidClanId,
+        cpStatus: u.cpStatus,
+      }));
+    }),
+  }),
+
+  // Public-ish endpoint for listing clans + CPs (used by registration form).
+  // No raid access required — just needs to be authenticated.
+  clansAndCps: router({
+    list: protectedProcedure.query(async () => {
+      const clans = await getClans();
+      const cps = await getCommandParties();
+      return {
+        clans: clans.map((c: any) => ({ id: Number(c.id), name: c.name })),
+        commandParties: cps.map((cp: any) => ({
+          id: Number(cp.id),
+          name: cp.name,
+          clanId: Number(cp.clanId),
+        })),
+      };
     }),
   }),
 });
