@@ -10,6 +10,8 @@ import {
   Flag,
   Pencil,
   Image as ImageIcon,
+  Bookmark,
+  ChevronDown,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -311,6 +313,8 @@ export default function RaidDropsTable({ raidAccess }: Props) {
   const [sellQty, setSellQty] = useState('1');
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
   const [deleteModalDrop, setDeleteModalDrop] = useState<any | null>(null);
+  const [sellReservsOpen, setSellReservsOpen] = useState(false);
+  const [sellDistribOpen, setSellDistribOpen] = useState(false);
 
   // Inline price edit state. `editingPriceDropId` identifica la fila en edición
   // y `priceDraft` mantiene el valor del input como string para aceptar ediciones
@@ -321,6 +325,8 @@ export default function RaidDropsTable({ raidAccess }: Props) {
   const openSellModal = (drop: any) => {
     setSellModalDrop(drop);
     setSellQty('1');
+    setSellReservsOpen(false);
+    setSellDistribOpen(false);
   };
 
   const startEditPrice = (drop: any) => {
@@ -830,7 +836,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
             }}
           >
             <div
-              className="w-full max-w-md rounded-2xl p-6 max-h-[92vh] overflow-y-auto"
+              className="w-full max-w-lg rounded-2xl p-6 max-h-[92vh] overflow-y-auto"
               style={{
                 background: 'rgba(10,14,22,0.98)',
                 border: '1px solid rgba(255,255,255,0.1)',
@@ -880,15 +886,15 @@ export default function RaidDropsTable({ raidAccess }: Props) {
 
               {/* Drop info */}
               <div
-                className="mb-5 rounded-xl p-4"
+                className="mb-3 rounded-xl p-3"
                 style={{
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3">
                   <div
-                    className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border"
+                    className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border"
                     style={{ borderColor: 'rgba(255,255,255,0.1)' }}
                   >
                     {sellModalDrop.imageUrl ? (
@@ -901,11 +907,11 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       </ImageHoverPreview>
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-white/5">
-                        <ShoppingCart className="h-6 w-6 text-white/20" />
+                        <ShoppingCart className="h-5 w-5 text-white/20" />
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0">
+                  <div className="flex-1 min-w-0">
                     <p
                       className="text-sm font-semibold truncate"
                       style={{ color: 'rgba(255,255,255,0.9)' }}
@@ -913,7 +919,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       {sellModalDrop.name}
                     </p>
                     <p className="text-xs font-mono" style={{ color: '#a78bfa' }}>
-                      ${(Number(sellModalDrop.price) || 0).toLocaleString()} por unidad
+                      ${(Number(sellModalDrop.price) || 0).toLocaleString()} /ud
                     </p>
                     {sellModalDrop.bossName && (
                       <p
@@ -925,89 +931,117 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       </p>
                     )}
                   </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div
-                    className="rounded-lg p-2 text-center"
-                    style={{ background: 'rgba(123,241,214,0.08)' }}
-                  >
-                    <p className="text-lg font-bold font-mono" style={{ color: '#7bf1d6' }}>
-                      {qty}
-                    </p>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      Total
-                    </p>
-                  </div>
-                  <div
-                    className="rounded-lg p-2 text-center"
-                    style={{ background: 'rgba(251,191,36,0.08)' }}
-                  >
-                    <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>
-                      {sold}
-                    </p>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      Vendidas
-                    </p>
-                  </div>
-                  <div
-                    className="rounded-lg p-2 text-center"
-                    style={{ background: 'rgba(167,139,250,0.08)' }}
-                  >
-                    <p className="text-lg font-bold font-mono" style={{ color: '#a78bfa' }}>
-                      {remaining}
-                    </p>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      Disponibles
-                    </p>
+                  <div className="flex gap-2 text-center shrink-0">
+                    <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(123,241,214,0.08)' }}>
+                      <p className="text-base font-bold font-mono" style={{ color: '#7bf1d6' }}>{qty}</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
+                    </div>
+                    <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(251,191,36,0.08)' }}>
+                      <p className="text-base font-bold font-mono" style={{ color: '#fbbf24' }}>{sold}</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vendidas</p>
+                    </div>
+                    <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(167,139,250,0.08)' }}>
+                      <p className="text-base font-bold font-mono" style={{ color: '#a78bfa' }}>{remaining}</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Disponibles</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Clanes que reciben ganancia — réplica del "Distribución de ganancias" viejo */}
+              {/* Reservas activas — collapsible */}
+              {(() => {
+                const dropReservs = reservations.filter((r: any) => Number(r.dropItemId) === Number(sellModalDrop.id));
+                if (dropReservs.length === 0) return null;
+                const totalUnits = dropReservs.reduce((s: number, r: any) => s + (Number(r.quantity) || 0), 0);
+                return (
+                  <div className="mb-3 rounded-xl" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSellReservsOpen(v => !v)}
+                      className="w-full flex items-center justify-between p-2.5 text-left"
+                    >
+                      <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#fbbf24' }}>
+                        <Bookmark className="h-3.5 w-3.5" />
+                        Reservas activas ({dropReservs.length})
+                        <span className="font-mono" style={{ color: 'rgba(251,191,36,0.7)' }}>· {totalUnits} uds</span>
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#fbbf24', transform: sellReservsOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                    </button>
+                    {sellReservsOpen && (
+                      <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
+                        {dropReservs.map((r: any) => (
+                          <div key={r.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
+                                style={{ fontSize: '8px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
+                                {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                              </div>
+                              <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                                {r.characterName || r.userName}
+                              </span>
+                            </div>
+                            <span className="text-sm font-mono" style={{ color: '#fbbf24' }}>
+                              {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Distribución de ganancias — collapsible */}
               {clansList.length > 0 && (
                 <div
-                  className="mb-5 rounded-xl p-3"
+                  className="mb-3 rounded-xl"
                   style={{
                     background: 'rgba(123,241,214,0.06)',
                     border: '1px solid rgba(123,241,214,0.15)',
                   }}
                 >
-                  <p
-                    className="text-xs font-semibold mb-2 flex items-center gap-1"
-                    style={{ color: '#7bf1d6' }}
+                  <button
+                    type="button"
+                    onClick={() => setSellDistribOpen(v => !v)}
+                    className="w-full flex items-center justify-between p-2.5 text-left"
                   >
-                    <Users className="h-3.5 w-3.5" />
-                    Distribución de ganancias
-                  </p>
-                  <div className="space-y-1">
-                    {clansList.map((c: any) => (
-                      <div key={c.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Flag className="h-3.5 w-3.5" style={{ color: '#7bf1d6' }} />
+                    <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#7bf1d6' }}>
+                      <Users className="h-3.5 w-3.5" />
+                      Distribución de ganancias ({clansList.length})
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#7bf1d6', transform: sellDistribOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                  </button>
+                  {sellDistribOpen && (
+                    <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
+                      {clansList.map((c: any) => (
+                        <div key={c.id} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Flag className="h-3.5 w-3.5" style={{ color: '#7bf1d6' }} />
+                            <span
+                              className="text-sm"
+                              style={{ color: 'rgba(255,255,255,0.75)' }}
+                            >
+                              {c.name}
+                            </span>
+                          </div>
                           <span
-                            className="text-xs"
-                            style={{ color: 'rgba(255,255,255,0.7)' }}
+                            className="text-sm font-mono"
+                            style={{ color: '#7bf1d6' }}
                           >
-                            {c.name}
+                            {sellQtyN > 0 ? `+$${perClan.toLocaleString()}` : '—'}
                           </span>
                         </div>
-                        <span
-                          className="text-xs font-mono"
-                          style={{ color: '#7bf1d6' }}
+                      ))}
+                      {sellQtyN > 0 && clansList.length > 1 && perClan * clansList.length !== totalRev && (
+                        <p
+                          className="text-[10px] mt-2"
+                          style={{ color: 'rgba(255,255,255,0.35)' }}
                         >
-                          {sellQtyN > 0 ? `+$${perClan.toLocaleString()}` : '—'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {sellQtyN > 0 && clansList.length > 1 && perClan * clansList.length !== totalRev && (
-                    <p
-                      className="text-[10px] mt-2"
-                      style={{ color: 'rgba(255,255,255,0.35)' }}
-                    >
-                      (redondeo: se reparten {(perClan * clansList.length).toLocaleString()} de{' '}
-                      {totalRev.toLocaleString()} adena)
-                    </p>
+                          (redondeo: se reparten {(perClan * clansList.length).toLocaleString()} de{' '}
+                          {totalRev.toLocaleString()} adena)
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -1016,7 +1050,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                   modal de venta del inventario viejo (ItemTable.tsx). Solo
                   lista usuarios con acceso al módulo raid (raid_admin,
                   raid_mapper, raid_user). */}
-              <div className="mb-5">
+              <div className="mb-3">
                 <label
                   className="mb-2 block text-sm font-medium"
                   style={{ color: 'rgba(255,255,255,0.7)' }}
@@ -1059,7 +1093,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
               </div>
 
               {/* Input cantidad */}
-              <div className="mb-5">
+              <div className="mb-3">
                 <label
                   className="mb-2 block text-sm font-medium"
                   style={{ color: 'rgba(255,255,255,0.7)' }}
