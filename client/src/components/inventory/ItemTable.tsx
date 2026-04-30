@@ -142,6 +142,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
   const [sellReservsOpen, setSellReservsOpen] = useState(false);
+  const [sellDistribOpen, setSellDistribOpen] = useState(false);
 
   const reservedTotals = useMemo(() => {
     let drops = 0;
@@ -266,6 +267,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setSelectedBuyerId('');
     setIsInternalSale(false);
     setSellReservsOpen(false);
+    setSellDistribOpen(false);
   };
 
   const handleSell = () => {
@@ -751,40 +753,49 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               );
             })()}
 
-            {/* Personajes que recibirán ganancia */}
+            {/* Distribución de ganancias — collapsible */}
             {sellModalItem.associatedCharacterIds.length > 0 && (
-              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
-                <p className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: '#7bf1d6' }}>
-                  <Users className="h-3.5 w-3.5" />
-                  Distribución de ganancias
-                </p>
-                <div className="space-y-1 overflow-y-auto pr-1" style={{ maxHeight: 80 }}>
-                  {sellModalItem.associatedCharacterIds.map(cid => {
-                    const char = characters.find(c => c.id === cid);
-                    if (!char) return null;
-                    const qty = parseInt(sellQty) || 0;
-                    const basePriceCalc = sellModalItem.price ?? 0;
-                    const discPctCalc = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
-                    const effPriceCalc = Math.floor(basePriceCalc * (1 - discPctCalc / 100));
-                    const totalRev = effPriceCalc * qty;
-                    const clanTaxCalc = Math.floor(totalRev * (Number(clanFundSettings?.clanTaxPercent) || 0) / 100);
-                    const perChar = Math.floor((totalRev - clanTaxCalc) / sellModalItem.associatedCharacterIds.length);
-                    return (
-                      <div key={cid} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
-                            style={{ fontSize: '8px', fontWeight: 'bold' }}>
-                            {char.name.slice(0, 1).toUpperCase()}
+              <div className="mb-3 rounded-xl" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+                <button
+                  type="button"
+                  onClick={() => setSellDistribOpen(v => !v)}
+                  className="w-full flex items-center justify-between p-2.5 text-left"
+                >
+                  <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#7bf1d6' }}>
+                    <Users className="h-3.5 w-3.5" />
+                    Distribución de ganancias ({sellModalItem.associatedCharacterIds.length})
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#7bf1d6', transform: sellDistribOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                </button>
+                {sellDistribOpen && (
+                  <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
+                    {sellModalItem.associatedCharacterIds.map(cid => {
+                      const char = characters.find(c => c.id === cid);
+                      if (!char) return null;
+                      const qty = parseInt(sellQty) || 0;
+                      const basePriceCalc = sellModalItem.price ?? 0;
+                      const discPctCalc = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+                      const effPriceCalc = Math.floor(basePriceCalc * (1 - discPctCalc / 100));
+                      const totalRev = effPriceCalc * qty;
+                      const clanTaxCalc = Math.floor(totalRev * (Number(clanFundSettings?.clanTaxPercent) || 0) / 100);
+                      const perChar = Math.floor((totalRev - clanTaxCalc) / sellModalItem.associatedCharacterIds.length);
+                      return (
+                        <div key={cid} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                              style={{ fontSize: '8px', fontWeight: 'bold' }}>
+                              {char.name.slice(0, 1).toUpperCase()}
+                            </div>
+                            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>{char.name}</span>
                           </div>
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{char.name}</span>
+                          <span className="text-sm font-mono" style={{ color: '#7bf1d6' }}>
+                            {qty > 0 ? `+$${perChar.toLocaleString()}` : '—'}
+                          </span>
                         </div>
-                        <span className="text-xs font-mono" style={{ color: '#7bf1d6' }}>
-                          {qty > 0 ? `+$${perChar.toLocaleString()}` : '—'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
