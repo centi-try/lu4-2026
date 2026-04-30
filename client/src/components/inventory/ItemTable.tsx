@@ -141,6 +141,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [isInternalSale, setIsInternalSale] = useState(false);
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
+  const [sellReservsOpen, setSellReservsOpen] = useState(false);
 
   const reservedTotals = useMemo(() => {
     let drops = 0;
@@ -264,6 +265,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setSellQty('1');
     setSelectedBuyerId('');
     setIsInternalSale(false);
+    setSellReservsOpen(false);
   };
 
   const handleSell = () => {
@@ -670,79 +672,88 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               </button>
             </div>
 
-            {/* Item info */}
-            <div className="mb-5 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+            {/* Item info — compact */}
+            <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                   {sellModalItem.image?.publicUrl ? (
                     <img src={sellModalItem.image.publicUrl} alt={sellModalItem.name}
                       className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-white/5">
-                      <ShoppingCart className="h-6 w-6 text-white/20" />
+                      <ShoppingCart className="h-5 w-5 text-white/20" />
                     </div>
                   )}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{sellModalItem.name}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{sellModalItem.name}</p>
                   <p className="text-xs font-mono" style={{ color: '#a78bfa' }}>
-                    ${sellModalItem.price?.toLocaleString() ?? '—'} por unidad
+                    ${sellModalItem.price?.toLocaleString() ?? '—'} /ud
                   </p>
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(123,241,214,0.08)' }}>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
-                </div>
-                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(251,191,36,0.08)' }}>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vendidas</p>
-                </div>
-                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(167,139,250,0.08)' }}>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#a78bfa' }}>
-                    {sellModalItem.quantity - sellModalItem.quantitySold}
-                  </p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Disponibles</p>
+                <div className="flex gap-2 text-center shrink-0">
+                  <div className="rounded-md px-2 py-1" style={{ background: 'rgba(123,241,214,0.08)' }}>
+                    <p className="text-sm font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Total</p>
+                  </div>
+                  <div className="rounded-md px-2 py-1" style={{ background: 'rgba(251,191,36,0.08)' }}>
+                    <p className="text-sm font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Vend.</p>
+                  </div>
+                  <div className="rounded-md px-2 py-1" style={{ background: 'rgba(167,139,250,0.08)' }}>
+                    <p className="text-sm font-bold font-mono" style={{ color: '#a78bfa' }}>{sellModalItem.quantity - sellModalItem.quantitySold}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Disp.</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Reservas activas para este ítem */}
+            {/* Reservas activas — collapsible */}
             {(() => {
               const itemReservs = reservationsByItem.get(String(sellModalItem.id)) || [];
               if (itemReservs.length === 0) return null;
+              const totalUnits = itemReservs.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
               return (
-                <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
-                  <p className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: '#fbbf24' }}>
-                    <Bookmark className="h-3.5 w-3.5" />
-                    Reservas activas ({itemReservs.length})
-                  </p>
-                  <div className="space-y-1 overflow-y-auto pr-1" style={{ maxHeight: 96 }}>
-                    {itemReservs.map(r => (
-                      <div key={r.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
-                            style={{ fontSize: '8px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
-                            {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                <div className="mb-3 rounded-xl" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSellReservsOpen(v => !v)}
+                    className="w-full flex items-center justify-between p-2.5 text-left"
+                  >
+                    <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#fbbf24' }}>
+                      <Bookmark className="h-3.5 w-3.5" />
+                      Reservas activas ({itemReservs.length})
+                      <span className="font-mono" style={{ color: 'rgba(251,191,36,0.7)' }}>· {totalUnits} uds</span>
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#fbbf24', transform: sellReservsOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                  </button>
+                  {sellReservsOpen && (
+                    <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
+                      {itemReservs.map(r => (
+                        <div key={r.id} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-4 w-4 items-center justify-center rounded-full text-white"
+                              style={{ fontSize: '7px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
+                              {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                            </div>
+                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                              {r.characterName || r.userName}
+                            </span>
                           </div>
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                            {r.characterName || r.userName}
+                          <span className="text-xs font-mono" style={{ color: '#fbbf24' }}>
+                            {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
                           </span>
                         </div>
-                        <span className="text-xs font-mono" style={{ color: '#fbbf24' }}>
-                          {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })()}
 
             {/* Personajes que recibirán ganancia */}
             {sellModalItem.associatedCharacterIds.length > 0 && (
-              <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
                 <p className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: '#7bf1d6' }}>
                   <Users className="h-3.5 w-3.5" />
                   Distribución de ganancias
@@ -778,7 +789,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             )}
 
             {/* Selector de Comprador */}
-            <div className="mb-5">
+            <div className="mb-3">
               <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 Asignar a Comprador/Cuenta
               </label>
@@ -801,7 +812,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
             {/* Venta Interna Clan toggle */}
             {clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
-              <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
                 {Number(clanFundSettings.internalDiscountPercent) > 0 && (
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -824,7 +835,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             )}
 
             {/* Input cantidad */}
-            <div className="mb-5">
+            <div className="mb-3">
               <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 ¿Cuántas unidades vender?
               </label>
