@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X } from 'lucide-react';
+import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X, Bookmark } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, statusMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory, ItemStatus } from '../../lib/types';
@@ -652,7 +652,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={e => { if (e.target === e.currentTarget) setSellModalItem(null); }}>
           <div className="w-full max-w-md rounded-2xl p-6"
-            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
@@ -707,6 +707,38 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 </div>
               </div>
             </div>
+
+            {/* Reservas activas para este ítem */}
+            {(() => {
+              const itemReservs = reservationsByItem.get(String(sellModalItem.id)) || [];
+              if (itemReservs.length === 0) return null;
+              return (
+                <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                  <p className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: '#fbbf24' }}>
+                    <Bookmark className="h-3.5 w-3.5" />
+                    Reservas activas ({itemReservs.length})
+                  </p>
+                  <div className="space-y-1 overflow-y-auto pr-1" style={{ maxHeight: 96 }}>
+                    {itemReservs.map(r => (
+                      <div key={r.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
+                            style={{ fontSize: '8px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
+                            {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                          </div>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            {r.characterName || r.userName}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono" style={{ color: '#fbbf24' }}>
+                          {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Personajes que recibirán ganancia */}
             {sellModalItem.associatedCharacterIds.length > 0 && (
