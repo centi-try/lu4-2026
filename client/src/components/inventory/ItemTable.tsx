@@ -653,7 +653,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={e => { if (e.target === e.currentTarget) setSellModalItem(null); }}>
-          <div className="w-full max-w-md rounded-2xl p-6"
+          <div className="w-full max-w-lg rounded-2xl p-6"
             style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
@@ -692,17 +692,17 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   </p>
                 </div>
                 <div className="flex gap-2 text-center shrink-0">
-                  <div className="rounded-md px-2 py-1" style={{ background: 'rgba(123,241,214,0.08)' }}>
-                    <p className="text-sm font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Total</p>
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(123,241,214,0.08)' }}>
+                    <p className="text-base font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
                   </div>
-                  <div className="rounded-md px-2 py-1" style={{ background: 'rgba(251,191,36,0.08)' }}>
-                    <p className="text-sm font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Vend.</p>
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(251,191,36,0.08)' }}>
+                    <p className="text-base font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vendidas</p>
                   </div>
-                  <div className="rounded-md px-2 py-1" style={{ background: 'rgba(167,139,250,0.08)' }}>
-                    <p className="text-sm font-bold font-mono" style={{ color: '#a78bfa' }}>{sellModalItem.quantity - sellModalItem.quantitySold}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Disp.</p>
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(167,139,250,0.08)' }}>
+                    <p className="text-base font-bold font-mono" style={{ color: '#a78bfa' }}>{sellModalItem.quantity - sellModalItem.quantitySold}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Disponibles</p>
                   </div>
                 </div>
               </div>
@@ -732,15 +732,15 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       {itemReservs.map(r => (
                         <div key={r.id} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <div className="flex h-4 w-4 items-center justify-center rounded-full text-white"
-                              style={{ fontSize: '7px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
+                              style={{ fontSize: '8px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
                               {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
                             </div>
-                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
                               {r.characterName || r.userName}
                             </span>
                           </div>
-                          <span className="text-xs font-mono" style={{ color: '#fbbf24' }}>
+                          <span className="text-sm font-mono" style={{ color: '#fbbf24' }}>
                             {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
                           </span>
                         </div>
