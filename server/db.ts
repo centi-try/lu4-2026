@@ -292,6 +292,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     raidSettings: ensureArray(data?.raidSettings),
     raidCategoryIcons: ensureArray(data?.raidCategoryIcons),
     raidDropReservations: ensureArray(data?.raidDropReservations),
+    raidCommandParties: ensureArray(data?.raidCommandParties),
     raidSalesCycles: ensureArray(data?.raidSalesCycles),
     passwordResetTokens: ensureArray(data?.passwordResetTokens),
     emailVerifications: ensureArray(data?.emailVerifications),

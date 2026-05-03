@@ -41,30 +41,32 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
   const unassigned = (unassignedQ.data || []) as any[];
 
   // Mutations
+  const invalidateAll = () => {
+    utils.raid.commandParties.invalidate();
+  };
+
   const createCp = trpc.raid.commandParties.create.useMutation({
-    onSuccess: () => { utils.raid.commandParties.list.invalidate(); toast.success('CP creada'); },
+    onSuccess: () => { invalidateAll(); toast.success('CP creada'); },
     onError: (e: any) => toast.error(e.message),
   });
   const updateCp = trpc.raid.commandParties.update.useMutation({
-    onSuccess: () => { utils.raid.commandParties.list.invalidate(); toast.success('CP actualizada'); },
+    onSuccess: () => { invalidateAll(); toast.success('CP actualizada'); },
     onError: (e: any) => toast.error(e.message),
   });
   const deleteCp = trpc.raid.commandParties.delete.useMutation({
-    onSuccess: () => { utils.raid.commandParties.list.invalidate(); toast.success('CP eliminada'); },
+    onSuccess: () => { invalidateAll(); toast.success('CP eliminada'); },
     onError: (e: any) => toast.error(e.message),
   });
   const setMemberStatus = trpc.raid.commandParties.setMemberStatus.useMutation({
     onSuccess: () => {
-      utils.raid.commandParties.list.invalidate();
-      utils.raid.commandParties.unassigned.invalidate();
+      invalidateAll();
       toast.success('Estado actualizado');
     },
     onError: (e: any) => toast.error(e.message),
   });
   const reassignMember = trpc.raid.commandParties.reassignMember.useMutation({
     onSuccess: () => {
-      utils.raid.commandParties.list.invalidate();
-      utils.raid.commandParties.unassigned.invalidate();
+      invalidateAll();
       toast.success('Miembro reasignado');
     },
     onError: (e: any) => toast.error(e.message),
