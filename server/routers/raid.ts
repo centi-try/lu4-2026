@@ -1059,6 +1059,18 @@ export const raidRouter = router({
         }));
       }),
 
+    // List members of a clan (for leader dropdown) — super admin only
+    clanMembers: raidSuperAdminProcedure
+      .input(z.object({ clanId: z.number().int() }))
+      .query(async ({ input }) => {
+        const members = await getUsersByClan(input.clanId);
+        return members.map((u: any) => ({
+          id: Number(u.id),
+          name: u.name || u.characterName || u.email,
+          characterName: u.characterName,
+        }));
+      }),
+
     // Create CP (super admin only)
     create: raidSuperAdminProcedure
       .input(z.object({
