@@ -2234,6 +2234,19 @@ export const addSecondaryCharacter = async (userId: number, data: { name: string
   return entry;
 };
 
+export const updateSecondaryCharacter = async (id: number, userId: number, data: { name?: string; className?: string | null }) => {
+  if (!dbInstance.secondaryCharacters) return null;
+  const sc = dbInstance.secondaryCharacters.find(
+    (s: any) => Number(s.id) === Number(id) && Number(s.userId) === Number(userId)
+  );
+  if (!sc) return null;
+  if (data.name !== undefined) sc.name = data.name.trim();
+  if (data.className !== undefined) sc.className = data.className?.trim() || null;
+  sc.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return sc;
+};
+
 export const deleteSecondaryCharacter = async (id: number, userId: number) => {
   if (!dbInstance.secondaryCharacters) return null;
   const idx = dbInstance.secondaryCharacters.findIndex(

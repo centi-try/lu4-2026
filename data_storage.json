@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "$2b$10$tfgazbqqHV0/fJGw.BwYbeEbPxQpFUX1zXeD5LY1/nL.B74HfA3XC",
-      "updatedAt": "2026-05-03T21:03:26.563Z",
-      "lastSignedIn": "2026-05-03T21:03:26.563Z",
+      "updatedAt": "2026-05-03T21:07:03.097Z",
+      "lastSignedIn": "2026-05-03T21:07:03.097Z",
       "currentCycleEarnings": 0,
       "failedLoginAttempts": 0,
       "lockedUntil": null,
@@ -20234,6 +20234,13 @@
       "name": "Ragnar29",
       "className": "Spellhowler",
       "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 834258089,
+      "userId": 386290,
+      "name": "lvlxuxetumareeee",
+      "className": "Sword Singer",
+      "createdAt": "2026-05-03T21:05:22.743Z"
     }
   ]
 }

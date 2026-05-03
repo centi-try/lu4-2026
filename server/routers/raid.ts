@@ -35,7 +35,7 @@ import {
   // character classes & secondary characters
   getAvailableClasses, addAvailableClass, deleteAvailableClass,
   getSecondaryCharacters, getSecondaryCharactersByUsers,
-  addSecondaryCharacter, deleteSecondaryCharacter,
+  addSecondaryCharacter, updateSecondaryCharacter, deleteSecondaryCharacter,
   // dashboard + stats
   getRaidDashboardMetrics, getClanStats,
   // audit
@@ -1223,6 +1223,31 @@ export const raidRouter = router({
           targetUserId = input.userId;
         }
         return await addSecondaryCharacter(targetUserId, input);
+      }),
+
+    updateSecondaryChar: raidViewerProcedure
+      .input(z.object({
+        id: z.number().int(),
+        name: z.string().min(1).max(100).optional(),
+        className: z.string().max(100).nullable().optional(),
+        userId: z.number().int().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        let targetUserId = Number(ctx.user?.id);
+        if (input.userId && input.userId !== targetUserId) {
+          const role = String(ctx.user?.role || '').toLowerCase();
+          const access = await canUserAccessRaidModule(ctx.user);
+          if (role !== 'super_admin' && !access.canAdmin) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo admin puede editar alts de otros miembros' });
+          }
+          targetUserId = input.userId;
+        }
+        const updated = await updateSecondaryCharacter(input.id, targetUserId, {
+          name: input.name,
+          className: input.className,
+        });
+        if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Personaje secundario no encontrado' });
+        return updated;
       }),
 
     deleteSecondaryChar: raidViewerProcedure

@@ -683,6 +683,14 @@ function MemberRow({
     },
     onError: (e: any) => toast.error(e.message),
   });
+  const updateSecChar = trpc.raid.commandParties.updateSecondaryChar.useMutation({
+    onSuccess: () => {
+      utils.raid.commandParties.invalidate();
+      toast.success('PJ secundario actualizado');
+      setEditingSecId(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
   const deleteSecChar = trpc.raid.commandParties.deleteSecondaryChar.useMutation({
     onSuccess: () => {
       utils.raid.commandParties.invalidate();
@@ -696,6 +704,24 @@ function MemberRow({
   const classes = (classesQ.data || []) as any[];
   const [newSecName, setNewSecName] = useState('');
   const [newSecClass, setNewSecClass] = useState('');
+
+  // Editing state for secondary chars
+  const [editingSecId, setEditingSecId] = useState<number | null>(null);
+  const [editSecName, setEditSecName] = useState('');
+  const [editSecClass, setEditSecClass] = useState('');
+
+  const startEditSec = (sc: any) => {
+    setEditingSecId(Number(sc.id));
+    setEditSecName(sc.name || '');
+    setEditSecClass(sc.className || '');
+  };
+
+  const handleUpdateSec = () => {
+    if (!editingSecId || !editSecName.trim()) return;
+    const payload: any = { id: editingSecId, name: editSecName.trim(), className: editSecClass || null };
+    if (!isOwnRow) payload.userId = Number(m.id);
+    updateSecChar.mutate(payload);
+  };
 
   const handleAddSec = () => {
     if (!newSecName.trim()) return;
@@ -796,25 +822,71 @@ function MemberRow({
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin personajes secundarios</p>
           )}
           {secondaryChars.map((sc: any) => (
-            <div key={sc.id} className="flex items-center justify-between py-1.5"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <div className="flex items-center gap-2">
-                <Swords className="h-3.5 w-3.5 shrink-0" style={{ color: '#a78bfa' }} />
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{sc.name}</span>
-                {sc.className && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
-                    {sc.className}
-                  </span>
-                )}
-              </div>
-              {canEditAlts && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteSecChar.mutate({ id: sc.id, userId: isOwnRow ? undefined : Number(m.id) }); }}
-                  className="p-1 rounded hover:bg-white/5 transition" title="Eliminar PJ secundario"
-                  style={{ color: '#ef4444' }}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+            <div key={sc.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              {editingSecId === Number(sc.id) ? (
+                /* Inline edit form */
+                <div className="flex items-center gap-2 py-1.5" onClick={e => e.stopPropagation()}>
+                  <Swords className="h-3.5 w-3.5 shrink-0" style={{ color: '#a78bfa' }} />
+                  <input
+                    value={editSecName}
+                    onChange={e => setEditSecName(e.target.value)}
+                    className="input-dark flex-1 text-xs py-1"
+                    placeholder="Nombre..."
+                  />
+                  {classes.length > 0 && (
+                    <select
+                      value={editSecClass}
+                      onChange={e => setEditSecClass(e.target.value)}
+                      className="input-dark text-xs py-1"
+                      style={{ appearance: 'none', maxWidth: '120px' }}
+                    >
+                      <option value="">Clase...</option>
+                      {classes.map((c: any) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button onClick={handleUpdateSec} disabled={!editSecName.trim()}
+                    className="p-1 rounded hover:bg-white/5 transition" title="Guardar"
+                    style={{ color: '#22c55e', opacity: editSecName.trim() ? 1 : 0.4 }}>
+                    <UserCheck className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => setEditingSecId(null)}
+                    className="p-1 rounded hover:bg-white/5 transition" title="Cancelar"
+                    style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                /* Display row */
+                <div className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2">
+                    <Swords className="h-3.5 w-3.5 shrink-0" style={{ color: '#a78bfa' }} />
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{sc.name}</span>
+                    {sc.className && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded"
+                        style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
+                        {sc.className}
+                      </span>
+                    )}
+                  </div>
+                  {canEditAlts && (
+                    <div className="flex gap-0.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); startEditSec(sc); }}
+                        className="p-1 rounded hover:bg-white/5 transition" title="Editar PJ secundario"
+                        style={{ color: '#a78bfa' }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteSecChar.mutate({ id: sc.id, userId: isOwnRow ? undefined : Number(m.id) }); }}
+                        className="p-1 rounded hover:bg-white/5 transition" title="Eliminar PJ secundario"
+                        style={{ color: '#ef4444' }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           ))}
