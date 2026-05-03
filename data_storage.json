@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "$2b$10$tfgazbqqHV0/fJGw.BwYbeEbPxQpFUX1zXeD5LY1/nL.B74HfA3XC",
-      "updatedAt": "2026-05-03T21:07:03.097Z",
-      "lastSignedIn": "2026-05-03T21:07:03.097Z",
+      "updatedAt": "2026-05-03T21:13:56.484Z",
+      "lastSignedIn": "2026-05-03T21:13:56.484Z",
       "currentCycleEarnings": 0,
       "failedLoginAttempts": 0,
       "lockedUntil": null,
@@ -18327,6 +18327,19 @@
         "newCpId": 335752618
       },
       "createdAt": "2026-05-03T20:38:15.445Z"
+    },
+    {
+      "id": 471983762,
+      "userId": 1,
+      "action": "CP_UPDATED",
+      "details": {
+        "cpId": 646685414,
+        "updates": {
+          "name": "CP Cielo",
+          "leaderId": 386290
+        }
+      },
+      "createdAt": "2026-05-03T21:08:29.200Z"
     }
   ],
   "raidSettings": [],
@@ -19691,9 +19704,9 @@
       "id": 646685414,
       "name": "CP Cielo",
       "clanId": 193766653,
-      "leaderId": 747317273,
+      "leaderId": 386290,
       "createdAt": "2026-05-03T20:37:38.860192Z",
-      "updatedAt": "2026-05-03T20:37:38.860192Z"
+      "updatedAt": "2026-05-03T21:08:29.196Z"
     },
     {
       "id": 890351959,
@@ -19781,11 +19794,6 @@
     {
       "id": 90013,
       "name": "Prophet",
-      "createdAt": "2026-05-03T20:55:53.710Z"
-    },
-    {
-      "id": 90014,
-      "name": "Bishop",
       "createdAt": "2026-05-03T20:55:53.710Z"
     },
     {
@@ -20239,8 +20247,9 @@
       "id": 834258089,
       "userId": 386290,
       "name": "lvlxuxetumareeee",
-      "className": "Sword Singer",
-      "createdAt": "2026-05-03T21:05:22.743Z"
+      "className": "Treasure Hunter",
+      "createdAt": "2026-05-03T21:05:22.743Z",
+      "updatedAt": "2026-05-03T21:08:04.121Z"
     }
   ]
 }

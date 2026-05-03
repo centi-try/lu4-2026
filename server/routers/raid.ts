@@ -33,7 +33,7 @@ import {
   getUsersByCp, getUsersByClan, getUsersWithoutCp,
   setUserCpStatus, reassignUserCp,
   // character classes & secondary characters
-  getAvailableClasses, addAvailableClass, deleteAvailableClass,
+  getAvailableClasses, addAvailableClass, updateAvailableClass, deleteAvailableClass,
   getSecondaryCharacters, getSecondaryCharactersByUsers,
   addSecondaryCharacter, updateSecondaryCharacter, deleteSecondaryCharacter,
   // dashboard + stats
@@ -1191,6 +1191,14 @@ export const raidRouter = router({
       .input(z.object({ name: z.string().min(1).max(100) }))
       .mutation(async ({ input }) => {
         return await addAvailableClass(input.name);
+      }),
+
+    updateClass: raidSuperAdminProcedure
+      .input(z.object({ id: z.number().int(), name: z.string().min(1).max(100) }))
+      .mutation(async ({ input }) => {
+        const updated = await updateAvailableClass(input.id, input.name);
+        if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Clase no encontrada' });
+        return updated;
       }),
 
     deleteClass: raidSuperAdminProcedure

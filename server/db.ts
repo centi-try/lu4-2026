@@ -2196,6 +2196,21 @@ export const addAvailableClass = async (name: string) => {
   return entry;
 };
 
+export const updateAvailableClass = async (id: number, name: string) => {
+  if (!dbInstance.raidAvailableClasses) return null;
+  const cls = dbInstance.raidAvailableClasses.find((c: any) => Number(c.id) === Number(id));
+  if (!cls) return null;
+  const trimmed = name.trim();
+  const duplicate = dbInstance.raidAvailableClasses.some(
+    (c: any) => Number(c.id) !== Number(id) && String(c.name).toLowerCase() === trimmed.toLowerCase()
+  );
+  if (duplicate) throw new Error(`La clase "${trimmed}" ya existe`);
+  cls.name = trimmed;
+  cls.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return cls;
+};
+
 export const deleteAvailableClass = async (id: number) => {
   if (!dbInstance.raidAvailableClasses) return null;
   const idx = dbInstance.raidAvailableClasses.findIndex((c: any) => Number(c.id) === Number(id));
