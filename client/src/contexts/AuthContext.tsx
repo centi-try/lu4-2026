@@ -25,7 +25,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<LoginResult>;
   verify2fa: (challengeToken: string, code: string) => Promise<void>;
-  register: (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null) => Promise<void>;
+  register: (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null, classMain?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -139,12 +139,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null) => {
+  const register = async (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null, classMain?: string | null) => {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, password, characterName, raidClanId: raidClanId || null, raidCpId: raidCpId || null }),
+      body: JSON.stringify({ email, password, characterName, raidClanId: raidClanId || null, raidCpId: raidCpId || null, classMain: classMain || null }),
     });
     const data = await response.json();
     if (!response.ok) {

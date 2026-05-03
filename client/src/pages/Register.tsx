@@ -10,6 +10,7 @@ const MIN_CHARACTER_LEN = 2;
 
 interface PublicClan { id: number; name: string; }
 interface PublicCp { id: number; name: string; clanId: number; }
+interface PublicClass { id: number; name: string; }
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -32,11 +33,13 @@ export default function Register() {
     cp: boolean;
   }>({ email: false, character: false, password: false, confirm: false, clan: false, cp: false });
 
-  // Clan & CP selection
+  // Clan & CP & Class selection
   const [clans, setClans] = useState<PublicClan[]>([]);
   const [commandParties, setCommandParties] = useState<PublicCp[]>([]);
+  const [availableClasses, setAvailableClasses] = useState<PublicClass[]>([]);
   const [selectedClanId, setSelectedClanId] = useState<string>('');
   const [selectedCpId, setSelectedCpId] = useState<string>('');
+  const [selectedClassMain, setSelectedClassMain] = useState<string>('');
 
   useEffect(() => {
     fetch('/api/public/clans-and-cps')
@@ -44,6 +47,7 @@ export default function Register() {
       .then(data => {
         setClans(data.clans || []);
         setCommandParties(data.commandParties || []);
+        setAvailableClasses(data.availableClasses || []);
       })
       .catch(() => {});
   }, []);
@@ -114,6 +118,7 @@ export default function Register() {
         characterName.trim(),
         selectedClanId ? Number(selectedClanId) : null,
         selectedCpId ? Number(selectedCpId) : null,
+        selectedClassMain || null,
       );
       toast.success('¡Registro exitoso! Iniciando sesión...');
       setLocation('/');
@@ -271,6 +276,31 @@ export default function Register() {
                     {cpError}
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Class Main dropdown — only shown if classes exist */}
+            {availableClasses.length > 0 && (
+              <div>
+                <label htmlFor="register-class" className="block text-sm font-medium text-white mb-2">
+                  Clase Principal
+                </label>
+                <div className="relative">
+                  <select
+                    id="register-class"
+                    value={selectedClassMain}
+                    onChange={(e) => setSelectedClassMain(e.target.value)}
+                    className={inputClass}
+                    disabled={loading}
+                    style={{ appearance: 'none', paddingRight: '2.5rem' }}
+                  >
+                    <option value="">Seleccionar clase...</option>
+                    {availableClasses.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                </div>
               </div>
             )}
 

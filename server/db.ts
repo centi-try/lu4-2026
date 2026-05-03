@@ -71,6 +71,10 @@ interface DatabaseSchema {
   // Command Parties — sub-grupos dentro de cada clan (para menú raid).
   // Cada CP pertenece a un clan y tiene un leader opcional.
   raidCommandParties: any[];
+  // Available character classes (configured by Super Admin for registration dropdown)
+  raidAvailableClasses: any[];
+  // Secondary characters per user (alts that contribute to a CP)
+  secondaryCharacters: any[];
   // Ciclos de VENTA del módulo raid — capa semanal (Lun→Dom) de agregación
   // sobre los raid cycles diarios. Solo agrupa/resume ventas, no modifica
   // drops, eventos ni clanes.
@@ -110,6 +114,8 @@ const initialSchema: DatabaseSchema = {
   raidCategoryIcons: [],
   raidDropReservations: [],
   raidCommandParties: [],
+  raidAvailableClasses: [],
+  secondaryCharacters: [],
   raidSalesCycles: [],
   passwordResetTokens: [],
   emailVerifications: [],
@@ -293,6 +299,8 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     raidCategoryIcons: ensureArray(data?.raidCategoryIcons),
     raidDropReservations: ensureArray(data?.raidDropReservations),
     raidCommandParties: ensureArray(data?.raidCommandParties),
+    raidAvailableClasses: ensureArray(data?.raidAvailableClasses),
+    secondaryCharacters: ensureArray(data?.secondaryCharacters),
     raidSalesCycles: ensureArray(data?.raidSalesCycles),
     passwordResetTokens: ensureArray(data?.passwordResetTokens),
     emailVerifications: ensureArray(data?.emailVerifications),
@@ -2166,6 +2174,75 @@ export const reassignUserCp = async (
     },
   });
   return user;
+};
+
+// ---------- Available character classes (Super Admin configures) ---------------
+
+export const getAvailableClasses = async () => {
+  return (dbInstance.raidAvailableClasses || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const addAvailableClass = async (name: string) => {
+  if (!dbInstance.raidAvailableClasses) dbInstance.raidAvailableClasses = [];
+  const exists = dbInstance.raidAvailableClasses.some(
+    (c: any) => String(c.name).toLowerCase() === name.trim().toLowerCase()
+  );
+  if (exists) throw new Error(`La clase "${name}" ya existe`);
+  const entry = { id: genId(), name: name.trim(), createdAt: nowIso() };
+  dbInstance.raidAvailableClasses.push(entry);
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const deleteAvailableClass = async (id: number) => {
+  if (!dbInstance.raidAvailableClasses) return null;
+  const idx = dbInstance.raidAvailableClasses.findIndex((c: any) => Number(c.id) === Number(id));
+  if (idx === -1) return null;
+  const removed = dbInstance.raidAvailableClasses.splice(idx, 1)[0];
+  saveDb(dbInstance);
+  return removed;
+};
+
+// ---------- Secondary characters (alts per user) ----------------------------
+
+export const getSecondaryCharacters = async (userId: number) => {
+  return (dbInstance.secondaryCharacters || []).filter(
+    (sc: any) => Number(sc.userId) === Number(userId)
+  );
+};
+
+export const getSecondaryCharactersByUsers = async (userIds: number[]) => {
+  const idSet = new Set(userIds.map(Number));
+  return (dbInstance.secondaryCharacters || []).filter(
+    (sc: any) => idSet.has(Number(sc.userId))
+  );
+};
+
+export const addSecondaryCharacter = async (userId: number, data: { name: string; className?: string }) => {
+  if (!dbInstance.secondaryCharacters) dbInstance.secondaryCharacters = [];
+  const entry = {
+    id: genId(),
+    userId: Number(userId),
+    name: data.name.trim(),
+    className: data.className?.trim() || null,
+    createdAt: nowIso(),
+  };
+  dbInstance.secondaryCharacters.push(entry);
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const deleteSecondaryCharacter = async (id: number, userId: number) => {
+  if (!dbInstance.secondaryCharacters) return null;
+  const idx = dbInstance.secondaryCharacters.findIndex(
+    (sc: any) => Number(sc.id) === Number(id) && Number(sc.userId) === Number(userId)
+  );
+  if (idx === -1) return null;
+  const removed = dbInstance.secondaryCharacters.splice(idx, 1)[0];
+  saveDb(dbInstance);
+  return removed;
 };
 
 // ---------- Acceso al módulo raid por usuario -------------------------------

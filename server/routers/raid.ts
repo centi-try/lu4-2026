@@ -32,6 +32,10 @@ import {
   createCommandParty, updateCommandParty, deleteCommandParty,
   getUsersByCp, getUsersByClan, getUsersWithoutCp,
   setUserCpStatus, reassignUserCp,
+  // character classes & secondary characters
+  getAvailableClasses, addAvailableClass, deleteAvailableClass,
+  getSecondaryCharacters, getSecondaryCharactersByUsers,
+  addSecondaryCharacter, deleteSecondaryCharacter,
   // dashboard + stats
   getRaidDashboardMetrics, getClanStats,
   // audit
@@ -1017,30 +1021,29 @@ export const raidRouter = router({
         if (!cp) throw new TRPCError({ code: 'NOT_FOUND', message: 'CP no encontrada' });
 
         // Super admin / raid_admin can see all members
+        const mapMember = (u: any, secondaries: any[]) => ({
+          id: Number(u.id),
+          name: u.name || u.characterName || u.email,
+          characterName: u.characterName,
+          email: u.email,
+          classMain: u.classMain || null,
+          cpStatus: u.cpStatus || 'pending',
+          isLeader: Number(cp.leaderId) === Number(u.id),
+          secondaryCharacters: secondaries.filter((sc: any) => Number(sc.userId) === Number(u.id)),
+        });
+
         const access = await canUserAccessRaidModule(ctx.user);
         if (role === 'super_admin' || access.canAdmin) {
           const members = await getUsersByCp(input.cpId);
-          return members.map((u: any) => ({
-            id: Number(u.id),
-            name: u.name || u.characterName || u.email,
-            characterName: u.characterName,
-            email: u.email,
-            cpStatus: u.cpStatus || 'pending',
-            isLeader: Number(cp.leaderId) === Number(u.id),
-          }));
+          const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
+          return members.map((u: any) => mapMember(u, scs));
         }
 
         // Leader can see their own CP members
         if (Number(cp.leaderId) === userId) {
           const members = await getUsersByCp(input.cpId);
-          return members.map((u: any) => ({
-            id: Number(u.id),
-            name: u.name || u.characterName || u.email,
-            characterName: u.characterName,
-            email: u.email,
-            cpStatus: u.cpStatus || 'pending',
-            isLeader: Number(cp.leaderId) === Number(u.id),
-          }));
+          const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
+          return members.map((u: any) => mapMember(u, scs));
         }
 
         // Regular confirmed user: only see confirmed members of their own clan CPs
@@ -1049,13 +1052,10 @@ export const raidRouter = router({
           return [];
         }
         const members = (await getUsersByCp(input.cpId)).filter((u: any) => u.cpStatus === 'confirmed');
+        const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
         return members.map((u: any) => ({
-          id: Number(u.id),
-          name: u.name || u.characterName || u.email,
-          characterName: u.characterName,
-          email: u.email,
+          ...mapMember(u, scs),
           cpStatus: 'confirmed' as const,
-          isLeader: Number(cp.leaderId) === Number(u.id),
         }));
       }),
 
@@ -1172,6 +1172,47 @@ export const raidRouter = router({
         cpStatus: u.cpStatus,
       }));
     }),
+
+    // ---- Available character classes (Super Admin CRUD) ----
+    listClasses: raidViewerProcedure.query(async () => {
+      return await getAvailableClasses();
+    }),
+
+    addClass: raidSuperAdminProcedure
+      .input(z.object({ name: z.string().min(1).max(100) }))
+      .mutation(async ({ input }) => {
+        return await addAvailableClass(input.name);
+      }),
+
+    deleteClass: raidSuperAdminProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ input }) => {
+        const removed = await deleteAvailableClass(input.id);
+        if (!removed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Clase no encontrada' });
+        return { success: true };
+      }),
+
+    // ---- Secondary characters (user manages own alts) ----
+    mySecondaryChars: raidViewerProcedure.query(async ({ ctx }) => {
+      return await getSecondaryCharacters(Number(ctx.user?.id));
+    }),
+
+    addSecondaryChar: raidViewerProcedure
+      .input(z.object({
+        name: z.string().min(1).max(100),
+        className: z.string().max(100).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return await addSecondaryCharacter(Number(ctx.user?.id), input);
+      }),
+
+    deleteSecondaryChar: raidViewerProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const removed = await deleteSecondaryCharacter(input.id, Number(ctx.user?.id));
+        if (!removed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Personaje secundario no encontrado' });
+        return { success: true };
+      }),
   }),
 
   // Public-ish endpoint for listing clans + CPs (used by registration form).

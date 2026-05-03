@@ -39,6 +39,7 @@ import {
   consumeBackupCodeHash,
   getClans,
   getCommandParties,
+  getAvailableClasses,
 } from "../db";
 import { sendPasswordResetEmail, sendEmailVerificationEmail, isEmailEnabled } from "./email";
 import {
@@ -93,6 +94,7 @@ async function startServer() {
       const password = String(req.body?.password || '');
       const raidClanId = req.body?.raidClanId ? Number(req.body.raidClanId) : null;
       const raidCpId = req.body?.raidCpId ? Number(req.body.raidCpId) : null;
+      const classMain = req.body?.classMain ? String(req.body.classMain).trim() : null;
 
       if (!email || !characterName || password.length < 6) {
         return res.status(400).json({ message: 'Datos de registro inválidos' });
@@ -118,6 +120,7 @@ async function startServer() {
         raidClanId: raidClanId || null,
         raidCpId: raidCpId || null,
         cpStatus: raidCpId ? 'pending' : null,
+        classMain: classMain || null,
       });
 
       // Emitir token de verificación de email y disparar el send (no bloquea
@@ -178,6 +181,7 @@ async function startServer() {
     try {
       const clans = await getClans();
       const cps = await getCommandParties();
+      const classes = await getAvailableClasses();
       res.json({
         clans: clans.map((c: any) => ({ id: Number(c.id), name: c.name })),
         commandParties: cps.map((cp: any) => ({
@@ -185,6 +189,7 @@ async function startServer() {
           name: cp.name,
           clanId: Number(cp.clanId),
         })),
+        availableClasses: classes.map((c: any) => ({ id: Number(c.id), name: c.name })),
       });
     } catch (error) {
       console.error('Error fetching clans and CPs:', error);

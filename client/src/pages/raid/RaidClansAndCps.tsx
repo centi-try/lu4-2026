@@ -14,6 +14,7 @@ import {
   Crown,
   AlertTriangle,
   ArrowRightLeft,
+  Swords,
 } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -637,52 +638,220 @@ function CpRow({
           {!membersQ.isLoading && members.length === 0 && (
             <p className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay miembros</p>
           )}
-          <div className="space-y-1">
-            {members.map((m: any) => (
-              <div key={m.id} className="flex items-center justify-between py-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full text-white text-[10px] font-bold"
-                    style={{ background: m.isLeader ? 'rgba(251,191,36,0.25)' : 'rgba(167,139,250,0.2)' }}>
-                    {(m.characterName || m.name || '?').slice(0, 1).toUpperCase()}
-                  </div>
-                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                    {m.characterName || m.name}
-                  </span>
-                  {m.isLeader && (
-                    <Crown className="h-4 w-4" style={{ color: '#fbbf24' }} />
-                  )}
-                  {m.cpStatus === 'pending' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                      style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>
-                      PENDIENTE
-                    </span>
-                  )}
-                  {m.cpStatus === 'confirmed' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                      style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e' }}>
-                      CONFIRMADO
-                    </span>
-                  )}
-                </div>
-                {canManageMembers && !m.isLeader && (
-                  <div className="flex gap-1">
-                    {m.cpStatus === 'pending' && (
-                      <button onClick={() => onSetMemberStatus(m.id, m.characterName || m.name, 'confirmed')}
-                        className="p-1.5 rounded hover:bg-white/5 transition" title="Confirmar"
-                        style={{ color: '#22c55e' }}>
-                        <UserCheck className="h-5 w-5" />
-                      </button>
-                    )}
-                    <button onClick={() => onSetMemberStatus(m.id, m.characterName || m.name, 'removed')}
-                      className="p-1.5 rounded hover:bg-white/5 transition" title="Sacar de CP"
-                      style={{ color: '#ef4444' }}>
-                      <UserX className="h-5 w-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
+          <div>
+            {members.map((m: any, idx: number) => (
+              <MemberRow
+                key={m.id}
+                member={m}
+                isFirst={idx === 0}
+                canManageMembers={canManageMembers}
+                onSetMemberStatus={onSetMemberStatus}
+                currentUserId={currentUserId}
+              />
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Individual Member Row (expandable with secondary chars) ----------
+
+function MemberRow({
+  member: m, isFirst, canManageMembers, onSetMemberStatus, currentUserId,
+}: {
+  member: any;
+  isFirst: boolean;
+  canManageMembers: boolean;
+  onSetMemberStatus: (userId: number, memberName: string, status: 'confirmed' | 'removed') => void;
+  currentUserId: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isOwnRow = Number(m.id) === currentUserId;
+  const secondaryChars = (m.secondaryCharacters || []) as any[];
+  const utils = trpc.useUtils();
+
+  // Add secondary character mutation
+  const addSecChar = trpc.raid.commandParties.addSecondaryChar.useMutation({
+    onSuccess: () => {
+      utils.raid.commandParties.invalidate();
+      toast.success('PJ secundario agregado');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const deleteSecChar = trpc.raid.commandParties.deleteSecondaryChar.useMutation({
+    onSuccess: () => {
+      utils.raid.commandParties.invalidate();
+      toast.success('PJ secundario eliminado');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Classes for dropdown
+  const classesQ = trpc.raid.commandParties.listClasses.useQuery(undefined, { enabled: expanded && isOwnRow });
+  const classes = (classesQ.data || []) as any[];
+  const [newSecName, setNewSecName] = useState('');
+  const [newSecClass, setNewSecClass] = useState('');
+
+  const handleAddSec = () => {
+    if (!newSecName.trim()) return;
+    addSecChar.mutate({ name: newSecName.trim(), className: newSecClass || undefined });
+    setNewSecName('');
+    setNewSecClass('');
+  };
+
+  return (
+    <div>
+      {/* Separator line between members */}
+      {!isFirst && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '0 -0.5rem' }} />
+      )}
+
+      {/* Main member row */}
+      <div
+        className="flex items-center justify-between py-2.5 px-1 cursor-pointer hover:bg-white/[0.02] rounded transition"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Expand indicator */}
+          {(secondaryChars.length > 0 || isOwnRow) ? (
+            expanded
+              ? <ChevronDown className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
+              : <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
+          ) : (
+            <div className="w-4" />
+          )}
+
+          {/* Avatar */}
+          <div className="flex h-7 w-7 items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0"
+            style={{ background: m.isLeader ? 'rgba(251,191,36,0.25)' : 'rgba(167,139,250,0.2)' }}>
+            {(m.characterName || m.name || '?').slice(0, 1).toUpperCase()}
+          </div>
+
+          {/* Name + class badge */}
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>
+              {m.characterName || m.name}
+            </span>
+            {m.classMain && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8' }}>
+                {m.classMain}
+              </span>
+            )}
+            {m.isLeader && (
+              <Crown className="h-4 w-4 shrink-0" style={{ color: '#fbbf24' }} />
+            )}
+            {m.cpStatus === 'pending' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>
+                PENDIENTE
+              </span>
+            )}
+            {m.cpStatus === 'confirmed' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e' }}>
+                CONFIRMADO
+              </span>
+            )}
+            {secondaryChars.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
+                +{secondaryChars.length} alt{secondaryChars.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        {canManageMembers && !m.isLeader && (
+          <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+            {m.cpStatus === 'pending' && (
+              <button onClick={() => onSetMemberStatus(m.id, m.characterName || m.name, 'confirmed')}
+                className="p-1.5 rounded hover:bg-white/5 transition" title="Confirmar"
+                style={{ color: '#22c55e' }}>
+                <UserCheck className="h-5 w-5" />
+              </button>
+            )}
+            <button onClick={() => onSetMemberStatus(m.id, m.characterName || m.name, 'removed')}
+              className="p-1.5 rounded hover:bg-white/5 transition" title="Sacar de CP"
+              style={{ color: '#ef4444' }}>
+              <UserX className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded: Secondary characters */}
+      {expanded && (
+        <div className="ml-12 mb-2 rounded-lg p-2.5"
+          style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.1)' }}>
+          {secondaryChars.length === 0 && !isOwnRow && (
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin personajes secundarios</p>
+          )}
+          {secondaryChars.map((sc: any) => (
+            <div key={sc.id} className="flex items-center justify-between py-1.5"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center gap-2">
+                <Swords className="h-3.5 w-3.5 shrink-0" style={{ color: '#a78bfa' }} />
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{sc.name}</span>
+                {sc.className && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
+                    {sc.className}
+                  </span>
+                )}
+              </div>
+              {isOwnRow && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteSecChar.mutate({ id: sc.id }); }}
+                  className="p-1 rounded hover:bg-white/5 transition" title="Eliminar PJ secundario"
+                  style={{ color: '#ef4444' }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Add secondary character form (only own row) */}
+          {isOwnRow && (
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                value={newSecName}
+                onChange={e => setNewSecName(e.target.value)}
+                placeholder="Nombre PJ secundario..."
+                className="input-dark flex-1 text-xs py-1.5"
+                onClick={e => e.stopPropagation()}
+              />
+              {classes.length > 0 && (
+                <select
+                  value={newSecClass}
+                  onChange={e => setNewSecClass(e.target.value)}
+                  className="input-dark text-xs py-1.5"
+                  style={{ appearance: 'none', maxWidth: '120px' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <option value="">Clase...</option>
+                  {classes.map((c: any) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleAddSec(); }}
+                disabled={!newSecName.trim()}
+                className="rounded px-2.5 py-1.5 text-xs font-medium"
+                style={{
+                  background: 'rgba(167,139,250,0.15)',
+                  color: '#a78bfa',
+                  opacity: newSecName.trim() ? 1 : 0.4,
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

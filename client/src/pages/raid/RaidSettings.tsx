@@ -608,6 +608,9 @@ export default function RaidSettings({ raidAccess }: Props) {
       {/* ===== Gestión de Accesos Raid (super admin only) ===== */}
       {raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
 
+      {/* ===== Clases de Personaje (super admin only) ===== */}
+      {raidAccess?.accessLevel === 'super_admin' && <CharacterClassesSection />}
+
       {/* ===== Modales de confirmación de borrado ===== */}
       {bossToDelete && (
         <ConfirmDeleteModal
@@ -1325,6 +1328,106 @@ function RaidAccessSection() {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Gestión de clases de personaje (Super Admin)
+// ============================================================================
+
+function CharacterClassesSection() {
+  const utils = trpc.useUtils();
+  const classesQ = trpc.raid.commandParties.listClasses.useQuery();
+  const classes = (classesQ.data || []) as any[];
+
+  const addClass = trpc.raid.commandParties.addClass.useMutation({
+    onSuccess: () => {
+      utils.raid.commandParties.listClasses.invalidate();
+      toast.success('Clase agregada');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const deleteClass = trpc.raid.commandParties.deleteClass.useMutation({
+    onSuccess: () => {
+      utils.raid.commandParties.listClasses.invalidate();
+      toast.success('Clase eliminada');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const [newClassName, setNewClassName] = useState('');
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassName.trim()) return;
+    addClass.mutate({ name: newClassName.trim() });
+    setNewClassName('');
+  };
+
+  return (
+    <div className="card-glass rounded-2xl p-5 mt-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Palette className="h-5 w-5" style={{ color: '#38bdf8' }} />
+          <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+            Clases de Personaje
+          </h3>
+        </div>
+        <span className="rounded-full px-2 py-0.5 text-xs font-medium"
+          style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}>
+          {classes.length} clases
+        </span>
+      </div>
+
+      <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        Estas clases aparecen en el dropdown de registro y en la vista de Clanes & CPs.
+      </p>
+
+      <form onSubmit={handleAdd} className="flex gap-2 mb-4">
+        <input
+          value={newClassName}
+          onChange={e => setNewClassName(e.target.value)}
+          placeholder="Nombre de la clase (ej: Dark Wizard, Temple Knight)..."
+          className="input-dark flex-1"
+        />
+        <button
+          type="submit"
+          disabled={!newClassName.trim() || addClass.isPending}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium"
+          style={{
+            background: 'rgba(56,189,248,0.15)',
+            border: '1px solid rgba(56,189,248,0.3)',
+            color: '#38bdf8',
+            opacity: newClassName.trim() ? 1 : 0.4,
+          }}
+        >
+          <Plus className="h-4 w-4" /> Agregar
+        </button>
+      </form>
+
+      <div className="space-y-1">
+        {classes.length === 0 && (
+          <p className="text-xs py-3 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            No hay clases definidas. Agrega una para que aparezca en el registro.
+          </p>
+        )}
+        {classes.map((c: any) => (
+          <div key={c.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/[0.02]"
+            style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
+            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.8)' }}>{c.name}</span>
+            <button
+              onClick={() => deleteClass.mutate({ id: Number(c.id) })}
+              disabled={deleteClass.isPending}
+              className="p-1.5 rounded hover:bg-white/5 transition"
+              style={{ color: '#ef4444' }}
+              title="Eliminar clase"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
