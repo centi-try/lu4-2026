@@ -15,8 +15,8 @@
       "loginMethod": "local",
       "isActive": true,
       "passwordHash": "$2b$10$tfgazbqqHV0/fJGw.BwYbeEbPxQpFUX1zXeD5LY1/nL.B74HfA3XC",
-      "updatedAt": "2026-05-03T20:54:36.179Z",
-      "lastSignedIn": "2026-05-03T20:54:36.179Z",
+      "updatedAt": "2026-05-03T21:03:26.563Z",
+      "lastSignedIn": "2026-05-03T21:03:26.563Z",
       "currentCycleEarnings": 0,
       "failedLoginAttempts": 0,
       "lockedUntil": null,
@@ -105,7 +105,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 919273721,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 642795,
@@ -131,7 +132,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 453519372,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Soul Hound"
     },
     {
       "id": 876147,
@@ -157,7 +159,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 862584249,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 639001,
@@ -183,7 +186,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 386290,
@@ -209,7 +213,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Phantom Ranger"
     },
     {
       "id": 782531,
@@ -261,7 +266,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Hawkeye"
     },
     {
       "id": 679694,
@@ -287,7 +293,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Silver Ranger"
     },
     {
       "id": 484425704,
@@ -339,7 +346,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bladedancer"
     },
     {
       "id": 25045601,
@@ -391,7 +399,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Sword Singer"
     },
     {
       "id": 153177712,
@@ -417,7 +426,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 405254345,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Warcryer"
     },
     {
       "id": 849045235,
@@ -495,7 +505,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Overlord"
     },
     {
       "id": 354345426,
@@ -521,7 +532,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 58317717,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Destroyer"
     },
     {
       "id": 129809183,
@@ -573,7 +585,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Tyrant"
     },
     {
       "id": 717273485,
@@ -599,7 +612,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 862584249,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Prophet"
     },
     {
       "id": 314835347,
@@ -651,7 +665,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bishop"
     },
     {
       "id": 331928509,
@@ -729,7 +744,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Necromancer"
     },
     {
       "id": 186661187,
@@ -781,7 +797,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 405254345,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Spellhowler"
     },
     {
       "id": 49222510,
@@ -807,7 +824,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sorcerer"
     },
     {
       "id": 768267271,
@@ -833,7 +851,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 890351959,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Treasure Hunter"
     },
     {
       "id": 198231235,
@@ -859,7 +878,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 385726097,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Paladin"
     },
     {
       "id": 802704410,
@@ -885,7 +905,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 349587323,
@@ -937,7 +958,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 405254345,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Soul Hound"
     },
     {
       "id": 270495364,
@@ -963,7 +985,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 52909284,
@@ -989,7 +1012,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 385726097,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 496633111,
@@ -1015,7 +1039,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Phantom Ranger"
     },
     {
       "id": 390989338,
@@ -1119,7 +1144,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 453519372,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Hawkeye"
     },
     {
       "id": 976322682,
@@ -1145,7 +1171,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Silver Ranger"
     },
     {
       "id": 828376544,
@@ -1171,7 +1198,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bladedancer"
     },
     {
       "id": 876201034,
@@ -1223,7 +1251,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Sword Singer"
     },
     {
       "id": 225301202,
@@ -1249,7 +1278,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Warcryer"
     },
     {
       "id": 640975412,
@@ -1275,7 +1305,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Overlord"
     },
     {
       "id": 87455257,
@@ -1405,7 +1436,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 756253070,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Destroyer"
     },
     {
       "id": 829642114,
@@ -1457,7 +1489,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Tyrant"
     },
     {
       "id": 280107848,
@@ -1561,7 +1594,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Prophet"
     },
     {
       "id": 457263580,
@@ -1587,7 +1621,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 58317717,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bishop"
     },
     {
       "id": 3202435,
@@ -1639,7 +1674,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Necromancer"
     },
     {
       "id": 496950661,
@@ -1743,7 +1779,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Spellhowler"
     },
     {
       "id": 955874860,
@@ -1795,7 +1832,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sorcerer"
     },
     {
       "id": 494601187,
@@ -1821,7 +1859,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Treasure Hunter"
     },
     {
       "id": 768839465,
@@ -1899,7 +1938,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 862584249,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Paladin"
     },
     {
       "id": 564737290,
@@ -1925,7 +1965,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 494275488,
@@ -1951,7 +1992,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Soul Hound"
     },
     {
       "id": 437972727,
@@ -2003,7 +2045,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 905644003,
@@ -2055,7 +2098,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 31305330,
@@ -2081,7 +2125,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 756253070,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Phantom Ranger"
     },
     {
       "id": 312569327,
@@ -2133,7 +2178,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Hawkeye"
     },
     {
       "id": 269063457,
@@ -2263,7 +2309,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Silver Ranger"
     },
     {
       "id": 243247147,
@@ -2289,7 +2336,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bladedancer"
     },
     {
       "id": 503645068,
@@ -2315,7 +2363,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sword Singer"
     },
     {
       "id": 678629251,
@@ -2341,7 +2390,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Warcryer"
     },
     {
       "id": 27514092,
@@ -2393,7 +2443,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Overlord"
     },
     {
       "id": 451974915,
@@ -2419,7 +2470,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Destroyer"
     },
     {
       "id": 45070446,
@@ -2445,7 +2497,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Tyrant"
     },
     {
       "id": 815183885,
@@ -2471,7 +2524,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 890351959,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Prophet"
     },
     {
       "id": 224562464,
@@ -2497,7 +2551,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bishop"
     },
     {
       "id": 532462972,
@@ -2523,7 +2578,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 974162626,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Necromancer"
     },
     {
       "id": 126826035,
@@ -2549,7 +2605,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 890351959,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Spellhowler"
     },
     {
       "id": 568487327,
@@ -2679,7 +2736,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sorcerer"
     },
     {
       "id": 4541473,
@@ -2705,7 +2763,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Treasure Hunter"
     },
     {
       "id": 384229395,
@@ -2731,7 +2790,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Paladin"
     },
     {
       "id": 242567672,
@@ -2757,7 +2817,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 862584249,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 340485756,
@@ -2783,7 +2844,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 919273721,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Soul Hound"
     },
     {
       "id": 262441267,
@@ -2835,7 +2897,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 738115878,
@@ -2913,7 +2976,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 699614311,
@@ -2939,7 +3003,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Phantom Ranger"
     },
     {
       "id": 459056822,
@@ -2965,7 +3030,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Hawkeye"
     },
     {
       "id": 598492885,
@@ -2991,7 +3057,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Silver Ranger"
     },
     {
       "id": 688718919,
@@ -3043,7 +3110,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Bladedancer"
     },
     {
       "id": 539397672,
@@ -3069,7 +3137,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sword Singer"
     },
     {
       "id": 694830087,
@@ -3095,7 +3164,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Warcryer"
     },
     {
       "id": 251741018,
@@ -3173,7 +3243,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 890351959,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Overlord"
     },
     {
       "id": 217236640,
@@ -3199,7 +3270,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Destroyer"
     },
     {
       "id": 979419792,
@@ -3251,7 +3323,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 385726097,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Tyrant"
     },
     {
       "id": 695546150,
@@ -3277,7 +3350,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 453519372,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Prophet"
     },
     {
       "id": 480327954,
@@ -3355,7 +3429,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 862584249,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bishop"
     },
     {
       "id": 443244805,
@@ -3381,7 +3456,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 385726097,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Necromancer"
     },
     {
       "id": 596093151,
@@ -3433,7 +3509,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Spellhowler"
     },
     {
       "id": 845912763,
@@ -3511,7 +3588,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 385726097,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Sorcerer"
     },
     {
       "id": 417558222,
@@ -3563,7 +3641,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 405254345,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Treasure Hunter"
     },
     {
       "id": 86009504,
@@ -3641,7 +3720,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Paladin"
     },
     {
       "id": 890514798,
@@ -3771,7 +3851,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 453519372,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 119573388,
@@ -3797,7 +3878,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Soul Hound"
     },
     {
       "id": 730383167,
@@ -3823,7 +3905,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 617020736,
@@ -3927,7 +4010,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 403044948,
@@ -4031,7 +4115,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Phantom Ranger"
     },
     {
       "id": 688327292,
@@ -4135,7 +4220,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 385726097,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Hawkeye"
     },
     {
       "id": 115231789,
@@ -4161,7 +4247,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 919273721,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Silver Ranger"
     },
     {
       "id": 806520288,
@@ -4265,7 +4352,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 919273721,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bladedancer"
     },
     {
       "id": 578208713,
@@ -4291,7 +4379,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 507692522,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Sword Singer"
     },
     {
       "id": 695175930,
@@ -4343,7 +4432,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 890351959,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Warcryer"
     },
     {
       "id": 904678041,
@@ -4473,7 +4563,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 919273721,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Overlord"
     },
     {
       "id": 737924755,
@@ -4551,7 +4642,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 756253070,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Destroyer"
     },
     {
       "id": 416008352,
@@ -4577,7 +4669,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 862584249,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Tyrant"
     },
     {
       "id": 249684898,
@@ -4603,7 +4696,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Prophet"
     },
     {
       "id": 962587264,
@@ -4629,7 +4723,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bishop"
     },
     {
       "id": 421313346,
@@ -4655,7 +4750,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 58317717,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Necromancer"
     },
     {
       "id": 533025401,
@@ -4681,7 +4777,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 799222768,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Spellhowler"
     },
     {
       "id": 760362757,
@@ -4707,7 +4804,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 890351959,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sorcerer"
     },
     {
       "id": 971066199,
@@ -4837,7 +4935,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Treasure Hunter"
     },
     {
       "id": 570886155,
@@ -4915,7 +5014,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Paladin"
     },
     {
       "id": 877083508,
@@ -4993,7 +5093,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 310891260,
@@ -5045,7 +5146,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 919273721,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Soul Hound"
     },
     {
       "id": 220937734,
@@ -5071,7 +5173,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 405254345,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 728690811,
@@ -5175,7 +5278,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 58317717,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 429997469,
@@ -5227,7 +5331,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 335752618,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Phantom Ranger"
     },
     {
       "id": 526998113,
@@ -5409,7 +5514,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Hawkeye"
     },
     {
       "id": 160747808,
@@ -5461,7 +5567,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 405254345,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Silver Ranger"
     },
     {
       "id": 133241954,
@@ -5487,7 +5594,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bladedancer"
     },
     {
       "id": 822447486,
@@ -5617,7 +5725,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sword Singer"
     },
     {
       "id": 364623166,
@@ -5747,7 +5856,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Warcryer"
     },
     {
       "id": 292995624,
@@ -5799,7 +5909,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 58317717,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Overlord"
     },
     {
       "id": 614524134,
@@ -5825,7 +5936,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 453519372,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Destroyer"
     },
     {
       "id": 709885863,
@@ -5851,7 +5963,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 58317717,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Tyrant"
     },
     {
       "id": 993834795,
@@ -5903,7 +6016,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 448072907,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Prophet"
     },
     {
       "id": 206174377,
@@ -5929,7 +6043,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 756253070,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Bishop"
     },
     {
       "id": 126980770,
@@ -6137,7 +6252,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Necromancer"
     },
     {
       "id": 254590435,
@@ -6163,7 +6279,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 756253070,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Spellhowler"
     },
     {
       "id": 880642213,
@@ -6241,7 +6358,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 520200,
       "raidCpId": 453519372,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Sorcerer"
     },
     {
       "id": 528396024,
@@ -6267,7 +6385,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 919558079,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Treasure Hunter"
     },
     {
       "id": 778542435,
@@ -6293,7 +6412,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 193766653,
       "raidCpId": 646685414,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Paladin"
     },
     {
       "id": 884929625,
@@ -6319,7 +6439,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 768908,
       "raidCpId": 404899391,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Dark Wizard"
     },
     {
       "id": 83061775,
@@ -6423,7 +6544,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 255825,
       "raidCpId": 207594430,
-      "cpStatus": "pending"
+      "cpStatus": "pending",
+      "classMain": "Soul Hound"
     },
     {
       "id": 507444797,
@@ -6449,7 +6571,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 904483,
       "raidCpId": 756253070,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Temple Knight"
     },
     {
       "id": 697690598,
@@ -6501,7 +6624,8 @@
       "twoFactorBackupCodeHashes": [],
       "raidClanId": 644722,
       "raidCpId": 408159303,
-      "cpStatus": "confirmed"
+      "cpStatus": "confirmed",
+      "classMain": "Shillien Elder"
     },
     {
       "id": 883883838,
@@ -12357,6 +12481,15 @@
       "details": "Login exitoso · IP=127.0.0.1 · UA=\"curl/7.81.0\"",
       "createdAt": "2026-05-03T20:37:43.012Z",
       "id": 901813
+    },
+    {
+      "userId": 1,
+      "actorName": "Super Admin",
+      "actorRole": "super_admin",
+      "action": "LOGIN_SUCCESS",
+      "details": "Login exitoso · IP=143.255.104.136 · UA=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36\"",
+      "createdAt": "2026-05-03T20:59:06.838Z",
+      "id": 696802
     }
   ],
   "images": [],
@@ -19577,6 +19710,530 @@
       "leaderId": 758297,
       "createdAt": "2026-05-03T20:37:38.860192Z",
       "updatedAt": "2026-05-03T20:37:38.860192Z"
+    }
+  ],
+  "raidAvailableClasses": [
+    {
+      "id": 90000,
+      "name": "Dark Wizard",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90001,
+      "name": "Soul Hound",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90002,
+      "name": "Temple Knight",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90003,
+      "name": "Shillien Elder",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90004,
+      "name": "Phantom Ranger",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90005,
+      "name": "Hawkeye",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90006,
+      "name": "Silver Ranger",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90007,
+      "name": "Bladedancer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90008,
+      "name": "Sword Singer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90009,
+      "name": "Warcryer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90010,
+      "name": "Overlord",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90011,
+      "name": "Destroyer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90012,
+      "name": "Tyrant",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90013,
+      "name": "Prophet",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90014,
+      "name": "Bishop",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90015,
+      "name": "Necromancer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90016,
+      "name": "Spellhowler",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90017,
+      "name": "Sorcerer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90018,
+      "name": "Treasure Hunter",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 90019,
+      "name": "Paladin",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    }
+  ],
+  "secondaryCharacters": [
+    {
+      "id": 80000,
+      "userId": 758297,
+      "name": "Luna",
+      "className": "Hawkeye",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 80001,
+      "userId": 642795,
+      "name": "Ragnar",
+      "className": "Silver Ranger",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 80002,
+      "userId": 642795,
+      "name": "Vex",
+      "className": "Bladedancer",
+      "createdAt": "2026-05-03T20:55:53.710Z"
+    },
+    {
+      "id": 80003,
+      "userId": 876147,
+      "name": "Vex",
+      "className": "Bladedancer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80004,
+      "userId": 876147,
+      "name": "Nyx",
+      "className": "Sword Singer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80005,
+      "userId": 876147,
+      "name": "Zara",
+      "className": "Warcryer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80006,
+      "userId": 639001,
+      "name": "Nyx",
+      "className": "Sword Singer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80007,
+      "userId": 386290,
+      "name": "Zara",
+      "className": "Warcryer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80008,
+      "userId": 386290,
+      "name": "Kael",
+      "className": "Overlord",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80009,
+      "userId": 771121,
+      "name": "Kael",
+      "className": "Overlord",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80010,
+      "userId": 771121,
+      "name": "Thira",
+      "className": "Destroyer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80011,
+      "userId": 771121,
+      "name": "Orin",
+      "className": "Tyrant",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80012,
+      "userId": 679694,
+      "name": "Thira",
+      "className": "Destroyer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80013,
+      "userId": 22435723,
+      "name": "Orin",
+      "className": "Tyrant",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80014,
+      "userId": 22435723,
+      "name": "Sable",
+      "className": "Prophet",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80015,
+      "userId": 313088000,
+      "name": "Sable",
+      "className": "Prophet",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80016,
+      "userId": 313088000,
+      "name": "Fen",
+      "className": "Bishop",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80017,
+      "userId": 313088000,
+      "name": "Luna",
+      "className": "Necromancer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80018,
+      "userId": 153177712,
+      "name": "Fen",
+      "className": "Bishop",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80019,
+      "userId": 965328760,
+      "name": "Luna10",
+      "className": "Necromancer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80020,
+      "userId": 965328760,
+      "name": "Ragnar10",
+      "className": "Spellhowler",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80021,
+      "userId": 354345426,
+      "name": "Ragnar11",
+      "className": "Spellhowler",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80022,
+      "userId": 354345426,
+      "name": "Vex11",
+      "className": "Sorcerer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80023,
+      "userId": 354345426,
+      "name": "Nyx11",
+      "className": "Treasure Hunter",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80024,
+      "userId": 110608296,
+      "name": "Vex12",
+      "className": "Sorcerer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80025,
+      "userId": 717273485,
+      "name": "Nyx13",
+      "className": "Treasure Hunter",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80026,
+      "userId": 717273485,
+      "name": "Zara13",
+      "className": "Paladin",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80027,
+      "userId": 20233762,
+      "name": "Zara14",
+      "className": "Paladin",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80028,
+      "userId": 20233762,
+      "name": "Kael14",
+      "className": "Dark Wizard",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80029,
+      "userId": 20233762,
+      "name": "Thira14",
+      "className": "Soul Hound",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80030,
+      "userId": 375523679,
+      "name": "Kael15",
+      "className": "Dark Wizard",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80031,
+      "userId": 425642412,
+      "name": "Thira16",
+      "className": "Soul Hound",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80032,
+      "userId": 425642412,
+      "name": "Orin16",
+      "className": "Temple Knight",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80033,
+      "userId": 49222510,
+      "name": "Orin17",
+      "className": "Temple Knight",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80034,
+      "userId": 49222510,
+      "name": "Sable17",
+      "className": "Shillien Elder",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80035,
+      "userId": 49222510,
+      "name": "Fen17",
+      "className": "Phantom Ranger",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80036,
+      "userId": 768267271,
+      "name": "Sable18",
+      "className": "Shillien Elder",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80037,
+      "userId": 198231235,
+      "name": "Fen19",
+      "className": "Phantom Ranger",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80038,
+      "userId": 198231235,
+      "name": "Luna19",
+      "className": "Hawkeye",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80039,
+      "userId": 802704410,
+      "name": "Luna20",
+      "className": "Hawkeye",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80040,
+      "userId": 802704410,
+      "name": "Ragnar20",
+      "className": "Silver Ranger",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80041,
+      "userId": 802704410,
+      "name": "Vex20",
+      "className": "Bladedancer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80042,
+      "userId": 217539165,
+      "name": "Ragnar21",
+      "className": "Silver Ranger",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80043,
+      "userId": 270495364,
+      "name": "Vex22",
+      "className": "Bladedancer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80044,
+      "userId": 270495364,
+      "name": "Nyx22",
+      "className": "Sword Singer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80045,
+      "userId": 52909284,
+      "name": "Nyx23",
+      "className": "Sword Singer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80046,
+      "userId": 52909284,
+      "name": "Zara23",
+      "className": "Warcryer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80047,
+      "userId": 52909284,
+      "name": "Kael23",
+      "className": "Overlord",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80048,
+      "userId": 496633111,
+      "name": "Zara24",
+      "className": "Warcryer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80049,
+      "userId": 523084779,
+      "name": "Kael25",
+      "className": "Overlord",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80050,
+      "userId": 523084779,
+      "name": "Thira25",
+      "className": "Destroyer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80051,
+      "userId": 976322682,
+      "name": "Thira26",
+      "className": "Destroyer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80052,
+      "userId": 976322682,
+      "name": "Orin26",
+      "className": "Tyrant",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80053,
+      "userId": 976322682,
+      "name": "Sable26",
+      "className": "Prophet",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80054,
+      "userId": 828376544,
+      "name": "Orin27",
+      "className": "Tyrant",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80055,
+      "userId": 729370934,
+      "name": "Sable28",
+      "className": "Prophet",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80056,
+      "userId": 729370934,
+      "name": "Fen28",
+      "className": "Bishop",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80057,
+      "userId": 225301202,
+      "name": "Fen29",
+      "className": "Bishop",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80058,
+      "userId": 225301202,
+      "name": "Luna29",
+      "className": "Necromancer",
+      "createdAt": "2026-05-03T20:55:53.711Z"
+    },
+    {
+      "id": 80059,
+      "userId": 225301202,
+      "name": "Ragnar29",
+      "className": "Spellhowler",
+      "createdAt": "2026-05-03T20:55:53.711Z"
     }
   ]
 }

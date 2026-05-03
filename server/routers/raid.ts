@@ -1031,19 +1031,28 @@ export const raidRouter = router({
           isLeader: Number(cp.leaderId) === Number(u.id),
           secondaryCharacters: secondaries.filter((sc: any) => Number(sc.userId) === Number(u.id)),
         });
+        // Sort: leaders first, then confirmed, then pending
+        const sortMembers = (arr: any[]) => arr.sort((a, b) => {
+          if (a.isLeader !== b.isLeader) return a.isLeader ? -1 : 1;
+          if (a.cpStatus !== b.cpStatus) {
+            if (a.cpStatus === 'confirmed') return -1;
+            if (b.cpStatus === 'confirmed') return 1;
+          }
+          return 0;
+        });
 
         const access = await canUserAccessRaidModule(ctx.user);
         if (role === 'super_admin' || access.canAdmin) {
           const members = await getUsersByCp(input.cpId);
           const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
-          return members.map((u: any) => mapMember(u, scs));
+          return sortMembers(members.map((u: any) => mapMember(u, scs)));
         }
 
         // Leader can see their own CP members
         if (Number(cp.leaderId) === userId) {
           const members = await getUsersByCp(input.cpId);
           const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
-          return members.map((u: any) => mapMember(u, scs));
+          return sortMembers(members.map((u: any) => mapMember(u, scs)));
         }
 
         // Regular confirmed user: only see confirmed members of their own clan CPs
@@ -1053,10 +1062,10 @@ export const raidRouter = router({
         }
         const members = (await getUsersByCp(input.cpId)).filter((u: any) => u.cpStatus === 'confirmed');
         const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
-        return members.map((u: any) => ({
+        return sortMembers(members.map((u: any) => ({
           ...mapMember(u, scs),
           cpStatus: 'confirmed' as const,
-        }));
+        })));
       }),
 
     // List members of a clan (for leader dropdown) — super admin only
@@ -1201,15 +1210,34 @@ export const raidRouter = router({
       .input(z.object({
         name: z.string().min(1).max(100),
         className: z.string().max(100).optional(),
+        userId: z.number().int().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        return await addSecondaryCharacter(Number(ctx.user?.id), input);
+        let targetUserId = Number(ctx.user?.id);
+        if (input.userId && input.userId !== targetUserId) {
+          const role = String(ctx.user?.role || '').toLowerCase();
+          const access = await canUserAccessRaidModule(ctx.user);
+          if (role !== 'super_admin' && !access.canAdmin) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo admin puede agregar alts a otros miembros' });
+          }
+          targetUserId = input.userId;
+        }
+        return await addSecondaryCharacter(targetUserId, input);
       }),
 
     deleteSecondaryChar: raidViewerProcedure
-      .input(z.object({ id: z.number().int() }))
+      .input(z.object({ id: z.number().int(), userId: z.number().int().optional() }))
       .mutation(async ({ ctx, input }) => {
-        const removed = await deleteSecondaryCharacter(input.id, Number(ctx.user?.id));
+        let targetUserId = Number(ctx.user?.id);
+        if (input.userId && input.userId !== targetUserId) {
+          const role = String(ctx.user?.role || '').toLowerCase();
+          const access = await canUserAccessRaidModule(ctx.user);
+          if (role !== 'super_admin' && !access.canAdmin) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo admin puede eliminar alts de otros miembros' });
+          }
+          targetUserId = input.userId;
+        }
+        const removed = await deleteSecondaryCharacter(input.id, targetUserId);
         if (!removed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Personaje secundario no encontrado' });
         return { success: true };
       }),

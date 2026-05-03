@@ -645,6 +645,7 @@ function CpRow({
                 member={m}
                 isFirst={idx === 0}
                 canManageMembers={canManageMembers}
+                canManageAlts={isSuperAdmin || isAdmin}
                 onSetMemberStatus={onSetMemberStatus}
                 currentUserId={currentUserId}
               />
@@ -659,16 +660,18 @@ function CpRow({
 // ---------- Individual Member Row (expandable with secondary chars) ----------
 
 function MemberRow({
-  member: m, isFirst, canManageMembers, onSetMemberStatus, currentUserId,
+  member: m, isFirst, canManageMembers, onSetMemberStatus, currentUserId, canManageAlts,
 }: {
   member: any;
   isFirst: boolean;
   canManageMembers: boolean;
   onSetMemberStatus: (userId: number, memberName: string, status: 'confirmed' | 'removed') => void;
   currentUserId: number;
+  canManageAlts: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isOwnRow = Number(m.id) === currentUserId;
+  const canEditAlts = isOwnRow || canManageAlts;
   const secondaryChars = (m.secondaryCharacters || []) as any[];
   const utils = trpc.useUtils();
 
@@ -689,14 +692,16 @@ function MemberRow({
   });
 
   // Classes for dropdown
-  const classesQ = trpc.raid.commandParties.listClasses.useQuery(undefined, { enabled: expanded && isOwnRow });
+  const classesQ = trpc.raid.commandParties.listClasses.useQuery(undefined, { enabled: expanded && canEditAlts });
   const classes = (classesQ.data || []) as any[];
   const [newSecName, setNewSecName] = useState('');
   const [newSecClass, setNewSecClass] = useState('');
 
   const handleAddSec = () => {
     if (!newSecName.trim()) return;
-    addSecChar.mutate({ name: newSecName.trim(), className: newSecClass || undefined });
+    const payload: any = { name: newSecName.trim(), className: newSecClass || undefined };
+    if (!isOwnRow) payload.userId = Number(m.id);
+    addSecChar.mutate(payload);
     setNewSecName('');
     setNewSecClass('');
   };
@@ -715,7 +720,7 @@ function MemberRow({
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {/* Expand indicator */}
-          {(secondaryChars.length > 0 || isOwnRow) ? (
+          {(secondaryChars.length > 0 || canEditAlts) ? (
             expanded
               ? <ChevronDown className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
               : <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
@@ -787,7 +792,7 @@ function MemberRow({
       {expanded && (
         <div className="ml-12 mb-2 rounded-lg p-2.5"
           style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.1)' }}>
-          {secondaryChars.length === 0 && !isOwnRow && (
+          {secondaryChars.length === 0 && !canEditAlts && (
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin personajes secundarios</p>
           )}
           {secondaryChars.map((sc: any) => (
@@ -803,9 +808,9 @@ function MemberRow({
                   </span>
                 )}
               </div>
-              {isOwnRow && (
+              {canEditAlts && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); deleteSecChar.mutate({ id: sc.id }); }}
+                  onClick={(e) => { e.stopPropagation(); deleteSecChar.mutate({ id: sc.id, userId: isOwnRow ? undefined : Number(m.id) }); }}
                   className="p-1 rounded hover:bg-white/5 transition" title="Eliminar PJ secundario"
                   style={{ color: '#ef4444' }}>
                   <Trash2 className="h-3.5 w-3.5" />
@@ -815,7 +820,7 @@ function MemberRow({
           ))}
 
           {/* Add secondary character form (only own row) */}
-          {isOwnRow && (
+          {canEditAlts && (
             <div className="flex items-center gap-2 mt-2">
               <input
                 value={newSecName}
