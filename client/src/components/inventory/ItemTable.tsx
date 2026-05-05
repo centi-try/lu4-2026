@@ -116,6 +116,16 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   );
   const reservations: ItemReservationRecord[] = (reservationsData as any[]) || [];
 
+  const utils = trpc.useUtils();
+  const markPreSoldMutation = trpc.items.reservations.markPreSold.useMutation({
+    onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Reserva marcada como pre-vendida.'); },
+    onError: (err) => toast.error(err.message || 'Error al marcar pre-venta.'),
+  });
+  const unmarkPreSoldMutation = trpc.items.reservations.unmarkPreSold.useMutation({
+    onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Pre-venta desmarcada.'); },
+    onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
+  });
+
   // Map itemId -> reservas vivas del item, para pill y highlight.
   const reservationsByItem = useMemo(() => {
     const m = new Map<string, ItemReservationRecord[]>();
@@ -755,9 +765,32 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                                 )}
                               </div>
                             </div>
-                            <span className="text-sm font-mono" style={{ color: isPreSold ? '#34d399' : '#fbbf24' }}>
-                              {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono" style={{ color: isPreSold ? '#34d399' : '#fbbf24' }}>
+                                {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
+                              </span>
+                              {isPreSold ? (
+                                <button
+                                  onClick={() => unmarkPreSoldMutation.mutate({ id: r.id })}
+                                  disabled={unmarkPreSoldMutation.isPending}
+                                  className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-red-500/10"
+                                  style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                                  title="Desmarcar pre-venta"
+                                >
+                                  Desmarcar
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => markPreSoldMutation.mutate({ id: r.id })}
+                                  disabled={markPreSoldMutation.isPending}
+                                  className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-green-500/10"
+                                  style={{ color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+                                  title="Marcar como vendido a este personaje"
+                                >
+                                  Vendido
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}

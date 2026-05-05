@@ -156,9 +156,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
           cursor: disabled ? 'not-allowed' : 'pointer',
         }}
       >
-        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">
-          {hasPreSold ? 'V' : 'R'}
-        </span>
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">R</span>
       </button>
 
       {open && createPortal(
