@@ -199,8 +199,8 @@ export default function Settings() {
           {/* 2FA (solo super_admin — PR6) */}
           {isSuperAdmin && <TwoFactorSection />}
 
-          {/* Fondo del Clan — solo visible para super_admin */}
-          {isSuperAdmin && <ClanFundSettingsCard />}
+          {/* Fondo del Clan — visible para todos, solo super_admin puede editar */}
+          <ClanFundSettingsCard canEdit={isSuperAdmin} />
 
           {/* Categories reference */}
           <div className="card-glass rounded-2xl p-5">
@@ -246,7 +246,7 @@ export default function Settings() {
   );
 }
 
-function ClanFundSettingsCard() {
+function ClanFundSettingsCard({ canEdit }: { canEdit: boolean }) {
   const { data: settings, isLoading } = trpc.clanFund.getSettings.useQuery();
   const utils = trpc.useUtils();
   const updateMutation = trpc.clanFund.updateSettings.useMutation({
@@ -269,6 +269,7 @@ function ClanFundSettingsCard() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) return;
     const tax = parseFloat(taxPct);
     const disc = parseFloat(discPct);
     if (isNaN(tax) || tax < 0 || tax > 100) { toast.error('Porcentaje clan debe estar entre 0 y 100'); return; }
@@ -277,6 +278,8 @@ function ClanFundSettingsCard() {
   };
 
   if (isLoading) return null;
+
+  const disabledStyle = !canEdit ? { opacity: 0.6, cursor: 'not-allowed' } : {};
 
   return (
     <div className="card-glass rounded-2xl p-5" style={{ border: '1px solid rgba(251,191,36,0.15)' }}>
@@ -287,7 +290,9 @@ function ClanFundSettingsCard() {
         </div>
         <div>
           <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Fondo del Clan</h3>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Retención y descuento interno</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {canEdit ? 'Retención y descuento interno' : 'Solo lectura — solo el Super Admin puede modificar'}
+          </p>
         </div>
       </div>
 
@@ -299,10 +304,11 @@ function ClanFundSettingsCard() {
           <input
             type="number"
             value={taxPct}
-            onChange={e => setTaxPct(e.target.value)}
+            onChange={e => canEdit && setTaxPct(e.target.value)}
+            disabled={!canEdit}
             min="0" max="100" step="0.1"
             className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all font-mono"
-            style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+            style={{ ...{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }, ...disabledStyle }}
           />
           <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
             Porcentaje de cada venta que se destina al fondo del clan (sobre precio real cobrado).
@@ -315,28 +321,31 @@ function ClanFundSettingsCard() {
           <input
             type="number"
             value={discPct}
-            onChange={e => setDiscPct(e.target.value)}
+            onChange={e => canEdit && setDiscPct(e.target.value)}
+            disabled={!canEdit}
             min="0" max="100" step="0.1"
             className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all font-mono"
-            style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+            style={{ ...{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }, ...disabledStyle }}
           />
           <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
             Descuento aplicado al precio cuando se marca como "Venta Interna Clan".
           </p>
         </div>
-        <button
-          type="submit"
-          disabled={updateMutation.isPending}
-          className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
-          style={{ background: '#fbbf24', color: '#000' }}
-        >
-          {updateMutation.isPending ? (
-            <RefreshCw className="h-4 w-4 animate-spin" />
-          ) : (
-            <Coins className="h-4 w-4" />
-          )}
-          {updateMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
-        </button>
+        {canEdit && (
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+            style={{ background: '#fbbf24', color: '#000' }}
+          >
+            {updateMutation.isPending ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Coins className="h-4 w-4" />
+            )}
+            {updateMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
+          </button>
+        )}
       </form>
     </div>
   );
