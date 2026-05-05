@@ -407,14 +407,14 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-4 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_50px_50px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
                 <span className="text-center">Rol</span>
                 <span className="text-center">Último acceso</span>
                 <span className="text-center">Estado</span>
-                <span className="text-center">Menú Antiguo</span>
+                <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
                 <span className="text-center">Acciones</span>
                 <span className="text-center">Eliminar</span>
               </div>
@@ -432,7 +432,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-3 md:gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_50px_50px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
