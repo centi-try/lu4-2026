@@ -253,6 +253,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
       role: 'super_admin',
       loginMethod: 'local',
       isActive: true,
+      legacyAccess: true,
       passwordHash: normalizedUsers[existingIndex].passwordHash || hashLocalPassword(DEFAULT_SUPER_ADMIN_PASSWORD),
       updatedAt: new Date().toISOString(),
     };
@@ -266,6 +267,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
       role: 'super_admin',
       loginMethod: 'local',
       isActive: true,
+      legacyAccess: true,
       passwordHash: hashLocalPassword(DEFAULT_SUPER_ADMIN_PASSWORD),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1482,6 +1484,7 @@ export const getAllUsers = async () => {
     characterName: u.characterName,
     role: u.role || 'user',
     isActive: u.isActive !== undefined ? u.isActive : true,
+    legacyAccess: u.legacyAccess === true,
     loginMethod: u.loginMethod,
     createdAt: u.createdAt,
     lastSignedIn: u.lastSignedIn,
@@ -1504,6 +1507,14 @@ export const setUserRole = async (userId: number, role: string) => {
   const userIndex = dbInstance.users.findIndex(u => u.id === userId);
   if (userIndex === -1) return null;
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], role: normalizeRole(role), updatedAt: new Date() };
+  saveDb(dbInstance);
+  return dbInstance.users[userIndex];
+};
+
+export const setUserLegacyAccess = async (userId: number, legacyAccess: boolean) => {
+  const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
+  if (userIndex === -1) return null;
+  dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], legacyAccess, updatedAt: new Date().toISOString() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
 };

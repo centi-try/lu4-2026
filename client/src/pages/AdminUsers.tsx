@@ -13,6 +13,7 @@ interface AdminUser {
   characterName?: string;
   role: string;
   isActive: boolean;
+  legacyAccess?: boolean;
   loginMethod?: string;
   createdAt?: string;
   lastSignedIn?: string;
@@ -190,6 +191,20 @@ export default function AdminUsers() {
     },
     onError: (err) => {
       toast.error(err.message || 'Error al cambiar la contraseña.');
+    },
+  });
+
+  const toggleLegacyMutation = trpc.adminUsers.toggleLegacyAccess.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        data.user.legacyAccess
+          ? `Menú antiguo activado para ${data.user.name}.`
+          : `Menú antiguo desactivado para ${data.user.name}.`
+      );
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al cambiar acceso al menú antiguo.');
     },
   });
 
@@ -392,13 +407,14 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-4 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
                 <span className="text-center">Rol</span>
                 <span className="text-center">Último acceso</span>
                 <span className="text-center">Estado</span>
+                <span className="text-center">Menú Antiguo</span>
                 <span className="text-center">Acciones</span>
                 <span className="text-center">Eliminar</span>
               </div>
@@ -416,7 +432,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 md:gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-3 md:gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -484,6 +500,25 @@ export default function AdminUsers() {
                         <span className="text-xs md:hidden" style={{ color: user.isActive !== false ? '#7bf1d6' : 'rgba(255,255,255,0.35)' }}>
                           {user.isActive !== false ? 'Activo' : 'Inactivo'}
                         </span>
+                      </div>
+
+                      {/* Legacy Access Toggle */}
+                      <div className="flex items-center gap-3 justify-start md:justify-center">
+                        {isCurrentUserSuperAdmin ? (
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Siempre</span>
+                        ) : (
+                          <>
+                            <ActiveToggle
+                              userId={user.id}
+                              isActive={user.legacyAccess === true}
+                              onToggle={(uid) => toggleLegacyMutation.mutate({ userId: uid, legacyAccess: !(user.legacyAccess === true) })}
+                              disabled={isPending}
+                            />
+                            <span className="text-xs md:hidden" style={{ color: user.legacyAccess === true ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
+                              {user.legacyAccess === true ? 'Sí' : 'No'}
+                            </span>
+                          </>
+                        )}
                       </div>
 
                       {/* Actions info */}

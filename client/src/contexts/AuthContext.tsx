@@ -7,6 +7,7 @@ interface User {
   characterName: string;
   role: string;
   isActive?: boolean;
+  legacyAccess?: boolean;
   emailVerified?: boolean;
   twoFactorEnabled?: boolean;
 }

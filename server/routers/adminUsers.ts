@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, getUserById, deleteUser, createAuditLog, updateUserPassword } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -225,6 +225,53 @@ export const adminUsersRouter = router({
       return {
         success: true,
         message: `Contraseña de ${targetUser.email} actualizada correctamente.`,
+      };
+    }),
+
+  toggleLegacyAccess: superAdminProcedure
+    .input(z.object({
+      userId: z.number(),
+      legacyAccess: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const targetUser = await getUserById(input.userId);
+      if (!targetUser) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+      }
+
+      if (targetUser.role === 'super_admin') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'El Super Admin siempre tiene acceso al menú antiguo.',
+        });
+      }
+
+      const updatedUser = await setUserLegacyAccess(input.userId, input.legacyAccess);
+
+      const targetLabel = targetUser.characterName || targetUser.name || targetUser.email;
+      await createAuditLog({
+        userId: ctx.user.id,
+        action: input.legacyAccess ? 'LEGACY_ACCESS_ENABLED' : 'LEGACY_ACCESS_DISABLED',
+        detail: input.legacyAccess
+          ? `Activó acceso al menú antiguo para ${targetLabel}.`
+          : `Desactivó acceso al menú antiguo para ${targetLabel}.`,
+        details: {
+          targetUserId: input.userId,
+          targetEmail: targetUser.email,
+          performedBy: ctx.user.email || ctx.user.openId,
+        },
+      });
+
+      return {
+        success: true,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.characterName || updatedUser.name || 'Usuario',
+          role: updatedUser.role,
+          isActive: updatedUser.isActive,
+          legacyAccess: updatedUser.legacyAccess,
+        },
       };
     }),
 });

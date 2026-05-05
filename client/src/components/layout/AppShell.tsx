@@ -109,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navItems.filter(item => {
+          {(isAuthSuperAdmin || authUser?.legacyAccess === true) && navItems.filter(item => {
             if (!item.allowedRoles) return true;
             const currentRole = String(authUser?.role || '').toLowerCase() as 'super_admin' | 'mapper' | 'user';
             return item.allowedRoles.includes(currentRole);
