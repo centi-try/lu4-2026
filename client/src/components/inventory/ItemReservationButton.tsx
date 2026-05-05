@@ -26,6 +26,7 @@ export interface ItemReservationRecord {
   userName: string;
   characterName: string;
   quantity: number;
+  status?: 'active' | 'pre_sold';
   createdAt: string;
 }
 
@@ -58,6 +59,8 @@ export function ItemReservationButton({ item, reservations }: Props) {
 
   const reservedCount = rowReservations.length;
   const reservedUnits = rowReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+  const hasPreSold = rowReservations.some(r => r.status === 'pre_sold');
+  const preSoldCount = rowReservations.filter(r => r.status === 'pre_sold').length;
 
   const currentUserId = Number((user as any)?.id || 0);
   const characterName = String((user as any)?.characterName || user?.name || '').trim();
@@ -129,13 +132,15 @@ export function ItemReservationButton({ item, reservations }: Props) {
               : 'Reservar / ver reservas'
         }
         style={{
-          color: disabled ? 'rgba(255,255,255,0.2)' : '#fbbf24',
-          borderColor: disabled ? 'rgba(255,255,255,0.04)' : 'rgba(251,191,36,0.25)',
-          background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(251,191,36,0.08)',
+          color: disabled ? 'rgba(255,255,255,0.2)' : hasPreSold ? '#34d399' : '#fbbf24',
+          borderColor: disabled ? 'rgba(255,255,255,0.04)' : hasPreSold ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)',
+          background: disabled ? 'rgba(255,255,255,0.02)' : hasPreSold ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.08)',
           cursor: disabled ? 'not-allowed' : 'pointer',
         }}
       >
-        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">R</span>
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">
+          {hasPreSold ? 'V' : 'R'}
+        </span>
       </button>
 
       {open && createPortal(
@@ -248,22 +253,31 @@ export function ItemReservationButton({ item, reservations }: Props) {
                     rowReservations.map((r) => {
                       const isOwner = Number(r.userId) === currentUserId;
                       const canDelete = isOwner || canAdmin;
+                      const isPreSold = r.status === 'pre_sold';
                       return (
                         <div
                           key={r.id}
                           className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0"
                           style={{
                             borderColor: 'rgba(255,255,255,0.04)',
-                            background: isOwner ? 'rgba(251,191,36,0.05)' : 'transparent',
+                            background: isPreSold ? 'rgba(52,211,153,0.06)' : isOwner ? 'rgba(251,191,36,0.05)' : 'transparent',
                           }}
                         >
                           <div className="flex-1 min-w-0">
                             <p
                               className="text-xs truncate font-medium"
-                              style={{ color: isOwner ? '#fbbf24' : 'rgba(255,255,255,0.85)' }}
+                              style={{ color: isPreSold ? '#34d399' : isOwner ? '#fbbf24' : 'rgba(255,255,255,0.85)' }}
                             >
                               {r.characterName}
-                              {isOwner && (
+                              {isPreSold && (
+                                <span
+                                  className="ml-1 text-[10px] font-semibold"
+                                  style={{ color: '#34d399' }}
+                                >
+                                  (Pre-vendido)
+                                </span>
+                              )}
+                              {isOwner && !isPreSold && (
                                 <span
                                   className="ml-1 text-[10px] font-mono"
                                   style={{ color: 'rgba(251,191,36,0.7)' }}
@@ -290,9 +304,9 @@ export function ItemReservationButton({ item, reservations }: Props) {
                           <span
                             className="text-[11px] font-mono px-1.5 py-0.5 rounded shrink-0"
                             style={{
-                              background: 'rgba(251,191,36,0.1)',
-                              border: '1px solid rgba(251,191,36,0.25)',
-                              color: '#fbbf24',
+                              background: isPreSold ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)',
+                              border: isPreSold ? '1px solid rgba(52,211,153,0.25)' : '1px solid rgba(251,191,36,0.25)',
+                              color: isPreSold ? '#34d399' : '#fbbf24',
                             }}
                           >
                             ×{r.quantity}

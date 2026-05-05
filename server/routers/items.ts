@@ -5,6 +5,7 @@ import {
   getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance,
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
+  markReservationPreSold, unmarkReservationPreSold,
   getClanFundSettings,
 } from "../db";
 
@@ -347,6 +348,60 @@ export const itemsRouter = router({
           },
         });
         return { success: true, reservation: removed };
+      }),
+    markPreSold: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin' && role !== 'mapper' && role !== 'admin') {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Solo Mapper, Admin o Super Admin pueden marcar como pre-vendido.',
+          });
+        }
+        const all = await getItemReservations();
+        const target = all.find(r => Number(r.id) === Number(input.id));
+        if (!target) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Reserva no encontrada.' });
+        }
+        const updated = await markReservationPreSold(input.id, Number(ctx.user?.id || 0));
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'ITEM_RESERVATION_PRE_SOLD',
+          actorName: String((ctx.user as any)?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          itemId: String(target.itemId),
+          detail: `Marcó reserva de ${target.characterName} como pre-vendido en ítem #${target.itemId}.`,
+          details: { reservationId: input.id, itemId: target.itemId, characterName: target.characterName },
+        });
+        return { success: true, reservation: updated };
+      }),
+    unmarkPreSold: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin' && role !== 'mapper' && role !== 'admin') {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Solo Mapper, Admin o Super Admin pueden desmarcar pre-vendido.',
+          });
+        }
+        const all = await getItemReservations();
+        const target = all.find(r => Number(r.id) === Number(input.id));
+        if (!target) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Reserva no encontrada.' });
+        }
+        const updated = await unmarkReservationPreSold(input.id);
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'ITEM_RESERVATION_UNMARK_PRE_SOLD',
+          actorName: String((ctx.user as any)?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          itemId: String(target.itemId),
+          detail: `Desmarcó pre-venta de ${target.characterName} en ítem #${target.itemId}.`,
+          details: { reservationId: input.id, itemId: target.itemId },
+        });
+        return { success: true, reservation: updated };
       }),
   }),
 });

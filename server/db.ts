@@ -2950,6 +2950,9 @@ export interface ItemReservation {
   userName: string;
   characterName: string;
   quantity: number;
+  status: 'active' | 'pre_sold';
+  preSoldBy?: number;
+  preSoldAt?: string;
   createdAt: string;
 }
 
@@ -3006,6 +3009,7 @@ export const createItemReservation = async (data: {
     userName: String(data.userName || '').trim(),
     characterName: String(data.characterName || '').trim(),
     quantity: Number(data.quantity),
+    status: 'active',
     createdAt: nowIso(),
   };
   dbInstance.itemReservations.push(reservation);
@@ -3034,6 +3038,38 @@ export const clearReservationsForItem = async (itemId: number): Promise<ItemRese
   );
   if (matched.length > 0) saveDb(dbInstance);
   return matched;
+};
+
+export const markReservationPreSold = async (reservationId: number, preSoldByUserId: number): Promise<ItemReservation | null> => {
+  if (!dbInstance.itemReservations) return null;
+  const idx = dbInstance.itemReservations.findIndex(
+    (r: ItemReservation) => Number(r.id) === Number(reservationId)
+  );
+  if (idx === -1) return null;
+  dbInstance.itemReservations[idx] = {
+    ...dbInstance.itemReservations[idx],
+    status: 'pre_sold',
+    preSoldBy: preSoldByUserId,
+    preSoldAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.itemReservations[idx];
+};
+
+export const unmarkReservationPreSold = async (reservationId: number): Promise<ItemReservation | null> => {
+  if (!dbInstance.itemReservations) return null;
+  const idx = dbInstance.itemReservations.findIndex(
+    (r: ItemReservation) => Number(r.id) === Number(reservationId)
+  );
+  if (idx === -1) return null;
+  dbInstance.itemReservations[idx] = {
+    ...dbInstance.itemReservations[idx],
+    status: 'active',
+    preSoldBy: undefined,
+    preSoldAt: undefined,
+  };
+  saveDb(dbInstance);
+  return dbInstance.itemReservations[idx];
 };
 
 // ---------- Raid Audit Logs -------------------------------------------------

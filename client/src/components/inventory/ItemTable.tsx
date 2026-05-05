@@ -116,6 +116,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   );
   const reservations: ItemReservationRecord[] = (reservationsData as any[]) || [];
 
+  const utils = trpc.useUtils();
+  const markPreSoldMutation = trpc.items.reservations.markPreSold.useMutation({
+    onSuccess: () => {
+      utils.items.reservations.list.invalidate();
+      toast.success('Reserva marcada como pre-vendida. Esperando confirmación del Super Admin.');
+    },
+    onError: (err) => toast.error(err.message || 'Error al marcar pre-venta.'),
+  });
+  const unmarkPreSoldMutation = trpc.items.reservations.unmarkPreSold.useMutation({
+    onSuccess: () => {
+      utils.items.reservations.list.invalidate();
+      toast.success('Pre-venta desmarcada.');
+    },
+    onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
+  });
+
   // Map itemId -> reservas vivas del item, para pill y highlight.
   const reservationsByItem = useMemo(() => {
     const m = new Map<string, ItemReservationRecord[]>();
@@ -461,7 +477,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const canEdit = currentUser && currentUser.role === 'SUPER_ADMIN' || (currentUser && currentUser.role === 'MAPPER' && item.status === 'EN_REGISTRO');
                 const canConfirm = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status === 'EN_REGISTRO';
                 const canDelete = currentUser && currentUser.role === 'SUPER_ADMIN';
-                const canSell = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status !== 'VENDIDO' && item.status === 'CONFIRMADO';
+                const canOpenSellModal = currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MAPPER' || currentUser.role === 'ADMIN') && item.status !== 'VENDIDO' && item.status === 'CONFIRMADO';
+                const canConfirmSale = currentUser && currentUser.role === 'SUPER_ADMIN';
                 const isEditing = editId === item.id;
                 const remaining = item.quantity - item.quantitySold;
                 const assocChars = characters.filter(c => item.associatedCharacterIds.includes(c.id));
@@ -588,7 +605,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {canSell && remaining > 0 && (
+                          {canOpenSellModal && remaining > 0 && (
                             <button onClick={() => openSellModal(item)} className="btn-ghost p-2" title="Vender unidades"
                               style={{ color: '#a78bfa', borderColor: 'rgba(167,139,250,0.25)', background: 'rgba(167,139,250,0.08)' }}>
                               <ShoppingCart className="h-3.5 w-3.5" />
@@ -623,7 +640,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               reservations={reservations}
                             />
                           )}
-                          {!canEdit && !canConfirm && !canSell && !canDelete && !authUser && (
+                          {!canEdit && !canConfirm && !canOpenSellModal && !canDelete && !authUser && (
                             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
                           )}
                         </div>
@@ -730,23 +747,63 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#fbbf24', transform: sellReservsOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
                   </button>
                   {sellReservsOpen && (
-                    <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
-                      {itemReservs.map(r => (
-                        <div key={r.id} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
-                              style={{ fontSize: '8px', fontWeight: 'bold', background: 'rgba(251,191,36,0.25)' }}>
-                              {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                    <div className="space-y-1.5 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 180 }}>
+                      {itemReservs.map(r => {
+                        const isPreSold = (r as any).status === 'pre_sold';
+                        const canMarkPreSold = currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MAPPER' || currentUser.role === 'ADMIN');
+                        return (
+                          <div key={r.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
+                            style={{
+                              background: isPreSold ? 'rgba(52,211,153,0.08)' : 'transparent',
+                              border: isPreSold ? '1px solid rgba(52,211,153,0.2)' : '1px solid transparent',
+                            }}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
+                                style={{ fontSize: '8px', fontWeight: 'bold', background: isPreSold ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)' }}>
+                                {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="text-sm" style={{ color: isPreSold ? '#34d399' : 'rgba(255,255,255,0.75)' }}>
+                                  {r.characterName || r.userName}
+                                </span>
+                                {isPreSold && (
+                                  <span className="ml-1.5 text-xs font-semibold" style={{ color: '#34d399' }}>
+                                    (Pre-vendido)
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                              {r.characterName || r.userName}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono" style={{ color: isPreSold ? '#34d399' : '#fbbf24' }}>
+                                {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
+                              </span>
+                              {canMarkPreSold && (
+                                isPreSold ? (
+                                  <button
+                                    onClick={() => unmarkPreSoldMutation.mutate({ id: r.id })}
+                                    disabled={unmarkPreSoldMutation.isPending}
+                                    className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-red-500/10"
+                                    style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                                    title="Desmarcar pre-venta"
+                                  >
+                                    Desmarcar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => markPreSoldMutation.mutate({ id: r.id })}
+                                    disabled={markPreSoldMutation.isPending}
+                                    className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-green-500/10"
+                                    style={{ color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+                                    title="Marcar como vendido a este personaje"
+                                  >
+                                    Vendido
+                                  </button>
+                                )
+                              )}
+                            </div>
                           </div>
-                          <span className="text-sm font-mono" style={{ color: '#fbbf24' }}>
-                            {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -799,113 +856,124 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               </div>
             )}
 
-            {/* Selector de Comprador */}
-            <div className="mb-3">
-              <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Asignar a Comprador/Cuenta
-              </label>
-              <FancySelect<string>
-                value={selectedBuyerId}
-                onChange={(v) => setSelectedBuyerId(String(v))}
-                accent="turquoise"
-                size="lg"
-                placeholder="Seleccionar cuenta..."
-                searchable
-                searchPlaceholder="Buscar personaje..."
-                options={characters.map<FancyOption<string>>(char => ({
-                  value: String(char.id),
-                  label: char.name,
-                  description: char.class,
-                  emoji: '👤',
-                }))}
-              />
-            </div>
-
-            {/* Venta Interna Clan toggle */}
-            {clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
-              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
-                {Number(clanFundSettings.internalDiscountPercent) > 0 && (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isInternalSale}
-                      onChange={e => setIsInternalSale(e.target.checked)}
-                      className="accent-yellow-400"
-                    />
-                    <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
-                      Venta Interna Clan (−{clanFundSettings.internalDiscountPercent}% descuento)
-                    </span>
+            {/* Sección de venta directa — solo Super Admin */}
+            {currentUser && currentUser.role === 'SUPER_ADMIN' && (
+              <>
+                {/* Selector de Comprador */}
+                <div className="mb-3">
+                  <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    Asignar a Comprador/Cuenta
                   </label>
-                )}
-                {Number(clanFundSettings.clanTaxPercent) > 0 && (
-                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
-                  </p>
-                )}
-              </div>
-            )}
+                  <FancySelect<string>
+                    value={selectedBuyerId}
+                    onChange={(v) => setSelectedBuyerId(String(v))}
+                    accent="turquoise"
+                    size="lg"
+                    placeholder="Seleccionar cuenta..."
+                    searchable
+                    searchPlaceholder="Buscar personaje..."
+                    options={characters.map<FancyOption<string>>(char => ({
+                      value: String(char.id),
+                      label: char.name,
+                      description: char.class,
+                      emoji: '👤',
+                    }))}
+                  />
+                </div>
 
-            {/* Input cantidad */}
-            <div className="mb-3">
-              <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                ¿Cuántas unidades vender?
-              </label>
-              <input
-                type="number"
-                value={sellQty}
-                onChange={e => setSellQty(e.target.value)}
-                min="1"
-                max={sellModalItem.quantity - sellModalItem.quantitySold}
-                className="input-dark h-12 text-lg font-mono w-full text-center"
-              />
-              <p className="mt-1.5 text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                Máximo disponible: {sellModalItem.quantity - sellModalItem.quantitySold} unidad(es)
-              </p>
-              {parseInt(sellQty) > 0 && sellModalItem.price && (() => {
-                const qty = parseInt(sellQty) || 0;
-                const baseTotal = (sellModalItem.price ?? 0) * qty;
-                const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
-                const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
-                const totalAfterDiscount = effPrice * qty;
-                const clanPct = Number(clanFundSettings?.clanTaxPercent) || 0;
-                const clanAmt = Math.floor(totalAfterDiscount * clanPct / 100);
-                const netAmount = totalAfterDiscount - clanAmt;
-
-                return (
-                  <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
-                    <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
-                      ${totalAfterDiscount.toLocaleString()}
-                    </p>
-                    {discPct > 0 && (
-                      <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
-                        Descuento interno: -${(baseTotal - totalAfterDiscount).toLocaleString()} ({discPct}%)
-                      </p>
+                {/* Venta Interna Clan toggle */}
+                {clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
+                  <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                    {Number(clanFundSettings.internalDiscountPercent) > 0 && (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isInternalSale}
+                          onChange={e => setIsInternalSale(e.target.checked)}
+                          className="accent-yellow-400"
+                        />
+                        <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
+                          Venta Interna Clan (−{clanFundSettings.internalDiscountPercent}% descuento)
+                        </span>
+                      </label>
                     )}
-                    {clanAmt > 0 && (
-                      <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
-                        🏰 Clan: ${clanAmt.toLocaleString()} ({clanPct}%) · Neto: ${netAmount.toLocaleString()}
-                      </p>
-                    )}
-                    {qty < sellModalItem.quantity - sellModalItem.quantitySold && (
+                    {Number(clanFundSettings.clanTaxPercent) > 0 && (
                       <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                        Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - qty} unidad(es) activas
+                        Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
                       </p>
                     )}
                   </div>
-                );
-              })()}
-            </div>
+                )}
+
+                {/* Input cantidad */}
+                <div className="mb-3">
+                  <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    ¿Cuántas unidades vender?
+                  </label>
+                  <input
+                    type="number"
+                    value={sellQty}
+                    onChange={e => setSellQty(e.target.value)}
+                    min="1"
+                    max={sellModalItem.quantity - sellModalItem.quantitySold}
+                    className="input-dark h-12 text-lg font-mono w-full text-center"
+                  />
+                  <p className="mt-1.5 text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    Máximo disponible: {sellModalItem.quantity - sellModalItem.quantitySold} unidad(es)
+                  </p>
+                  {parseInt(sellQty) > 0 && sellModalItem.price && (() => {
+                    const qty = parseInt(sellQty) || 0;
+                    const baseTotal = (sellModalItem.price ?? 0) * qty;
+                    const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+                    const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+                    const totalAfterDiscount = effPrice * qty;
+                    const clanPct = Number(clanFundSettings?.clanTaxPercent) || 0;
+                    const clanAmt = Math.floor(totalAfterDiscount * clanPct / 100);
+                    const netAmount = totalAfterDiscount - clanAmt;
+
+                    return (
+                      <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
+                        <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
+                          ${totalAfterDiscount.toLocaleString()}
+                        </p>
+                        {discPct > 0 && (
+                          <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                            Descuento interno: -${(baseTotal - totalAfterDiscount).toLocaleString()} ({discPct}%)
+                          </p>
+                        )}
+                        {clanAmt > 0 && (
+                          <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                            Clan: ${clanAmt.toLocaleString()} ({clanPct}%) · Neto: ${netAmount.toLocaleString()}
+                          </p>
+                        )}
+                        {qty < sellModalItem.quantity - sellModalItem.quantitySold && (
+                          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - qty} unidad(es) activas
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
 
             {/* Buttons */}
             <div className="flex gap-3">
               <button onClick={() => setSellModalItem(null)} className="btn-ghost flex-1 py-2.5">
                 Cancelar
               </button>
-              <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
-                <ShoppingCart className="h-4 w-4" />
-                Confirmar Venta
-              </button>
+              {currentUser && currentUser.role === 'SUPER_ADMIN' ? (
+                <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
+                  <ShoppingCart className="h-4 w-4" />
+                  Confirmar Venta
+                </button>
+              ) : (
+                <div className="flex-1 rounded-xl p-2.5 text-center text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
+                  Marca reservas como "Vendido" arriba. El Super Admin confirmará la venta final.
+                </div>
+              )}
             </div>
           </div>
         </div>
