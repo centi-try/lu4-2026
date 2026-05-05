@@ -87,6 +87,24 @@ export function ItemReservationButton({ item, reservations }: Props) {
     onError: (err) => toast.error(err.message || 'No se pudo borrar la reserva'),
   });
 
+  const canMarkPreSold = roleLc === 'super_admin' || roleLc === 'mapper' || roleLc === 'admin';
+
+  const markPreSoldMut = trpc.items.reservations.markPreSold.useMutation({
+    onSuccess: () => {
+      toast.success('Reserva marcada como pre-vendida. Esperando confirmación del Super Admin.');
+      utils.items.reservations.list.invalidate();
+    },
+    onError: (err) => toast.error(err.message || 'Error al marcar pre-venta.'),
+  });
+
+  const unmarkPreSoldMut = trpc.items.reservations.unmarkPreSold.useMutation({
+    onSuccess: () => {
+      toast.success('Pre-venta desmarcada.');
+      utils.items.reservations.list.invalidate();
+    },
+    onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
+  });
+
   useEffect(() => {
     if (!open) return;
     const keyHandler = (e: KeyboardEvent) => {
@@ -311,6 +329,41 @@ export function ItemReservationButton({ item, reservations }: Props) {
                           >
                             ×{r.quantity}
                           </span>
+                          {canMarkPreSold && (
+                            isPreSold ? (
+                              <button
+                                type="button"
+                                onClick={() => unmarkPreSoldMut.mutate({ id: Number(r.id) })}
+                                disabled={unmarkPreSoldMut.isPending}
+                                className="rounded px-1.5 py-0.5 shrink-0 text-[10px] font-semibold transition-colors"
+                                style={{
+                                  background: 'rgba(239,68,68,0.08)',
+                                  border: '1px solid rgba(239,68,68,0.25)',
+                                  color: '#f87171',
+                                  cursor: unmarkPreSoldMut.isPending ? 'not-allowed' : 'pointer',
+                                }}
+                                title="Desmarcar pre-venta"
+                              >
+                                Desmarcar
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => markPreSoldMut.mutate({ id: Number(r.id) })}
+                                disabled={markPreSoldMut.isPending}
+                                className="rounded px-1.5 py-0.5 shrink-0 text-[10px] font-semibold transition-colors"
+                                style={{
+                                  background: 'rgba(52,211,153,0.08)',
+                                  border: '1px solid rgba(52,211,153,0.25)',
+                                  color: '#34d399',
+                                  cursor: markPreSoldMut.isPending ? 'not-allowed' : 'pointer',
+                                }}
+                                title="Marcar como vendido a este personaje"
+                              >
+                                Vendido
+                              </button>
+                            )
+                          )}
                           {canDelete && (
                             <button
                               type="button"
