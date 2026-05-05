@@ -358,7 +358,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                                 }}
                                 title="Marcar como vendido a este personaje"
                               >
-                                Vendido
+                                Pre-vendido
                               </button>
                             )
                           )}

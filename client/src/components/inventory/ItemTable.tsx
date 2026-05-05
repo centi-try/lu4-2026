@@ -787,7 +787,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                                   style={{ color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
                                   title="Marcar como vendido a este personaje"
                                 >
-                                  Vendido
+                                  Pre-vendido
                                 </button>
                               )}
                             </div>
