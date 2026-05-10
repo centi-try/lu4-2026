@@ -125,6 +125,10 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Pre-venta desmarcada.'); },
     onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
   });
+  const unmarkSoldMutation = trpc.items.reservations.unmarkSold.useMutation({
+    onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Estado vendido revertido.'); },
+    onError: (err) => toast.error(err.message || 'Error al revertir estado vendido.'),
+  });
 
   // Map itemId -> reservas vivas del item, para pill y highlight.
   const reservationsByItem = useMemo(() => {
@@ -743,33 +747,49 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     <div className="space-y-1.5 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 180 }}>
                       {itemReservs.map(r => {
                         const isPreSold = (r as any).status === 'pre_sold';
+                        const isSold = (r as any).status === 'sold';
+                        const rowBg = isSold ? 'rgba(34,197,94,0.1)' : isPreSold ? 'rgba(52,211,153,0.08)' : 'transparent';
+                        const rowBorder = isSold ? '1px solid rgba(34,197,94,0.25)' : isPreSold ? '1px solid rgba(52,211,153,0.2)' : '1px solid transparent';
+                        const avatarBg = isSold ? 'rgba(34,197,94,0.35)' : isPreSold ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)';
+                        const nameColor = isSold ? '#22c55e' : isPreSold ? '#34d399' : 'rgba(255,255,255,0.75)';
+                        const qtyColor = isSold ? '#22c55e' : isPreSold ? '#34d399' : '#fbbf24';
                         return (
                           <div key={r.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
-                            style={{
-                              background: isPreSold ? 'rgba(52,211,153,0.08)' : 'transparent',
-                              border: isPreSold ? '1px solid rgba(52,211,153,0.2)' : '1px solid transparent',
-                            }}>
+                            style={{ background: rowBg, border: rowBorder }}>
                             <div className="flex items-center gap-2">
                               <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
-                                style={{ fontSize: '8px', fontWeight: 'bold', background: isPreSold ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)' }}>
+                                style={{ fontSize: '8px', fontWeight: 'bold', background: avatarBg }}>
                                 {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
                               </div>
                               <div>
-                                <span className="text-sm" style={{ color: isPreSold ? '#34d399' : 'rgba(255,255,255,0.75)' }}>
+                                <span className="text-sm" style={{ color: nameColor }}>
                                   {r.characterName || r.userName}
                                 </span>
-                                {isPreSold && (
-                                  <span className="ml-1.5 text-xs font-semibold" style={{ color: '#34d399' }}>
-                                    (Pre-vendido)
-                                  </span>
+                                {isSold && (
+                                  <span className="ml-1.5 text-xs font-semibold" style={{ color: '#22c55e' }}>(Vendido)</span>
+                                )}
+                                {isPreSold && !isSold && (
+                                  <span className="ml-1.5 text-xs font-semibold" style={{ color: '#34d399' }}>(Pre-vendido)</span>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-mono" style={{ color: isPreSold ? '#34d399' : '#fbbf24' }}>
+                              <span className="text-sm font-mono" style={{ color: qtyColor }}>
                                 {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
                               </span>
-                              {isPreSold ? (
+                              {isSold ? (
+                                currentUser?.role === 'SUPER_ADMIN' && (
+                                  <button
+                                    onClick={() => unmarkSoldMutation.mutate({ id: r.id })}
+                                    disabled={unmarkSoldMutation.isPending}
+                                    className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-red-500/10"
+                                    style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                                    title="Revertir estado vendido"
+                                  >
+                                    Revertir
+                                  </button>
+                                )
+                              ) : isPreSold ? (
                                 <button
                                   onClick={() => unmarkPreSoldMutation.mutate({ id: r.id })}
                                   disabled={unmarkPreSoldMutation.isPending}

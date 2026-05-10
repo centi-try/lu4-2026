@@ -26,7 +26,7 @@ export interface ItemReservationRecord {
   userName: string;
   characterName: string;
   quantity: number;
-  status?: 'active' | 'pre_sold';
+  status?: 'active' | 'pre_sold' | 'sold';
   createdAt: string;
 }
 
@@ -59,8 +59,9 @@ export function ItemReservationButton({ item, reservations }: Props) {
 
   const reservedCount = rowReservations.length;
   const reservedUnits = rowReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
-  const hasPreSold = rowReservations.some(r => r.status === 'pre_sold');
+  const hasPreSold = rowReservations.some(r => r.status === 'pre_sold' || r.status === 'sold');
   const preSoldCount = rowReservations.filter(r => r.status === 'pre_sold').length;
+  const soldCount = rowReservations.filter(r => r.status === 'sold').length;
 
   const currentUserId = Number((user as any)?.id || 0);
   const characterName = String((user as any)?.characterName || user?.name || '').trim();
@@ -103,6 +104,14 @@ export function ItemReservationButton({ item, reservations }: Props) {
       utils.items.reservations.list.invalidate();
     },
     onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
+  });
+
+  const unmarkSoldMut = trpc.items.reservations.unmarkSold.useMutation({
+    onSuccess: () => {
+      toast.success('Estado vendido revertido.');
+      utils.items.reservations.list.invalidate();
+    },
+    onError: (err) => toast.error(err.message || 'Error al revertir estado vendido.'),
   });
 
   useEffect(() => {
@@ -270,36 +279,26 @@ export function ItemReservationButton({ item, reservations }: Props) {
                       const isOwner = Number(r.userId) === currentUserId;
                       const canDelete = isOwner || canAdmin;
                       const isPreSold = r.status === 'pre_sold';
+                      const isSold = r.status === 'sold';
+                      const statusColor = isSold ? '#22c55e' : isPreSold ? '#34d399' : isOwner ? '#fbbf24' : 'rgba(255,255,255,0.85)';
+                      const bgColor = isSold ? 'rgba(34,197,94,0.08)' : isPreSold ? 'rgba(52,211,153,0.06)' : isOwner ? 'rgba(251,191,36,0.05)' : 'transparent';
                       return (
                         <div
                           key={r.id}
                           className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0"
-                          style={{
-                            borderColor: 'rgba(255,255,255,0.04)',
-                            background: isPreSold ? 'rgba(52,211,153,0.06)' : isOwner ? 'rgba(251,191,36,0.05)' : 'transparent',
-                          }}
+                          style={{ borderColor: 'rgba(255,255,255,0.04)', background: bgColor }}
                         >
                           <div className="flex-1 min-w-0">
-                            <p
-                              className="text-xs truncate font-medium"
-                              style={{ color: isPreSold ? '#34d399' : isOwner ? '#fbbf24' : 'rgba(255,255,255,0.85)' }}
-                            >
+                            <p className="text-xs truncate font-medium" style={{ color: statusColor }}>
                               {r.characterName}
-                              {isPreSold && (
-                                <span
-                                  className="ml-1 text-[10px] font-semibold"
-                                  style={{ color: '#34d399' }}
-                                >
-                                  (Pre-vendido)
-                                </span>
+                              {isSold && (
+                                <span className="ml-1 text-[10px] font-semibold" style={{ color: '#22c55e' }}>(Vendido)</span>
                               )}
-                              {isOwner && !isPreSold && (
-                                <span
-                                  className="ml-1 text-[10px] font-mono"
-                                  style={{ color: 'rgba(251,191,36,0.7)' }}
-                                >
-                                  (vos)
-                                </span>
+                              {isPreSold && !isSold && (
+                                <span className="ml-1 text-[10px] font-semibold" style={{ color: '#34d399' }}>(Pre-vendido)</span>
+                              )}
+                              {isOwner && !isPreSold && !isSold && (
+                                <span className="ml-1 text-[10px] font-mono" style={{ color: 'rgba(251,191,36,0.7)' }}>(vos)</span>
                               )}
                             </p>
                             <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
@@ -320,14 +319,32 @@ export function ItemReservationButton({ item, reservations }: Props) {
                           <span
                             className="text-[11px] font-mono px-1.5 py-0.5 rounded shrink-0"
                             style={{
-                              background: isPreSold ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)',
-                              border: isPreSold ? '1px solid rgba(52,211,153,0.25)' : '1px solid rgba(251,191,36,0.25)',
-                              color: isPreSold ? '#34d399' : '#fbbf24',
+                              background: isSold ? 'rgba(34,197,94,0.1)' : isPreSold ? 'rgba(52,211,153,0.1)' : 'rgba(251,191,36,0.1)',
+                              border: isSold ? '1px solid rgba(34,197,94,0.3)' : isPreSold ? '1px solid rgba(52,211,153,0.25)' : '1px solid rgba(251,191,36,0.25)',
+                              color: isSold ? '#22c55e' : isPreSold ? '#34d399' : '#fbbf24',
                             }}
                           >
                             ×{r.quantity}
                           </span>
-                          {canMarkPreSold && (
+                          {isSold ? (
+                            roleLc === 'super_admin' && (
+                              <button
+                                type="button"
+                                onClick={() => unmarkSoldMut.mutate({ id: Number(r.id) })}
+                                disabled={unmarkSoldMut.isPending}
+                                className="rounded px-1.5 py-0.5 shrink-0 text-[10px] font-semibold transition-colors"
+                                style={{
+                                  background: 'rgba(239,68,68,0.08)',
+                                  border: '1px solid rgba(239,68,68,0.25)',
+                                  color: '#f87171',
+                                  cursor: unmarkSoldMut.isPending ? 'not-allowed' : 'pointer',
+                                }}
+                                title="Revertir estado vendido"
+                              >
+                                Revertir
+                              </button>
+                            )
+                          ) : canMarkPreSold && (
                             isPreSold ? (
                               <button
                                 type="button"
@@ -362,7 +379,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                               </button>
                             )
                           )}
-                          {canDelete && (
+                          {canDelete && !isSold && (
                             <button
                               type="button"
                               onClick={() => deleteMut.mutate({ id: Number(r.id) })}
