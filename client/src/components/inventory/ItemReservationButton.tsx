@@ -106,14 +106,6 @@ export function ItemReservationButton({ item, reservations }: Props) {
     onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
   });
 
-  const unmarkSoldMut = trpc.items.reservations.unmarkSold.useMutation({
-    onSuccess: () => {
-      toast.success('Estado vendido revertido.');
-      utils.items.reservations.list.invalidate();
-    },
-    onError: (err) => toast.error(err.message || 'Error al revertir estado vendido.'),
-  });
-
   useEffect(() => {
     if (!open) return;
     const keyHandler = (e: KeyboardEvent) => {
@@ -326,25 +318,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                           >
                             ×{r.quantity}
                           </span>
-                          {isSold ? (
-                            roleLc === 'super_admin' && (
-                              <button
-                                type="button"
-                                onClick={() => unmarkSoldMut.mutate({ id: Number(r.id) })}
-                                disabled={unmarkSoldMut.isPending}
-                                className="rounded px-1.5 py-0.5 shrink-0 text-[10px] font-semibold transition-colors"
-                                style={{
-                                  background: 'rgba(239,68,68,0.08)',
-                                  border: '1px solid rgba(239,68,68,0.25)',
-                                  color: '#f87171',
-                                  cursor: unmarkSoldMut.isPending ? 'not-allowed' : 'pointer',
-                                }}
-                                title="Revertir estado vendido"
-                              >
-                                Revertir
-                              </button>
-                            )
-                          ) : canMarkPreSold && (
+                          {isSold ? null : canMarkPreSold && (
                             isPreSold ? (
                               <button
                                 type="button"

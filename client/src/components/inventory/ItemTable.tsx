@@ -125,10 +125,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Pre-venta desmarcada.'); },
     onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
   });
-  const unmarkSoldMutation = trpc.items.reservations.unmarkSold.useMutation({
-    onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Estado vendido revertido.'); },
-    onError: (err) => toast.error(err.message || 'Error al revertir estado vendido.'),
-  });
+
 
   // Map itemId -> reservas vivas del item, para pill y highlight.
   const reservationsByItem = useMemo(() => {
@@ -777,19 +774,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               <span className="text-sm font-mono" style={{ color: qtyColor }}>
                                 {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
                               </span>
-                              {isSold ? (
-                                currentUser?.role === 'SUPER_ADMIN' && (
-                                  <button
-                                    onClick={() => unmarkSoldMutation.mutate({ id: r.id })}
-                                    disabled={unmarkSoldMutation.isPending}
-                                    className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-red-500/10"
-                                    style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
-                                    title="Revertir estado vendido"
-                                  >
-                                    Revertir
-                                  </button>
-                                )
-                              ) : isPreSold ? (
+                              {isSold ? null : isPreSold ? (
                                 <button
                                   onClick={() => unmarkPreSoldMutation.mutate({ id: r.id })}
                                   disabled={unmarkPreSoldMutation.isPending}

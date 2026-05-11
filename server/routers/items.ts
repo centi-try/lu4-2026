@@ -6,6 +6,7 @@ import {
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
   markReservationPreSold, unmarkReservationPreSold,
+  markReservationSold,
   getClanFundSettings,
 } from "../db";
 
@@ -244,6 +245,16 @@ export const itemsRouter = router({
         },
       });
 
+      // Auto-mark matching reservations as 'sold'
+      const itemReservations = await getItemReservations({ itemId: Number(input.id) });
+      const buyerNameNorm = String(input.buyerName || '').trim().toLowerCase();
+      for (const r of itemReservations) {
+        const rName = String(r.characterName || '').trim().toLowerCase();
+        if (rName === buyerNameNorm && r.status !== 'sold') {
+          await markReservationSold(r.id, Number(ctx.user?.id || 0));
+        }
+      }
+
       return { success: true };
     }),
 
@@ -403,5 +414,6 @@ export const itemsRouter = router({
         });
         return { success: true, reservation: updated };
       }),
+
   }),
 });
