@@ -84,6 +84,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     (currentUser.role as string) === 'super_admin'
   );
 
+  // Detect impersonation: if currentUser.id is a real user id (not auth-xxx)
+  const isImpersonating = currentUser && !String(currentUser.id).startsWith('auth-') && String(currentUser.id) !== `auth-${authUser?.id}`;
+  // Effective permissions for sidebar: use impersonated user if switching, otherwise auth user
+  const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
+  const effectiveLegacyAccess = isImpersonating ? !!(currentUser as any)?.legacyAccess : (isAuthSuperAdmin || authUser?.legacyAccess === true);
+  const effectiveIsSuper = effectiveRole === 'super_admin';
+  const effectiveRaidAccess = isImpersonating ? !!(currentUser as any)?.raidAccessLevel : canSeeRaidModule;
+
   const originalUserChar = authUser ? {
     id: `auth-${authUser.id}`,
     name: authUser.characterName || authUser.name || 'Usuario',
@@ -116,10 +124,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {(isAuthSuperAdmin || authUser?.legacyAccess === true) && navItems.filter(item => {
+          {effectiveLegacyAccess && navItems.filter(item => {
             if (!item.allowedRoles) return true;
-            const currentRole = String(authUser?.role || '').toLowerCase() as 'super_admin' | 'mapper' | 'user';
-            return item.allowedRoles.includes(currentRole);
+            return item.allowedRoles.includes(effectiveRole as any);
           }).map(item => {
             const Icon = item.icon;
             const isActive = location === item.href;
@@ -139,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          {isAuthSuperAdmin && (
+          {effectiveIsSuper && (
             <>
               <div className="px-3 py-3 mt-4">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>ADMINISTRACIÓN</p>
@@ -165,7 +172,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </>
           )}
 
-          {canSeeRaidModule && (
+          {(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) && (
             <>
               <div className="px-3 py-3 mt-4 flex items-center gap-2">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#e879f9' }}>RAID BOSSES</p>
@@ -300,6 +307,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   itemIds: [],
                                   totalEarnings: 0,
                                   currentCycleEarnings: 0,
+                                  legacyAccess: !!u.legacyAccess,
+                                  raidAccessLevel: u.raidAccessLevel || null,
                                 } as any);
                                 setUserMenuOpen(false);
                               }}
