@@ -303,9 +303,8 @@ function CharacterDetail({ char }: { char: Character }) {
 }
 
 export default function Characters() {
-  const { items, currentUser, setCurrentUser } = useApp();
+  const { items } = useApp();
   const { user: authUser } = useAuth();
-  const isAuthSuperAdmin = authUser?.role === 'super_admin' || authUser?.role === 'SUPER_ADMIN';
   const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'SUPER_ADMIN' | 'MAPPER' | 'ADMIN' | 'USER'>('ALL');
@@ -414,35 +413,7 @@ export default function Characters() {
         {/* Right: detail */}
         <div className="xl:sticky xl:top-6 xl:self-start">
           {selected ? (
-            <>
-              <CharacterDetail char={selected} />
-
-              {isAuthSuperAdmin && (
-                <div className="mt-4 card-glass rounded-2xl p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    Simular sesión como
-                  </p>
-                  <button
-                    onClick={() => setCurrentUser(selected)}
-                    disabled={currentUser?.id === selected.id}
-                    className="w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all disabled:opacity-50"
-                    style={{
-                      background: currentUser?.id === selected.id ? 'rgba(123,241,214,0.06)' : 'rgba(255,255,255,0.03)',
-                      borderColor: currentUser?.id === selected.id ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)',
-                    }}>
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${selected.avatar} text-xs font-bold text-white`}>
-                      {selected.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{selected.name}</p>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                        {currentUser?.id === selected.id ? '✓ Sesión activa' : 'Clic para activar'}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </>
+            <CharacterDetail char={selected} />
           ) : (
             <div className="card-glass rounded-2xl p-8 text-center border-dashed" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Selecciona un personaje para ver detalles</p>

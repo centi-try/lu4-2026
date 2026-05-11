@@ -47,7 +47,9 @@ const actionMeta: Record<string, ActionMeta> = {
   SOLD_ITEM:      { icon: DollarSign,  color: '#a78bfa', label: 'Vendió ítem',      desc: 'Ítem vendido con ganancia distribuida' },
   // Reservas
   ITEM_RESERVED:             { icon: Bookmark,   color: '#fbbf24', label: 'Reservó ítem',          desc: 'Ítem reservado (waitlist)' },
-  ITEM_RESERVATION_DELETED:  { icon: BookmarkX,  color: '#f59e0b', label: 'Canceló reserva',       desc: 'Reserva de ítem cancelada' },
+  ITEM_RESERVATION_DELETED:           { icon: BookmarkX,  color: '#f59e0b', label: 'Canceló reserva',         desc: 'Reserva de ítem cancelada' },
+  ITEM_RESERVATION_PRE_SOLD:          { icon: Bookmark,   color: '#34d399', label: 'Marcó pre-vendido',      desc: 'Reserva marcada como pre-vendida' },
+  ITEM_RESERVATION_UNMARK_PRE_SOLD:   { icon: BookmarkX,  color: '#fbbf24', label: 'Desmarcó pre-vendido',   desc: 'Reserva revertida de pre-vendido a activa' },
   // Ciclos
   CYCLE_STARTED:  { icon: RefreshCcw,  color: '#7bf1d6', label: 'Inició ciclo',     desc: 'Nuevo ciclo de ventas iniciado' },
   CYCLE_CLOSED:   { icon: CheckCircle, color: '#34d399', label: 'Cerró ciclo',      desc: 'Ciclo de ventas cerrado y archivado' },
@@ -62,6 +64,9 @@ const actionMeta: Record<string, ActionMeta> = {
   USER_ROLE_CHANGED:              { icon: UserCog,  color: '#60a5fa', label: 'Cambió rol',          desc: 'Rol de usuario modificado' },
   USER_PASSWORD_CHANGED_BY_SELF:  { icon: KeyRound, color: '#a78bfa', label: 'Cambió contraseña',   desc: 'Usuario cambió su propia contraseña' },
   USER_PASSWORD_CHANGED_BY_ADMIN: { icon: KeyRound, color: '#fbbf24', label: 'Reset de contraseña', desc: 'Admin reseteó la contraseña de otro usuario' },
+  // Acceso menú antiguo
+  LEGACY_ACCESS_ENABLED:  { icon: UserCog,  color: '#34d399', label: 'Activó menú antiguo',   desc: 'Acceso al menú antiguo activado para el usuario' },
+  LEGACY_ACCESS_DISABLED: { icon: UserCog,  color: '#f87171', label: 'Desactivó menú antiguo', desc: 'Acceso al menú antiguo desactivado para el usuario' },
 };
 
 function metaFor(action: string): ActionMeta {
@@ -157,14 +162,23 @@ function LogRow({ log }: { log: AuditLog }) {
           <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.92)' }}>
             {log.actorName || 'Usuario desconocido'}
           </span>
-          {roleUp === 'SUPER_ADMIN' && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
-              style={{ background: 'rgba(123,241,214,0.1)', color: '#7bf1d6', border: '1px solid rgba(123,241,214,0.2)' }}
-            >
-              <Shield className="h-2.5 w-2.5" /> Super Admin
-            </span>
-          )}
+          {(() => {
+            const roleBadges: Record<string, { bg: string; color: string; border: string; label: string }> = {
+              SUPER_ADMIN: { bg: 'rgba(123,241,214,0.1)', color: '#7bf1d6', border: 'rgba(123,241,214,0.2)', label: 'Super Admin' },
+              ADMIN: { bg: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: 'rgba(96,165,250,0.2)', label: 'Admin' },
+              MAPPER: { bg: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: 'rgba(251,191,36,0.2)', label: 'Mapper' },
+            };
+            const badge = roleBadges[roleUp];
+            if (!badge) return null;
+            return (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
+              >
+                <Shield className="h-2.5 w-2.5" /> {badge.label}
+              </span>
+            );
+          })()}
           <span
             className="text-[11px] font-medium px-2 py-0.5 rounded-full"
             style={{ background: `${meta.color}12`, color: meta.color }}
@@ -329,6 +343,7 @@ export default function History() {
               options={[
                 { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
                 { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                { value: 'ADMIN', label: 'Admin', emoji: '🛡️' },
                 { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
                 { value: 'USER', label: 'Usuario', emoji: '👤' },
                 { value: 'SYSTEM', label: 'Sistema', emoji: '⚙️' },

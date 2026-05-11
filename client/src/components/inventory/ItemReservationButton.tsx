@@ -44,7 +44,7 @@ interface Props {
 
 export function ItemReservationButton({ item, reservations }: Props) {
   const { user } = useAuth();
-  const { effectiveRole } = useApp();
+  const { effectiveRole, isImpersonating, currentUser } = useApp();
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [qtyInput, setQtyInput] = useState('');
@@ -65,8 +65,8 @@ export function ItemReservationButton({ item, reservations }: Props) {
   const preSoldCount = rowReservations.filter(r => r.status === 'pre_sold').length;
   const soldCount = rowReservations.filter(r => r.status === 'sold').length;
 
-  const currentUserId = Number((user as any)?.id || 0);
-  const characterName = String((user as any)?.characterName || user?.name || '').trim();
+  const currentUserId = isImpersonating ? Number(currentUser?.id || 0) : Number((user as any)?.id || 0);
+  const characterName = isImpersonating ? String(currentUser?.name || '').trim() : String((user as any)?.characterName || user?.name || '').trim();
   const roleLc = effectiveRole;
   const canAdmin = roleLc === 'super_admin' || roleLc === 'mapper';
 

@@ -67,7 +67,16 @@ const isInvalidQuantity = (q: string): boolean => {
 };
 
 export function CreateItemPanel() {
-  const { addItem, currentUser, characters } = useApp();
+  const { addItem, currentUser } = useApp();
+  const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery();
+  const legacyUsers = useMemo(() => {
+    return (legacyBuyersData as any[] || []).map((u: any) => {
+      const r = String(u.role || 'user').toLowerCase();
+      const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+      const roleLabel = r === 'super_admin' ? 'Super Admin' : r === 'mapper' ? 'Mapper' : r === 'admin' ? 'Admin' : 'Usuario';
+      return { id: u.id, name: u.name, avatar: avatarGrad, class: u.classMain || 'Sin clase', role: roleLabel };
+    });
+  }, [legacyBuyersData]);
   const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -235,6 +244,8 @@ export function CreateItemPanel() {
     const qty = parseInt(r.quantity);
     if (isNaN(qty) || qty < 1) return 'La cantidad debe ser al menos 1';
     if (r.price && isNaN(Number(r.price))) return 'Precio inválido';
+    if (!r.selectedCharIds || r.selectedCharIds.length === 0)
+      return 'Debes asociar al menos un personaje al ítem';
     return null;
   };
 
@@ -384,8 +395,8 @@ export function CreateItemPanel() {
           {rows.map((row, idx) => {
             const catOk =
               row.category && CATEGORIES.includes(row.category as ItemCategory);
-            const filteredChars = characters.filter(
-              c =>
+            const filteredChars = legacyUsers.filter(
+              (c: any) =>
                 c.name.toLowerCase().includes(row.charSearch.toLowerCase()) ||
                 c.class.toLowerCase().includes(row.charSearch.toLowerCase()),
             );
@@ -633,7 +644,7 @@ export function CreateItemPanel() {
                   {row.selectedCharIds.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {row.selectedCharIds.map(cid => {
-                        const char = characters.find(c => c.id === cid);
+                        const char = legacyUsers.find((c: any) => c.id === cid);
                         if (!char) return null;
                         return (
                           <div
@@ -893,7 +904,7 @@ export function CreateItemPanel() {
                                 className="text-xs"
                                 style={{ color: 'rgba(255,255,255,0.35)' }}
                               >
-                                {char.class} · Nv.{char.level}
+                                {char.class} · {char.role}
                               </p>
                             </div>
                             <div
