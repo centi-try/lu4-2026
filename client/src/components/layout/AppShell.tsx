@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
@@ -22,6 +22,7 @@ const navItems: Array<{
   // reservar sin acceder al panel operativo.
   { href: '/inventory', label: 'Inventario', icon: Package, desc: 'Gestión de ítems', allowedRoles: ['super_admin', 'mapper'] },
   { href: '/characters', label: 'Personajes', icon: User, desc: 'Personajes y ganancias' },
+  { href: '/warehouse', label: 'Warehouse Clan', icon: Warehouse, desc: 'Bodega del clan y crafteo' },
   { href: '/cycles', label: 'Ciclos de Ventas', icon: BarChart3, desc: 'Historial y cierre de ciclos' },
   { href: '/purchases', label: 'Compras', icon: ShoppingBag, desc: 'Historial de adquisiciones' },
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },

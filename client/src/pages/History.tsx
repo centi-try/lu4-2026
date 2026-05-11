@@ -3,6 +3,7 @@ import {
   CheckCircle, ImageIcon, Plus, Pencil, Trash2, Shield, Search, DollarSign,
   UserMinus, UserX, UserCog, KeyRound, RefreshCcw, Bookmark, BookmarkX, AlertTriangle,
   Coins, CircleDollarSign, LogIn, LogOut, Ban, Settings, Receipt, Undo2,
+  Package, Hammer,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
@@ -81,6 +82,15 @@ const actionMeta: Record<string, ActionMeta> = {
   CLAN_FUND_CYCLE_UNPAID:     { icon: Coins,           color: '#fbbf24', label: 'Desmarcó pago de ciclo',    desc: 'Pago de ciclo revertido a pendiente' },
   // Reserva vendida revertida
   ITEM_RESERVATION_UNMARK_SOLD: { icon: Undo2,  color: '#f59e0b', label: 'Revertió venta reserva',  desc: 'Estado vendido de reserva revertido' },
+  // Warehouse Clan
+  WAREHOUSE_REGISTER:          { icon: Package, color: '#60a5fa', label: 'Registró material bodega',  desc: 'Material registrado en la bodega del clan (pendiente)' },
+  WAREHOUSE_CONFIRM:           { icon: CheckCircle, color: '#34d399', label: 'Confirmó material bodega', desc: 'Material confirmado y agrupado en bodega' },
+  WAREHOUSE_DELETE_INCOMING:   { icon: Trash2,  color: '#f87171', label: 'Rechazó registro bodega',   desc: 'Registro pendiente de bodega rechazado' },
+  WAREHOUSE_WITHDRAW:          { icon: Receipt, color: '#fbbf24', label: 'Descontó material bodega',  desc: 'Material descontado de la bodega del clan' },
+  WAREHOUSE_DELETE:            { icon: Trash2,  color: '#ef4444', label: 'Eliminó ítem bodega',       desc: 'Ítem eliminado de la bodega del clan' },
+  CRAFT_RECIPE_CREATE:         { icon: Pencil,  color: '#a855f7', label: 'Creó receta crafteo',       desc: 'Nueva receta de crafteo creada' },
+  CRAFT_RECIPE_DELETE:         { icon: Trash2,  color: '#ef4444', label: 'Eliminó receta crafteo',    desc: 'Receta de crafteo eliminada' },
+  CRAFT_PROJECT_CREATE:        { icon: Hammer,  color: '#34d399', label: 'Creó proyecto crafteo',     desc: 'Nuevo proyecto de crafteo iniciado' },
 };
 
 function metaFor(action: string): ActionMeta {

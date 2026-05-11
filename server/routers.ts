@@ -13,6 +13,7 @@ import { adminUsersRouter } from "./routers/adminUsers";
 import { raidRouter } from "./routers/raid";
 import { backupsRouter } from "./routers/backups";
 import { clanFundRouter } from "./routers/clanFund";
+import { warehouseRouter } from "./routers/warehouse";
 
 export const appRouter = router({
   system: systemRouter,
@@ -37,6 +38,7 @@ export const appRouter = router({
   raid: raidRouter,
   backups: backupsRouter,
   clanFund: clanFundRouter,
+  warehouse: warehouseRouter,
 });
 
 export type AppRouter = typeof appRouter;

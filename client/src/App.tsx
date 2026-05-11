@@ -28,6 +28,7 @@ import RaidCycles from "./pages/raid/RaidCycles";
 import RaidSettings from "./pages/raid/RaidSettings";
 import RaidPurchases from "./pages/raid/RaidPurchases";
 import RaidHistory from "./pages/raid/RaidHistory";
+import WarehouseClan from "./pages/WarehouseClan";
 
 function Router() {
   return (
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/purchases" component={() => <ProtectedRoute component={Purchases} />} />
       <Route path="/cycles" component={() => <ProtectedRoute component={SalesCycles} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+      <Route path="/warehouse" component={() => <ProtectedRoute component={WarehouseClan} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} allowedRoles={["super_admin"]} />} />
       <Route path="/admin/backups" component={() => <ProtectedRoute component={Backups} allowedRoles={["super_admin"]} />} />
       <Route path="/raids" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidDashboard} required="view" />} />} />

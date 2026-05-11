@@ -91,6 +91,13 @@ interface DatabaseSchema {
   clanFundSettings: any;
   clanFundTransactions: any[];
   clanFundCurrentCycleAccrued: number;
+  // ============================================================
+  // Warehouse Clan (bodega del clan — materiales para crafteo)
+  // ============================================================
+  warehouseItems: any[];       // ítems en bodega (agrupados por nombre)
+  warehouseIncoming: any[];    // registros pendientes de confirmar
+  craftRecipes: any[];         // recetas de crafteo (persistentes, reutilizables)
+  craftProjects: any[];        // proyectos activos de crafteo
 }
 
 const initialSchema: DatabaseSchema = {
@@ -122,6 +129,10 @@ const initialSchema: DatabaseSchema = {
   clanFundSettings: { clanTaxPercent: 0, internalDiscountPercent: 0 },
   clanFundTransactions: [],
   clanFundCurrentCycleAccrued: 0,
+  warehouseItems: [],
+  warehouseIncoming: [],
+  craftRecipes: [],
+  craftProjects: [],
 };
 
 // ============================================================================
@@ -2950,9 +2961,11 @@ export interface ItemReservation {
   userName: string;
   characterName: string;
   quantity: number;
-  status: 'active' | 'pre_sold';
+  status: 'active' | 'pre_sold' | 'sold';
   preSoldBy?: number;
   preSoldAt?: string;
+  soldBy?: number;
+  soldAt?: string;
   createdAt: string;
 }
 
@@ -3051,6 +3064,39 @@ export const markReservationPreSold = async (reservationId: number, preSoldByUse
     status: 'pre_sold',
     preSoldBy: preSoldByUserId,
     preSoldAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.itemReservations[idx];
+};
+
+export const markReservationSold = async (reservationId: number, soldByUserId: number): Promise<ItemReservation | null> => {
+  if (!dbInstance.itemReservations) return null;
+  const idx = dbInstance.itemReservations.findIndex(
+    (r: ItemReservation) => Number(r.id) === Number(reservationId)
+  );
+  if (idx === -1) return null;
+  dbInstance.itemReservations[idx] = {
+    ...dbInstance.itemReservations[idx],
+    status: 'sold',
+    soldBy: soldByUserId,
+    soldAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.itemReservations[idx];
+};
+
+export const unmarkReservationSold = async (reservationId: number): Promise<ItemReservation | null> => {
+  if (!dbInstance.itemReservations) return null;
+  const idx = dbInstance.itemReservations.findIndex(
+    (r: ItemReservation) => Number(r.id) === Number(reservationId)
+  );
+  if (idx === -1) return null;
+  const prev = dbInstance.itemReservations[idx];
+  dbInstance.itemReservations[idx] = {
+    ...prev,
+    status: prev.preSoldBy ? 'pre_sold' : 'active',
+    soldBy: undefined,
+    soldAt: undefined,
   };
   saveDb(dbInstance);
   return dbInstance.itemReservations[idx];
