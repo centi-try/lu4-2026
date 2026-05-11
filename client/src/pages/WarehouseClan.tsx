@@ -316,11 +316,15 @@ export default function WarehouseClan() {
   const [recipeName, setRecipeName] = useState('');
   const [recipeImg, setRecipeImg] = useState('');
   const [recipeWiki, setRecipeWiki] = useState('');
-  const [recipeMaterials, setRecipeMaterials] = useState<Array<{
+
+  // Recursive material node type
+  type MaterialNode = {
     name: string; quantity: string; imageUrl: string;
-    hasSubMaterials: boolean;
-    subMaterials: Array<{ name: string; quantity: string; imageUrl: string }>;
-  }>>([{ name: '', quantity: '1', imageUrl: '', hasSubMaterials: false, subMaterials: [] }]);
+    expanded: boolean;
+    subMaterials: MaterialNode[];
+  };
+  const emptyNode = (): MaterialNode => ({ name: '', quantity: '1', imageUrl: '', expanded: false, subMaterials: [] });
+  const [recipeMaterials, setRecipeMaterials] = useState<MaterialNode[]>([emptyNode()]);
 
   // Project form
   const [projectOpen, setProjectOpen] = useState(false);
@@ -430,18 +434,13 @@ export default function WarehouseClan() {
 
   const handleCreateRecipe = () => {
     if (!recipeName.trim()) { toast.error('Nombre de receta requerido'); return; }
-    const mats = recipeMaterials.filter(m => m.name.trim()).map(m => ({
-      name: m.name.trim(),
-      quantity: Number(m.quantity) || 1,
-      imageUrl: m.imageUrl || undefined,
-      subMaterials: m.hasSubMaterials
-        ? m.subMaterials.filter(s => s.name.trim()).map(s => ({
-            name: s.name.trim(),
-            quantity: Number(s.quantity) || 1,
-            imageUrl: s.imageUrl || undefined,
-          }))
-        : undefined,
+    const mapNodes = (nodes: MaterialNode[]): any[] => nodes.filter(n => n.name.trim()).map(n => ({
+      name: n.name.trim(),
+      quantity: Number(n.quantity) || 1,
+      imageUrl: n.imageUrl || undefined,
+      subMaterials: n.subMaterials.length > 0 ? mapNodes(n.subMaterials) : undefined,
     }));
+    const mats = mapNodes(recipeMaterials);
     if (mats.length === 0) { toast.error('Agrega al menos 1 material'); return; }
     createRecipeMut.mutate({
       name: recipeName.trim(),
@@ -449,9 +448,8 @@ export default function WarehouseClan() {
       wikiUrl: recipeWiki || undefined,
       materials: mats,
     });
-    setRecipeOpen(false);
     setRecipeName(''); setRecipeImg(''); setRecipeWiki('');
-    setRecipeMaterials([{ name: '', quantity: '1', imageUrl: '', hasSubMaterials: false, subMaterials: [] }]);
+    setRecipeMaterials([emptyNode()]);
   };
 
   const handleCreateProject = () => {
@@ -464,13 +462,21 @@ export default function WarehouseClan() {
     setProjectRecipeId(''); setProjectNotes('');
   };
 
-  const addMaterialRow = () => setRecipeMaterials(prev => [...prev, { name: '', quantity: '1', imageUrl: '', hasSubMaterials: false, subMaterials: [] }]);
+  // Recursive tree helpers — path = array of indices [0] = root, [0,2] = child of root at idx 2
+  const updateNodeAt = (nodes: MaterialNode[], path: number[], updater: (n: MaterialNode) => MaterialNode): MaterialNode[] => {
+    if (path.length === 1) return nodes.map((n, i) => i === path[0] ? updater(n) : n);
+    return nodes.map((n, i) => i === path[0] ? { ...n, subMaterials: updateNodeAt(n.subMaterials, path.slice(1), updater) } : n);
+  };
+  const addNodeAt = (nodes: MaterialNode[], path: number[]): MaterialNode[] => {
+    if (path.length === 0) return [...nodes, emptyNode()];
+    return nodes.map((n, i) => i === path[0] ? { ...n, subMaterials: addNodeAt(n.subMaterials, path.slice(1)) } : n);
+  };
+  const removeNodeAt = (nodes: MaterialNode[], path: number[]): MaterialNode[] => {
+    if (path.length === 1) return nodes.filter((_, i) => i !== path[0]);
+    return nodes.map((n, i) => i === path[0] ? { ...n, subMaterials: removeNodeAt(n.subMaterials, path.slice(1)) } : n);
+  };
+  const addMaterialRow = () => setRecipeMaterials(prev => [...prev, emptyNode()]);
   const removeMaterialRow = (idx: number) => setRecipeMaterials(prev => prev.filter((_, i) => i !== idx));
-  const updateMaterialRow = (idx: number, field: string, value: string) => setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
-  const toggleSubMaterials = (idx: number) => setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, hasSubMaterials: !m.hasSubMaterials, subMaterials: m.subMaterials.length === 0 ? [{ name: '', quantity: '1', imageUrl: '' }] : m.subMaterials } : m));
-  const addSubMaterialRow = (parentIdx: number) => setRecipeMaterials(prev => prev.map((m, i) => i === parentIdx ? { ...m, subMaterials: [...m.subMaterials, { name: '', quantity: '1', imageUrl: '' }] } : m));
-  const removeSubMaterialRow = (parentIdx: number, subIdx: number) => setRecipeMaterials(prev => prev.map((m, i) => i === parentIdx ? { ...m, subMaterials: m.subMaterials.filter((_, si) => si !== subIdx) } : m));
-  const updateSubMaterialRow = (parentIdx: number, subIdx: number, field: string, value: string) => setRecipeMaterials(prev => prev.map((m, i) => i === parentIdx ? { ...m, subMaterials: m.subMaterials.map((s, si) => si === subIdx ? { ...s, [field]: value } : s) } : m));
 
   const validCount = rows.filter(r => r.name.trim() && r.category).length;
 
@@ -974,113 +980,106 @@ export default function WarehouseClan() {
                 </button>
               </div>
 
-              <div className="space-y-3">
-                {recipeMaterials.map((mat, idx) => {
-                  const catMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === mat.name.trim().toLowerCase());
+              {/* Recursive material node renderer */}
+              {(() => {
+                const levelColors = [
+                  { border: 'rgba(192,132,252,0.2)', bg: 'rgba(192,132,252,0.04)', text: '#c084fc', label: 'Material' },
+                  { border: 'rgba(168,85,247,0.2)', bg: 'rgba(168,85,247,0.04)', text: '#a855f7', label: 'Sub-material' },
+                  { border: 'rgba(139,92,246,0.2)', bg: 'rgba(139,92,246,0.04)', text: '#8b5cf6', label: 'Sub-sub-material' },
+                ];
+                const renderNodes = (nodes: MaterialNode[], path: number[], depth: number): React.ReactNode => {
+                  const lc = levelColors[Math.min(depth, levelColors.length - 1)];
                   return (
-                    <div key={idx} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      {/* Row header */}
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                          Material #{idx + 1}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => toggleSubMaterials(idx)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-all" style={{ background: mat.hasSubMaterials ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)', color: mat.hasSubMaterials ? '#a855f7' : 'rgba(255,255,255,0.4)', border: `1px solid ${mat.hasSubMaterials ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.08)'}` }}>
-                            {mat.hasSubMaterials ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                            Sub-materiales
-                          </button>
-                          {recipeMaterials.length > 1 && (
-                            <button type="button" onClick={() => removeMaterialRow(idx)} className="rounded-lg px-2 py-1 text-xs transition-all flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
-                              <Trash2 className="h-3 w-3" /> quitar
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                    <div className="space-y-3">
+                      {nodes.map((node, idx) => {
+                        const currentPath = [...path, idx];
+                        const catMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === node.name.trim().toLowerCase());
+                        const imgSrc = node.imageUrl || catMatch?.imageUrl || '';
+                        return (
+                          <div key={idx} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${lc.border}` }}>
+                            {/* Node header */}
+                            <div className="flex items-center justify-between px-3 py-2" style={{ background: lc.bg, borderBottom: `1px solid ${lc.border}` }}>
+                              <div className="flex items-center gap-2">
+                                {imgSrc && <img src={imgSrc} alt="" className="h-6 w-6 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                                <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                                  {lc.label} #{idx + 1}{node.name ? `: ${node.name}` : ''}
+                                </span>
+                                {node.subMaterials.length > 0 && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: `${lc.text}18`, color: lc.text }}>{node.subMaterials.length} sub</span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-all" style={{ background: node.expanded ? `${lc.text}22` : 'rgba(255,255,255,0.03)', color: node.expanded ? lc.text : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? `${lc.text}44` : 'rgba(255,255,255,0.08)'}` }}>
+                                  {node.expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  Sub-materiales
+                                </button>
+                                {nodes.length > 1 && (
+                                  <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="rounded-lg px-2 py-1 text-[10px] transition-all flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
+                                    <Trash2 className="h-3 w-3" /> quitar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
 
-                      {/* Grid: name + qty + image */}
-                      <div className="grid gap-3 sm:grid-cols-12">
-                        <div className="sm:col-span-5">
-                          <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                            Nombre <span style={{ color: '#f87171' }}>*</span>
-                          </label>
-                          <CatalogTypeahead catalog={catalog as any[]} value={mat.name} onChange={val => {
-                            const found = (catalog as any[]).find((c: any) => c.name === val);
-                            setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, name: val, imageUrl: found?.imageUrl || m.imageUrl } : m));
-                          }} />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                            Cant. <span style={{ color: '#f87171' }}>*</span>
-                          </label>
-                          <input type="number" min="1" value={mat.quantity} onChange={e => updateMaterialRow(idx, 'quantity', e.target.value)} className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', height: 36 }} />
-                        </div>
-                        <div className="sm:col-span-5">
-                          <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Imagen</label>
-                          <div className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}>
-                            {(mat.imageUrl || catMatch?.imageUrl) ? (
-                              <>
-                                <img src={mat.imageUrl || catMatch?.imageUrl} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>auto · catálogo</span>
-                              </>
-                            ) : (
-                              <>
-                                <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
-                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>buscar en catálogo</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Sub-materials */}
-                      {mat.hasSubMaterials && (
-                        <div className="mt-3 ml-4 pl-3" style={{ borderLeft: '2px solid rgba(168,85,247,0.15)' }}>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'rgba(168,85,247,0.6)' }}>Sub-materiales de {mat.name || `material #${idx + 1}`}</p>
-                            <button type="button" onClick={() => addSubMaterialRow(idx)} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(168,85,247,0.08)', color: 'rgba(168,85,247,0.7)' }}>
-                              <Plus className="h-2.5 w-2.5" /> Sub-material
-                            </button>
-                          </div>
-                          <div className="space-y-2">
-                            {mat.subMaterials.map((sub, si) => {
-                              const subCatMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === sub.name.trim().toLowerCase());
-                              return (
-                                <div key={si} className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                  <div className="grid gap-2 sm:grid-cols-12 items-center">
-                                    <div className="sm:col-span-5">
-                                      <CatalogTypeahead catalog={catalog as any[]} value={sub.name} onChange={val => {
-                                        const found = (catalog as any[]).find((c: any) => c.name === val);
-                                        updateSubMaterialRow(idx, si, 'name', val);
-                                        if (found?.imageUrl) updateSubMaterialRow(idx, si, 'imageUrl', found.imageUrl);
-                                      }} />
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                      <input type="number" min="1" value={sub.quantity} onChange={e => updateSubMaterialRow(idx, si, 'quantity', e.target.value)} className="w-full rounded-lg px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', height: 30 }} />
-                                    </div>
-                                    <div className="sm:col-span-4 flex items-center gap-2">
-                                      {(sub.imageUrl || subCatMatch?.imageUrl) ? (
-                                        <img src={sub.imageUrl || subCatMatch?.imageUrl} alt="" className="h-6 w-6 rounded object-cover" />
-                                      ) : (
-                                        <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
-                                      )}
-                                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{sub.name ? 'auto' : 'catálogo'}</span>
-                                    </div>
-                                    <div className="sm:col-span-1 flex justify-end">
-                                      {mat.subMaterials.length > 1 && (
-                                        <button type="button" onClick={() => removeSubMaterialRow(idx, si)} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.5)' }}><X className="h-3 w-3" /></button>
-                                      )}
-                                    </div>
+                            {/* Node fields */}
+                            <div className="p-3">
+                              <div className="grid gap-3 sm:grid-cols-12">
+                                <div className="sm:col-span-5">
+                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                    Nombre <span style={{ color: '#f87171' }}>*</span>
+                                  </label>
+                                  <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
+                                    const found = (catalog as any[]).find((c: any) => c.name === val);
+                                    setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val, imageUrl: found?.imageUrl || n.imageUrl })));
+                                  }} />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                    Cant. <span style={{ color: '#f87171' }}>*</span>
+                                  </label>
+                                  <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', height: 36 }} />
+                                </div>
+                                <div className="sm:col-span-5">
+                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Imagen</label>
+                                  <div className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}>
+                                    {imgSrc ? (
+                                      <>
+                                        <img src={imgSrc} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>auto · catálogo</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                                        <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>buscar en catálogo</span>
+                                      </>
+                                    )}
                                   </div>
                                 </div>
-                              );
-                            })}
+                              </div>
+
+                              {/* Sub-materials (recursive) */}
+                              {node.expanded && (
+                                <div className="mt-3 pl-3" style={{ borderLeft: `2px solid ${lc.border}` }}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: lc.text }}>
+                                      Sub-materiales de {node.name || `${lc.label.toLowerCase()} #${idx + 1}`}
+                                    </p>
+                                    <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: `${lc.text}12`, color: lc.text }}>
+                                      <Plus className="h-2.5 w-2.5" /> Sub-material
+                                    </button>
+                                  </div>
+                                  {renderNodes(node.subMaterials, currentPath, depth + 1)}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
                   );
-                })}
-              </div>
+                };
+                return renderNodes(recipeMaterials, [], 0);
+              })()}
 
               {/* Submit button */}
               <button
@@ -1156,51 +1155,39 @@ export default function WarehouseClan() {
                           </tr>
                         </thead>
                         <tbody>
-                          {materials.map((mat: any, mi: number) => {
-                            const need = Number(mat.quantity) || 0;
-                            const have = stockLookup.get(String(mat.nameLower || mat.name || '').toLowerCase()) || 0;
-                            const missing = Math.max(0, need - have);
-                            const status = have >= need ? 'complete' : have > 0 ? 'partial' : 'none';
-                            const subs = mat.subMaterials || [];
-                            return (
-                              <React.Fragment key={mi}>
-                                <tr style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
-                                  <td className="py-2">
-                                    <div className="flex items-center gap-2">
-                                      {mat.imageUrl && <img src={mat.imageUrl} alt="" className="h-5 w-5 rounded object-cover" />}
-                                      <span style={{ color: status === 'complete' ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.8)', textDecoration: status === 'complete' ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
-                                      {subs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
-                                    </div>
-                                  </td>
-                                  <td className="py-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
-                                  <td className="py-2 text-right font-mono" style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
-                                  <td className="py-2 text-right font-mono font-bold" style={{ color: missing > 0 ? '#ef4444' : '#34d399' }}>{missing > 0 ? missing.toLocaleString() : '—'}</td>
-                                  <td className="py-2 text-center"><span style={{ fontSize: 14 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
-                                </tr>
-                                {subs.map((sub: any, si: number) => {
-                                  const subNeed = Number(sub.quantity) || 0;
-                                  const subHave = stockLookup.get(String(sub.nameLower || sub.name || '').toLowerCase()) || 0;
-                                  const subMissing = Math.max(0, subNeed - subHave);
-                                  const subStatus = subHave >= subNeed ? 'complete' : subHave > 0 ? 'partial' : 'none';
-                                  return (
-                                    <tr key={`${mi}-sub-${si}`} style={{ borderBottom: si === subs.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                                      <td className="py-1.5 pl-8">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-[10px]" style={{ color: 'rgba(168,85,247,0.4)' }}>└</span>
-                                          {sub.imageUrl && <img src={sub.imageUrl} alt="" className="h-4 w-4 rounded object-cover" />}
-                                          <span className="text-[11px]" style={{ color: subStatus === 'complete' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.65)', textDecoration: subStatus === 'complete' ? 'line-through' : 'none' }}>{sub.name}</span>
-                                        </div>
-                                      </td>
-                                      <td className="py-1.5 text-right font-mono text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{subNeed.toLocaleString()}</td>
-                                      <td className="py-1.5 text-right font-mono text-[11px]" style={{ color: subHave > 0 ? '#34d399' : 'rgba(255,255,255,0.25)' }}>{subHave.toLocaleString()}</td>
-                                      <td className="py-1.5 text-right font-mono font-bold text-[11px]" style={{ color: subMissing > 0 ? '#ef4444' : '#34d399' }}>{subMissing > 0 ? subMissing.toLocaleString() : '—'}</td>
-                                      <td className="py-1.5 text-center"><span style={{ fontSize: 12 }}>{subStatus === 'complete' ? '✅' : subStatus === 'partial' ? '⚠️' : '❌'}</span></td>
-                                    </tr>
-                                  );
-                                })}
-                              </React.Fragment>
-                            );
-                          })}
+                          {(() => {
+                            const renderMatRows = (mats: any[], depth: number, parentKey: string): React.ReactNode[] => {
+                              const rows: React.ReactNode[] = [];
+                              mats.forEach((mat: any, mi: number) => {
+                                const key = `${parentKey}-${mi}`;
+                                const need = Number(mat.quantity) || 0;
+                                const have = stockLookup.get(String(mat.nameLower || mat.name || '').toLowerCase()) || 0;
+                                const missing = Math.max(0, need - have);
+                                const status = have >= need ? 'complete' : have > 0 ? 'partial' : 'none';
+                                const subs = mat.subMaterials || [];
+                                const indent = depth * 20;
+                                rows.push(
+                                  <tr key={key} style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
+                                    <td className="py-2" style={{ paddingLeft: indent }}>
+                                      <div className="flex items-center gap-2">
+                                        {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
+                                        {mat.imageUrl && <img src={mat.imageUrl} alt="" className={depth === 0 ? 'h-5 w-5 rounded object-cover' : 'h-4 w-4 rounded object-cover'} />}
+                                        <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: status === 'complete' ? 'rgba(255,255,255,0.4)' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: status === 'complete' ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
+                                        {subs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
+                                      </div>
+                                    </td>
+                                    <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
+                                    <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: missing > 0 ? '#ef4444' : '#34d399' }}>{missing > 0 ? missing.toLocaleString() : '—'}</td>
+                                    <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
+                                  </tr>
+                                );
+                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key));
+                              });
+                              return rows;
+                            };
+                            return renderMatRows(materials, 0, 'mat');
+                          })()}
                         </tbody>
                       </table>
                       {isSA && (

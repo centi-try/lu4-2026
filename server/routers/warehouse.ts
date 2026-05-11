@@ -228,11 +228,21 @@ export const warehouseRouter = router({
           name: z.string().min(1),
           quantity: z.number().int().min(1),
           imageUrl: z.string().optional(),
-          subMaterials: z.array(z.object({
+          subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
             name: z.string().min(1),
             quantity: z.number().int().min(1),
             imageUrl: z.string().optional(),
-          })).optional(),
+            subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
+              name: z.string().min(1),
+              quantity: z.number().int().min(1),
+              imageUrl: z.string().optional(),
+              subMaterials: z.array(z.object({
+                name: z.string().min(1),
+                quantity: z.number().int().min(1),
+                imageUrl: z.string().optional(),
+              })).optional(),
+            })).optional()),
+          })).optional()),
         })),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -242,23 +252,19 @@ export const warehouseRouter = router({
         }
         const db = dbInstance;
         if (!db.craftRecipes) db.craftRecipes = [];
+        const mapMats = (arr: any[]): any[] => arr.map((m: any) => ({
+          name: m.name.trim(),
+          nameLower: m.name.trim().toLowerCase(),
+          quantity: m.quantity,
+          imageUrl: m.imageUrl || null,
+          subMaterials: m.subMaterials?.length ? mapMats(m.subMaterials) : [],
+        }));
         const recipe = {
           id: randId(),
           name: input.name.trim(),
           imageUrl: input.imageUrl || null,
           wikiUrl: input.wikiUrl || null,
-          materials: input.materials.map(m => ({
-            name: m.name.trim(),
-            nameLower: m.name.trim().toLowerCase(),
-            quantity: m.quantity,
-            imageUrl: m.imageUrl || null,
-            subMaterials: (m.subMaterials || []).map(s => ({
-              name: s.name.trim(),
-              nameLower: s.name.trim().toLowerCase(),
-              quantity: s.quantity,
-              imageUrl: s.imageUrl || null,
-            })),
-          })),
+          materials: mapMats(input.materials),
           createdAt: nowIso(),
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         };
