@@ -312,7 +312,7 @@ export default function WarehouseClan() {
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; label: string; color: string; action: () => void; itemName?: string; itemDetail?: string; itemImage?: string | null } | null>(null);
 
   // Recipe form
-  const [recipeOpen, setRecipeOpen] = useState(false);
+  // Recipe registration is now inline in the Crafteo tab (no modal)
   const [recipeName, setRecipeName] = useState('');
   const [recipeImg, setRecipeImg] = useState('');
   const [recipeWiki, setRecipeWiki] = useState('');
@@ -928,13 +928,173 @@ export default function WarehouseClan() {
       {/* ═══ TAB: CRAFTEO ═══ */}
       {tab === 'crafteo' && (
         <div className="space-y-5">
+          {/* Recipe Registration Panel (inline, CreateItemPanel style) */}
           {isSA && (
-            <div className="flex gap-2">
-              <button onClick={() => setRecipeOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
-                <Plus className="h-3.5 w-3.5" /> Nueva Receta
-              </button>
-              <button onClick={() => setProjectOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
-                <Hammer className="h-3.5 w-3.5" /> Nuevo Proyecto
+            <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <div>
+                  <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    <Hammer className="h-5 w-5" style={{ color: '#c084fc' }} />
+                    Registro de Recetas
+                  </h3>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Define el ítem final y los materiales necesarios. Los materiales pueden tener <strong style={{ color: 'rgba(255,255,255,0.7)' }}>sub-materiales</strong>.
+                  </p>
+                </div>
+                <button onClick={() => setProjectOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                  <Hammer className="h-3.5 w-3.5" /> Nuevo Proyecto
+                </button>
+              </div>
+
+              {/* Recipe item final */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    Nombre del ítem final <span style={{ color: '#f87171' }}>*</span>
+                  </label>
+                  <input value={recipeName} onChange={e => setRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="Lance, Majestic Plate Armor..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>URL Wiki</label>
+                  <input value={recipeWiki} onChange={e => setRecipeWiki(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="https://wikipedia1.mw2.wiki/..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>URL Imagen</label>
+                  <input value={recipeImg} onChange={e => setRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="https://..." />
+                </div>
+              </div>
+
+              {/* Materials */}
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Materiales <span style={{ color: '#f87171' }}>*</span> ({recipeMaterials.filter(m => m.name.trim()).length})
+                </label>
+                <button type="button" onClick={addMaterialRow} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all" style={{ background: 'rgba(192,132,252,0.1)', border: '1px solid rgba(192,132,252,0.25)', color: '#c084fc' }}>
+                  <Plus className="h-3 w-3" /> Añadir material
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {recipeMaterials.map((mat, idx) => {
+                  const catMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === mat.name.trim().toLowerCase());
+                  return (
+                    <div key={idx} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      {/* Row header */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                          Material #{idx + 1}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => toggleSubMaterials(idx)} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-all" style={{ background: mat.hasSubMaterials ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.03)', color: mat.hasSubMaterials ? '#a855f7' : 'rgba(255,255,255,0.4)', border: `1px solid ${mat.hasSubMaterials ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.08)'}` }}>
+                            {mat.hasSubMaterials ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            Sub-materiales
+                          </button>
+                          {recipeMaterials.length > 1 && (
+                            <button type="button" onClick={() => removeMaterialRow(idx)} className="rounded-lg px-2 py-1 text-xs transition-all flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
+                              <Trash2 className="h-3 w-3" /> quitar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Grid: name + qty + image */}
+                      <div className="grid gap-3 sm:grid-cols-12">
+                        <div className="sm:col-span-5">
+                          <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                            Nombre <span style={{ color: '#f87171' }}>*</span>
+                          </label>
+                          <CatalogTypeahead catalog={catalog as any[]} value={mat.name} onChange={val => {
+                            const found = (catalog as any[]).find((c: any) => c.name === val);
+                            setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, name: val, imageUrl: found?.imageUrl || m.imageUrl } : m));
+                          }} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                            Cant. <span style={{ color: '#f87171' }}>*</span>
+                          </label>
+                          <input type="number" min="1" value={mat.quantity} onChange={e => updateMaterialRow(idx, 'quantity', e.target.value)} className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', height: 36 }} />
+                        </div>
+                        <div className="sm:col-span-5">
+                          <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Imagen</label>
+                          <div className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}>
+                            {(mat.imageUrl || catMatch?.imageUrl) ? (
+                              <>
+                                <img src={mat.imageUrl || catMatch?.imageUrl} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>auto · catálogo</span>
+                              </>
+                            ) : (
+                              <>
+                                <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>buscar en catálogo</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sub-materials */}
+                      {mat.hasSubMaterials && (
+                        <div className="mt-3 ml-4 pl-3" style={{ borderLeft: '2px solid rgba(168,85,247,0.15)' }}>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'rgba(168,85,247,0.6)' }}>Sub-materiales de {mat.name || `material #${idx + 1}`}</p>
+                            <button type="button" onClick={() => addSubMaterialRow(idx)} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: 'rgba(168,85,247,0.08)', color: 'rgba(168,85,247,0.7)' }}>
+                              <Plus className="h-2.5 w-2.5" /> Sub-material
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                            {mat.subMaterials.map((sub, si) => {
+                              const subCatMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === sub.name.trim().toLowerCase());
+                              return (
+                                <div key={si} className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                  <div className="grid gap-2 sm:grid-cols-12 items-center">
+                                    <div className="sm:col-span-5">
+                                      <CatalogTypeahead catalog={catalog as any[]} value={sub.name} onChange={val => {
+                                        const found = (catalog as any[]).find((c: any) => c.name === val);
+                                        updateSubMaterialRow(idx, si, 'name', val);
+                                        if (found?.imageUrl) updateSubMaterialRow(idx, si, 'imageUrl', found.imageUrl);
+                                      }} />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <input type="number" min="1" value={sub.quantity} onChange={e => updateSubMaterialRow(idx, si, 'quantity', e.target.value)} className="w-full rounded-lg px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', height: 30 }} />
+                                    </div>
+                                    <div className="sm:col-span-4 flex items-center gap-2">
+                                      {(sub.imageUrl || subCatMatch?.imageUrl) ? (
+                                        <img src={sub.imageUrl || subCatMatch?.imageUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                                      ) : (
+                                        <ImageIcon className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
+                                      )}
+                                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{sub.name ? 'auto' : 'catálogo'}</span>
+                                    </div>
+                                    <div className="sm:col-span-1 flex justify-end">
+                                      {mat.subMaterials.length > 1 && (
+                                        <button type="button" onClick={() => removeSubMaterialRow(idx, si)} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.5)' }}><X className="h-3 w-3" /></button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Submit button */}
+              <button
+                type="button"
+                onClick={handleCreateRecipe}
+                disabled={createRecipeMut.isPending}
+                className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all mt-4"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(192,132,252,0.2), rgba(168,85,247,0.2))',
+                  border: '1px solid rgba(192,132,252,0.35)',
+                  color: '#c084fc',
+                }}
+              >
+                {createRecipeMut.isPending ? <><Loader2 className="inline h-4 w-4 mr-2 animate-spin" /> Creando...</> : <><Hammer className="inline h-4 w-4 mr-2" /> Crear Receta</>}
               </button>
             </div>
           )}
@@ -1213,121 +1373,7 @@ export default function WarehouseClan() {
         </div>
       )}
 
-      {/* Create Recipe Modal */}
-      {recipeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
-          <div className="w-full max-w-2xl mx-4 rounded-2xl p-5" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))', border: '1px solid rgba(168,85,247,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Hammer className="h-5 w-5" style={{ color: '#a855f7' }} />
-                  <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Nueva Receta de Crafteo</h3>
-                </div>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Define el ítem final y los materiales necesarios. Los materiales pueden tener sub-materiales.</p>
-              </div>
-              <button onClick={() => setRecipeOpen(false)} className="rounded-lg p-1.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}><X className="h-4 w-4" /></button>
-            </div>
-
-            <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
-              {/* Item final info */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre del ítem final *</label>
-                  <input value={recipeName} onChange={e => setRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="Lance, Majestic Plate Armor..." />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Wiki</label>
-                  <input value={recipeWiki} onChange={e => setRecipeWiki(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://wikipedia1.mw2.wiki/..." />
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Imagen</label>
-                  <input value={recipeImg} onChange={e => setRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
-                </div>
-              </div>
-
-              {/* Materials */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'rgba(255,255,255,0.4)' }}>Materiales requeridos *</label>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7' }}>{recipeMaterials.filter(m => m.name.trim()).length} materiales</span>
-                </div>
-                <div className="space-y-2">
-                  {recipeMaterials.map((mat, idx) => {
-                    const catMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === mat.name.trim().toLowerCase());
-                    return (
-                      <div key={idx} className="rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div className="flex gap-2 items-center p-2.5">
-                          {/* Image preview */}
-                          <div className="h-8 w-8 shrink-0 rounded-lg overflow-hidden flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                            {(mat.imageUrl || catMatch?.imageUrl) ? (
-                              <img src={mat.imageUrl || catMatch?.imageUrl} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              <Package className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.2)' }} />
-                            )}
-                          </div>
-                          <CatalogTypeahead catalog={catalog as any[]} value={mat.name} onChange={val => {
-                            const found = (catalog as any[]).find((c: any) => c.name === val);
-                            setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, name: val, imageUrl: found?.imageUrl || m.imageUrl } : m));
-                          }} />
-                          <input type="number" min="1" value={mat.quantity} onChange={e => updateMaterialRow(idx, 'quantity', e.target.value)} className="w-20 rounded-lg px-2 py-1.5 text-xs text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="Qty" />
-                          <button onClick={() => toggleSubMaterials(idx)} className="p-1.5 rounded-lg text-[9px] whitespace-nowrap" style={{ background: mat.hasSubMaterials ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.04)', color: mat.hasSubMaterials ? '#a855f7' : 'rgba(255,255,255,0.4)', border: `1px solid ${mat.hasSubMaterials ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.08)'}` }} title="Sub-materiales">
-                            {mat.hasSubMaterials ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                          </button>
-                          {recipeMaterials.length > 1 && (
-                            <button onClick={() => removeMaterialRow(idx)} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.5)' }}><X className="h-3.5 w-3.5" /></button>
-                          )}
-                        </div>
-                        {/* Sub-materials */}
-                        {mat.hasSubMaterials && (
-                          <div className="px-3 pb-2.5 ml-8" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                            <p className="text-[9px] uppercase tracking-wider mt-2 mb-1.5" style={{ color: 'rgba(168,85,247,0.6)' }}>Sub-materiales de {mat.name || 'este material'}</p>
-                            <div className="space-y-1.5">
-                              {mat.subMaterials.map((sub, si) => {
-                                const subCatMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === sub.name.trim().toLowerCase());
-                                return (
-                                  <div key={si} className="flex gap-2 items-center">
-                                    <div className="h-6 w-6 shrink-0 rounded overflow-hidden flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                      {(sub.imageUrl || subCatMatch?.imageUrl) ? (
-                                        <img src={sub.imageUrl || subCatMatch?.imageUrl} alt="" className="h-full w-full object-cover" />
-                                      ) : (
-                                        <Package className="h-2.5 w-2.5" style={{ color: 'rgba(255,255,255,0.15)' }} />
-                                      )}
-                                    </div>
-                                    <CatalogTypeahead catalog={catalog as any[]} value={sub.name} onChange={val => {
-                                      const found = (catalog as any[]).find((c: any) => c.name === val);
-                                      updateSubMaterialRow(idx, si, 'name', val);
-                                      if (found?.imageUrl) updateSubMaterialRow(idx, si, 'imageUrl', found.imageUrl);
-                                    }} />
-                                    <input type="number" min="1" value={sub.quantity} onChange={e => updateSubMaterialRow(idx, si, 'quantity', e.target.value)} className="w-16 rounded-lg px-2 py-1 text-[10px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }} />
-                                    {mat.subMaterials.length > 1 && (
-                                      <button onClick={() => removeSubMaterialRow(idx, si)} className="p-0.5 rounded" style={{ color: 'rgba(239,68,68,0.4)' }}><X className="h-3 w-3" /></button>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <button onClick={() => addSubMaterialRow(idx)} className="mt-1.5 text-[9px] px-2 py-0.5 rounded" style={{ background: 'rgba(168,85,247,0.08)', color: 'rgba(168,85,247,0.6)' }}>+ Sub-material</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <button onClick={addMaterialRow} className="mt-2 flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-lg" style={{ background: 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.15)' }}>
-                  <Plus className="h-3 w-3" /> Agregar material
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <button onClick={() => setRecipeOpen(false)} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.75)' }}>Cancelar</button>
-              <button onClick={handleCreateRecipe} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.8), rgba(139,92,246,0.8))', border: '1px solid rgba(168,85,247,0.5)', color: '#fff' }}>
-                <Hammer className="h-4 w-4" /> Crear Receta
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Old recipe modal removed — now inline in Crafteo tab */}
 
       {/* Create Project Modal */}
       {projectOpen && (
