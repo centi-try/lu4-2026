@@ -203,7 +203,7 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
                 <div className="space-y-2">
                   {purchases.map((p, idx) => {
                     const isInternal = !!p.isInternalSale;
-                    const date = new Date(p.createdAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                    const date = new Date(p.createdAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                     return (
                       <div
                         key={p.id || idx}
@@ -213,42 +213,60 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
                           border: `1px solid ${isInternal ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)'}`,
                         }}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                            {p.buyerName}
+                        {/* Comprador + tipo de venta */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Comprador</span>
+                            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{p.buyerName}</p>
+                          </div>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                            style={isInternal
+                              ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }
+                              : { background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }
+                            }>
+                            {isInternal ? `Venta Interna (-${p.discountPct || 20}%)` : 'Venta Normal'}
                           </span>
-                          {isInternal && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                              style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}>
-                              Venta Interna {p.discountPct ? `(-${p.discountPct}%)` : ''}
-                            </span>
-                          )}
                         </div>
-                        <div className="flex items-center gap-3 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                          <span>×{p.quantity}</span>
-                          <span>·</span>
-                          {isInternal && p.originalPrice ? (
-                            <>
-                              <span style={{ textDecoration: 'line-through', color: 'rgba(255,255,255,0.3)' }}>
-                                ${p.originalPrice.toLocaleString()}
-                              </span>
+                        {/* Detalle con etiquetas */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-1.5">
+                          <div>
+                            <span style={{ color: 'rgba(255,255,255,0.35)' }}>Cantidad: </span>
+                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>{p.quantity} ud</span>
+                          </div>
+                          <div>
+                            <span style={{ color: 'rgba(255,255,255,0.35)' }}>Precio original: </span>
+                            <span style={isInternal ? { textDecoration: 'line-through', color: 'rgba(255,255,255,0.3)' } : { color: 'rgba(255,255,255,0.7)' }}>
+                              ${(p.originalPrice || p.price).toLocaleString()}
+                            </span>
+                          </div>
+                          {isInternal && (
+                            <div>
+                              <span style={{ color: 'rgba(255,255,255,0.35)' }}>Precio con dto: </span>
                               <span style={{ color: '#fbbf24' }}>${p.price.toLocaleString()} c/u</span>
-                            </>
-                          ) : (
-                            <span>${p.price.toLocaleString()} c/u</span>
+                            </div>
                           )}
-                          <span>·</span>
-                          <span className="font-mono font-semibold" style={{ color: '#34d399' }}>
-                            ${p.total.toLocaleString()}
-                          </span>
+                          <div>
+                            <span style={{ color: 'rgba(255,255,255,0.35)' }}>Total cobrado: </span>
+                            <span className="font-semibold" style={{ color: '#34d399' }}>${p.total.toLocaleString()}</span>
+                          </div>
                           {p.clanTax ? (
-                            <>
-                              <span>·</span>
-                              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Clan: ${p.clanTax.toLocaleString()}</span>
-                            </>
+                            <div>
+                              <span style={{ color: 'rgba(255,255,255,0.35)' }}>Retención clan: </span>
+                              <span style={{ color: '#f87171' }}>${p.clanTax.toLocaleString()}</span>
+                            </div>
+                          ) : null}
+                          {p.clanTax ? (
+                            <div>
+                              <span style={{ color: 'rgba(255,255,255,0.35)' }}>Neto vendedor: </span>
+                              <span className="font-semibold" style={{ color: '#34d399' }}>${(p.total - (p.clanTax || 0)).toLocaleString()}</span>
+                            </div>
                           ) : null}
                         </div>
-                        <p className="text-[10px] mt-1 font-mono" style={{ color: 'rgba(255,255,255,0.25)' }}>{date}</p>
+                        {/* Fecha */}
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Fecha:</span>
+                          <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>{date}</span>
+                        </div>
                       </div>
                     );
                   })}
