@@ -980,98 +980,176 @@ export default function WarehouseClan() {
                 </button>
               </div>
 
-              {/* Recursive material node renderer */}
+              {/* Recursive material node renderer — improved compact design */}
               {(() => {
-                const levelColors = [
-                  { border: 'rgba(192,132,252,0.2)', bg: 'rgba(192,132,252,0.04)', text: '#c084fc', label: 'Material' },
-                  { border: 'rgba(168,85,247,0.2)', bg: 'rgba(168,85,247,0.04)', text: '#a855f7', label: 'Sub-material' },
-                  { border: 'rgba(139,92,246,0.2)', bg: 'rgba(139,92,246,0.04)', text: '#8b5cf6', label: 'Sub-sub-material' },
+                // Distinct color palette cycling for unlimited depth
+                const palette = [
+                  { color: '#2dd4bf', bg: 'rgba(45,212,191,0.06)', border: 'rgba(45,212,191,0.25)', light: 'rgba(45,212,191,0.12)' },  // teal
+                  { color: '#a855f7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.25)', light: 'rgba(168,85,247,0.12)' },  // purple
+                  { color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.25)', light: 'rgba(245,158,11,0.12)' },  // amber
+                  { color: '#ec4899', bg: 'rgba(236,72,153,0.06)', border: 'rgba(236,72,153,0.25)', light: 'rgba(236,72,153,0.12)' },  // pink
+                  { color: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.25)', light: 'rgba(59,130,246,0.12)' },  // blue
+                  { color: '#10b981', bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.25)', light: 'rgba(16,185,129,0.12)' },  // emerald
                 ];
+                const getLevel = (d: number) => palette[d % palette.length];
+
                 const renderNodes = (nodes: MaterialNode[], path: number[], depth: number): React.ReactNode => {
-                  const lc = levelColors[Math.min(depth, levelColors.length - 1)];
+                  const lv = getLevel(depth);
+                  const isRoot = depth === 0;
+
                   return (
-                    <div className="space-y-3">
+                    <div className={isRoot ? 'space-y-3' : 'space-y-2'}>
                       {nodes.map((node, idx) => {
                         const currentPath = [...path, idx];
                         const catMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === node.name.trim().toLowerCase());
                         const imgSrc = node.imageUrl || catMatch?.imageUrl || '';
-                        return (
-                          <div key={idx} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${lc.border}` }}>
-                            {/* Node header */}
-                            <div className="flex items-center justify-between px-3 py-2" style={{ background: lc.bg, borderBottom: `1px solid ${lc.border}` }}>
-                              <div className="flex items-center gap-2">
-                                {imgSrc && <img src={imgSrc} alt="" className="h-6 w-6 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-                                <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                                  {lc.label} #{idx + 1}{node.name ? `: ${node.name}` : ''}
-                                </span>
-                                {node.subMaterials.length > 0 && (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: `${lc.text}18`, color: lc.text }}>{node.subMaterials.length} sub</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-all" style={{ background: node.expanded ? `${lc.text}22` : 'rgba(255,255,255,0.03)', color: node.expanded ? lc.text : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? `${lc.text}44` : 'rgba(255,255,255,0.08)'}` }}>
-                                  {node.expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                  Sub-materiales
-                                </button>
-                                {nodes.length > 1 && (
-                                  <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="rounded-lg px-2 py-1 text-[10px] transition-all flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
-                                    <Trash2 className="h-3 w-3" /> quitar
+                        const subCount = node.subMaterials.length;
+                        const collapsedNames = !node.expanded && subCount > 0 ? node.subMaterials.filter(s => s.name.trim()).map(s => s.name.trim()) : [];
+
+                        if (isRoot) {
+                          // === ROOT LEVEL: Full card with labels ===
+                          return (
+                            <div key={idx} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${lv.border}`, background: 'rgba(255,255,255,0.015)' }}>
+                              {/* Header bar */}
+                              <div className="flex items-center justify-between px-3 py-2" style={{ background: lv.bg, borderBottom: `1px solid ${lv.border}` }}>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1.5 h-5 rounded-full" style={{ background: lv.color }} />
+                                  {imgSrc && <img src={imgSrc} alt="" className="h-6 w-6 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                                  <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                                    Material #{idx + 1}{node.name ? ` — ${node.name}` : ''}
+                                  </span>
+                                  {subCount > 0 && !node.expanded && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: lv.light, color: lv.color }}>{subCount} sub</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all" style={{ background: node.expanded ? lv.light : 'rgba(255,255,255,0.03)', color: node.expanded ? lv.color : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? lv.border : 'rgba(255,255,255,0.08)'}` }}>
+                                    {node.expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                    Sub-materiales
                                   </button>
+                                  {nodes.length > 1 && (
+                                    <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="rounded-lg px-2 py-1 text-[10px] flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
+                                      <Trash2 className="h-3 w-3" /> quitar
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Fields */}
+                              <div className="p-3">
+                                <div className="grid gap-3 sm:grid-cols-12">
+                                  <div className="sm:col-span-5">
+                                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Nombre <span style={{ color: '#f87171' }}>*</span></label>
+                                    <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
+                                      const found = (catalog as any[]).find((c: any) => c.name === val);
+                                      setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val, imageUrl: found?.imageUrl || n.imageUrl })));
+                                    }} />
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Cant. <span style={{ color: '#f87171' }}>*</span></label>
+                                    <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', height: 36 }} />
+                                  </div>
+                                  <div className="sm:col-span-5">
+                                    <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Imagen</label>
+                                    <div className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}>
+                                      {imgSrc ? (
+                                        <>
+                                          <img src={imgSrc} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                          <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>auto · catálogo</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>buscar en catálogo</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                {/* Collapsed summary chips */}
+                                {!node.expanded && collapsedNames.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {collapsedNames.map((n, i) => (
+                                      <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>{n}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Expanded sub-materials */}
+                                {node.expanded && (
+                                  <div className="mt-3 relative" style={{ paddingLeft: 16 }}>
+                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-full" style={{ background: getLevel(depth + 1).border }} />
+                                    <div className="flex items-center justify-between mb-2">
+                                      <p className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1.5" style={{ color: getLevel(depth + 1).color }}>
+                                        <span className="w-2 h-0.5 rounded-full inline-block" style={{ background: getLevel(depth + 1).color }} />
+                                        Sub-materiales de {node.name || `material #${idx + 1}`}
+                                      </p>
+                                      <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>
+                                        <Plus className="h-2.5 w-2.5" /> Añadir
+                                      </button>
+                                    </div>
+                                    {renderNodes(node.subMaterials, currentPath, depth + 1)}
+                                  </div>
                                 )}
                               </div>
                             </div>
+                          );
+                        }
 
-                            {/* Node fields */}
-                            <div className="p-3">
-                              <div className="grid gap-3 sm:grid-cols-12">
-                                <div className="sm:col-span-5">
-                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    Nombre <span style={{ color: '#f87171' }}>*</span>
-                                  </label>
-                                  <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
-                                    const found = (catalog as any[]).find((c: any) => c.name === val);
-                                    setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val, imageUrl: found?.imageUrl || n.imageUrl })));
-                                  }} />
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    Cant. <span style={{ color: '#f87171' }}>*</span>
-                                  </label>
-                                  <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.9)', height: 36 }} />
-                                </div>
-                                <div className="sm:col-span-5">
-                                  <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Imagen</label>
-                                  <div className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}>
-                                    {imgSrc ? (
-                                      <>
-                                        <img src={imgSrc} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                        <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>auto · catálogo</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
-                                        <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>buscar en catálogo</span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Sub-materials (recursive) */}
-                              {node.expanded && (
-                                <div className="mt-3 pl-3" style={{ borderLeft: `2px solid ${lc.border}` }}>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: lc.text }}>
-                                      Sub-materiales de {node.name || `${lc.label.toLowerCase()} #${idx + 1}`}
-                                    </p>
-                                    <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: `${lc.text}12`, color: lc.text }}>
-                                      <Plus className="h-2.5 w-2.5" /> Sub-material
-                                    </button>
-                                  </div>
-                                  {renderNodes(node.subMaterials, currentPath, depth + 1)}
+                        // === NESTED LEVELS: Compact inline rows ===
+                        return (
+                          <div key={idx} className="rounded-lg" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
+                            {/* Compact inline row: color dot + image + name + qty + actions */}
+                            <div className="flex items-center gap-2 px-2.5 py-2">
+                              <div className="w-1 h-6 rounded-full shrink-0" style={{ background: lv.color }} />
+                              {imgSrc ? (
+                                <img src={imgSrc} alt="" className="h-6 w-6 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                              ) : (
+                                <div className="h-6 w-6 rounded shrink-0 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                  <ImageIcon className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
                                 </div>
                               )}
+                              <div className="flex-1 min-w-0">
+                                <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
+                                  const found = (catalog as any[]).find((c: any) => c.name === val);
+                                  setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val, imageUrl: found?.imageUrl || n.imageUrl })));
+                                }} />
+                              </div>
+                              <div className="w-16 shrink-0">
+                                <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded-lg px-2 py-1 text-xs text-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${lv.border}`, color: 'rgba(255,255,255,0.9)', height: 30 }} />
+                              </div>
+                              <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="p-1 rounded shrink-0" style={{ color: node.expanded ? lv.color : 'rgba(255,255,255,0.3)' }} title="Sub-materiales">
+                                {node.expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                              </button>
+                              {subCount > 0 && !node.expanded && (
+                                <span className="text-[8px] px-1 py-0.5 rounded-full shrink-0" style={{ background: lv.light, color: lv.color }}>{subCount}</span>
+                              )}
+                              {nodes.length > 1 && (
+                                <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="p-1 rounded shrink-0" style={{ color: 'rgba(239,68,68,0.5)' }}><X className="h-3 w-3" /></button>
+                              )}
                             </div>
+                            {/* Collapsed summary */}
+                            {!node.expanded && collapsedNames.length > 0 && (
+                              <div className="px-2.5 pb-2 flex flex-wrap gap-1" style={{ marginLeft: 12 }}>
+                                {collapsedNames.map((n, i) => (
+                                  <span key={i} className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>{n}</span>
+                                ))}
+                              </div>
+                            )}
+                            {/* Expanded children */}
+                            {node.expanded && (
+                              <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
+                                <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLevel(depth + 1).border }} />
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <p className="text-[9px] uppercase tracking-wider font-bold flex items-center gap-1" style={{ color: getLevel(depth + 1).color }}>
+                                    <span className="w-1.5 h-0.5 rounded-full inline-block" style={{ background: getLevel(depth + 1).color }} />
+                                    Sub-materiales
+                                  </p>
+                                  <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>
+                                    <Plus className="h-2 w-2" /> Añadir
+                                  </button>
+                                </div>
+                                {renderNodes(node.subMaterials, currentPath, depth + 1)}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
