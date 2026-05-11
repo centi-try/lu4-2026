@@ -209,11 +209,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [serverAuditLogs]);
 
+  const trpcUtils = trpc.useUtils();
   const sellMutation = trpc.items.sell.useMutation({
     onSuccess: () => {
       refetchPurchases();
       refetchItems();
       refetchCharacters();
+      trpcUtils.items.reservations.list.invalidate();
     }
   });
 
