@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
@@ -9,9 +9,7 @@ import type { ItemCategory } from '../lib/types';
 import { toast } from 'sonner';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CatalogTypeahead — busca en materialCatalog y muestra dropdown estilo
-// ItemTypeahead, con imagen + categoría. Al seleccionar se autocompleta
-// nombre, categoría e imagen.
+// CatalogTypeahead
 // ═══════════════════════════════════════════════════════════════════════════
 
 function highlight(text: string, query: string) {
@@ -40,10 +38,8 @@ interface CatalogTypeaheadProps {
 function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'Ej: Draconic Leather' }: CatalogTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
-  const [loading, setLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const suppressRef = useRef(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const results = useMemo(() => {
     if (!value.trim() || suppressRef.current) return [];
@@ -51,24 +47,12 @@ function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'E
     return (catalog || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 10);
   }, [catalog, value]);
 
-  useEffect(() => {
-    clearTimeout(timerRef.current);
-    if (!value.trim()) { setOpen(false); suppressRef.current = false; return; }
-    if (suppressRef.current) { suppressRef.current = false; setOpen(false); setLoading(false); return; }
-    setLoading(true);
-    timerRef.current = setTimeout(() => {
-      setOpen(results.length > 0);
-      setLoading(false);
-      setActiveIdx(-1);
-    }, 150);
-    return () => clearTimeout(timerRef.current);
-  }, [value, results.length]);
-
   const handleSelect = useCallback((item: any) => {
     suppressRef.current = true;
     setOpen(false);
     setActiveIdx(-1);
     onSelect({ name: item.name, category: item.category, imageUrl: item.imageUrl || null });
+    setTimeout(() => { suppressRef.current = false; }, 100);
   }, [onSelect]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -79,12 +63,18 @@ function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'E
     if (e.key === 'Escape') { setOpen(false); setActiveIdx(-1); }
   }, [open, results, activeIdx, handleSelect]);
 
-  useEffect(() => {
-    if (activeIdx >= 0 && listRef.current) {
-      const el = listRef.current.children[activeIdx] as HTMLElement;
-      el?.scrollIntoView({ block: 'nearest' });
+  const handleChange = useCallback((v: string) => {
+    suppressRef.current = false;
+    onChange(v);
+    if (v.trim()) {
+      const q = v.toLowerCase();
+      const r = (catalog || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 10);
+      setOpen(r.length > 0);
+      setActiveIdx(-1);
+    } else {
+      setOpen(false);
     }
-  }, [activeIdx]);
+  }, [onChange, catalog]);
 
   return (
     <div className="relative">
@@ -95,15 +85,14 @@ function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'E
         <Search className="shrink-0 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.35)' }} />
         <input
           value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => results.length > 0 && setOpen(true)}
+          onFocus={() => { if (value.trim() && !suppressRef.current) { const q = value.toLowerCase(); const r = (catalog || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 10); setOpen(r.length > 0); } }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder={placeholder}
           className="w-full bg-transparent outline-none text-xs"
           style={{ color: 'rgba(255,255,255,0.9)', caretColor: '#7bf1d6' }}
         />
-        {loading && <Loader2 className="animate-spin shrink-0 h-3.5 w-3.5" style={{ color: '#7bf1d6' }} />}
       </div>
 
       {open && results.length > 0 && (
@@ -146,6 +135,59 @@ function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'E
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Confirmation Modal
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ConfirmModal({ open, title, message, confirmLabel, confirmColor, onConfirm, onCancel }: {
+  open: boolean; title: string; message: string; confirmLabel: string; confirmColor: string;
+  onConfirm: () => void; onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+      <div className="rounded-2xl w-full max-w-sm mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{title}</h3>
+        </div>
+        <div className="px-5 py-4">
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{message}</p>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
+          <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: `${confirmColor}20`, color: confirmColor, border: `1px solid ${confirmColor}40` }}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Row type for multi-row registration
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface RowState {
+  id: string;
+  name: string;
+  category: ItemCategory | '';
+  quantity: string;
+  imageUrl: string;
+}
+
+let rowIdCounter = 0;
+const emptyRow = (): RowState => ({
+  id: `wr-${Date.now()}-${++rowIdCounter}`,
+  name: '',
+  category: '',
+  quantity: '0',
+  imageUrl: '',
+});
+
+const isInvalidQuantity = (q: string) => {
+  const n = parseInt(q, 10);
+  return !q || isNaN(n) || n < 1;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // WarehouseClan — main page
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -163,7 +205,7 @@ export default function WarehouseClan() {
   const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery();
   const { data: catalog = [] } = trpc.warehouse.catalog.list.useQuery();
 
-  // Category icons from raid settings (same map used by inventory)
+  // Category icons
   const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery(undefined, { staleTime: 60_000 });
   const categoryIconMap = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {};
@@ -195,18 +237,27 @@ export default function WarehouseClan() {
   // Search / filters
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('ALL');
+  const [stockFilter, setStockFilter] = useState('ALL');
 
-  // Register form
-  const [regName, setRegName] = useState('');
-  const [regCat, setRegCat] = useState<ItemCategory | ''>('');
-  const [regQty, setRegQty] = useState('0');
-  const [regImg, setRegImg] = useState('');
+  // Multi-row registration
+  const [rows, setRows] = useState<RowState[]>([emptyRow()]);
   const [triedSubmit, setTriedSubmit] = useState(false);
+  const [pulseRowId, setPulseRowId] = useState<string | null>(null);
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const updateRow = (id: string, patch: Partial<RowState>) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  };
+  const addRow = () => setRows(prev => [...prev, emptyRow()]);
+  const removeRow = (id: string) => setRows(prev => (prev.length === 1 ? prev : prev.filter(r => r.id !== id)));
 
   // Withdraw modal
   const [withdrawItem, setWithdrawItem] = useState<any>(null);
   const [withdrawQty, setWithdrawQty] = useState('1');
   const [withdrawReason, setWithdrawReason] = useState('');
+
+  // Confirmation modals
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; label: string; color: string; action: () => void } | null>(null);
 
   // Recipe form
   const [recipeOpen, setRecipeOpen] = useState(false);
@@ -221,15 +272,17 @@ export default function WarehouseClan() {
   const [projectNotes, setProjectNotes] = useState('');
   const [expandedProject, setExpandedProject] = useState<number | null>(null);
 
-  // Filtered items
+  // Filtered items (combines name search + category filter + stock filter)
   const filtered = useMemo(() => {
     return (warehouseItems as any[]).filter((i: any) => {
       const q = search.toLowerCase();
       const matchName = !q || String(i.name || '').toLowerCase().includes(q);
       const matchCat = catFilter === 'ALL' || i.category === catFilter;
-      return matchName && matchCat;
+      const qty = Number(i.quantity) || 0;
+      const matchStock = stockFilter === 'ALL' || (stockFilter === 'IN_STOCK' && qty > 0) || (stockFilter === 'OUT_OF_STOCK' && qty === 0);
+      return matchName && matchCat && matchStock;
     });
-  }, [warehouseItems, search, catFilter]);
+  }, [warehouseItems, search, catFilter, stockFilter]);
 
   const stockLookup = useMemo(() => {
     const m = new Map<string, number>();
@@ -242,35 +295,69 @@ export default function WarehouseClan() {
 
   const totalItems = filtered.length;
   const totalUnits = filtered.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0);
-  const inStockCount = filtered.filter((i: any) => (Number(i.quantity) || 0) > 0).length;
-  const outOfStockCount = filtered.filter((i: any) => (Number(i.quantity) || 0) === 0).length;
+  const allItems = (warehouseItems as any[]);
+  const inStockCount = allItems.filter((i: any) => (Number(i.quantity) || 0) > 0).length;
+  const outOfStockCount = allItems.filter((i: any) => (Number(i.quantity) || 0) === 0).length;
   const activeProjects = (projects as any[]).filter((p: any) => p.status === 'active').length;
 
-  const handleCatalogSelect = (item: { name: string; category: string; imageUrl: string | null }) => {
-    setRegName(item.name);
-    setRegCat((item.category as ItemCategory) || '');
-    setRegImg(item.imageUrl || resolveCategoryIcon(item.category) || '');
-  };
-
-  const handleCategoryChange = (newCat: ItemCategory | '') => {
-    setRegCat(newCat);
-    const nextImg = newCat ? resolveCategoryIcon(newCat) : '';
-    if (nextImg) setRegImg(nextImg);
-  };
-
-  const handleRegister = () => {
-    setTriedSubmit(true);
-    if (!regName.trim()) { toast.error('Nombre requerido'); return; }
-    if (!regCat) { toast.error('Selecciona una categoría'); return; }
-    const qty = parseInt(regQty, 10);
-    if (isNaN(qty) || qty < 1) { toast.error('La cantidad debe ser al menos 1'); return; }
-    registerMut.mutate({
-      name: regName.trim(),
-      category: regCat,
-      quantity: qty,
-      imageUrl: regImg || undefined,
+  const handleCatalogSelect = (rowId: string, item: { name: string; category: string; imageUrl: string | null }) => {
+    updateRow(rowId, {
+      name: item.name,
+      category: (item.category as ItemCategory) || '',
+      imageUrl: item.imageUrl || resolveCategoryIcon(item.category) || '',
+      quantity: '0',
     });
-    setRegName(''); setRegCat(''); setRegQty('0'); setRegImg('');
+  };
+
+  const handleCategoryChange = (rowId: string, newCat: ItemCategory | '') => {
+    setRows(prev => prev.map(r => {
+      if (r.id !== rowId) return r;
+      const nextImg = newCat ? resolveCategoryIcon(newCat) : '';
+      return { ...r, category: newCat, imageUrl: nextImg || r.imageUrl };
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTriedSubmit(true);
+
+    const invalidQtyRows = rows.filter(r => isInvalidQuantity(r.quantity));
+    if (invalidQtyRows.length > 0) {
+      const firstInvalid = invalidQtyRows[0];
+      const firstIdx = rows.findIndex(r => r.id === firstInvalid.id);
+      const el = rowRefs.current[firstInvalid.id];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setPulseRowId(firstInvalid.id);
+      window.setTimeout(() => setPulseRowId(null), 750);
+      toast.error(
+        invalidQtyRows.length === 1
+          ? `Material #${firstIdx + 1}: ingresá una cantidad mayor a 0.`
+          : `${invalidQtyRows.length} materiales necesitan una cantidad mayor a 0.`
+      );
+      return;
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.name.trim()) { toast.error(`Material #${i + 1}: Nombre es obligatorio`); return; }
+      if (!r.category || !CATEGORIES.includes(r.category as ItemCategory)) { toast.error(`Material #${i + 1}: Seleccioná una categoría`); return; }
+    }
+
+    rows.forEach(r => {
+      registerMut.mutate({
+        name: r.name.trim(),
+        category: r.category as string,
+        quantity: parseInt(r.quantity, 10) || 1,
+        imageUrl: r.imageUrl || undefined,
+      });
+    });
+
+    if (rows.length === 1) {
+      toast.success(`Material "${rows[0].name.trim()}" registrado.`);
+    } else {
+      toast.success(`${rows.length} materiales registrados.`);
+    }
+    setRows([emptyRow()]);
     setTriedSubmit(false);
   };
 
@@ -318,7 +405,7 @@ export default function WarehouseClan() {
   const removeMaterialRow = (idx: number) => setRecipeMaterials(prev => prev.filter((_, i) => i !== idx));
   const updateMaterialRow = (idx: number, field: string, value: string) => setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
 
-  const qtyInvalid = triedSubmit && (isNaN(parseInt(regQty, 10)) || parseInt(regQty, 10) < 1);
+  const validCount = rows.filter(r => r.name.trim() && r.category).length;
 
   return (
     <AppShell>
@@ -330,7 +417,7 @@ export default function WarehouseClan() {
         </p>
       </div>
 
-      {/* Tabs — pill style (same as RaidDashboard) */}
+      {/* Tabs — pill style */}
       <div
         className="flex items-center gap-1 mb-5 rounded-xl p-1"
         style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
@@ -370,7 +457,7 @@ export default function WarehouseClan() {
       {/* ═══ TAB: BODEGA ═══ */}
       {tab === 'bodega' && (
         <div className="space-y-5">
-          {/* Registration Panel (card-glass, same style as CreateItemPanel) */}
+          {/* Registration Panel (card-glass, CreateItemPanel style) */}
           {canRegister && (
             <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
               <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
@@ -387,124 +474,175 @@ export default function WarehouseClan() {
                 </div>
               </div>
 
-              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Toolbar: counter + add */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                    Material #1
-                  </span>
+                  <label className="text-xs block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Ítems <span style={{ color: '#f87171' }}>*</span> ({validCount})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all"
+                    style={{ background: 'rgba(123,241,214,0.1)', border: '1px solid rgba(123,241,214,0.25)', color: '#7bf1d6' }}
+                  >
+                    <Plus className="h-3 w-3" /> Añadir ítem
+                  </button>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-12">
-                  {/* Name with catalog typeahead */}
-                  <div className="sm:col-span-4">
-                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Nombre del item <span style={{ color: '#f87171' }}>*</span>
-                    </label>
-                    <CatalogTypeahead
-                      value={regName}
-                      onChange={setRegName}
-                      onSelect={handleCatalogSelect}
-                      catalog={catalog as any[]}
-                      placeholder="Ej: Draconic Leather"
-                    />
-                  </div>
+                <div className="space-y-3">
+                  {rows.map((row, idx) => {
+                    const catOk = row.category && CATEGORIES.includes(row.category as ItemCategory);
+                    const qtyInvalid = triedSubmit && isInvalidQuantity(row.quantity);
+                    return (
+                      <div
+                        key={row.id}
+                        ref={el => { rowRefs.current[row.id] = el; }}
+                        className={`rounded-xl p-3 ${pulseRowId === row.id ? 'row-pulse-error' : ''}`}
+                        style={{
+                          background: 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${qtyInvalid ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                          transition: 'border-color 200ms ease',
+                        }}
+                      >
+                        {/* Row header */}
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            Material #{idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeRow(row.id)}
+                            disabled={rows.length <= 1}
+                            className="rounded-lg px-2 py-1 text-xs transition-all flex items-center gap-1"
+                            style={{
+                              background: 'rgba(255,120,120,0.05)',
+                              border: '1px solid rgba(255,120,120,0.15)',
+                              color: 'rgba(255,120,120,0.7)',
+                              opacity: rows.length <= 1 ? 0.3 : 1,
+                              cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" /> quitar
+                          </button>
+                        </div>
 
-                  {/* Category with FancySelect */}
-                  <div className="sm:col-span-3">
-                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Categoría <span style={{ color: '#f87171' }}>*</span>
-                    </label>
-                    <FancySelect<ItemCategory | ''>
-                      value={regCat || ''}
-                      onChange={v => handleCategoryChange(v as ItemCategory | '')}
-                      accent="turquoise"
-                      size="md"
-                      placeholder="-- Seleccionar --"
-                      options={CATEGORIES.map<FancyOption<ItemCategory | ''>>(cat => {
-                        const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
-                        return { value: cat, label: meta.label, emoji: meta.emoji };
-                      })}
-                    />
-                  </div>
+                        {/* Grid: name + cat + qty + image */}
+                        <div className="grid gap-3 sm:grid-cols-12">
+                          {/* Name with catalog typeahead */}
+                          <div className="sm:col-span-4">
+                            <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              Nombre del item <span style={{ color: '#f87171' }}>*</span>
+                            </label>
+                            <CatalogTypeahead
+                              value={row.name}
+                              onChange={v => updateRow(row.id, { name: v })}
+                              onSelect={item => handleCatalogSelect(row.id, item)}
+                              catalog={catalog as any[]}
+                              placeholder="Ej: Draconic Leather"
+                            />
+                          </div>
 
-                  {/* Quantity */}
-                  <div className="sm:col-span-2">
-                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Cant. <span style={{ color: '#f87171' }}>*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={regQty}
-                      onChange={e => setRegQty(e.target.value)}
-                      onFocus={e => { if (regQty === '0') { setRegQty(''); e.target.select?.(); } }}
-                      placeholder="0"
-                      className={`w-full rounded-lg px-2 py-1.5 text-xs ${qtyInvalid ? 'input-error' : ''}`}
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'rgba(255,255,255,0.9)',
-                        height: 36,
-                      }}
-                    />
-                    {qtyInvalid && (
-                      <div className="flex items-center gap-1 mt-1 text-[10px] font-medium" style={{ color: '#f87171', whiteSpace: 'nowrap' }}>
-                        <AlertCircle className="h-3 w-3 shrink-0" />
-                        <span>debe ser &gt; 0</span>
+                          {/* Category with FancySelect */}
+                          <div className="sm:col-span-3">
+                            <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              Categoría <span style={{ color: '#f87171' }}>*</span>
+                            </label>
+                            <FancySelect<ItemCategory | ''>
+                              value={catOk ? (row.category as ItemCategory) : ''}
+                              onChange={v => handleCategoryChange(row.id, v as ItemCategory | '')}
+                              accent="turquoise"
+                              size="md"
+                              placeholder="-- Seleccionar --"
+                              options={CATEGORIES.map<FancyOption<ItemCategory | ''>>(cat => {
+                                const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                                return { value: cat, label: meta.label, emoji: meta.emoji };
+                              })}
+                            />
+                          </div>
+
+                          {/* Quantity */}
+                          <div className="sm:col-span-2">
+                            <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              Cant. <span style={{ color: '#f87171' }}>*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={row.quantity}
+                              onChange={e => updateRow(row.id, { quantity: e.target.value })}
+                              onFocus={e => { if (row.quantity === '0') { updateRow(row.id, { quantity: '' }); e.target.select?.(); } }}
+                              placeholder="0"
+                              className={`w-full rounded-lg px-2 py-1.5 text-xs ${qtyInvalid ? 'input-error' : ''}`}
+                              style={{
+                                background: 'rgba(255,255,255,0.03)',
+                                border: `1px solid ${qtyInvalid ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                                color: 'rgba(255,255,255,0.9)',
+                                height: 36,
+                              }}
+                              aria-invalid={qtyInvalid}
+                            />
+                            {qtyInvalid && (
+                              <div className="flex items-center gap-1 mt-1 text-[10px] font-medium" style={{ color: '#f87171', whiteSpace: 'nowrap' }}>
+                                <AlertCircle className="h-3 w-3 shrink-0" />
+                                <span>debe ser &gt; 0</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Image preview */}
+                          <div className="sm:col-span-3">
+                            <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              Imagen
+                            </label>
+                            <div
+                              className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
+                              style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}
+                              title={row.imageUrl ? 'Asignada desde catálogo' : 'Elegí del catálogo o una categoría'}
+                            >
+                              {row.imageUrl ? (
+                                <>
+                                  <img src={row.imageUrl} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                  <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                    auto · {catOk ? row.category : ''}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                                  <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                    elegí categoría
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Image preview */}
-                  <div className="sm:col-span-3">
-                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Imagen
-                    </label>
-                    <div
-                      className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
-                      style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px dashed rgba(255,255,255,0.08)',
-                        height: 36,
-                      }}
-                      title={regImg ? 'Asignada desde catálogo' : 'Elegí del catálogo o una categoría'}
-                    >
-                      {regImg ? (
-                        <>
-                          <img src={regImg} alt="" className="h-7 w-7 rounded object-cover shrink-0" />
-                          <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                            vía catálogo
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
-                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                            elegí categoría
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-              </div>
 
-              {/* Submit button (same gradient style as CreateItemPanel) */}
-              <button
-                type="button"
-                onClick={handleRegister}
-                disabled={registerMut.isPending}
-                className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all mt-4"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(139,183,250,0.2))',
-                  border: '1px solid rgba(123,241,214,0.35)',
-                  color: '#7bf1d6',
-                  opacity: registerMut.isPending ? 0.5 : 1,
-                  cursor: registerMut.isPending ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {registerMut.isPending ? 'Registrando…' : 'Registrar item'}
-              </button>
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={registerMut.isPending}
+                  className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(139,183,250,0.2))',
+                    border: '1px solid rgba(123,241,214,0.35)',
+                    color: '#7bf1d6',
+                    opacity: registerMut.isPending ? 0.5 : 1,
+                    cursor: registerMut.isPending ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {registerMut.isPending
+                    ? 'Registrando…'
+                    : rows.length === 1
+                    ? 'Registrar item'
+                    : `Registrar ${rows.length} items`}
+                </button>
+              </form>
             </div>
           )}
 
@@ -533,10 +671,28 @@ export default function WarehouseClan() {
                     </div>
                     {isSA && (
                       <div className="flex gap-1.5">
-                        <button onClick={() => confirmMut.mutate({ id: Number(inc.id) })} className="p-1.5 rounded-lg" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }} title="Confirmar">
+                        <button
+                          onClick={() => setConfirmAction({
+                            title: 'Confirmar material',
+                            message: `¿Confirmar "${inc.name}" ×${inc.quantity}? Se agrupará con el stock existente.`,
+                            label: 'Confirmar',
+                            color: '#34d399',
+                            action: () => { confirmMut.mutate({ id: Number(inc.id) }); setConfirmAction(null); },
+                          })}
+                          className="p-1.5 rounded-lg" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }} title="Confirmar"
+                        >
                           <CheckCircle className="h-3.5 w-3.5" />
                         </button>
-                        <button onClick={() => deleteIncomingMut.mutate({ id: Number(inc.id) })} className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }} title="Rechazar">
+                        <button
+                          onClick={() => setConfirmAction({
+                            title: 'Rechazar material',
+                            message: `¿Eliminar el registro pendiente de "${inc.name}" ×${inc.quantity}? Esta acción no se puede deshacer.`,
+                            label: 'Rechazar',
+                            color: '#ef4444',
+                            action: () => { deleteIncomingMut.mutate({ id: Number(inc.id) }); setConfirmAction(null); },
+                          })}
+                          className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }} title="Rechazar"
+                        >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -547,7 +703,7 @@ export default function WarehouseClan() {
             </div>
           )}
 
-          {/* Warehouse Items Table (card-glass, same structure as ItemTable) */}
+          {/* Warehouse Items Table */}
           <div className="card-glass rounded-2xl p-5">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div>
@@ -556,7 +712,7 @@ export default function WarehouseClan() {
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(123,241,214,0.15)', color: '#7bf1d6' }}>{totalItems}</span>
                 </h3>
                 <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                  Gestión de materiales del clan. Unid: {totalUnits.toLocaleString()} · Con stock: {inStockCount} · Sin stock: {outOfStockCount}
+                  Unid: {totalUnits.toLocaleString()} · Con stock: {inStockCount} · Sin stock: {outOfStockCount}
                 </p>
               </div>
             </div>
@@ -572,20 +728,36 @@ export default function WarehouseClan() {
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
                 />
               </div>
-              <FancySelect<string>
-                value={catFilter}
-                onChange={setCatFilter}
-                accent="turquoise"
-                size="md"
-                placeholder="Todas las categorías"
-                options={[
-                  { value: 'ALL', label: 'Todas las categorías', emoji: '📦' },
-                  ...CATEGORIES.map(cat => {
-                    const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
-                    return { value: cat, label: meta.label, emoji: meta.emoji };
-                  }),
-                ]}
-              />
+              <div style={{ minWidth: 180 }}>
+                <FancySelect<string>
+                  value={catFilter}
+                  onChange={setCatFilter}
+                  accent="turquoise"
+                  size="md"
+                  placeholder="Todas las categorías"
+                  options={[
+                    { value: 'ALL', label: 'Todas las categorías', emoji: '📦' },
+                    ...CATEGORIES.map(cat => {
+                      const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                      return { value: cat, label: meta.label, emoji: meta.emoji };
+                    }),
+                  ]}
+                />
+              </div>
+              <div style={{ minWidth: 160 }}>
+                <FancySelect<string>
+                  value={stockFilter}
+                  onChange={setStockFilter}
+                  accent="turquoise"
+                  size="md"
+                  placeholder="Todos los estados"
+                  options={[
+                    { value: 'ALL', label: 'Todos los estados', emoji: '📋' },
+                    { value: 'IN_STOCK', label: 'Con stock', emoji: '✅' },
+                    { value: 'OUT_OF_STOCK', label: 'Sin stock', emoji: '❌' },
+                  ]}
+                />
+              </div>
             </div>
 
             {/* Table */}
@@ -626,10 +798,7 @@ export default function WarehouseClan() {
                           <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                            style={{ background: `${meta.color}15`, border: `1px solid ${meta.color}30`, color: meta.color }}
-                          >
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${meta.color}15`, border: `1px solid ${meta.color}30`, color: meta.color }}>
                             {meta.emoji} {meta.label}
                           </span>
                         </td>
@@ -639,14 +808,11 @@ export default function WarehouseClan() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                            style={{
-                              background: inStock ? 'rgba(52,211,153,0.1)' : 'rgba(239,68,68,0.1)',
-                              border: `1px solid ${inStock ? 'rgba(52,211,153,0.25)' : 'rgba(239,68,68,0.25)'}`,
-                              color: inStock ? '#34d399' : '#ef4444',
-                            }}
-                          >
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{
+                            background: inStock ? 'rgba(52,211,153,0.1)' : 'rgba(239,68,68,0.1)',
+                            border: `1px solid ${inStock ? 'rgba(52,211,153,0.25)' : 'rgba(239,68,68,0.25)'}`,
+                            color: inStock ? '#34d399' : '#ef4444',
+                          }}>
                             {inStock ? '✅ Con stock' : '❌ Sin stock'}
                           </span>
                         </td>
@@ -658,7 +824,16 @@ export default function WarehouseClan() {
                               </button>
                             )}
                             {isSA && (
-                              <button onClick={() => { if (confirm(`¿Eliminar ${item.name} de la bodega?`)) deleteItemMut.mutate({ id: Number(item.id) }); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar">
+                              <button
+                                onClick={() => setConfirmAction({
+                                  title: 'Eliminar material',
+                                  message: `¿Eliminar "${item.name}" de la bodega? Esta acción no se puede deshacer.`,
+                                  label: 'Eliminar',
+                                  color: '#ef4444',
+                                  action: () => { deleteItemMut.mutate({ id: Number(item.id) }); setConfirmAction(null); },
+                                })}
+                                className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar"
+                              >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             )}
@@ -677,7 +852,6 @@ export default function WarehouseClan() {
       {/* ═══ TAB: CRAFTEO ═══ */}
       {tab === 'crafteo' && (
         <div className="space-y-5">
-          {/* Action buttons */}
           {isSA && (
             <div className="flex gap-2">
               <button onClick={() => setRecipeOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
@@ -689,7 +863,6 @@ export default function WarehouseClan() {
             </div>
           )}
 
-          {/* Active Projects */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Proyectos Activos</h3>
             {(projects as any[]).filter((p: any) => p.status === 'active').length === 0 && (
@@ -710,10 +883,7 @@ export default function WarehouseClan() {
 
               return (
                 <div key={project.id} className="card-glass rounded-2xl overflow-hidden" style={{ borderColor: 'rgba(168,85,247,0.15)' }}>
-                  <div
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
-                    onClick={() => setExpandedProject(isExpanded ? null : Number(project.id))}
-                  >
+                  <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors" onClick={() => setExpandedProject(isExpanded ? null : Number(project.id))}>
                     <div className="flex items-center gap-3">
                       <span className="text-lg">🎯</span>
                       <div>
@@ -750,18 +920,14 @@ export default function WarehouseClan() {
                           </tr>
                         </thead>
                         <tbody>
-                          {materials.map((mat: any, idx: number) => {
+                          {materials.map((mat: any, mi: number) => {
                             const need = Number(mat.quantity) || 0;
                             const have = stockLookup.get(String(mat.nameLower || mat.name || '').toLowerCase()) || 0;
                             const missing = Math.max(0, need - have);
                             const status = have >= need ? 'complete' : have > 0 ? 'partial' : 'none';
                             return (
-                              <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                <td className="py-2">
-                                  <span style={{ color: status === 'complete' ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.8)', textDecoration: status === 'complete' ? 'line-through' : 'none' }}>
-                                    {mat.name}
-                                  </span>
-                                </td>
+                              <tr key={mi} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <td className="py-2"><span style={{ color: status === 'complete' ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.8)', textDecoration: status === 'complete' ? 'line-through' : 'none' }}>{mat.name}</span></td>
                                 <td className="py-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
                                 <td className="py-2 text-right font-mono" style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
                                 <td className="py-2 text-right font-mono font-bold" style={{ color: missing > 0 ? '#ef4444' : '#34d399' }}>{missing > 0 ? missing.toLocaleString() : '—'}</td>
@@ -774,11 +940,29 @@ export default function WarehouseClan() {
                       {isSA && (
                         <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           {progress === 100 && (
-                            <button onClick={() => completeProjectMut.mutate({ id: Number(project.id) })} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                            <button
+                              onClick={() => setConfirmAction({
+                                title: 'Completar proyecto',
+                                message: `¿Marcar "${project.recipeName}" como completado?`,
+                                label: 'Completar',
+                                color: '#34d399',
+                                action: () => { completeProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                              })}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+                            >
                               <CheckCircle className="inline h-3.5 w-3.5 mr-1" /> Marcar Completado
                             </button>
                           )}
-                          <button onClick={() => { if (confirm('¿Eliminar este proyecto?')) deleteProjectMut.mutate({ id: Number(project.id) }); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                          <button
+                            onClick={() => setConfirmAction({
+                              title: 'Eliminar proyecto',
+                              message: `¿Eliminar el proyecto "${project.recipeName}"? Esta acción no se puede deshacer.`,
+                              label: 'Eliminar',
+                              color: '#ef4444',
+                              action: () => { deleteProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                            })}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                          >
                             <Trash2 className="inline h-3.5 w-3.5 mr-1" /> Eliminar Proyecto
                           </button>
                         </div>
@@ -790,7 +974,6 @@ export default function WarehouseClan() {
             })}
           </div>
 
-          {/* Saved Recipes */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Recetas Guardadas ({(recipes as any[]).length})</h3>
             {(recipes as any[]).length === 0 && (
@@ -804,7 +987,16 @@ export default function WarehouseClan() {
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{recipe.name}</p>
                     {isSA && (
-                      <button onClick={() => { if (confirm(`¿Eliminar receta "${recipe.name}"?`)) deleteRecipeMut.mutate({ id: Number(recipe.id) }); }} className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta">
+                      <button
+                        onClick={() => setConfirmAction({
+                          title: 'Eliminar receta',
+                          message: `¿Eliminar la receta "${recipe.name}"? Los proyectos existentes no se eliminarán.`,
+                          label: 'Eliminar',
+                          color: '#ef4444',
+                          action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
+                        })}
+                        className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
+                      >
                         <Trash2 className="h-3 w-3" />
                       </button>
                     )}
@@ -820,7 +1012,6 @@ export default function WarehouseClan() {
             </div>
           </div>
 
-          {/* Completed Projects */}
           {(projects as any[]).filter((p: any) => p.status === 'completed').length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos Completados</h3>
@@ -832,7 +1023,18 @@ export default function WarehouseClan() {
                     <span className="text-[10px]">{project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}</span>
                   </div>
                   {isSA && (
-                    <button onClick={() => deleteProjectMut.mutate({ id: Number(project.id) })} className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.4)' }}><Trash2 className="h-3 w-3" /></button>
+                    <button
+                      onClick={() => setConfirmAction({
+                        title: 'Eliminar proyecto completado',
+                        message: `¿Eliminar el proyecto completado "${project.recipeName}"?`,
+                        label: 'Eliminar',
+                        color: '#ef4444',
+                        action: () => { deleteProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                      })}
+                      className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.4)' }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   )}
                 </div>
               ))}
@@ -842,6 +1044,17 @@ export default function WarehouseClan() {
       )}
 
       {/* ═══ MODALS ═══ */}
+
+      {/* Generic Confirmation Modal */}
+      <ConfirmModal
+        open={!!confirmAction}
+        title={confirmAction?.title || ''}
+        message={confirmAction?.message || ''}
+        confirmLabel={confirmAction?.label || 'Confirmar'}
+        confirmColor={confirmAction?.color || '#34d399'}
+        onConfirm={() => confirmAction?.action()}
+        onCancel={() => setConfirmAction(null)}
+      />
 
       {/* Withdraw Modal */}
       {withdrawItem && (
