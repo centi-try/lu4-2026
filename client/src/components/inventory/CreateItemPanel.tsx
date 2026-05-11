@@ -74,7 +74,7 @@ export function CreateItemPanel() {
       const r = String(u.role || 'user').toLowerCase();
       const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
       const roleLabel = r === 'super_admin' ? 'Super Admin' : r === 'mapper' ? 'Mapper' : r === 'admin' ? 'Admin' : 'Usuario';
-      return { id: u.id, name: u.name, avatar: avatarGrad, class: u.classMain || 'Sin clase', role: roleLabel };
+      return { id: u.id, name: u.name, avatar: avatarGrad, class: String(u.classMain || '').trim() || 'Sin clase', role: roleLabel };
     });
   }, [legacyBuyersData]);
   const [rows, setRows] = useState<RowState[]>([emptyRow()]);

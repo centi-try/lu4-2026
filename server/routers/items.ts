@@ -304,40 +304,52 @@ export const itemsRouter = router({
       .input(z.object({
         itemId: z.number().int(),
         quantity: z.number().int().min(1),
+        asUserId: z.number().int().optional(),
+        asCharacterName: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        // characterName del registro (fallback al name si no tiene).
-        const characterName = String(
+        // Si el super admin pasa asUserId/asCharacterName, se usa para la reserva (impersonación)
+        const isSA = String(ctx.user?.role || '').toLowerCase() === 'super_admin';
+        const effectiveUserId = (isSA && input.asUserId) ? input.asUserId : Number(ctx.user?.id || 0);
+        const effectiveCharName = (isSA && input.asCharacterName) ? input.asCharacterName : String(
           (ctx.user as any)?.characterName ||
           ctx.user?.name ||
           ctx.user?.email ||
           ''
         ).trim();
-        if (!characterName) {
+        const effectiveUserName = effectiveCharName;
+        if (!effectiveCharName) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'Tu perfil no tiene un personaje configurado. Configuralo antes de reservar.',
           });
         }
+        // Resolve role for impersonated user
+        let effectiveRole = String(ctx.user?.role || 'USER');
+        if (isSA && input.asUserId) {
+          const allUsers = await getAllUsers();
+          const target = allUsers.find((u: any) => Number(u.id) === input.asUserId);
+          if (target) effectiveRole = String(target.role || 'user');
+        }
         try {
           const reservation = await createItemReservation({
             itemId: input.itemId,
-            userId: Number(ctx.user?.id || 0),
-            userName: String(ctx.user?.name || ctx.user?.email || 'Usuario').trim(),
-            characterName,
+            userId: effectiveUserId,
+            userName: effectiveUserName,
+            characterName: effectiveCharName,
             quantity: input.quantity,
           });
           await createAuditLog({
-            userId: Number(ctx.user?.id || 0),
+            userId: effectiveUserId,
             action: 'ITEM_RESERVED',
-            actorName: characterName,
-            actorRole: String(ctx.user?.role || 'USER'),
+            actorName: effectiveCharName,
+            actorRole: effectiveRole,
             itemId: String(input.itemId),
             detail: `Reservó ${input.quantity} unidad(es) del ítem #${input.itemId}.`,
             details: {
               itemId: input.itemId,
               quantity: input.quantity,
-              characterName,
+              characterName: effectiveCharName,
             },
           });
           return { success: true, reservation };

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   CheckCircle, ImageIcon, Plus, Pencil, Trash2, Shield, Search, DollarSign,
   UserMinus, UserX, UserCog, KeyRound, RefreshCcw, Bookmark, BookmarkX, AlertTriangle,
-  Coins, CircleDollarSign,
+  Coins, CircleDollarSign, LogIn, LogOut, Ban, Settings, Receipt, Undo2,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
@@ -67,6 +67,20 @@ const actionMeta: Record<string, ActionMeta> = {
   // Acceso menú antiguo
   LEGACY_ACCESS_ENABLED:  { icon: UserCog,  color: '#34d399', label: 'Activó menú antiguo',   desc: 'Acceso al menú antiguo activado para el usuario' },
   LEGACY_ACCESS_DISABLED: { icon: UserCog,  color: '#f87171', label: 'Desactivó menú antiguo', desc: 'Acceso al menú antiguo desactivado para el usuario' },
+  // Sesión / Login
+  LOGIN_SUCCESS:  { icon: LogIn,  color: '#34d399', label: 'Inicio de sesión',           desc: 'Usuario inició sesión exitosamente' },
+  LOGIN_FAILED:   { icon: LogOut, color: '#f87171', label: 'Inicio de sesión fallido',    desc: 'Intento de inicio de sesión fallido' },
+  LOGIN_BLOCKED:  { icon: Ban,    color: '#ef4444', label: 'Inicio bloqueado',            desc: 'Inicio de sesión bloqueado por seguridad' },
+  // Fondo del Clan
+  CLAN_FUND_EXPENSE:          { icon: Receipt,         color: '#f87171', label: 'Registró gasto',            desc: 'Gasto registrado en el fondo del clan' },
+  CLAN_FUND_EXPENSE_UPDATED:  { icon: Pencil,          color: '#60a5fa', label: 'Actualizó gasto',           desc: 'Gasto del fondo del clan modificado' },
+  CLAN_FUND_EXPENSE_DELETED:  { icon: Trash2,          color: '#f87171', label: 'Eliminó gasto',             desc: 'Gasto del fondo del clan eliminado' },
+  CLAN_FUND_INCOME:           { icon: CircleDollarSign, color: '#34d399', label: 'Ingreso al fondo',         desc: 'Ingreso registrado en el fondo del clan' },
+  CLAN_FUND_SETTINGS_UPDATED: { icon: Settings,        color: '#a78bfa', label: 'Actualizó config. fondo',   desc: 'Configuración del fondo del clan modificada' },
+  CLAN_FUND_CYCLE_PAID:       { icon: Coins,           color: '#10b981', label: 'Marcó pago de ciclo',       desc: 'Pago de ciclo marcado como completado' },
+  CLAN_FUND_CYCLE_UNPAID:     { icon: Coins,           color: '#fbbf24', label: 'Desmarcó pago de ciclo',    desc: 'Pago de ciclo revertido a pendiente' },
+  // Reserva vendida revertida
+  ITEM_RESERVATION_UNMARK_SOLD: { icon: Undo2,  color: '#f59e0b', label: 'Revertió venta reserva',  desc: 'Estado vendido de reserva revertido' },
 };
 
 function metaFor(action: string): ActionMeta {

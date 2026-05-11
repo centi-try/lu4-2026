@@ -129,7 +129,11 @@ export function ItemReservationButton({ item, reservations }: Props) {
       );
       return;
     }
-    createMut.mutate({ itemId: Number(item.id), quantity: n });
+    createMut.mutate({
+      itemId: Number(item.id),
+      quantity: n,
+      ...(isImpersonating ? { asUserId: currentUserId, asCharacterName: characterName } : {}),
+    });
   };
 
   // Disabled si sold out Y no hay reservas que mirar/cancelar.
