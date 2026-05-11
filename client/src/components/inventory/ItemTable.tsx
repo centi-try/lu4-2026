@@ -779,8 +779,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       </div>
                       <div className="flex items-center gap-2">
                         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
-                        {isStale && hasReservations && (
-                          <span className="text-[9px]" style={{ color: staleColor }}>Sin vender hace {daysUnsold} días</span>
+                        {isStale && (
+                          <span className="text-xs font-semibold" style={{ color: staleColor }}>⏳ Sin vender hace {daysUnsold} días</span>
                         )}
                       </div>
                     </td>
