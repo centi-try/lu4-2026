@@ -227,8 +227,9 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
                             {isInternal ? `Venta Interna (-${p.discountPct || 20}%)` : 'Venta Normal'}
                           </span>
                         </div>
-                        {/* Detalle con etiquetas */}
+                        {/* Detalle con etiquetas — 2 columnas alineadas */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-1.5">
+                          {/* Fila 1: Cantidad | Precio original */}
                           <div>
                             <span style={{ color: 'rgba(255,255,255,0.35)' }}>Cantidad: </span>
                             <span style={{ color: 'rgba(255,255,255,0.7)' }}>{p.quantity} ud</span>
@@ -239,27 +240,31 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
                               ${(p.originalPrice || p.price).toLocaleString()}
                             </span>
                           </div>
-                          {isInternal && (
+                          {/* Fila 2: Precio con dto (solo interna) | Total cobrado */}
+                          {isInternal ? (
                             <div>
                               <span style={{ color: 'rgba(255,255,255,0.35)' }}>Precio con dto: </span>
                               <span style={{ color: '#fbbf24' }}>${p.price.toLocaleString()} c/u</span>
                             </div>
+                          ) : (
+                            <div />
                           )}
                           <div>
                             <span style={{ color: 'rgba(255,255,255,0.35)' }}>Total cobrado: </span>
                             <span className="font-semibold" style={{ color: '#34d399' }}>${p.total.toLocaleString()}</span>
                           </div>
+                          {/* Fila 3: Retención clan | Neto vendedor (solo si hay tax) */}
                           {p.clanTax ? (
-                            <div>
-                              <span style={{ color: 'rgba(255,255,255,0.35)' }}>Retención clan: </span>
-                              <span style={{ color: '#f87171' }}>${p.clanTax.toLocaleString()}</span>
-                            </div>
-                          ) : null}
-                          {p.clanTax ? (
-                            <div>
-                              <span style={{ color: 'rgba(255,255,255,0.35)' }}>Neto vendedor: </span>
-                              <span className="font-semibold" style={{ color: '#34d399' }}>${(p.total - (p.clanTax || 0)).toLocaleString()}</span>
-                            </div>
+                            <>
+                              <div>
+                                <span style={{ color: 'rgba(255,255,255,0.35)' }}>Retención clan: </span>
+                                <span style={{ color: '#f87171' }}>${p.clanTax.toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: 'rgba(255,255,255,0.35)' }}>Neto vendedor: </span>
+                                <span className="font-semibold" style={{ color: '#34d399' }}>${(p.total - (p.clanTax || 0)).toLocaleString()}</span>
+                              </div>
+                            </>
                           ) : null}
                         </div>
                         {/* Fecha */}
