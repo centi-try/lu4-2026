@@ -4,6 +4,7 @@ import { X, Trash2, Plus } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
+import { useApp } from '../../contexts/AppContext';
 
 // ============================================================================
 // Botón "R" de reservas para items del inventario legacy.
@@ -43,6 +44,7 @@ interface Props {
 
 export function ItemReservationButton({ item, reservations }: Props) {
   const { user } = useAuth();
+  const { effectiveRole } = useApp();
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
   const [qtyInput, setQtyInput] = useState('');
@@ -65,7 +67,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
 
   const currentUserId = Number((user as any)?.id || 0);
   const characterName = String((user as any)?.characterName || user?.name || '').trim();
-  const roleLc = String((user as any)?.role || '').toLowerCase();
+  const roleLc = effectiveRole;
   const canAdmin = roleLc === 'super_admin' || roleLc === 'mapper';
 
   // Waitlist: la cantidad individual está capada por el stock absoluto.

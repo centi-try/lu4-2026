@@ -15,9 +15,9 @@ import { CATEGORIES, categoryMeta } from '../lib/category-meta';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const { items, auditLogs, characters, salesCycles, cycleNumber } = useApp();
+  const { items, auditLogs, characters, salesCycles, cycleNumber, effectiveIsSuperAdmin } = useApp();
   const { user: authUser } = useAuth();
-  const isSuperAdmin = authUser?.role === 'super_admin';
+  const isSuperAdmin = effectiveIsSuperAdmin;
 
   const { data: clanSummary } = trpc.clanFund.getSummary.useQuery(undefined, { enabled: !!authUser });
   const { data: clanTransactions } = trpc.clanFund.listTransactions.useQuery(undefined, { enabled: !!authUser });

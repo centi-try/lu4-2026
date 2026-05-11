@@ -5,6 +5,7 @@ import { categoryMeta, CATEGORIES } from '../lib/category-meta';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { useApp } from '../contexts/AppContext';
 import { TwoFactorSection } from '../components/settings/TwoFactorSection';
 
 const rules = [
@@ -77,7 +78,8 @@ const rules = [
 
 export default function Settings() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'super_admin';
+  const { effectiveIsSuperAdmin } = useApp();
+  const isSuperAdmin = effectiveIsSuperAdmin;
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 

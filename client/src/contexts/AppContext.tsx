@@ -18,6 +18,9 @@ interface SellItemOptions {
 interface AppContextType {
   currentUser: Character;
   setCurrentUser: (c: Character) => void;
+  isImpersonating: boolean;
+  effectiveRole: string;
+  effectiveIsSuperAdmin: boolean;
   items: Item[];
   characters: Character[];
   auditLogs: AuditLog[];
@@ -538,9 +541,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addLog('system', 'Sistema', 'CYCLE_CLOSED', `Cerró ${newCycleLabel} (${type}) con $${totalRevenue.toLocaleString()} recaudados.`);
   }, [currentUser, items, characters, salesCycles, currentCycleStartedAt, addLog, closeCycleMutation]);
 
+  const isImpersonating = !!(currentUser && !String(currentUser.id).startsWith('auth-') && String(currentUser.id) !== `auth-${authUser?.id}`);
+  const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
+  const effectiveIsSuperAdmin = effectiveRole === 'super_admin';
+
   return (
     <AppContext.Provider value={{
-      currentUser, setCurrentUser, items, characters, auditLogs, purchases, salesCycles,
+      currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
+      items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,
       addItem, updateItem, confirmItem, deleteItem, sellItem, searchItems,
       startCycle, closeCycle
