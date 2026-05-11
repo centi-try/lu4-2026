@@ -138,23 +138,75 @@ function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'E
 // Confirmation Modal
 // ═══════════════════════════════════════════════════════════════════════════
 
-function ConfirmModal({ open, title, message, confirmLabel, confirmColor, onConfirm, onCancel }: {
+function ConfirmModal({ open, title, message, confirmLabel, confirmColor, onConfirm, onCancel, icon, itemName, itemDetail, itemImage }: {
   open: boolean; title: string; message: string; confirmLabel: string; confirmColor: string;
   onConfirm: () => void; onCancel: () => void;
+  icon?: React.ReactNode; itemName?: string; itemDetail?: string; itemImage?: string | null;
 }) {
   if (!open) return null;
+  const isDelete = confirmColor === '#ef4444';
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-      <div className="rounded-2xl w-full max-w-sm mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{title}</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl p-5"
+        style={{
+          background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+          border: `1px solid ${confirmColor}40`,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              {icon || (isDelete ? <Trash2 className="h-5 w-5" style={{ color: confirmColor }} /> : <CheckCircle className="h-5 w-5" style={{ color: confirmColor }} />)}
+              <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                {title}
+              </h3>
+            </div>
+            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              {message}
+            </p>
+          </div>
+          <button type="button" onClick={onCancel} className="rounded-lg p-1.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }} aria-label="Cerrar">
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <div className="px-5 py-4">
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{message}</p>
-        </div>
-        <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
-          <button onClick={onConfirm} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: `${confirmColor}20`, color: confirmColor, border: `1px solid ${confirmColor}40` }}>{confirmLabel}</button>
+
+        {itemName && (
+          <div className="rounded-xl p-3 mb-4 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {itemImage ? (
+                <img src={itemImage} alt={itemName} className="h-full w-full object-cover" />
+              ) : (
+                <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.25)' }} />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{itemName}</p>
+              {itemDetail && <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{itemDetail}</p>}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.75)' }}>
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirm} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center justify-center gap-2" style={{
+            background: isDelete
+              ? 'linear-gradient(90deg, rgba(239,68,68,0.9), rgba(232,121,249,0.9))'
+              : `linear-gradient(90deg, ${confirmColor}dd, ${confirmColor}99)`,
+            border: `1px solid ${confirmColor}60`,
+            color: '#fff',
+          }}>
+            {isDelete ? <Trash2 className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+            {confirmLabel}
+          </button>
         </div>
       </div>
     </div>
@@ -257,7 +309,7 @@ export default function WarehouseClan() {
   const [withdrawReason, setWithdrawReason] = useState('');
 
   // Confirmation modals
-  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; label: string; color: string; action: () => void } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; label: string; color: string; action: () => void; itemName?: string; itemDetail?: string; itemImage?: string | null } | null>(null);
 
   // Recipe form
   const [recipeOpen, setRecipeOpen] = useState(false);
@@ -678,6 +730,9 @@ export default function WarehouseClan() {
                             label: 'Confirmar',
                             color: '#34d399',
                             action: () => { confirmMut.mutate({ id: Number(inc.id) }); setConfirmAction(null); },
+                            itemName: inc.name,
+                            itemDetail: `${(() => { const m = categoryMeta[inc.category]; return m ? m.emoji + ' ' + m.label : inc.category; })()} · ×${inc.quantity}`,
+                            itemImage: inc.imageUrl || null,
                           })}
                           className="p-1.5 rounded-lg" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }} title="Confirmar"
                         >
@@ -687,9 +742,12 @@ export default function WarehouseClan() {
                           onClick={() => setConfirmAction({
                             title: 'Rechazar material',
                             message: `¿Eliminar el registro pendiente de "${inc.name}" ×${inc.quantity}? Esta acción no se puede deshacer.`,
-                            label: 'Rechazar',
+                            label: 'Sí, eliminar',
                             color: '#ef4444',
                             action: () => { deleteIncomingMut.mutate({ id: Number(inc.id) }); setConfirmAction(null); },
+                            itemName: inc.name,
+                            itemDetail: `Pendiente · ×${inc.quantity} · por ${inc.registeredBy}`,
+                            itemImage: inc.imageUrl || null,
                           })}
                           className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }} title="Rechazar"
                         >
@@ -719,16 +777,16 @@ export default function WarehouseClan() {
 
             {/* Filters */}
             <div className="flex flex-wrap gap-3 items-center mb-4">
-              <div className="relative flex-1 min-w-[200px]">
+              <div className="relative min-w-[180px]" style={{ flex: '1 1 180px' }}>
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
                 <input
-                  type="text" placeholder="Buscar ítem por nombre..."
+                  type="text" placeholder="Buscar por nombre..."
                   value={search} onChange={e => setSearch(e.target.value)}
                   className="w-full rounded-lg pl-10 pr-3 py-2 text-sm"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
                 />
               </div>
-              <div style={{ minWidth: 180 }}>
+              <div style={{ minWidth: 210, flex: '0 0 auto' }}>
                 <FancySelect<string>
                   value={catFilter}
                   onChange={setCatFilter}
@@ -744,7 +802,7 @@ export default function WarehouseClan() {
                   ]}
                 />
               </div>
-              <div style={{ minWidth: 160 }}>
+              <div style={{ minWidth: 190, flex: '0 0 auto' }}>
                 <FancySelect<string>
                   value={stockFilter}
                   onChange={setStockFilter}
@@ -827,10 +885,13 @@ export default function WarehouseClan() {
                               <button
                                 onClick={() => setConfirmAction({
                                   title: 'Eliminar material',
-                                  message: `¿Eliminar "${item.name}" de la bodega? Esta acción no se puede deshacer.`,
-                                  label: 'Eliminar',
+                                  message: 'Esta acción eliminará el material de la bodega de forma permanente. No se puede deshacer.',
+                                  label: 'Sí, eliminar',
                                   color: '#ef4444',
                                   action: () => { deleteItemMut.mutate({ id: Number(item.id) }); setConfirmAction(null); },
+                                  itemName: item.name,
+                                  itemDetail: `${meta.emoji} ${meta.label} · Stock ${qty}`,
+                                  itemImage: item.imageUrl || null,
                                 })}
                                 className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar"
                               >
@@ -943,10 +1004,12 @@ export default function WarehouseClan() {
                             <button
                               onClick={() => setConfirmAction({
                                 title: 'Completar proyecto',
-                                message: `¿Marcar "${project.recipeName}" como completado?`,
-                                label: 'Completar',
+                                message: 'Se marcará como completado. Los materiales no se descontarán automáticamente.',
+                                label: 'Sí, completar',
                                 color: '#34d399',
                                 action: () => { completeProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                                itemName: project.recipeName,
+                                itemDetail: `Progreso ${progress}% · ${completedMats}/${totalMats} materiales`,
                               })}
                               className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
                             >
@@ -956,10 +1019,12 @@ export default function WarehouseClan() {
                           <button
                             onClick={() => setConfirmAction({
                               title: 'Eliminar proyecto',
-                              message: `¿Eliminar el proyecto "${project.recipeName}"? Esta acción no se puede deshacer.`,
-                              label: 'Eliminar',
+                              message: 'Esta acción eliminará el proyecto de forma permanente. No se puede deshacer.',
+                              label: 'Sí, eliminar',
                               color: '#ef4444',
                               action: () => { deleteProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                              itemName: project.recipeName,
+                              itemDetail: `Proyecto activo · ${completedMats}/${totalMats} materiales`,
                             })}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
                           >
@@ -990,10 +1055,12 @@ export default function WarehouseClan() {
                       <button
                         onClick={() => setConfirmAction({
                           title: 'Eliminar receta',
-                          message: `¿Eliminar la receta "${recipe.name}"? Los proyectos existentes no se eliminarán.`,
-                          label: 'Eliminar',
+                          message: 'Los proyectos existentes no se eliminarán, pero ya no podrás crear nuevos proyectos con esta receta.',
+                          label: 'Sí, eliminar',
                           color: '#ef4444',
                           action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
+                          itemName: recipe.name,
+                          itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
                         })}
                         className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
                       >
@@ -1026,10 +1093,12 @@ export default function WarehouseClan() {
                     <button
                       onClick={() => setConfirmAction({
                         title: 'Eliminar proyecto completado',
-                        message: `¿Eliminar el proyecto completado "${project.recipeName}"?`,
-                        label: 'Eliminar',
+                        message: 'Se eliminará el registro del proyecto completado. No se puede deshacer.',
+                        label: 'Sí, eliminar',
                         color: '#ef4444',
                         action: () => { deleteProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                        itemName: project.recipeName,
+                        itemDetail: `Completado ${project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}`,
                       })}
                       className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.4)' }}
                     >
@@ -1054,6 +1123,9 @@ export default function WarehouseClan() {
         confirmColor={confirmAction?.color || '#34d399'}
         onConfirm={() => confirmAction?.action()}
         onCancel={() => setConfirmAction(null)}
+        itemName={confirmAction?.itemName}
+        itemDetail={confirmAction?.itemDetail}
+        itemImage={confirmAction?.itemImage}
       />
 
       {/* Withdraw Modal */}

@@ -34,8 +34,8 @@ const navItems: Array<{
 // "Config. Raids" queda visualmente debajo de "Gestión de Usuarios".
 const adminNavItems = [
   { href: '/admin/users', label: 'Gestión de Usuarios', icon: Users, desc: 'Administrar cuentas y roles' },
-  { href: '/admin/backups', label: 'Backups', icon: Database, desc: 'Snapshots de la base de datos' },
   { href: '/raids/settings', label: 'Config', icon: Crown, desc: 'Catálogos, bosses y materiales' },
+  { href: '/admin/backups', label: 'Backups', icon: Database, desc: 'Snapshots de la base de datos' },
 ];
 
 // `requiresInteract: true` → solo raid_mapper, raid_admin o super_admin ven el

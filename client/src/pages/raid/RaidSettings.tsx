@@ -199,6 +199,17 @@ export default function RaidSettings({ raidAccess }: Props) {
   const [bossToDelete, setBossToDelete] = useState<any | null>(null);
   const [clanToDelete, setClanToDelete] = useState<any | null>(null);
 
+  // Tab state
+  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'icons' | 'access' | 'materials'>('catalogs');
+
+  const configTabs: { key: typeof configTab; label: string; icon: React.ReactNode; color: string }[] = [
+    { key: 'catalogs', label: 'Bosses & Clanes', icon: <Skull className="h-4 w-4" />, color: '#e879f9' },
+    { key: 'classes', label: 'Clases', icon: <Crown className="h-4 w-4" />, color: '#fbbf24' },
+    { key: 'icons', label: 'Íconos', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
+    { key: 'access', label: 'Accesos', icon: <Flag className="h-4 w-4" />, color: '#60a5fa' },
+    { key: 'materials', label: 'Catálogo', icon: <Package className="h-4 w-4" />, color: '#34d399' },
+  ];
+
   return (
     <AppShell>
       <div className="mb-6">
@@ -207,11 +218,37 @@ export default function RaidSettings({ raidAccess }: Props) {
           <h2 className="text-2xl font-bold text-gradient">Configuración</h2>
         </div>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Catálogos del sistema: Raid Bosses, Clanes, Materiales. Solo Super Admin puede gestionar.
+          Catálogos del sistema: Bosses, Clanes, Clases, Íconos, Accesos y Materiales. Solo Super Admin puede gestionar.
         </p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/* Pill tabs */}
+      <div
+        className="flex items-center gap-1 mb-5 rounded-xl p-1 flex-wrap"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        {configTabs.map(t => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setConfigTab(t.key)}
+            className="flex-1 rounded-lg px-3 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
+            style={{
+              background: configTab === t.key
+                ? `linear-gradient(135deg, ${t.color}30, ${t.color}15)`
+                : 'transparent',
+              color: configTab === t.key ? t.color : 'rgba(255,255,255,0.55)',
+              border: configTab === t.key ? `1px solid ${t.color}35` : '1px solid transparent',
+            }}
+          >
+            {t.icon}
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Bosses & Clanes */}
+      {configTab === 'catalogs' && <div className="grid gap-5 lg:grid-cols-2">
         {/* ===== Raid Bosses ===== */}
         <div className="card-glass rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
@@ -634,19 +671,29 @@ export default function RaidSettings({ raidAccess }: Props) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* ===== Clases de Personaje (super admin only) ===== */}
-      {raidAccess?.accessLevel === 'super_admin' && <CharacterClassesSection />}
+      {/* Tab: Clases de Personaje */}
+      {configTab === 'classes' && raidAccess?.accessLevel === 'super_admin' && <CharacterClassesSection />}
+      {configTab === 'classes' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar clases.</p></div>
+      )}
 
-      {/* ===== Iconos por categoría de drop (super admin only) ===== */}
-      {raidAccess?.accessLevel === 'super_admin' && <CategoryIconsSection />}
+      {/* Tab: Iconos por categoría */}
+      {configTab === 'icons' && raidAccess?.accessLevel === 'super_admin' && <CategoryIconsSection />}
+      {configTab === 'icons' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar íconos.</p></div>
+      )}
 
-      {/* ===== Gestión de Accesos Raid (super admin only) ===== */}
-      {raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
+      {/* Tab: Gestión de Accesos */}
+      {configTab === 'access' && raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
+      {configTab === 'access' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar accesos.</p></div>
+      )}
 
-      {/* ===== Catálogo de Materiales (Warehouse Clan) ===== */}
-      <div className="card-glass rounded-2xl p-5 mt-5">
+      {/* Tab: Catálogo de Materiales */}
+      {configTab === 'materials' &&
+      <div className="card-glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5" style={{ color: '#34d399' }} />
@@ -762,7 +809,7 @@ export default function RaidSettings({ raidAccess }: Props) {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Modal confirmación eliminar material del catálogo */}
       {catMatToDelete && (
