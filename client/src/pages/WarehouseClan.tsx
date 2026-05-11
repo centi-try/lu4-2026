@@ -1040,8 +1040,9 @@ export default function WarehouseClan() {
                                   <div className="sm:col-span-5">
                                     <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Nombre <span style={{ color: '#f87171' }}>*</span></label>
                                     <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
-                                      const found = (catalog as any[]).find((c: any) => c.name === val);
-                                      setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val, imageUrl: found?.imageUrl || n.imageUrl })));
+                                      setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val })));
+                                    }} onSelect={item => {
+                                      setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: item.name, imageUrl: item.imageUrl || n.imageUrl })));
                                     }} />
                                   </div>
                                   <div className="sm:col-span-2">
@@ -1109,8 +1110,9 @@ export default function WarehouseClan() {
                               )}
                               <div className="flex-1 min-w-0">
                                 <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
-                                  const found = (catalog as any[]).find((c: any) => c.name === val);
-                                  setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val, imageUrl: found?.imageUrl || n.imageUrl })));
+                                  setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val })));
+                                }} onSelect={item => {
+                                  setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: item.name, imageUrl: item.imageUrl || n.imageUrl })));
                                 }} />
                               </div>
                               <div className="w-16 shrink-0">
