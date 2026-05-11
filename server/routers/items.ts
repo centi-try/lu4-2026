@@ -286,7 +286,11 @@ export const itemsRouter = router({
         buyerName: input.buyerName,
         quantity: input.quantity,
         price: effectivePrice,
+        originalPrice: item.price,
         total: totalRevenue,
+        isInternalSale: input.isInternalSale || false,
+        discountPct: discountPct || 0,
+        clanTax: clanTaxAmount,
       });
 
       await createAuditLog({
@@ -309,14 +313,22 @@ export const itemsRouter = router({
         },
       });
 
-      // Auto-mark matching reservations as 'sold'
+      // Auto-mark matching reservations as 'sold' — sequentially (oldest first),
+      // only enough to cover the quantity being sold in THIS transaction.
       const itemReservations = await getItemReservations({ itemId: Number(input.id) });
       const buyerNameNorm = String(input.buyerName || '').trim().toLowerCase();
-      for (const r of itemReservations) {
-        const rName = String(r.characterName || '').trim().toLowerCase();
-        if (rName === buyerNameNorm && r.status !== 'sold') {
-          await markReservationSold(r.id, Number(ctx.user?.id || 0));
-        }
+      let remainingToMark = input.quantity;
+      // Sort by creation date ascending (oldest first = top to bottom)
+      const sorted = itemReservations
+        .filter((r: any) => {
+          const rName = String(r.characterName || '').trim().toLowerCase();
+          return rName === buyerNameNorm && r.status !== 'sold';
+        })
+        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      for (const r of sorted) {
+        if (remainingToMark <= 0) break;
+        await markReservationSold(r.id, Number(ctx.user?.id || 0));
+        remainingToMark -= Number(r.quantity) || 1;
       }
 
       return { success: true };

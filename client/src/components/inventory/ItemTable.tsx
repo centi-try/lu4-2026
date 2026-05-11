@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X, Bookmark } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X, Bookmark, Clock } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, statusMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory, ItemStatus } from '../../lib/types';
@@ -95,6 +96,182 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
         </span>
       )}
     </div>
+  );
+}
+
+// ============================================================================
+// H — Botón Historial de Ventas del Ítem
+// ============================================================================
+interface Purchase {
+  id: string;
+  itemId: string;
+  buyerName: string;
+  quantity: number;
+  price: number;
+  originalPrice?: number;
+  total: number;
+  isInternalSale?: boolean;
+  discountPct?: number;
+  clanTax?: number;
+  createdAt: string;
+}
+
+function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName: string }) {
+  const [open, setOpen] = useState(false);
+  const { data: purchasesData } = trpc.items.listPurchases.useQuery();
+  const purchases: Purchase[] = ((purchasesData as any[]) || []).filter(
+    (p: any) => String(p.itemId) === String(itemId)
+  ).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const totalSold = purchases.reduce((s, p) => s + (p.quantity || 0), 0);
+  const totalRevenue = purchases.reduce((s, p) => s + (p.total || 0), 0);
+  const internalCount = purchases.filter(p => p.isInternalSale).length;
+  const normalCount = purchases.length - internalCount;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn-ghost p-2"
+        title={purchases.length > 0 ? `Historial de ventas (${purchases.length})` : 'Sin ventas registradas'}
+        style={{
+          color: purchases.length > 0 ? '#a78bfa' : 'rgba(255,255,255,0.2)',
+          borderColor: purchases.length > 0 ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
+          background: purchases.length > 0 ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">H</span>
+      </button>
+
+      {open && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl"
+            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" style={{ color: '#a78bfa' }} />
+                <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Historial de Ventas</h3>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="rounded p-1 transition-colors hover:bg-white/5">
+                <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
+              </button>
+            </div>
+
+            {/* Item name */}
+            <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>{itemName}</p>
+            </div>
+
+            {/* Summary stats */}
+            {purchases.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#a78bfa' }}>{totalSold}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Vendidas</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#34d399' }}>${totalRevenue.toLocaleString()}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Recaudado</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#60a5fa' }}>{normalCount}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Normal</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>{internalCount}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>V. Interna</p>
+                </div>
+              </div>
+            )}
+
+            {/* Sales list */}
+            <div className="overflow-y-auto px-5 py-3" style={{ maxHeight: 320 }}>
+              {purchases.length === 0 ? (
+                <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  Este ítem aún no tiene ventas registradas.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {purchases.map((p, idx) => {
+                    const isInternal = !!p.isInternalSale;
+                    const date = new Date(p.createdAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <div
+                        key={p.id || idx}
+                        className="rounded-xl p-3"
+                        style={{
+                          background: isInternal ? 'rgba(251,191,36,0.04)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${isInternal ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)'}`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                            {p.buyerName}
+                          </span>
+                          {isInternal && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                              style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}>
+                              Venta Interna {p.discountPct ? `(-${p.discountPct}%)` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <span>×{p.quantity}</span>
+                          <span>·</span>
+                          {isInternal && p.originalPrice ? (
+                            <>
+                              <span style={{ textDecoration: 'line-through', color: 'rgba(255,255,255,0.3)' }}>
+                                ${p.originalPrice.toLocaleString()}
+                              </span>
+                              <span style={{ color: '#fbbf24' }}>${p.price.toLocaleString()} c/u</span>
+                            </>
+                          ) : (
+                            <span>${p.price.toLocaleString()} c/u</span>
+                          )}
+                          <span>·</span>
+                          <span className="font-mono font-semibold" style={{ color: '#34d399' }}>
+                            ${p.total.toLocaleString()}
+                          </span>
+                          {p.clanTax ? (
+                            <>
+                              <span>·</span>
+                              <span style={{ color: 'rgba(255,255,255,0.3)' }}>Clan: ${p.clanTax.toLocaleString()}</span>
+                            </>
+                          ) : null}
+                        </div>
+                        <p className="text-[10px] mt-1 font-mono" style={{ color: 'rgba(255,255,255,0.25)' }}>{date}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
@@ -669,6 +846,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               reservations={reservations}
                             />
                           )}
+                          {/* Historial de ventas del ítem — visible para todos */}
+                          <ItemSaleHistoryButton itemId={String(item.id)} itemName={item.name} />
                           {!canEdit && !canConfirm && !canSell && !canDelete && !authUser && (
                             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
                           )}

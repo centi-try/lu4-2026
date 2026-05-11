@@ -136,8 +136,9 @@ export function ItemReservationButton({ item, reservations }: Props) {
     });
   };
 
-  // Disabled si sold out Y no hay reservas que mirar/cancelar.
-  const disabled = soldOut && reservedCount === 0;
+  // R siempre visible y clickeable (para ver historial de reservas).
+  // Cuando el ítem está vendido/sin stock, el modal se abre en modo solo lectura.
+  const disabled = false;
   const hasReservations = reservedCount > 0;
 
   return (
