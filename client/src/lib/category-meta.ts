@@ -13,7 +13,7 @@ export const categoryMeta: any = {
 };
 
 export const statusMeta: Record<ItemStatus, { label: string; badgeClass: string; color: string }> = {
-  CONFIRMADO:   { label: '✅ Confirmado',   badgeClass: 'badge-confirmado',   color: '#34d399' },
+  CONFIRMADO:   { label: '✅ Con stock',     badgeClass: 'badge-confirmado',   color: '#34d399' },
   EN_REGISTRO:  { label: '🟡 En Registro',  badgeClass: 'badge-en_registro',  color: '#fbbf24' },
   VENDIDO:      { label: '💰 Vendido',      badgeClass: 'badge-vendido',      color: '#a78bfa' },
 };

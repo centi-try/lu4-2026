@@ -665,7 +665,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 placeholder="Todos los estados"
                 options={[
                   { value: 'ALL', label: 'Todos los estados', emoji: '🧾' },
-                  { value: 'CONFIRMADO', label: 'Confirmado', emoji: '✅' },
+                  { value: 'CONFIRMADO', label: 'Con stock', emoji: '✅' },
                   { value: 'EN_REGISTRO', label: 'En Registro', emoji: '🟡' },
                   { value: 'VENDIDO', label: 'Vendido', emoji: '💰' },
                   { value: 'WITH_RESERVATIONS', label: 'Con reservas', emoji: '🔖' },
@@ -777,12 +777,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
-                        {isStale && (
-                          <span className="text-xs font-semibold" style={{ color: staleColor }}>⏳ Sin vender hace {daysUnsold} días</span>
-                        )}
-                      </div>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
                     </td>
                     {/* Category */}
                     <td className="px-4 py-3">
