@@ -280,7 +280,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       category: data.category,
       status: data.status,
       price: data.price || 0,
-      mapperId: parseInt(currentUser.id.replace('auth-', '')) || 0,
+      mapperId: parseInt(String(currentUser.id).replace('auth-', '')) || 0,
       associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
       quantity: data.quantity || 1,
       imageUrl: imageUrlToPersist,
