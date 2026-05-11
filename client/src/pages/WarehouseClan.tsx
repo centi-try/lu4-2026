@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
+import { AppShell } from '../components/layout/AppShell';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { toast } from 'sonner';
 
 const CATEGORIES = ['ARMADURA', 'ARMA', 'JOYA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA'] as const;
@@ -38,7 +40,6 @@ export default function WarehouseClan() {
   // Local state
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('ALL');
-  const [tab, setTab] = useState<'warehouse' | 'crafting'>('warehouse');
 
   // Register form
   const [regOpen, setRegOpen] = useState(false);
@@ -92,6 +93,7 @@ export default function WarehouseClan() {
   const totalUnits = filtered.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0);
   const inStockCount = filtered.filter((i: any) => (Number(i.quantity) || 0) > 0).length;
   const outOfStockCount = filtered.filter((i: any) => (Number(i.quantity) || 0) === 0).length;
+  const activeProjects = (projects as any[]).filter((p: any) => p.status === 'active').length;
 
   const handleRegister = () => {
     if (!regName.trim()) { toast.error('Nombre requerido'); return; }
@@ -157,67 +159,43 @@ export default function WarehouseClan() {
     setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Warehouse Clan</h1>
-      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-        Bodega del clan — materiales para crafteo. Los ítems se acumulan automáticamente al confirmar.
-      </p>
-
-      {/* Tabs */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setTab('warehouse')}
-          className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-          style={{
-            background: tab === 'warehouse' ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.04)',
-            color: tab === 'warehouse' ? '#34d399' : 'rgba(255,255,255,0.5)',
-            border: `1px solid ${tab === 'warehouse' ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.08)'}`,
-          }}
-        >
-          <Package className="inline h-4 w-4 mr-1.5" /> Bodega ({totalItems})
-        </button>
-        <button
-          onClick={() => setTab('crafting')}
-          className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-          style={{
-            background: tab === 'crafting' ? 'rgba(168,85,247,0.15)' : 'rgba(255,255,255,0.04)',
-            color: tab === 'crafting' ? '#a855f7' : 'rgba(255,255,255,0.5)',
-            border: `1px solid ${tab === 'crafting' ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.08)'}`,
-          }}
-        >
-          <Hammer className="inline h-4 w-4 mr-1.5" /> Crafteo ({(projects as any[]).filter((p: any) => p.status === 'active').length})
-        </button>
+    <AppShell>
+      {/* Header — same style as Inventario */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gradient">Warehouse Clan</h2>
+        <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Bodega del clan — materiales para crafteo. Los ítems se acumulan automáticamente al confirmar.
+        </p>
       </div>
 
-      {/* ═══ TAB: WAREHOUSE ═══ */}
-      {tab === 'warehouse' && (
-        <div className="space-y-4">
-          {/* Stats */}
-          <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Ítems: </span><span className="font-bold" style={{ color: '#34d399' }}>{totalItems}</span></div>
-              <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Unidades: </span><span className="font-bold" style={{ color: '#60a5fa' }}>{totalUnits.toLocaleString()}</span></div>
-              <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Con stock: </span><span className="font-bold" style={{ color: '#34d399' }}>{inStockCount}</span></div>
-              <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Sin stock: </span><span className="font-bold" style={{ color: '#ef4444' }}>{outOfStockCount}</span></div>
-              <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Pendientes: </span><span className="font-bold" style={{ color: '#fbbf24' }}>{(incoming as any[]).length}</span></div>
-              {canRegister && (
-                <button
-                  onClick={() => setRegOpen(true)}
-                  className="ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                  style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
-                >
-                  <Plus className="inline h-3.5 w-3.5 mr-1" /> Registrar Material
-                </button>
-              )}
-            </div>
-          </div>
+      {/* Stats bar */}
+      <div className="glass-card rounded-xl p-4 mb-5">
+        <div className="flex flex-wrap items-center gap-6 text-sm">
+          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Ítems: </span><span className="font-bold" style={{ color: '#34d399' }}>{totalItems}</span></div>
+          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Unidades: </span><span className="font-bold" style={{ color: '#60a5fa' }}>{totalUnits.toLocaleString()}</span></div>
+          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Con stock: </span><span className="font-bold" style={{ color: '#34d399' }}>{inStockCount}</span></div>
+          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Sin stock: </span><span className="font-bold" style={{ color: '#ef4444' }}>{outOfStockCount}</span></div>
+          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Pendientes: </span><span className="font-bold" style={{ color: '#fbbf24' }}>{(incoming as any[]).length}</span></div>
+          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos: </span><span className="font-bold" style={{ color: '#a855f7' }}>{activeProjects}</span></div>
+        </div>
+      </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3">
+      {/* Tabs */}
+      <Tabs defaultValue="bodega" className="space-y-5">
+        <TabsList className="glass-card">
+          <TabsTrigger value="bodega">
+            <Package className="h-4 w-4 mr-1.5" /> Bodega ({totalItems})
+          </TabsTrigger>
+          <TabsTrigger value="crafteo">
+            <Hammer className="h-4 w-4 mr-1.5" /> Crafteo ({activeProjects})
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ═══ TAB: BODEGA ═══ */}
+        <TabsContent value="bodega" className="space-y-4">
+          {/* Filters + register button */}
+          <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
               <input
@@ -235,11 +213,20 @@ export default function WarehouseClan() {
               <option value="ALL">Todas las categorías</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{catLabels[c] || c}</option>)}
             </select>
+            {canRegister && (
+              <button
+                onClick={() => setRegOpen(true)}
+                className="px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+              >
+                <Plus className="inline h-3.5 w-3.5 mr-1" /> Registrar Material
+              </button>
+            )}
           </div>
 
           {/* Incoming (pending confirmation) */}
           {(incoming as any[]).length > 0 && (
-            <div className="rounded-xl p-4" style={{ background: 'rgba(251,191,36,0.04)', border: '1px solid rgba(251,191,36,0.15)' }}>
+            <div className="glass-card rounded-xl p-4" style={{ borderColor: 'rgba(251,191,36,0.15)' }}>
               <p className="text-xs font-semibold mb-2" style={{ color: '#fbbf24' }}>⏳ Pendientes de confirmación ({(incoming as any[]).length})</p>
               <div className="space-y-1.5">
                 {(incoming as any[]).map((inc: any) => (
@@ -268,7 +255,7 @@ export default function WarehouseClan() {
           )}
 
           {/* Warehouse Items Table */}
-          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="glass-card rounded-xl overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -343,31 +330,29 @@ export default function WarehouseClan() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        </TabsContent>
 
-      {/* ═══ TAB: CRAFTING ═══ */}
-      {tab === 'crafting' && (
-        <div className="space-y-4">
+        {/* ═══ TAB: CRAFTEO ═══ */}
+        <TabsContent value="crafteo" className="space-y-5">
           {/* Action buttons */}
-          <div className="flex gap-2">
-            {isSA && (
-              <>
-                <button onClick={() => setRecipeOpen(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
-                  <Plus className="inline h-3.5 w-3.5 mr-1" /> Nueva Receta
-                </button>
-                <button onClick={() => setProjectOpen(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
-                  <Hammer className="inline h-3.5 w-3.5 mr-1" /> Nuevo Proyecto
-                </button>
-              </>
-            )}
-          </div>
+          {isSA && (
+            <div className="flex gap-2">
+              <button onClick={() => setRecipeOpen(true)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
+                <Plus className="inline h-3.5 w-3.5 mr-1" /> Nueva Receta
+              </button>
+              <button onClick={() => setProjectOpen(true)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                <Hammer className="inline h-3.5 w-3.5 mr-1" /> Nuevo Proyecto
+              </button>
+            </div>
+          )}
 
           {/* Active Projects */}
           <div className="space-y-3">
-            <h2 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Proyectos Activos</h2>
+            <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Proyectos Activos</h3>
             {(projects as any[]).filter((p: any) => p.status === 'active').length === 0 && (
-              <p className="text-xs py-6 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay proyectos activos. {isSA ? 'Crea uno desde "Nuevo Proyecto".' : ''}</p>
+              <div className="glass-card rounded-xl p-8 text-center">
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay proyectos activos. {isSA ? 'Crea uno desde "Nuevo Proyecto".' : ''}</p>
+              </div>
             )}
             {(projects as any[]).filter((p: any) => p.status === 'active').map((project: any) => {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
@@ -381,10 +366,10 @@ export default function WarehouseClan() {
               const isExpanded = expandedProject === Number(project.id);
 
               return (
-                <div key={project.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(168,85,247,0.15)', background: 'rgba(168,85,247,0.03)' }}>
+                <div key={project.id} className="glass-card rounded-xl overflow-hidden" style={{ borderColor: 'rgba(168,85,247,0.15)' }}>
                   {/* Project header */}
                   <div
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
                     onClick={() => setExpandedProject(isExpanded ? null : Number(project.id))}
                   >
                     <div className="flex items-center gap-3">
@@ -395,7 +380,6 @@ export default function WarehouseClan() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {/* Progress */}
                       <div className="flex items-center gap-2">
                         <div className="w-24 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                           <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: progress === 100 ? '#34d399' : progress >= 50 ? '#fbbf24' : '#ef4444' }} />
@@ -409,13 +393,13 @@ export default function WarehouseClan() {
 
                   {/* Expanded: material list */}
                   {isExpanded && (
-                    <div className="px-4 pb-4">
+                    <div className="px-4 pb-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                       {recipe?.wikiUrl && (
-                        <a href={recipe.wikiUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] mb-3 px-2 py-1 rounded-lg" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }}>
+                        <a href={recipe.wikiUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] mt-3 mb-3 px-2 py-1 rounded-lg" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }}>
                           <ExternalLink className="h-3 w-3" /> Ver en Wiki
                         </a>
                       )}
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs mt-2">
                         <thead>
                           <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                             <th className="py-2 text-left font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Material</th>
@@ -451,7 +435,6 @@ export default function WarehouseClan() {
                           })}
                         </tbody>
                       </table>
-                      {/* Project actions */}
                       {isSA && (
                         <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           {progress === 100 && (
@@ -473,14 +456,16 @@ export default function WarehouseClan() {
 
           {/* Saved Recipes */}
           <div className="space-y-3">
-            <h2 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Recetas Guardadas ({(recipes as any[]).length})</h2>
+            <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Recetas Guardadas ({(recipes as any[]).length})</h3>
             {(recipes as any[]).length === 0 && (
-              <p className="text-xs py-4 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas. {isSA ? 'Crea una desde "Nueva Receta".' : ''}</p>
+              <div className="glass-card rounded-xl p-6 text-center">
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas. {isSA ? 'Crea una desde "Nueva Receta".' : ''}</p>
+              </div>
             )}
-            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {(recipes as any[]).map((recipe: any) => (
-                <div key={recipe.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="flex items-center justify-between mb-1">
+                <div key={recipe.id} className="glass-card rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-1.5">
                     <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{recipe.name}</p>
                     {isSA && (
                       <button onClick={() => { if (confirm(`¿Eliminar receta "${recipe.name}"?`)) deleteRecipeMut.mutate({ id: Number(recipe.id) }); }} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta">
@@ -488,7 +473,7 @@ export default function WarehouseClan() {
                       </button>
                     )}
                   </div>
-                  <p className="text-[10px] mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>{recipe.materials?.length || 0} materiales · por {recipe.createdBy}</p>
+                  <p className="text-[10px] mb-1.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{recipe.materials?.length || 0} materiales · por {recipe.createdBy}</p>
                   {recipe.wikiUrl && (
                     <a href={recipe.wikiUrl} target="_blank" rel="noopener noreferrer" className="text-[10px]" style={{ color: '#60a5fa' }}>
                       <ExternalLink className="inline h-2.5 w-2.5 mr-0.5" /> Wiki
@@ -502,9 +487,9 @@ export default function WarehouseClan() {
           {/* Completed Projects */}
           {(projects as any[]).filter((p: any) => p.status === 'completed').length > 0 && (
             <div className="space-y-2">
-              <h2 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos Completados</h2>
+              <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos Completados</h3>
               {(projects as any[]).filter((p: any) => p.status === 'completed').map((project: any) => (
-                <div key={project.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div key={project.id} className="glass-card rounded-lg flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
                     <span>✅</span>
                     <span className="line-through">{project.recipeName}</span>
@@ -517,8 +502,8 @@ export default function WarehouseClan() {
               ))}
             </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
 
       {/* ═══ MODALS ═══ */}
 
@@ -672,6 +657,6 @@ export default function WarehouseClan() {
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }
