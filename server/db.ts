@@ -2229,8 +2229,17 @@ export const updateAvailableClass = async (id: number, name: string) => {
     (c: any) => Number(c.id) !== Number(id) && String(c.name).toLowerCase() === trimmed.toLowerCase()
   );
   if (duplicate) throw new Error(`La clase "${trimmed}" ya existe`);
+  const oldName = cls.name;
   cls.name = trimmed;
   cls.updatedAt = nowIso();
+  // Propagate rename to secondary characters that reference the old class name
+  if (oldName !== trimmed && dbInstance.raidSecondaryCharacters) {
+    for (const sc of dbInstance.raidSecondaryCharacters) {
+      if (String(sc.className || '').toLowerCase() === String(oldName).toLowerCase()) {
+        sc.className = trimmed;
+      }
+    }
+  }
   saveDb(dbInstance);
   return cls;
 };

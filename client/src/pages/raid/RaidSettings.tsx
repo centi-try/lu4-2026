@@ -170,12 +170,30 @@ export default function RaidSettings({ raidAccess }: Props) {
     onSuccess: () => { toast.success('Material eliminado del catálogo'); utils.warehouse.catalog.list.invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
+  const updateCatalogItem = trpc.warehouse.catalog.update.useMutation({
+    onSuccess: () => { toast.success('Material actualizado'); utils.warehouse.catalog.list.invalidate(); setEditingCatMatId(null); },
+    onError: (e: any) => toast.error(e.message),
+  });
   const catalogItems = catalogQ.data || [];
   const [catMatName, setCatMatName] = useState('');
   const [catMatCategory, setCatMatCategory] = useState('');
   const [catMatImage, setCatMatImage] = useState('');
   const [catMatSearch, setCatMatSearch] = useState('');
   const [catMatToDelete, setCatMatToDelete] = useState<any | null>(null);
+  const [editingCatMatId, setEditingCatMatId] = useState<number | null>(null);
+  const [editCatMatName, setEditCatMatName] = useState('');
+  const [editCatMatCategory, setEditCatMatCategory] = useState('');
+  const [editCatMatImage, setEditCatMatImage] = useState('');
+  const startEditCatMat = (m: any) => {
+    setEditingCatMatId(Number(m.id));
+    setEditCatMatName(m.name || '');
+    setEditCatMatCategory(m.category || '');
+    setEditCatMatImage(m.imageUrl || '');
+  };
+  const saveEditCatMat = () => {
+    if (!editingCatMatId || !editCatMatName.trim() || !editCatMatCategory) return;
+    updateCatalogItem.mutate({ id: editingCatMatId, name: editCatMatName.trim(), category: editCatMatCategory, imageUrl: editCatMatImage.trim() || undefined });
+  };
 
   const submitCatalogMat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -724,15 +742,17 @@ export default function RaidSettings({ raidAccess }: Props) {
             </div>
             <div className="sm:col-span-3">
               <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría *</label>
-              <select
-                value={catMatCategory}
-                onChange={e => setCatMatCategory(e.target.value)}
-                className="w-full rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
-              >
-                <option value="">— Seleccionar —</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{categoryMeta[c]?.label || c}</option>)}
-              </select>
+              <FancySelect<string>
+                value={catMatCategory || null}
+                onChange={setCatMatCategory}
+                accent="turquoise"
+                size="md"
+                placeholder="— Seleccionar —"
+                options={CATEGORIES.map(c => {
+                  const meta = categoryMeta[c] || { emoji: '📦', label: c };
+                  return { value: c, label: meta.label, emoji: meta.emoji };
+                })}
+              />
             </div>
             <div className="sm:col-span-4">
               <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Imagen</label>
@@ -777,35 +797,86 @@ export default function RaidSettings({ raidAccess }: Props) {
         </div>
 
         {/* Catalog list */}
-        <div className="space-y-1 max-h-80 overflow-y-auto">
+        <div className="space-y-1">
           {filteredCatalog.length === 0 && (
             <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.25)' }}>
               {catMatSearch ? 'Sin resultados.' : 'Catálogo vacío. Agrega el primer material arriba.'}
             </p>
           )}
           {filteredCatalog.map((m: any) => (
-            <div key={m.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-white/[0.02] transition-colors" style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
-              <div className="flex items-center gap-3">
-                {m.imageUrl ? (
-                  <img src={m.imageUrl} alt="" className="h-7 w-7 rounded object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-                ) : (
-                  <div className="h-7 w-7 rounded flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <Package className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.2)' }} />
+            <div key={m.id}>
+              {editingCatMatId === Number(m.id) ? (
+                <div className="rounded-lg p-3" style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)' }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                    <div className="sm:col-span-4">
+                      <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre</label>
+                      <input value={editCatMatName} onChange={e => setEditCatMatName(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} autoFocus onKeyDown={e => { if (e.key === 'Enter') saveEditCatMat(); if (e.key === 'Escape') setEditingCatMatId(null); }} />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría</label>
+                      <FancySelect<string>
+                        value={editCatMatCategory || null}
+                        onChange={setEditCatMatCategory}
+                        accent="turquoise"
+                        size="sm"
+                        placeholder="— Seleccionar —"
+                        options={CATEGORIES.map(c => {
+                          const meta = categoryMeta[c] || { emoji: '📦', label: c };
+                          return { value: c, label: meta.label, emoji: meta.emoji };
+                        })}
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Imagen</label>
+                      <input value={editCatMatImage} onChange={e => setEditCatMatImage(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} onKeyDown={e => { if (e.key === 'Enter') saveEditCatMat(); if (e.key === 'Escape') setEditingCatMatId(null); }} />
+                    </div>
+                    <div className="sm:col-span-2 flex gap-1.5">
+                      <button onClick={saveEditCatMat} disabled={!editCatMatName.trim() || !editCatMatCategory || updateCatalogItem.isPending} className="p-1.5 rounded-lg" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }} title="Guardar"><Save className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => setEditingCatMatId(null)} className="p-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }} title="Cancelar"><X className="h-3.5 w-3.5" /></button>
+                    </div>
                   </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{m.name}</p>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{categoryMeta[m.category as keyof typeof categoryMeta]?.label || m.category}</p>
+                  {editCatMatImage && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <img src={editCatMatImage} alt="preview" className="h-7 w-7 rounded object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Vista previa</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <button
-                onClick={() => setCatMatToDelete(m)}
-                className="p-1.5 rounded-lg transition-all hover:bg-white/5"
-                style={{ color: 'rgba(255,120,120,0.6)' }}
-                title="Eliminar del catálogo"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              ) : (
+                <div className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-white/[0.02] transition-colors" style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center gap-3">
+                    {m.imageUrl ? (
+                      <img src={m.imageUrl} alt="" className="h-7 w-7 rounded object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                    ) : (
+                      <div className="h-7 w-7 rounded flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <Package className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{m.name}</p>
+                      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{categoryMeta[m.category as keyof typeof categoryMeta]?.emoji} {categoryMeta[m.category as keyof typeof categoryMeta]?.label || m.category}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => startEditCatMat(m)}
+                      className="p-1.5 rounded-lg transition-all hover:bg-white/5"
+                      style={{ color: 'rgba(255,200,100,0.6)' }}
+                      title="Editar"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCatMatToDelete(m)}
+                      className="p-1.5 rounded-lg transition-all hover:bg-white/5"
+                      style={{ color: 'rgba(255,120,120,0.6)' }}
+                      title="Eliminar del catálogo"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
