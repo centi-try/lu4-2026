@@ -64,6 +64,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAuthSuperAdmin = authUser?.role === 'super_admin' || authUser?.role === 'SUPER_ADMIN';
 
+  // All users for Super Admin account switcher
+  const { data: allUsersData } = trpc.adminUsers.listUsers.useQuery(undefined, {
+    enabled: !!isAuthSuperAdmin,
+    retry: false,
+  });
+  const allUsers = (allUsersData as any[]) || [];
+
   // Raid module access — silently hidden if user has no access
   const { data: raidAccess } = trpc.raid.myAccess.useQuery(undefined, {
     enabled: !!authUser,
@@ -267,25 +274,54 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </button>
                       )}
 
-                      {characters?.slice(0, 20).map(char => (
-                        <button key={char.id}
-                          onClick={() => { setCurrentUser(char); setUserMenuOpen(false); }}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all hover:bg-white/5">
-                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}>
-                            {char.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{char.name}</p>
-                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{char.class} · Nv.{char.level}</p>
-                          </div>
-                          {char.role === 'SUPER_ADMIN' && (
-                            <Shield className="h-3.5 w-3.5 shrink-0" style={{ color: '#7bf1d6' }} />
-                          )}
-                          {currentUser && currentUser.id === char.id && (
-                            <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: '#7bf1d6' }} />
-                          )}
-                        </button>
-                      ))}
+                      {allUsers
+                        .filter((u: any) => u.isActive !== false && Number(u.id) !== Number(authUser?.id))
+                        .map((u: any) => {
+                          const roleLc = String(u.role || '').toLowerCase();
+                          const isSA = roleLc === 'super_admin';
+                          const isMapper = roleLc === 'mapper';
+                          const avatarGrad = isSA ? 'from-cyan-400 to-blue-600' : isMapper ? 'from-amber-400 to-orange-600' : 'from-fuchsia-400 to-purple-600';
+                          const roleLabel = isSA ? 'Super Admin' : isMapper ? 'Mapper' : roleLc === 'admin' ? 'Admin' : 'Usuario';
+                          const hasLegacy = u.legacyAccess;
+                          const accessDesc = [
+                            hasLegacy ? 'Menú Antiguo' : null,
+                            u.raidAccessLevel ? 'Raid' : null,
+                          ].filter(Boolean).join(' + ') || 'Sin acceso';
+                          return (
+                            <button key={u.id}
+                              onClick={() => {
+                                setCurrentUser({
+                                  id: u.id,
+                                  name: u.characterName || u.name || 'Sin nombre',
+                                  role: u.role?.toUpperCase() || 'USER',
+                                  avatar: avatarGrad,
+                                  class: u.classMain || roleLabel,
+                                  level: 1,
+                                  itemIds: [],
+                                  totalEarnings: 0,
+                                  currentCycleEarnings: 0,
+                                } as any);
+                                setUserMenuOpen(false);
+                              }}
+                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all hover:bg-white/5">
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${avatarGrad} text-xs font-bold text-white`}>
+                                {(u.characterName || u.name || '??').slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                                  {u.characterName || u.name || 'Sin nombre'}
+                                </p>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                  {roleLabel} · {accessDesc}
+                                </p>
+                              </div>
+                              {isSA && <Shield className="h-3.5 w-3.5 shrink-0" style={{ color: '#7bf1d6' }} />}
+                              {currentUser && Number(currentUser.id) === Number(u.id) && (
+                                <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: '#7bf1d6' }} />
+                              )}
+                            </button>
+                          );
+                        })}
                     </div>
                     <div className="border-t my-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
                   </>
