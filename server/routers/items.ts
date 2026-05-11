@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance, getAllUsers,
+  getSalesCycles,
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
   markReservationPreSold, unmarkReservationPreSold,
@@ -49,25 +50,64 @@ export const itemsRouter = router({
   }),
 
   legacyBuyers: protectedProcedure.query(async () => {
-    const users = await getAllUsers();
-    const allItems = await getItems();
+    const [users, allItems, allChars, allCycles] = await Promise.all([
+      getAllUsers(), getItems(), getCharacters(), getSalesCycles(),
+    ]);
+
+    // Build user→character mapping by first name match
+    const charByFirstName = new Map<string, any>();
+    for (const c of allChars as any[]) {
+      const firstName = String(c.name || '').split(/\s+/)[0].toLowerCase();
+      if (firstName) charByFirstName.set(firstName, c);
+    }
+
+    // Aggregate total earnings per character ID across all closed cycles
+    const totalEarningsByCharId = new Map<string, number>();
+    const currentCycle = (allCycles as any[]).find((c: any) => c.status === 'OPEN');
+    const currentEarningsByCharId = new Map<string, number>();
+    for (const cycle of allCycles as any[]) {
+      const earnings = cycle.characterEarnings || [];
+      if (!Array.isArray(earnings)) continue;
+      for (const e of earnings) {
+        const cid = String(e.characterId);
+        const amt = Number(e.earnings || 0);
+        totalEarningsByCharId.set(cid, (totalEarningsByCharId.get(cid) || 0) + amt);
+        if (currentCycle && String(cycle.id) === String(currentCycle.id)) {
+          currentEarningsByCharId.set(cid, (currentEarningsByCharId.get(cid) || 0) + amt);
+        }
+      }
+    }
+
     return users
       .filter((u: any) => u.legacyAccess && u.isActive !== false)
       .map((u: any) => {
         const userId = Number(u.id);
-        const associatedItems = allItems.filter((i: any) =>
-          (i.associatedCharacterIds || []).includes(userId) ||
-          (i.associatedCharacterIds || []).includes(String(userId))
-        );
+        const userName = String(u.characterName || u.name || '');
+        const firstName = userName.split(/\s+/)[0].toLowerCase();
+
+        // Find matching character by first name
+        const matchedChar = charByFirstName.get(firstName);
+        const charId = matchedChar ? String(matchedChar.id) : null;
+
+        // Items associated with this user's character ID or user ID
+        const associatedItems = allItems.filter((i: any) => {
+          const assocIds = (i.associatedCharacterIds || []).map((id: any) => String(id));
+          return assocIds.includes(String(userId)) || (charId && assocIds.includes(charId));
+        });
+
+        const totalEarnings = charId ? (totalEarningsByCharId.get(charId) || 0) : 0;
+        const cycleEarnings = charId ? (currentEarningsByCharId.get(charId) || 0) : 0;
+
         return {
           id: String(u.id),
-          name: u.characterName || u.name || u.displayName || 'Sin nombre',
+          name: userName || 'Sin nombre',
           classMain: u.classMain || '',
           role: u.role || 'user',
-          totalEarnings: Number(u.totalEarnings || 0),
-          currentCycleEarnings: Number(u.currentCycleEarnings || 0),
+          totalEarnings,
+          currentCycleEarnings: cycleEarnings,
           itemCount: associatedItems.length,
           itemIds: associatedItems.map((i: any) => i.id),
+          characterId: charId,
         };
       });
   }),

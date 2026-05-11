@@ -11,7 +11,8 @@ import { FancySelect } from '../components/ui/FancySelect';
 
 function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect: (c: Character) => void; isActive: boolean }) {
   const { items } = useApp();
-  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id) || i.associatedCharacterIds.includes(Number(char.id)));
+  const charItemIds = new Set((char as any).itemIds?.map(String) || []);
+  const charItems = items.filter(i => charItemIds.has(String(i.id)));
 
   return (
     <div
@@ -105,7 +106,8 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
 
 function CharacterDetail({ char }: { char: Character }) {
   const { items, currentUser, sellItem } = useApp();
-  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id) || i.associatedCharacterIds.includes(Number(char.id)));
+  const charItemIds = new Set((char as any).itemIds?.map(String) || []);
+  const charItems = items.filter(i => charItemIds.has(String(i.id)));
   const [sellModalItem, setSellModalItem] = useState<string | null>(null);
   const [sellQty, setSellQty] = useState('1');
 
