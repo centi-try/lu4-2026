@@ -50,14 +50,26 @@ export const itemsRouter = router({
 
   legacyBuyers: protectedProcedure.query(async () => {
     const users = await getAllUsers();
+    const allItems = await getItems();
     return users
       .filter((u: any) => u.legacyAccess && u.isActive !== false)
-      .map((u: any) => ({
-        id: String(u.id),
-        name: u.characterName || u.name || u.displayName || 'Sin nombre',
-        classMain: u.classMain || '',
-        role: u.role || 'user',
-      }));
+      .map((u: any) => {
+        const userId = Number(u.id);
+        const associatedItems = allItems.filter((i: any) =>
+          (i.associatedCharacterIds || []).includes(userId) ||
+          (i.associatedCharacterIds || []).includes(String(userId))
+        );
+        return {
+          id: String(u.id),
+          name: u.characterName || u.name || u.displayName || 'Sin nombre',
+          classMain: u.classMain || '',
+          role: u.role || 'user',
+          totalEarnings: Number(u.totalEarnings || 0),
+          currentCycleEarnings: Number(u.currentCycleEarnings || 0),
+          itemCount: associatedItems.length,
+          itemIds: associatedItems.map((i: any) => i.id),
+        };
+      });
   }),
 
   create: protectedProcedure

@@ -90,7 +90,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
   const effectiveLegacyAccess = isImpersonating ? !!(currentUser as any)?.legacyAccess : (isAuthSuperAdmin || authUser?.legacyAccess === true);
   const effectiveIsSuper = effectiveRole === 'super_admin';
-  const effectiveRaidAccess = isImpersonating ? !!(currentUser as any)?.raidAccessLevel : canSeeRaidModule;
+  const impersonatedRaidLevel = isImpersonating ? (currentUser as any)?.raidAccessLevel : null;
+  const effectiveRaidAccess = isImpersonating ? !!impersonatedRaidLevel : canSeeRaidModule;
+  const effectiveRaidCanInteract = isImpersonating
+    ? (impersonatedRaidLevel && impersonatedRaidLevel !== 'viewer_only')
+    : !!raidAccess?.canInteract;
 
   const originalUserChar = authUser ? {
     id: `auth-${authUser.id}`,
@@ -176,14 +180,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <>
               <div className="px-3 py-3 mt-4 flex items-center gap-2">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#e879f9' }}>RAID BOSSES</p>
-                {!raidAccess?.canInteract && (
+                {!effectiveRaidCanInteract && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9', border: '1px solid rgba(232,121,249,0.3)' }}>
                     solo lectura
                   </span>
                 )}
               </div>
               {raidNavItems.filter(item => {
-                if (item.requiresInteract && !raidAccess?.canInteract) return false;
+                if (item.requiresInteract && !effectiveRaidCanInteract) return false;
                 return true;
               }).map(item => {
                 const Icon = item.icon;

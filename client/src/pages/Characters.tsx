@@ -3,6 +3,7 @@ import { Shield, User, Package, Search, Coins, TrendingUp, ShoppingCart, Users }
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import { trpc } from '../lib/trpc';
 import { categoryMeta } from '../lib/category-meta';
 import { toast } from 'sonner';
 import type { Character } from '../lib/types';
@@ -10,8 +11,7 @@ import { FancySelect } from '../components/ui/FancySelect';
 
 function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect: (c: Character) => void; isActive: boolean }) {
   const { items } = useApp();
-  // Usar associatedCharacterIds como fuente de verdad
-  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id));
+  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id) || i.associatedCharacterIds.includes(Number(char.id)));
 
   return (
     <div
@@ -28,7 +28,7 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{char.name}</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{char.class} · Nv.{char.level}</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{char.class || 'Sin clase'}</p>
         </div>
         {(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') && (
           <Shield className="h-4 w-4 shrink-0 ml-auto" style={{ color: '#7bf1d6' }} />
@@ -37,14 +37,22 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
 
       {/* Role badge */}
       <div className="mb-3">
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-          style={{
-            background: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.1)' : 'rgba(251,191,36,0.1)',
-            color: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '#7bf1d6' : '#fbbf24',
-            border: `1px solid ${(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.25)' : 'rgba(251,191,36,0.25)'}`,
-          }}>
-          {(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '⚡ Super Admin' : (char.role?.toUpperCase() === 'MAPPER' || char.role?.toLowerCase() === 'mapper') ? '🗺️ Mapper' : '👤 Usuario'}
-        </span>
+        {(() => {
+          const r = String(char.role || '').toLowerCase();
+          const isSA = r === 'super_admin';
+          const isMapper = r === 'mapper';
+          const isAdmin = r === 'admin';
+          const bg = isSA ? 'rgba(123,241,214,0.1)' : isMapper ? 'rgba(251,191,36,0.1)' : isAdmin ? 'rgba(96,165,250,0.1)' : 'rgba(167,139,250,0.1)';
+          const color = isSA ? '#7bf1d6' : isMapper ? '#fbbf24' : isAdmin ? '#60a5fa' : '#a78bfa';
+          const border = isSA ? 'rgba(123,241,214,0.25)' : isMapper ? 'rgba(251,191,36,0.25)' : isAdmin ? 'rgba(96,165,250,0.25)' : 'rgba(167,139,250,0.25)';
+          const label = isSA ? 'Super Admin' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+              style={{ background: bg, color, border: `1px solid ${border}` }}>
+              {label}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Earnings */}
@@ -97,8 +105,7 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
 
 function CharacterDetail({ char }: { char: Character }) {
   const { items, currentUser, sellItem } = useApp();
-  // Usar associatedCharacterIds como fuente de verdad
-  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id));
+  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id) || i.associatedCharacterIds.includes(Number(char.id)));
   const [sellModalItem, setSellModalItem] = useState<string | null>(null);
   const [sellQty, setSellQty] = useState('1');
 
@@ -140,15 +147,23 @@ function CharacterDetail({ char }: { char: Character }) {
         </div>
         <div>
           <h3 className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>{char.name}</h3>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{char.class} · Nivel {char.level}</p>
-          <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-            style={{
-              background: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.1)' : 'rgba(251,191,36,0.1)',
-              color: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '#7bf1d6' : '#fbbf24',
-              border: `1px solid ${(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.25)' : 'rgba(251,191,36,0.25)'}`,
-            }}>
-            {(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '⚡ Super Admin' : (char.role?.toUpperCase() === 'MAPPER' || char.role?.toLowerCase() === 'mapper') ? '🗺️ Mapper' : '👤 Usuario'}
-          </span>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{char.class || 'Sin clase'}</p>
+          {(() => {
+            const r = String(char.role || '').toLowerCase();
+            const isSA = r === 'super_admin';
+            const isMapper = r === 'mapper';
+            const isAdmin = r === 'admin';
+            const bg = isSA ? 'rgba(123,241,214,0.1)' : isMapper ? 'rgba(251,191,36,0.1)' : isAdmin ? 'rgba(96,165,250,0.1)' : 'rgba(167,139,250,0.1)';
+            const color = isSA ? '#7bf1d6' : isMapper ? '#fbbf24' : isAdmin ? '#60a5fa' : '#a78bfa';
+            const border = isSA ? 'rgba(123,241,214,0.25)' : isMapper ? 'rgba(251,191,36,0.25)' : isAdmin ? 'rgba(96,165,250,0.25)' : 'rgba(167,139,250,0.25)';
+            const label = isSA ? 'Super Admin' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
+            return (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                style={{ background: bg, color, border: `1px solid ${border}` }}>
+                {label}
+              </span>
+            );
+          })()}
         </div>
       </div>
 
@@ -288,34 +303,50 @@ function CharacterDetail({ char }: { char: Character }) {
 }
 
 export default function Characters() {
-  const { characters, currentUser, setCurrentUser } = useApp();
+  const { items, currentUser, setCurrentUser } = useApp();
   const { user: authUser } = useAuth();
   const isAuthSuperAdmin = authUser?.role === 'super_admin' || authUser?.role === 'SUPER_ADMIN';
+  const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'SUPER_ADMIN' | 'MAPPER' | 'USER'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'SUPER_ADMIN' | 'MAPPER' | 'ADMIN' | 'USER'>('ALL');
   const [selected, setSelected] = useState<Character | null>(null);
 
-  // Sincronizar selección inicial
-  useEffect(() => {
-    if (!selected && characters && characters.length > 0) {
-      setSelected(characters[0]);
-    }
-  }, [characters, selected]);
+  const legacyChars: Character[] = (legacyBuyersData as any[] || []).map((u: any) => {
+    const r = String(u.role || 'user').toLowerCase();
+    const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+    return {
+      id: u.id,
+      name: u.name,
+      role: u.role?.toUpperCase() || 'USER',
+      avatar: avatarGrad,
+      class: u.classMain || 'Sin clase',
+      level: 1,
+      itemIds: u.itemIds || [],
+      totalEarnings: u.totalEarnings || 0,
+      currentCycleEarnings: u.currentCycleEarnings || 0,
+    };
+  });
 
-  const filtered = characters?.filter(c => {
+  useEffect(() => {
+    if (!selected && legacyChars.length > 0) {
+      setSelected(legacyChars[0]);
+    }
+  }, [legacyBuyersData]);
+
+  const filtered = legacyChars.filter(c => {
     const q = search.toLowerCase();
-    // No mostrar el email en la búsqueda ni en la visualización
     const nameMatch = c.name.toLowerCase().includes(q);
     const classMatch = c.class.toLowerCase().includes(q);
     
+    const rl = String(c.role || '').toLowerCase();
     const roleMatch = roleFilter === 'ALL' || 
-       c.role?.toUpperCase() === roleFilter || 
-       (roleFilter === 'SUPER_ADMIN' && c.role?.toLowerCase() === 'super_admin') ||
-       (roleFilter === 'MAPPER' && c.role?.toLowerCase() === 'mapper') ||
-       (roleFilter === 'USER' && c.role?.toLowerCase() === 'user');
+       (roleFilter === 'SUPER_ADMIN' && rl === 'super_admin') ||
+       (roleFilter === 'MAPPER' && rl === 'mapper') ||
+       (roleFilter === 'ADMIN' && rl === 'admin') ||
+       (roleFilter === 'USER' && rl === 'user');
        
     return (!q || nameMatch || classMatch) && roleMatch;
-  }) || [];
+  });
 
   return (
     <AppShell>
@@ -349,6 +380,7 @@ export default function Characters() {
                 options={[
                   { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
                   { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                  { value: 'ADMIN', label: 'Admin', emoji: '🛡️' },
                   { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
                   { value: 'USER', label: 'Usuario', emoji: '👤' },
                 ]}

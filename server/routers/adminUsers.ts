@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -20,8 +20,12 @@ const VALID_ROLES = ['user', 'mapper', 'admin', 'super_admin'] as const;
 export const adminUsersRouter = router({
   // Listar todos los usuarios registrados
   listUsers: superAdminProcedure.query(async ({ ctx }) => {
-    const users = await getAllUsers();
-    return users;
+    const [users, raidAccessList] = await Promise.all([getAllUsers(), listUserRaidAccess()]);
+    const raidMap = new Map((raidAccessList as any[]).map((a: any) => [Number(a.userId), a.accessLevel]));
+    return users.map((u: any) => ({
+      ...u,
+      raidAccessLevel: raidMap.get(Number(u.id)) || null,
+    }));
   }),
 
   // Activar o desactivar una cuenta de usuario
