@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type {
   Item, Character, AuditLog, ItemCategory, ItemStatus, UserRole,
   SalesCycle, CycleCharacterEarning, CycleSoldItem, Purchase
@@ -77,25 +77,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [authUser]);
 
   const [currentUser, setCurrentUserState] = useState<Character>(() => getAuthUserAsCharacter());
+  const isImpersonatingRef = useRef(false);
 
   useEffect(() => {
-    setCurrentUserState(getAuthUserAsCharacter());
+    if (!isImpersonatingRef.current) {
+      setCurrentUserState(getAuthUserAsCharacter());
+    }
   }, [getAuthUserAsCharacter]);
 
   const setCurrentUser = useCallback((nextUser: Character) => {
     const originalUser = getAuthUserAsCharacter();
-    const isOriginalAccount = nextUser.id === originalUser.id;
+    const isOriginalAccount = nextUser.id === originalUser.id || String(nextUser.id) === `auth-${authUser?.id}`;
 
     if (!authUser) {
+      isImpersonatingRef.current = false;
       setCurrentUserState(defaultEmptyCharacter);
       return;
     }
 
     if (!isAuthSuperAdmin && !isOriginalAccount) {
+      isImpersonatingRef.current = false;
       setCurrentUserState(originalUser);
       return;
     }
 
+    isImpersonatingRef.current = !isOriginalAccount;
     setCurrentUserState(nextUser);
   }, [authUser, getAuthUserAsCharacter, isAuthSuperAdmin]);
 

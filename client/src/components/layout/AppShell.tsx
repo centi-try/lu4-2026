@@ -352,7 +352,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 overflow-auto p-4 lg:p-6">
           <EmailVerificationBanner />
-          {children}
+          {!effectiveLegacyAccess && !effectiveIsSuper && !(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) ? (
+            <div className="flex flex-1 items-center justify-center min-h-[60vh]">
+              <div className="text-center max-w-md mx-auto px-6 py-12 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="flex justify-center mb-6">
+                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(232,121,249,0.2))' }}>
+                    <Shield className="h-8 w-8" style={{ color: '#7bf1d6' }} />
+                  </div>
+                </div>
+                <h2 className="text-xl font-bold mb-3" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  ¡Bienvenido a RaptorSquad!
+                </h2>
+                <p className="text-sm leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Tu cuenta fue creada exitosamente. Actualmente no tienes acceso a ningún módulo del sistema.
+                </p>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  El <span style={{ color: '#7bf1d6', fontWeight: 600 }}>Super Admin</span> debe asignarte los permisos correspondientes para que puedas interactuar con la plataforma. Mientras tanto, aguarda a que se te habilite el acceso.
+                </p>
+                <div className="mt-6 inline-block px-4 py-2 rounded-xl text-xs font-semibold"
+                  style={{ background: 'rgba(123,241,214,0.08)', border: '1px solid rgba(123,241,214,0.2)', color: '#7bf1d6' }}>
+                  Esperando asignación de permisos...
+                </div>
+              </div>
+            </div>
+          ) : children}
         </main>
       </div>
     </div>
