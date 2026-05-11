@@ -98,6 +98,7 @@ interface DatabaseSchema {
   warehouseIncoming: any[];    // registros pendientes de confirmar
   craftRecipes: any[];         // recetas de crafteo (persistentes, reutilizables)
   craftProjects: any[];        // proyectos activos de crafteo
+  materialCatalog: any[];      // catálogo persistente de materiales (nombre, categoría, imagen)
 }
 
 const initialSchema: DatabaseSchema = {
@@ -133,6 +134,7 @@ const initialSchema: DatabaseSchema = {
   warehouseIncoming: [],
   craftRecipes: [],
   craftProjects: [],
+  materialCatalog: [],
 };
 
 // ============================================================================

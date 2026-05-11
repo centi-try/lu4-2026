@@ -24,6 +24,7 @@ export default function WarehouseClan() {
   const { data: incoming = [], refetch: refetchIncoming } = trpc.warehouse.listIncoming.useQuery();
   const { data: recipes = [], refetch: refetchRecipes } = trpc.warehouse.recipes.list.useQuery();
   const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery();
+  const { data: catalog = [] } = trpc.warehouse.catalog.list.useQuery();
 
   // Mutations
   const registerMut = trpc.warehouse.register.useMutation({ onSuccess: () => { refetchIncoming(); toast.success('Material registrado'); } });
@@ -41,12 +42,26 @@ export default function WarehouseClan() {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('ALL');
 
-  // Register form
-  const [regOpen, setRegOpen] = useState(false);
+  // Register form (inline panel, like CreateItemPanel)
   const [regName, setRegName] = useState('');
-  const [regCat, setRegCat] = useState('MATERIALES');
-  const [regQty, setRegQty] = useState('1');
+  const [regCat, setRegCat] = useState('');
+  const [regQty, setRegQty] = useState('0');
   const [regImg, setRegImg] = useState('');
+  const [regShowSuggestions, setRegShowSuggestions] = useState(false);
+
+  // Catalog suggestions for autocomplete
+  const catalogSuggestions = useMemo(() => {
+    if (!regName || regName.length < 1) return [];
+    const q = regName.toLowerCase();
+    return (catalog as any[]).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 8);
+  }, [catalog, regName]);
+
+  const selectCatalogItem = (item: any) => {
+    setRegName(item.name);
+    setRegCat(item.category || '');
+    setRegImg(item.imageUrl || '');
+    setRegShowSuggestions(false);
+  };
 
   // Withdraw modal
   const [withdrawItem, setWithdrawItem] = useState<any>(null);
@@ -97,14 +112,16 @@ export default function WarehouseClan() {
 
   const handleRegister = () => {
     if (!regName.trim()) { toast.error('Nombre requerido'); return; }
+    if (!regCat) { toast.error('Selecciona una categoría'); return; }
+    const qty = parseInt(regQty, 10);
+    if (isNaN(qty) || qty < 1) { toast.error('Cantidad debe ser al menos 1'); return; }
     registerMut.mutate({
       name: regName.trim(),
       category: regCat,
-      quantity: Number(regQty) || 1,
+      quantity: qty,
       imageUrl: regImg || undefined,
     });
-    setRegOpen(false);
-    setRegName(''); setRegQty('1'); setRegImg('');
+    setRegName(''); setRegCat(''); setRegQty('0'); setRegImg('');
   };
 
   const handleWithdraw = () => {
@@ -194,7 +211,110 @@ export default function WarehouseClan() {
 
         {/* ═══ TAB: BODEGA ═══ */}
         <TabsContent value="bodega" className="space-y-4">
-          {/* Filters + register button */}
+          {/* Inline registration panel (like CreateItemPanel in Inventario) */}
+          {canRegister && (
+            <div className="glass-card rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="h-4 w-4" style={{ color: '#34d399' }} />
+                <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Registro de Materiales</span>
+                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>El autocompletado busca en el catálogo y copia <b>nombre, categoría e imagen</b></span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                {/* Name with autocomplete */}
+                <div className="sm:col-span-4 relative">
+                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre del item *</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                    <input
+                      value={regName}
+                      onChange={e => { setRegName(e.target.value); setRegShowSuggestions(true); }}
+                      onFocus={() => setRegShowSuggestions(true)}
+                      placeholder="Ej: Draconic Leather"
+                      className="w-full rounded-lg pl-9 pr-3 py-2 text-sm"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+                    />
+                  </div>
+                  {/* Autocomplete dropdown */}
+                  {regShowSuggestions && catalogSuggestions.length > 0 && (
+                    <div
+                      className="absolute z-40 w-full mt-1 rounded-lg overflow-hidden shadow-lg"
+                      style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 220, overflowY: 'auto' }}
+                    >
+                      {catalogSuggestions.map((item: any) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => selectCatalogItem(item)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
+                        >
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                          ) : (
+                            <div className="h-6 w-6 rounded flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                              <Package className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.name}</p>
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{catLabels[item.category] || item.category}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Category */}
+                <div className="sm:col-span-3">
+                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría *</label>
+                  <select
+                    value={regCat} onChange={e => setRegCat(e.target.value)}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{catLabels[c] || c}</option>)}
+                  </select>
+                </div>
+                {/* Quantity */}
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Cant. *</label>
+                  <input
+                    type="number" min="0"
+                    value={regQty} onChange={e => setRegQty(e.target.value)}
+                    className="w-full rounded-lg px-3 py-2 text-sm text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${parseInt(regQty,10) < 1 ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`, color: 'rgba(255,255,255,0.8)' }}
+                  />
+                </div>
+                {/* Image preview */}
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Imagen</label>
+                  <div className="flex items-center gap-2">
+                    {regImg ? (
+                      <img src={regImg} alt="" className="h-9 w-9 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                    ) : (
+                      <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
+                      </div>
+                    )}
+                    <span className="text-[9px]" style={{ color: regImg ? '#34d399' : 'rgba(255,255,255,0.2)' }}>{regImg ? 'vía catálogo' : 'sin imagen'}</span>
+                  </div>
+                </div>
+                {/* Submit */}
+                <div className="sm:col-span-1">
+                  <button
+                    onClick={handleRegister}
+                    disabled={registerMut.isPending}
+                    className="w-full rounded-lg py-2 text-xs font-semibold transition-all"
+                    style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+                  >
+                    Registrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
@@ -213,15 +333,6 @@ export default function WarehouseClan() {
               <option value="ALL">Todas las categorías</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{catLabels[c] || c}</option>)}
             </select>
-            {canRegister && (
-              <button
-                onClick={() => setRegOpen(true)}
-                className="px-3 py-2 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
-              >
-                <Plus className="inline h-3.5 w-3.5 mr-1" /> Registrar Material
-              </button>
-            )}
           </div>
 
           {/* Incoming (pending confirmation) */}
@@ -506,44 +617,6 @@ export default function WarehouseClan() {
       </Tabs>
 
       {/* ═══ MODALS ═══ */}
-
-      {/* Register Material Modal */}
-      {regOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Registrar Material</h3>
-              <button onClick={() => setRegOpen(false)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
-            </div>
-            <div className="px-5 py-4 space-y-3">
-              <div>
-                <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre *</label>
-                <input value={regName} onChange={e => setRegName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="Coal, Iron Ore, etc." />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría</label>
-                  <select value={regCat} onChange={e => setRegCat(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{catLabels[c] || c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Cantidad *</label>
-                  <input type="number" min="1" value={regQty} onChange={e => setRegQty(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Imagen (opcional)</label>
-                <input value={regImg} onChange={e => setRegImg(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <button onClick={() => setRegOpen(false)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
-              <button onClick={handleRegister} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.2)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>Registrar</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Withdraw Modal */}
       {withdrawItem && (

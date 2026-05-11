@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette } from 'lucide-react';
+import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -160,6 +160,41 @@ export default function RaidSettings({ raidAccess }: Props) {
   const clans = clansQ.data || [];
   const canAdminClans = !!raidAccess?.canAdmin;
 
+  // ---- Material Catalog ----
+  const catalogQ = trpc.warehouse.catalog.list.useQuery();
+  const createCatalogItem = trpc.warehouse.catalog.create.useMutation({
+    onSuccess: () => { toast.success('Material agregado al catálogo'); utils.warehouse.catalog.list.invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const deleteCatalogItem = trpc.warehouse.catalog.delete.useMutation({
+    onSuccess: () => { toast.success('Material eliminado del catálogo'); utils.warehouse.catalog.list.invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const catalogItems = catalogQ.data || [];
+  const [catMatName, setCatMatName] = useState('');
+  const [catMatCategory, setCatMatCategory] = useState('');
+  const [catMatImage, setCatMatImage] = useState('');
+  const [catMatSearch, setCatMatSearch] = useState('');
+  const [catMatToDelete, setCatMatToDelete] = useState<any | null>(null);
+
+  const submitCatalogMat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catMatName.trim()) { toast.error('Nombre es obligatorio'); return; }
+    if (!catMatCategory) { toast.error('Selecciona una categoría'); return; }
+    createCatalogItem.mutate({
+      name: catMatName.trim(),
+      category: catMatCategory,
+      imageUrl: catMatImage.trim() || undefined,
+    }, {
+      onSuccess: () => { setCatMatName(''); setCatMatCategory(''); setCatMatImage(''); },
+    });
+  };
+
+  const filteredCatalog = (catalogItems as any[]).filter((m: any) => {
+    if (!catMatSearch) return true;
+    return String(m.name || '').toLowerCase().includes(catMatSearch.toLowerCase());
+  });
+
   // Confirmaciones de borrado (reemplazan window.confirm() feos)
   const [bossToDelete, setBossToDelete] = useState<any | null>(null);
   const [clanToDelete, setClanToDelete] = useState<any | null>(null);
@@ -169,11 +204,10 @@ export default function RaidSettings({ raidAccess }: Props) {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <Crown className="h-5 w-5" style={{ color: '#fbbf24' }} />
-          <h2 className="text-2xl font-bold text-gradient">Configuración Raid</h2>
+          <h2 className="text-2xl font-bold text-gradient">Configuración</h2>
         </div>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Gestión del catálogo de Raid Bosses (solo Super Admin) y de Clanes. Estos catálogos
-          alimentan los formularios del módulo Raid.
+          Catálogos del sistema: Raid Bosses, Clanes, Materiales. Solo Super Admin puede gestionar.
         </p>
       </div>
 
@@ -610,6 +644,141 @@ export default function RaidSettings({ raidAccess }: Props) {
 
       {/* ===== Gestión de Accesos Raid (super admin only) ===== */}
       {raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
+
+      {/* ===== Catálogo de Materiales (Warehouse Clan) ===== */}
+      <div className="card-glass rounded-2xl p-5 mt-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5" style={{ color: '#34d399' }} />
+            <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              Catálogo de Materiales
+            </h3>
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>
+              {(catalogItems as any[]).length}
+            </span>
+          </div>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          Registra materiales una vez (nombre, categoría, imagen). Se autocompletan al registrar en Warehouse Clan.
+        </p>
+
+        {/* Form para agregar material */}
+        <form onSubmit={submitCatalogMat} className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+            <div className="sm:col-span-4">
+              <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre *</label>
+              <input
+                value={catMatName}
+                onChange={e => setCatMatName(e.target.value)}
+                placeholder="Coal, Iron Ore, Lance Blade..."
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría *</label>
+              <select
+                value={catMatCategory}
+                onChange={e => setCatMatCategory(e.target.value)}
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+              >
+                <option value="">— Seleccionar —</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{categoryMeta[c]?.label || c}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-4">
+              <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Imagen</label>
+              <input
+                value={catMatImage}
+                onChange={e => setCatMatImage(e.target.value)}
+                placeholder="https://wikipedia1.mw2.wiki/i64/..."
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+              />
+            </div>
+            <div className="sm:col-span-1">
+              <button
+                type="submit"
+                disabled={createCatalogItem.isPending}
+                className="w-full rounded-lg px-3 py-2 text-xs font-semibold transition-all"
+                style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+              >
+                <Plus className="h-4 w-4 mx-auto" />
+              </button>
+            </div>
+          </div>
+          {catMatImage && (
+            <div className="mt-2 flex items-center gap-2">
+              <img src={catMatImage} alt="preview" className="h-8 w-8 rounded object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Vista previa de la imagen</span>
+            </div>
+          )}
+        </form>
+
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.3)' }} />
+          <input
+            type="text"
+            placeholder="Buscar en catálogo..."
+            value={catMatSearch}
+            onChange={e => setCatMatSearch(e.target.value)}
+            className="w-full rounded-lg pl-9 pr-3 py-1.5 text-xs"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+          />
+        </div>
+
+        {/* Catalog list */}
+        <div className="space-y-1 max-h-80 overflow-y-auto">
+          {filteredCatalog.length === 0 && (
+            <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {catMatSearch ? 'Sin resultados.' : 'Catálogo vacío. Agrega el primer material arriba.'}
+            </p>
+          )}
+          {filteredCatalog.map((m: any) => (
+            <div key={m.id} className="flex items-center justify-between rounded-lg px-3 py-2 hover:bg-white/[0.02] transition-colors" style={{ border: '1px solid rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center gap-3">
+                {m.imageUrl ? (
+                  <img src={m.imageUrl} alt="" className="h-7 w-7 rounded object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                ) : (
+                  <div className="h-7 w-7 rounded flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <Package className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{m.name}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{categoryMeta[m.category as keyof typeof categoryMeta]?.label || m.category}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCatMatToDelete(m)}
+                className="p-1.5 rounded-lg transition-all hover:bg-white/5"
+                style={{ color: 'rgba(255,120,120,0.6)' }}
+                title="Eliminar del catálogo"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal confirmación eliminar material del catálogo */}
+      {catMatToDelete && (
+        <ConfirmDeleteModal
+          title="Eliminar Material del Catálogo"
+          description="El material se eliminará del catálogo. Los ítems ya registrados en la bodega no se verán afectados."
+          itemLabel={catMatToDelete.name}
+          itemImage={catMatToDelete.imageUrl || null}
+          isPending={deleteCatalogItem.isPending}
+          onCancel={() => { if (!deleteCatalogItem.isPending) setCatMatToDelete(null); }}
+          onConfirm={() => deleteCatalogItem.mutate(
+            { id: Number(catMatToDelete.id) },
+            { onSuccess: () => setCatMatToDelete(null) }
+          )}
+        />
+      )}
 
       {/* ===== Modales de confirmación de borrado ===== */}
       {bossToDelete && (

@@ -35,7 +35,7 @@ const navItems: Array<{
 const adminNavItems = [
   { href: '/admin/users', label: 'Gestión de Usuarios', icon: Users, desc: 'Administrar cuentas y roles' },
   { href: '/admin/backups', label: 'Backups', icon: Database, desc: 'Snapshots de la base de datos' },
-  { href: '/raids/settings', label: 'Config. Raids', icon: Crown, desc: 'Catálogo de bosses y clanes' },
+  { href: '/raids/settings', label: 'Config', icon: Crown, desc: 'Catálogos, bosses y materiales' },
 ];
 
 // `requiresInteract: true` → solo raid_mapper, raid_admin o super_admin ven el

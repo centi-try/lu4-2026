@@ -361,4 +361,96 @@ export const warehouseRouter = router({
         return { success: true };
       }),
   }),
+
+  // ─── Material Catalog ──────────────────────────────────────────────────
+  catalog: router({
+    list: protectedProcedure.query(() => {
+      const db = dbInstance;
+      return (db.materialCatalog || []).slice();
+    }),
+
+    create: protectedProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        category: z.string().min(1),
+        imageUrl: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede gestionar el catálogo.' });
+        }
+        const db = dbInstance;
+        if (!db.materialCatalog) db.materialCatalog = [];
+        const nameLower = input.name.trim().toLowerCase();
+        const existing = db.materialCatalog.find((m: any) => String(m.nameLower || '').toLowerCase() === nameLower);
+        if (existing) {
+          throw new TRPCError({ code: 'CONFLICT', message: `Ya existe "${existing.name}" en el catálogo.` });
+        }
+        const entry = {
+          id: randId(),
+          name: input.name.trim(),
+          nameLower,
+          category: input.category,
+          imageUrl: input.imageUrl || null,
+          createdAt: nowIso(),
+          createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        };
+        db.materialCatalog.push(entry);
+        saveDbToDisk();
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'CATALOG_MATERIAL_CREATE',
+          actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          detail: `Agregó "${input.name}" al catálogo de materiales (${input.category}).`,
+        });
+        return { success: true, entry };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).optional(),
+        category: z.string().min(1).optional(),
+        imageUrl: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        const db = dbInstance;
+        const item = (db.materialCatalog || []).find((m: any) => Number(m.id) === Number(input.id));
+        if (!item) throw new TRPCError({ code: 'NOT_FOUND' });
+        if (input.name) { item.name = input.name.trim(); item.nameLower = input.name.trim().toLowerCase(); }
+        if (input.category) item.category = input.category;
+        if (input.imageUrl !== undefined) item.imageUrl = input.imageUrl || null;
+        saveDbToDisk();
+        return { success: true };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        const db = dbInstance;
+        if (!db.materialCatalog) return { success: true };
+        const idx = db.materialCatalog.findIndex((m: any) => Number(m.id) === Number(input.id));
+        if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND' });
+        const removed = db.materialCatalog.splice(idx, 1)[0];
+        saveDbToDisk();
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'CATALOG_MATERIAL_DELETE',
+          actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          detail: `Eliminó "${removed.name}" del catálogo de materiales.`,
+        });
+        return { success: true };
+      }),
+  }),
 });
