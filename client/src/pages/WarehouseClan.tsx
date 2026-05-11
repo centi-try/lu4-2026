@@ -1009,7 +1009,7 @@ export default function WarehouseClan() {
                         if (isRoot) {
                           // === ROOT LEVEL: Full card with labels ===
                           return (
-                            <div key={idx} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${lv.border}`, background: 'rgba(255,255,255,0.015)' }}>
+                            <div key={idx} className="rounded-xl" style={{ border: `1px solid ${lv.border}`, background: 'rgba(255,255,255,0.015)' }}>
                               {/* Header bar */}
                               <div className="flex items-center justify-between px-3 py-2" style={{ background: lv.bg, borderBottom: `1px solid ${lv.border}` }}>
                                 <div className="flex items-center gap-2">
