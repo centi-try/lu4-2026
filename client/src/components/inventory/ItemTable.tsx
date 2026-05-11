@@ -119,6 +119,36 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const legacyBuyers = (legacyBuyersData as any[]) || [];
 
+  // Build combined character lookup: old characters + legacyBuyers (user accounts)
+  // Items may have associatedCharacterIds with old char IDs OR new user IDs
+  const allCharLookup = useMemo(() => {
+    const map = new Map<string, Character>();
+    // Old characters first
+    for (const c of characters) {
+      map.set(String(c.id), c);
+    }
+    // Legacy users (user accounts with legacyAccess) — overwrite if same ID
+    for (const u of legacyBuyers) {
+      const uid = String(u.id);
+      if (!map.has(uid)) {
+        const r = String(u.role || 'user').toLowerCase();
+        const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+        map.set(uid, {
+          id: uid,
+          name: u.name || 'Sin nombre',
+          role: (u.role || 'USER').toUpperCase(),
+          avatar: avatarGrad,
+          class: u.classMain || 'Sin clase',
+          level: 1,
+          itemIds: u.itemIds || [],
+          totalEarnings: u.totalEarnings || 0,
+          currentCycleEarnings: u.currentCycleEarnings || 0,
+        });
+      }
+    }
+    return map;
+  }, [characters, legacyBuyers]);
+
   const utils = trpc.useUtils();
   const markPreSoldMutation = trpc.items.reservations.markPreSold.useMutation({
     onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Reserva marcada como pre-vendida.'); },
@@ -478,7 +508,9 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const canSell = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status !== 'VENDIDO' && item.status === 'CONFIRMADO';
                 const isEditing = editId === item.id;
                 const remaining = item.quantity - item.quantitySold;
-                const assocChars = characters.filter(c => item.associatedCharacterIds.includes(c.id));
+                const assocChars = item.associatedCharacterIds
+                  .map(cid => allCharLookup.get(String(cid)))
+                  .filter((c): c is Character => !!c);
                 const itemReservations = reservationsByItem.get(String(item.id)) || [];
                 const reservedCount = itemReservations.length;
                 const reservedUnits = itemReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
@@ -825,7 +857,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 {sellDistribOpen && (
                   <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
                     {sellModalItem.associatedCharacterIds.map(cid => {
-                      const char = characters.find(c => c.id === cid);
+                      const char = allCharLookup.get(String(cid));
                       if (!char) return null;
                       const qty = parseInt(sellQty) || 0;
                       const basePriceCalc = sellModalItem.price ?? 0;
