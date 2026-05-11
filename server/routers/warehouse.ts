@@ -228,6 +228,11 @@ export const warehouseRouter = router({
           name: z.string().min(1),
           quantity: z.number().int().min(1),
           imageUrl: z.string().optional(),
+          subMaterials: z.array(z.object({
+            name: z.string().min(1),
+            quantity: z.number().int().min(1),
+            imageUrl: z.string().optional(),
+          })).optional(),
         })),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -247,6 +252,12 @@ export const warehouseRouter = router({
             nameLower: m.name.trim().toLowerCase(),
             quantity: m.quantity,
             imageUrl: m.imageUrl || null,
+            subMaterials: (m.subMaterials || []).map(s => ({
+              name: s.name.trim(),
+              nameLower: s.name.trim().toLowerCase(),
+              quantity: s.quantity,
+              imageUrl: s.imageUrl || null,
+            })),
           })),
           createdAt: nowIso(),
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
@@ -423,9 +434,29 @@ export const warehouseRouter = router({
         const db = dbInstance;
         const item = (db.materialCatalog || []).find((m: any) => Number(m.id) === Number(input.id));
         if (!item) throw new TRPCError({ code: 'NOT_FOUND' });
+        const oldNameLower = String(item.nameLower || item.name || '').toLowerCase();
         if (input.name) { item.name = input.name.trim(); item.nameLower = input.name.trim().toLowerCase(); }
         if (input.category) item.category = input.category;
         if (input.imageUrl !== undefined) item.imageUrl = input.imageUrl || null;
+        // Propagate changes to warehouseItems and warehouseIncoming that match old name
+        const updatedName = item.name;
+        const updatedCat = item.category;
+        const updatedImg = item.imageUrl;
+        for (const wi of (db.warehouseItems || [])) {
+          if (String(wi.nameLower || wi.name || '').toLowerCase() === oldNameLower) {
+            wi.name = updatedName;
+            wi.nameLower = updatedName.toLowerCase();
+            wi.category = updatedCat;
+            if (updatedImg !== undefined) wi.imageUrl = updatedImg;
+          }
+        }
+        for (const inc of (db.warehouseIncoming || [])) {
+          if (String(inc.name || '').toLowerCase() === oldNameLower) {
+            inc.name = updatedName;
+            inc.category = updatedCat;
+            if (updatedImg !== undefined) inc.imageUrl = updatedImg;
+          }
+        }
         saveDbToDisk();
         return { success: true };
       }),
