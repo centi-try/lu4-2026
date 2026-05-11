@@ -1318,9 +1318,20 @@ export default function WarehouseClan() {
             )}
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {(recipes as any[]).map((recipe: any) => (
-                <div key={recipe.id} className="card-glass rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{recipe.name}</p>
+                <div key={recipe.id} className="card-glass rounded-xl overflow-hidden">
+                  {/* Header with recipe image + name */}
+                  <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'rgba(168,85,247,0.04)', borderBottom: '1px solid rgba(168,85,247,0.1)' }}>
+                    {recipe.imageUrl ? (
+                      <img src={recipe.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" style={{ border: '2px solid rgba(168,85,247,0.2)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    ) : (
+                      <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.1)', border: '2px solid rgba(168,85,247,0.2)' }}>
+                        <Hammer className="h-5 w-5" style={{ color: '#a855f7' }} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-base font-bold truncate" style={{ color: 'rgba(255,255,255,0.95)' }}>{recipe.name}</p>
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{recipe.materials?.length || 0} materiales{recipe.materials?.some((m: any) => m.subMaterials?.length > 0) ? ' (con sub-materiales)' : ''}</p>
+                    </div>
                     {isSA && (
                       <button
                         onClick={() => setConfirmAction({
@@ -1331,32 +1342,42 @@ export default function WarehouseClan() {
                           action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
                           itemName: recipe.name,
                           itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
+                          itemImage: recipe.imageUrl || null,
                         })}
-                        className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
+                        className="p-1.5 rounded-lg hover:bg-white/5 shrink-0" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>
-                  <p className="text-[10px] mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>{recipe.materials?.length || 0} materiales{recipe.materials?.some((m: any) => m.subMaterials?.length > 0) ? ' (con sub-materiales)' : ''} · por {recipe.createdBy}</p>
-                  <div className="space-y-0.5 mb-2">
-                    {(recipe.materials || []).slice(0, 5).map((m: any, mi: number) => (
-                      <div key={mi} className="flex items-center gap-1.5 text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                        {m.imageUrl && <img src={m.imageUrl} alt="" className="h-4 w-4 rounded object-cover" />}
-                        <span>{m.name}</span>
-                        <span className="font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>×{m.quantity}</span>
-                        {m.subMaterials?.length > 0 && <span className="text-[8px] px-1 py-0 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{m.subMaterials.length} sub</span>}
-                      </div>
-                    ))}
-                    {(recipe.materials || []).length > 5 && (
-                      <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.25)' }}>+{recipe.materials.length - 5} más...</p>
+                  {/* Body */}
+                  <div className="px-4 py-3">
+                    <p className="text-[11px] mb-2.5 font-medium" style={{ color: 'rgba(255,255,255,0.35)' }}>por {recipe.createdBy} · {recipe.createdAt ? new Date(recipe.createdAt).toLocaleDateString('es-CL') : ''}</p>
+                    <div className="space-y-1.5 mb-3">
+                      {(recipe.materials || []).slice(0, 5).map((m: any, mi: number) => (
+                        <div key={mi} className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                          {m.imageUrl ? (
+                            <img src={m.imageUrl} alt="" className="h-5 w-5 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="h-5 w-5 rounded shrink-0 flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              <ImageIcon className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
+                            </div>
+                          )}
+                          <span className="font-medium">{m.name}</span>
+                          <span className="font-mono text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>×{m.quantity}</span>
+                          {m.subMaterials?.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{m.subMaterials.length} sub</span>}
+                        </div>
+                      ))}
+                      {(recipe.materials || []).length > 5 && (
+                        <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>+{recipe.materials.length - 5} materiales más...</p>
+                      )}
+                    </div>
+                    {recipe.wikiUrl && (
+                      <a href={recipe.wikiUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg transition-all" style={{ background: 'rgba(96,165,250,0.08)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.15)' }}>
+                        <ExternalLink className="h-3 w-3" /> Wiki
+                      </a>
                     )}
                   </div>
-                  {recipe.wikiUrl && (
-                    <a href={recipe.wikiUrl} target="_blank" rel="noopener noreferrer" className="text-[10px]" style={{ color: '#60a5fa' }}>
-                      <ExternalLink className="inline h-2.5 w-2.5 mr-0.5" /> Wiki
-                    </a>
-                  )}
                 </div>
               ))}
             </div>
