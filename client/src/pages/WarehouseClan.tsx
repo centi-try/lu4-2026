@@ -1,16 +1,153 @@
-import { useState, useMemo } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
+import { FancySelect, type FancyOption } from '../components/ui/FancySelect';
+import { categoryMeta, CATEGORIES } from '../lib/category-meta';
+import type { ItemCategory } from '../lib/types';
 import { toast } from 'sonner';
 
-const CATEGORIES = ['ARMADURA', 'ARMA', 'JOYA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA'] as const;
-const catLabels: Record<string, string> = {
-  ARMADURA: '🛡️ Armadura', ARMA: '⚔️ Arma', JOYA: '💍 Joya', KEY: '🔑 Key',
-  RECIPE: '📜 Recipe', MATERIALES: '💎 Materiales', QUEST: '🗺️ Quest', ADENA: '💰 Adena',
-};
+// ═══════════════════════════════════════════════════════════════════════════
+// CatalogTypeahead — busca en materialCatalog y muestra dropdown estilo
+// ItemTypeahead, con imagen + categoría. Al seleccionar se autocompleta
+// nombre, categoría e imagen.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function highlight(text: string, query: string) {
+  if (!query) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: 'rgba(123,241,214,0.25)', color: '#7bf1d6', borderRadius: 3 }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+interface CatalogTypeaheadProps {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (item: { name: string; category: string; imageUrl: string | null }) => void;
+  catalog: any[];
+  placeholder?: string;
+}
+
+function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'Ej: Draconic Leather' }: CatalogTypeaheadProps) {
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [loading, setLoading] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const suppressRef = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const results = useMemo(() => {
+    if (!value.trim() || suppressRef.current) return [];
+    const q = value.toLowerCase();
+    return (catalog || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 10);
+  }, [catalog, value]);
+
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    if (!value.trim()) { setOpen(false); suppressRef.current = false; return; }
+    if (suppressRef.current) { suppressRef.current = false; setOpen(false); setLoading(false); return; }
+    setLoading(true);
+    timerRef.current = setTimeout(() => {
+      setOpen(results.length > 0);
+      setLoading(false);
+      setActiveIdx(-1);
+    }, 150);
+    return () => clearTimeout(timerRef.current);
+  }, [value, results.length]);
+
+  const handleSelect = useCallback((item: any) => {
+    suppressRef.current = true;
+    setOpen(false);
+    setActiveIdx(-1);
+    onSelect({ name: item.name, category: item.category, imageUrl: item.imageUrl || null });
+  }, [onSelect]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!open) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
+    if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); handleSelect(results[activeIdx]); }
+    if (e.key === 'Escape') { setOpen(false); setActiveIdx(-1); }
+  }, [open, results, activeIdx, handleSelect]);
+
+  useEffect(() => {
+    if (activeIdx >= 0 && listRef.current) {
+      const el = listRef.current.children[activeIdx] as HTMLElement;
+      el?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeIdx]);
+
+  return (
+    <div className="relative">
+      <div
+        className="flex items-center gap-2 rounded-lg transition-all h-9 px-2"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <Search className="shrink-0 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.35)' }} />
+        <input
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder={placeholder}
+          className="w-full bg-transparent outline-none text-xs"
+          style={{ color: 'rgba(255,255,255,0.9)', caretColor: '#7bf1d6' }}
+        />
+        {loading && <Loader2 className="animate-spin shrink-0 h-3.5 w-3.5" style={{ color: '#7bf1d6' }} />}
+      </div>
+
+      {open && results.length > 0 && (
+        <div ref={listRef} className="autocomplete-dropdown">
+          {results.map((item: any, idx: number) => {
+            const meta = categoryMeta[item.category] || { color: '#7bf1d6', emoji: '📦', label: item.category };
+            const isActive = idx === activeIdx;
+            return (
+              <button
+                key={item.id}
+                onMouseDown={e => { e.preventDefault(); handleSelect(item); }}
+                onMouseEnter={() => setActiveIdx(idx)}
+                className="flex w-full items-center gap-3 border-b px-4 py-3 text-left transition-all last:border-b-0"
+                style={{ borderColor: 'rgba(255,255,255,0.05)', background: isActive ? 'rgba(123,241,214,0.06)' : 'transparent' }}
+              >
+                <div className="relative h-[30px] w-[30px] shrink-0 overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-white/5">
+                      <Package className="h-4 w-4 text-white/20" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    {highlight(item.name, value)}
+                  </p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {meta.emoji} {meta.label}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WarehouseClan — main page
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function WarehouseClan() {
   const { currentUser } = useApp();
@@ -26,6 +163,20 @@ export default function WarehouseClan() {
   const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery();
   const { data: catalog = [] } = trpc.warehouse.catalog.list.useQuery();
 
+  // Category icons from raid settings (same map used by inventory)
+  const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery(undefined, { staleTime: 60_000 });
+  const categoryIconMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    (categoryIconsQ.data || []).forEach((r: { category: string; imageUrl: string }) => {
+      map[String(r.category).toUpperCase()] = r.imageUrl;
+    });
+    return map;
+  }, [categoryIconsQ.data]);
+  const resolveCategoryIcon = (cat: string): string => {
+    if (!cat) return '';
+    return categoryIconMap[String(cat).toUpperCase()] || '';
+  };
+
   // Mutations
   const registerMut = trpc.warehouse.register.useMutation({ onSuccess: () => { refetchIncoming(); toast.success('Material registrado'); } });
   const confirmMut = trpc.warehouse.confirm.useMutation({ onSuccess: () => { refetchItems(); refetchIncoming(); toast.success('Confirmado y agrupado'); } });
@@ -38,30 +189,19 @@ export default function WarehouseClan() {
   const completeProjectMut = trpc.warehouse.projects.complete.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Proyecto completado'); } });
   const deleteProjectMut = trpc.warehouse.projects.delete.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Proyecto eliminado'); } });
 
-  // Local state
+  // Tab state
+  const [tab, setTab] = useState<'bodega' | 'crafteo'>('bodega');
+
+  // Search / filters
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('ALL');
 
-  // Register form (inline panel, like CreateItemPanel)
+  // Register form
   const [regName, setRegName] = useState('');
-  const [regCat, setRegCat] = useState('');
+  const [regCat, setRegCat] = useState<ItemCategory | ''>('');
   const [regQty, setRegQty] = useState('0');
   const [regImg, setRegImg] = useState('');
-  const [regShowSuggestions, setRegShowSuggestions] = useState(false);
-
-  // Catalog suggestions for autocomplete
-  const catalogSuggestions = useMemo(() => {
-    if (!regName || regName.length < 1) return [];
-    const q = regName.toLowerCase();
-    return (catalog as any[]).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 8);
-  }, [catalog, regName]);
-
-  const selectCatalogItem = (item: any) => {
-    setRegName(item.name);
-    setRegCat(item.category || '');
-    setRegImg(item.imageUrl || '');
-    setRegShowSuggestions(false);
-  };
+  const [triedSubmit, setTriedSubmit] = useState(false);
 
   // Withdraw modal
   const [withdrawItem, setWithdrawItem] = useState<any>(null);
@@ -79,11 +219,9 @@ export default function WarehouseClan() {
   const [projectOpen, setProjectOpen] = useState(false);
   const [projectRecipeId, setProjectRecipeId] = useState('');
   const [projectNotes, setProjectNotes] = useState('');
-
-  // Expand project details
   const [expandedProject, setExpandedProject] = useState<number | null>(null);
 
-  // Filter warehouse items
+  // Filtered items
   const filtered = useMemo(() => {
     return (warehouseItems as any[]).filter((i: any) => {
       const q = search.toLowerCase();
@@ -93,7 +231,6 @@ export default function WarehouseClan() {
     });
   }, [warehouseItems, search, catFilter]);
 
-  // Warehouse stock lookup for craft projects
   const stockLookup = useMemo(() => {
     const m = new Map<string, number>();
     for (const item of warehouseItems as any[]) {
@@ -103,18 +240,30 @@ export default function WarehouseClan() {
     return m;
   }, [warehouseItems]);
 
-  // Totals
   const totalItems = filtered.length;
   const totalUnits = filtered.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0);
   const inStockCount = filtered.filter((i: any) => (Number(i.quantity) || 0) > 0).length;
   const outOfStockCount = filtered.filter((i: any) => (Number(i.quantity) || 0) === 0).length;
   const activeProjects = (projects as any[]).filter((p: any) => p.status === 'active').length;
 
+  const handleCatalogSelect = (item: { name: string; category: string; imageUrl: string | null }) => {
+    setRegName(item.name);
+    setRegCat((item.category as ItemCategory) || '');
+    setRegImg(item.imageUrl || resolveCategoryIcon(item.category) || '');
+  };
+
+  const handleCategoryChange = (newCat: ItemCategory | '') => {
+    setRegCat(newCat);
+    const nextImg = newCat ? resolveCategoryIcon(newCat) : '';
+    if (nextImg) setRegImg(nextImg);
+  };
+
   const handleRegister = () => {
+    setTriedSubmit(true);
     if (!regName.trim()) { toast.error('Nombre requerido'); return; }
     if (!regCat) { toast.error('Selecciona una categoría'); return; }
     const qty = parseInt(regQty, 10);
-    if (isNaN(qty) || qty < 1) { toast.error('Cantidad debe ser al menos 1'); return; }
+    if (isNaN(qty) || qty < 1) { toast.error('La cantidad debe ser al menos 1'); return; }
     registerMut.mutate({
       name: regName.trim(),
       category: regCat,
@@ -122,6 +271,7 @@ export default function WarehouseClan() {
       imageUrl: regImg || undefined,
     });
     setRegName(''); setRegCat(''); setRegQty('0'); setRegImg('');
+    setTriedSubmit(false);
   };
 
   const handleWithdraw = () => {
@@ -164,21 +314,15 @@ export default function WarehouseClan() {
     setProjectRecipeId(''); setProjectNotes('');
   };
 
-  const addMaterialRow = () => {
-    setRecipeMaterials(prev => [...prev, { name: '', quantity: '1', imageUrl: '' }]);
-  };
+  const addMaterialRow = () => setRecipeMaterials(prev => [...prev, { name: '', quantity: '1', imageUrl: '' }]);
+  const removeMaterialRow = (idx: number) => setRecipeMaterials(prev => prev.filter((_, i) => i !== idx));
+  const updateMaterialRow = (idx: number, field: string, value: string) => setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
 
-  const removeMaterialRow = (idx: number) => {
-    setRecipeMaterials(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const updateMaterialRow = (idx: number, field: string, value: string) => {
-    setRecipeMaterials(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
-  };
+  const qtyInvalid = triedSubmit && (isNaN(parseInt(regQty, 10)) || parseInt(regQty, 10) < 1);
 
   return (
     <AppShell>
-      {/* Header — same style as Inventario */}
+      {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gradient">Warehouse Clan</h2>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -186,166 +330,204 @@ export default function WarehouseClan() {
         </p>
       </div>
 
-      {/* Stats bar */}
-      <div className="glass-card rounded-xl p-4 mb-5">
-        <div className="flex flex-wrap items-center gap-6 text-sm">
-          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Ítems: </span><span className="font-bold" style={{ color: '#34d399' }}>{totalItems}</span></div>
-          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Unidades: </span><span className="font-bold" style={{ color: '#60a5fa' }}>{totalUnits.toLocaleString()}</span></div>
-          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Con stock: </span><span className="font-bold" style={{ color: '#34d399' }}>{inStockCount}</span></div>
-          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Sin stock: </span><span className="font-bold" style={{ color: '#ef4444' }}>{outOfStockCount}</span></div>
-          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Pendientes: </span><span className="font-bold" style={{ color: '#fbbf24' }}>{(incoming as any[]).length}</span></div>
-          <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos: </span><span className="font-bold" style={{ color: '#a855f7' }}>{activeProjects}</span></div>
-        </div>
+      {/* Tabs — pill style (same as RaidDashboard) */}
+      <div
+        className="flex items-center gap-1 mb-5 rounded-xl p-1"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        <button
+          type="button"
+          onClick={() => setTab('bodega')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background: tab === 'bodega'
+              ? 'linear-gradient(135deg, rgba(123,241,214,0.25), rgba(139,183,250,0.25))'
+              : 'transparent',
+            color: tab === 'bodega' ? '#7bf1d6' : 'rgba(255,255,255,0.55)',
+            border: tab === 'bodega' ? '1px solid rgba(123,241,214,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Package className="h-4 w-4" />
+          Bodega ({totalItems})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('crafteo')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background: tab === 'crafteo'
+              ? 'linear-gradient(135deg, rgba(232,121,249,0.25), rgba(167,139,250,0.25))'
+              : 'transparent',
+            color: tab === 'crafteo' ? '#e879f9' : 'rgba(255,255,255,0.55)',
+            border: tab === 'crafteo' ? '1px solid rgba(232,121,249,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Hammer className="h-4 w-4" />
+          Crafteo ({activeProjects})
+        </button>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="bodega" className="space-y-5">
-        <TabsList className="glass-card">
-          <TabsTrigger value="bodega">
-            <Package className="h-4 w-4 mr-1.5" /> Bodega ({totalItems})
-          </TabsTrigger>
-          <TabsTrigger value="crafteo">
-            <Hammer className="h-4 w-4 mr-1.5" /> Crafteo ({activeProjects})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ═══ TAB: BODEGA ═══ */}
-        <TabsContent value="bodega" className="space-y-4">
-          {/* Inline registration panel (like CreateItemPanel in Inventario) */}
+      {/* ═══ TAB: BODEGA ═══ */}
+      {tab === 'bodega' && (
+        <div className="space-y-5">
+          {/* Registration Panel (card-glass, same style as CreateItemPanel) */}
           {canRegister && (
-            <div className="glass-card rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Package className="h-4 w-4" style={{ color: '#34d399' }} />
-                <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Registro de Materiales</span>
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>El autocompletado busca en el catálogo y copia <b>nombre, categoría e imagen</b></span>
+            <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <div>
+                  <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    <PackagePlus className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+                    Registro de Materiales
+                  </h3>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    Registrá materiales para la bodega. El autocompletado busca en el catálogo y copia
+                    <strong style={{ color: 'rgba(255,255,255,0.7)' }}> nombre, categoría e imagen</strong>
+                    {' '}— la cantidad siempre la ingresás vos.
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                {/* Name with autocomplete */}
-                <div className="sm:col-span-4 relative">
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre del item *</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.2)' }} />
-                    <input
+
+              <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    Material #1
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-12">
+                  {/* Name with catalog typeahead */}
+                  <div className="sm:col-span-4">
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Nombre del item <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <CatalogTypeahead
                       value={regName}
-                      onChange={e => { setRegName(e.target.value); setRegShowSuggestions(true); }}
-                      onFocus={() => setRegShowSuggestions(true)}
+                      onChange={setRegName}
+                      onSelect={handleCatalogSelect}
+                      catalog={catalog as any[]}
                       placeholder="Ej: Draconic Leather"
-                      className="w-full rounded-lg pl-9 pr-3 py-2 text-sm"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
                     />
                   </div>
-                  {/* Autocomplete dropdown */}
-                  {regShowSuggestions && catalogSuggestions.length > 0 && (
-                    <div
-                      className="absolute z-40 w-full mt-1 rounded-lg overflow-hidden shadow-lg"
-                      style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', maxHeight: 220, overflowY: 'auto' }}
-                    >
-                      {catalogSuggestions.map((item: any) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => selectCatalogItem(item)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
-                        >
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" className="h-6 w-6 rounded object-cover" />
-                          ) : (
-                            <div className="h-6 w-6 rounded flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                              <Package className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.2)' }} />
-                            </div>
-                          )}
-                          <div>
-                            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.name}</p>
-                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{catLabels[item.category] || item.category}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Category */}
-                <div className="sm:col-span-3">
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría *</label>
-                  <select
-                    value={regCat} onChange={e => setRegCat(e.target.value)}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
-                  >
-                    <option value="">— Seleccionar —</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{catLabels[c] || c}</option>)}
-                  </select>
-                </div>
-                {/* Quantity */}
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Cant. *</label>
-                  <input
-                    type="number" min="0"
-                    value={regQty} onChange={e => setRegQty(e.target.value)}
-                    className="w-full rounded-lg px-3 py-2 text-sm text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${parseInt(regQty,10) < 1 ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.1)'}`, color: 'rgba(255,255,255,0.8)' }}
-                  />
-                </div>
-                {/* Image preview */}
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Imagen</label>
-                  <div className="flex items-center gap-2">
-                    {regImg ? (
-                      <img src={regImg} alt="" className="h-9 w-9 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-                    ) : (
-                      <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
+
+                  {/* Category with FancySelect */}
+                  <div className="sm:col-span-3">
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Categoría <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <FancySelect<ItemCategory | ''>
+                      value={regCat || ''}
+                      onChange={v => handleCategoryChange(v as ItemCategory | '')}
+                      accent="turquoise"
+                      size="md"
+                      placeholder="-- Seleccionar --"
+                      options={CATEGORIES.map<FancyOption<ItemCategory | ''>>(cat => {
+                        const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                        return { value: cat, label: meta.label, emoji: meta.emoji };
+                      })}
+                    />
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Cant. <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={regQty}
+                      onChange={e => setRegQty(e.target.value)}
+                      onFocus={e => { if (regQty === '0') { setRegQty(''); e.target.select?.(); } }}
+                      placeholder="0"
+                      className={`w-full rounded-lg px-2 py-1.5 text-xs ${qtyInvalid ? 'input-error' : ''}`}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                        height: 36,
+                      }}
+                    />
+                    {qtyInvalid && (
+                      <div className="flex items-center gap-1 mt-1 text-[10px] font-medium" style={{ color: '#f87171', whiteSpace: 'nowrap' }}>
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>debe ser &gt; 0</span>
                       </div>
                     )}
-                    <span className="text-[9px]" style={{ color: regImg ? '#34d399' : 'rgba(255,255,255,0.2)' }}>{regImg ? 'vía catálogo' : 'sin imagen'}</span>
+                  </div>
+
+                  {/* Image preview */}
+                  <div className="sm:col-span-3">
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Imagen
+                    </label>
+                    <div
+                      className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px dashed rgba(255,255,255,0.08)',
+                        height: 36,
+                      }}
+                      title={regImg ? 'Asignada desde catálogo' : 'Elegí del catálogo o una categoría'}
+                    >
+                      {regImg ? (
+                        <>
+                          <img src={regImg} alt="" className="h-7 w-7 rounded object-cover shrink-0" />
+                          <span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                            vía catálogo
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                            elegí categoría
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-                {/* Submit */}
-                <div className="sm:col-span-1">
-                  <button
-                    onClick={handleRegister}
-                    disabled={registerMut.isPending}
-                    className="w-full rounded-lg py-2 text-xs font-semibold transition-all"
-                    style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
-                  >
-                    Registrar
-                  </button>
-                </div>
               </div>
+
+              {/* Submit button (same gradient style as CreateItemPanel) */}
+              <button
+                type="button"
+                onClick={handleRegister}
+                disabled={registerMut.isPending}
+                className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all mt-4"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(139,183,250,0.2))',
+                  border: '1px solid rgba(123,241,214,0.35)',
+                  color: '#7bf1d6',
+                  opacity: registerMut.isPending ? 0.5 : 1,
+                  cursor: registerMut.isPending ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {registerMut.isPending ? 'Registrando…' : 'Registrar item'}
+              </button>
             </div>
           )}
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
-              <input
-                type="text" placeholder="Buscar material..."
-                value={search} onChange={e => setSearch(e.target.value)}
-                className="w-full rounded-lg pl-10 pr-3 py-2 text-sm"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
-              />
-            </div>
-            <select
-              value={catFilter} onChange={e => setCatFilter(e.target.value)}
-              className="rounded-lg px-3 py-2 text-sm"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
-            >
-              <option value="ALL">Todas las categorías</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{catLabels[c] || c}</option>)}
-            </select>
-          </div>
-
           {/* Incoming (pending confirmation) */}
           {(incoming as any[]).length > 0 && (
-            <div className="glass-card rounded-xl p-4" style={{ borderColor: 'rgba(251,191,36,0.15)' }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: '#fbbf24' }}>⏳ Pendientes de confirmación ({(incoming as any[]).length})</p>
+            <div className="card-glass rounded-2xl p-5" style={{ borderColor: 'rgba(251,191,36,0.15)' }}>
+              <p className="text-xs font-semibold mb-3" style={{ color: '#fbbf24' }}>
+                ⏳ Pendientes de confirmación ({(incoming as any[]).length})
+              </p>
               <div className="space-y-1.5">
                 {(incoming as any[]).map((inc: any) => (
                   <div key={inc.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div className="flex items-center gap-3 text-sm">
                       {inc.imageUrl && <img src={inc.imageUrl} alt="" className="h-6 w-6 rounded object-cover" />}
                       <span style={{ color: 'rgba(255,255,255,0.8)' }}>{inc.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>{catLabels[inc.category] || inc.category}</span>
+                      {(() => {
+                        const meta = categoryMeta[inc.category];
+                        return meta ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: `${meta.color}15`, border: `1px solid ${meta.color}30`, color: meta.color }}>
+                            {meta.emoji} {meta.label}
+                          </span>
+                        ) : null;
+                      })()}
                       <span className="font-mono font-bold" style={{ color: '#60a5fa' }}>×{inc.quantity}</span>
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>por {inc.registeredBy}</span>
                     </div>
@@ -365,94 +547,144 @@ export default function WarehouseClan() {
             </div>
           )}
 
-          {/* Warehouse Items Table */}
-          <div className="glass-card rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Img</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Nombre</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Cantidad</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Estado</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr><td colSpan={6} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    No hay materiales en la bodega.
-                  </td></tr>
-                )}
-                {filtered.map((item: any) => {
-                  const qty = Number(item.quantity) || 0;
-                  const inStock = qty > 0;
-                  return (
-                    <tr key={item.id} className="border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                      <td className="px-4 py-3">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt="" className="h-8 w-8 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-                        ) : (
-                          <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                            <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.2)' }} />
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{catLabels[item.category] || item.category}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono font-bold text-sm" style={{ color: inStock ? '#34d399' : '#ef4444' }}>
-                          {qty.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                          style={{
-                            background: inStock ? 'rgba(52,211,153,0.1)' : 'rgba(239,68,68,0.1)',
-                            border: `1px solid ${inStock ? 'rgba(52,211,153,0.25)' : 'rgba(239,68,68,0.25)'}`,
-                            color: inStock ? '#34d399' : '#ef4444',
-                          }}
-                        >
-                          {inStock ? '✅ Con stock' : '❌ Sin stock'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1.5">
-                          {isAdminOrAbove && inStock && (
-                            <button onClick={() => { setWithdrawItem(item); setWithdrawQty('1'); setWithdrawReason(''); }} className="p-1.5 rounded-lg text-xs" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }} title="Descontar">
-                              <Minus className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          {isSA && (
-                            <button onClick={() => { if (confirm(`¿Eliminar ${item.name} de la bodega?`)) deleteItemMut.mutate({ id: Number(item.id) }); }} className="p-1.5 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </TabsContent>
+          {/* Warehouse Items Table (card-glass, same structure as ItemTable) */}
+          <div className="card-glass rounded-2xl p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  Warehouse Items
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(123,241,214,0.15)', color: '#7bf1d6' }}>{totalItems}</span>
+                </h3>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  Gestión de materiales del clan. Unid: {totalUnits.toLocaleString()} · Con stock: {inStockCount} · Sin stock: {outOfStockCount}
+                </p>
+              </div>
+            </div>
 
-        {/* ═══ TAB: CRAFTEO ═══ */}
-        <TabsContent value="crafteo" className="space-y-5">
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3 items-center mb-4">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                <input
+                  type="text" placeholder="Buscar ítem por nombre..."
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full rounded-lg pl-10 pr-3 py-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+                />
+              </div>
+              <FancySelect<string>
+                value={catFilter}
+                onChange={setCatFilter}
+                accent="turquoise"
+                size="md"
+                placeholder="Todas las categorías"
+                options={[
+                  { value: 'ALL', label: 'Todas las categorías', emoji: '📦' },
+                  ...CATEGORIES.map(cat => {
+                    const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                    return { value: cat, label: meta.label, emoji: meta.emoji };
+                  }),
+                ]}
+              />
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>IMG</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>NOMBRE</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>CATEGORÍA</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>CANTIDAD</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>ESTADO</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>ACCIONES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={6} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      No hay materiales en la bodega.
+                    </td></tr>
+                  )}
+                  {filtered.map((item: any) => {
+                    const qty = Number(item.quantity) || 0;
+                    const inStock = qty > 0;
+                    const meta = categoryMeta[item.category] || { emoji: '📦', label: item.category, color: '#7bf1d6' };
+                    return (
+                      <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        <td className="px-4 py-3">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                          ) : (
+                            <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                              <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                            style={{ background: `${meta.color}15`, border: `1px solid ${meta.color}30`, color: meta.color }}
+                          >
+                            {meta.emoji} {meta.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono font-bold text-sm" style={{ color: inStock ? '#34d399' : '#ef4444' }}>
+                            {qty.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                            style={{
+                              background: inStock ? 'rgba(52,211,153,0.1)' : 'rgba(239,68,68,0.1)',
+                              border: `1px solid ${inStock ? 'rgba(52,211,153,0.25)' : 'rgba(239,68,68,0.25)'}`,
+                              color: inStock ? '#34d399' : '#ef4444',
+                            }}
+                          >
+                            {inStock ? '✅ Con stock' : '❌ Sin stock'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1.5">
+                            {isAdminOrAbove && inStock && (
+                              <button onClick={() => { setWithdrawItem(item); setWithdrawQty('1'); setWithdrawReason(''); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }} title="Descontar">
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {isSA && (
+                              <button onClick={() => { if (confirm(`¿Eliminar ${item.name} de la bodega?`)) deleteItemMut.mutate({ id: Number(item.id) }); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ TAB: CRAFTEO ═══ */}
+      {tab === 'crafteo' && (
+        <div className="space-y-5">
           {/* Action buttons */}
           {isSA && (
             <div className="flex gap-2">
-              <button onClick={() => setRecipeOpen(true)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
-                <Plus className="inline h-3.5 w-3.5 mr-1" /> Nueva Receta
+              <button onClick={() => setRecipeOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(168,85,247,0.15)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.3)' }}>
+                <Plus className="h-3.5 w-3.5" /> Nueva Receta
               </button>
-              <button onClick={() => setProjectOpen(true)} className="px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
-                <Hammer className="inline h-3.5 w-3.5 mr-1" /> Nuevo Proyecto
+              <button onClick={() => setProjectOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                <Hammer className="h-3.5 w-3.5" /> Nuevo Proyecto
               </button>
             </div>
           )}
@@ -461,7 +693,7 @@ export default function WarehouseClan() {
           <div className="space-y-3">
             <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Proyectos Activos</h3>
             {(projects as any[]).filter((p: any) => p.status === 'active').length === 0 && (
-              <div className="glass-card rounded-xl p-8 text-center">
+              <div className="card-glass rounded-2xl p-8 text-center">
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay proyectos activos. {isSA ? 'Crea uno desde "Nuevo Proyecto".' : ''}</p>
               </div>
             )}
@@ -477,8 +709,7 @@ export default function WarehouseClan() {
               const isExpanded = expandedProject === Number(project.id);
 
               return (
-                <div key={project.id} className="glass-card rounded-xl overflow-hidden" style={{ borderColor: 'rgba(168,85,247,0.15)' }}>
-                  {/* Project header */}
+                <div key={project.id} className="card-glass rounded-2xl overflow-hidden" style={{ borderColor: 'rgba(168,85,247,0.15)' }}>
                   <div
                     className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
                     onClick={() => setExpandedProject(isExpanded ? null : Number(project.id))}
@@ -501,8 +732,6 @@ export default function WarehouseClan() {
                       {isExpanded ? <ChevronUp className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} /> : <ChevronDown className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />}
                     </div>
                   </div>
-
-                  {/* Expanded: material list */}
                   {isExpanded && (
                     <div className="px-4 pb-4" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                       {recipe?.wikiUrl && (
@@ -527,7 +756,7 @@ export default function WarehouseClan() {
                             const missing = Math.max(0, need - have);
                             const status = have >= need ? 'complete' : have > 0 ? 'partial' : 'none';
                             return (
-                              <tr key={idx} className="border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                              <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                 <td className="py-2">
                                   <span style={{ color: status === 'complete' ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.8)', textDecoration: status === 'complete' ? 'line-through' : 'none' }}>
                                     {mat.name}
@@ -536,11 +765,7 @@ export default function WarehouseClan() {
                                 <td className="py-2 text-right font-mono" style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
                                 <td className="py-2 text-right font-mono" style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
                                 <td className="py-2 text-right font-mono font-bold" style={{ color: missing > 0 ? '#ef4444' : '#34d399' }}>{missing > 0 ? missing.toLocaleString() : '—'}</td>
-                                <td className="py-2 text-center">
-                                  <span style={{ fontSize: '14px' }}>
-                                    {status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}
-                                  </span>
-                                </td>
+                                <td className="py-2 text-center"><span style={{ fontSize: 14 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                               </tr>
                             );
                           })}
@@ -569,17 +794,17 @@ export default function WarehouseClan() {
           <div className="space-y-3">
             <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Recetas Guardadas ({(recipes as any[]).length})</h3>
             {(recipes as any[]).length === 0 && (
-              <div className="glass-card rounded-xl p-6 text-center">
+              <div className="card-glass rounded-2xl p-6 text-center">
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas. {isSA ? 'Crea una desde "Nueva Receta".' : ''}</p>
               </div>
             )}
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {(recipes as any[]).map((recipe: any) => (
-                <div key={recipe.id} className="glass-card rounded-xl p-4">
+                <div key={recipe.id} className="card-glass rounded-xl p-4">
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{recipe.name}</p>
                     {isSA && (
-                      <button onClick={() => { if (confirm(`¿Eliminar receta "${recipe.name}"?`)) deleteRecipeMut.mutate({ id: Number(recipe.id) }); }} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta">
+                      <button onClick={() => { if (confirm(`¿Eliminar receta "${recipe.name}"?`)) deleteRecipeMut.mutate({ id: Number(recipe.id) }); }} className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta">
                         <Trash2 className="h-3 w-3" />
                       </button>
                     )}
@@ -600,21 +825,21 @@ export default function WarehouseClan() {
             <div className="space-y-2">
               <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos Completados</h3>
               {(projects as any[]).filter((p: any) => p.status === 'completed').map((project: any) => (
-                <div key={project.id} className="glass-card rounded-lg flex items-center justify-between px-4 py-3">
+                <div key={project.id} className="card-glass rounded-lg flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
                     <span>✅</span>
                     <span className="line-through">{project.recipeName}</span>
                     <span className="text-[10px]">{project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}</span>
                   </div>
                   {isSA && (
-                    <button onClick={() => deleteProjectMut.mutate({ id: Number(project.id) })} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.4)' }}><Trash2 className="h-3 w-3" /></button>
+                    <button onClick={() => deleteProjectMut.mutate({ id: Number(project.id) })} className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.4)' }}><Trash2 className="h-3 w-3" /></button>
                   )}
                 </div>
               ))}
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* ═══ MODALS ═══ */}
 
@@ -666,23 +891,13 @@ export default function WarehouseClan() {
                 <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>URL Imagen (opcional)</label>
                 <input value={recipeImg} onChange={e => setRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
               </div>
-              {/* Materials list */}
               <div>
                 <label className="block text-[10px] uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Materiales requeridos *</label>
                 <div className="space-y-2">
                   {recipeMaterials.map((mat, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
-                      <input
-                        value={mat.name} onChange={e => updateMaterialRow(idx, 'name', e.target.value)}
-                        placeholder="Nombre del material"
-                        className="flex-1 rounded-lg px-3 py-1.5 text-xs"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
-                      />
-                      <input
-                        type="number" min="1" value={mat.quantity} onChange={e => updateMaterialRow(idx, 'quantity', e.target.value)}
-                        className="w-20 rounded-lg px-3 py-1.5 text-xs text-center"
-                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
-                      />
+                      <input value={mat.name} onChange={e => updateMaterialRow(idx, 'name', e.target.value)} placeholder="Nombre del material" className="flex-1 rounded-lg px-3 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} />
+                      <input type="number" min="1" value={mat.quantity} onChange={e => updateMaterialRow(idx, 'quantity', e.target.value)} className="w-20 rounded-lg px-3 py-1.5 text-xs text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} />
                       {recipeMaterials.length > 1 && (
                         <button onClick={() => removeMaterialRow(idx)} className="p-1 rounded" style={{ color: 'rgba(239,68,68,0.5)' }}><X className="h-3.5 w-3.5" /></button>
                       )}
