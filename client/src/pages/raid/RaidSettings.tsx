@@ -200,14 +200,14 @@ export default function RaidSettings({ raidAccess }: Props) {
   const [clanToDelete, setClanToDelete] = useState<any | null>(null);
 
   // Tab state
-  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'icons' | 'access' | 'materials'>('catalogs');
+  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'icons' | 'access' | 'materials'>('access');
 
   const configTabs: { key: typeof configTab; label: string; icon: React.ReactNode; color: string }[] = [
-    { key: 'catalogs', label: 'Bosses & Clanes', icon: <Skull className="h-4 w-4" />, color: '#e879f9' },
-    { key: 'classes', label: 'Clases', icon: <Crown className="h-4 w-4" />, color: '#fbbf24' },
-    { key: 'icons', label: 'Íconos', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
     { key: 'access', label: 'Accesos', icon: <Flag className="h-4 w-4" />, color: '#60a5fa' },
     { key: 'materials', label: 'Catálogo', icon: <Package className="h-4 w-4" />, color: '#34d399' },
+    { key: 'classes', label: 'Clases', icon: <Crown className="h-4 w-4" />, color: '#fbbf24' },
+    { key: 'catalogs', label: 'Bosses & Clanes', icon: <Skull className="h-4 w-4" />, color: '#e879f9' },
+    { key: 'icons', label: 'Íconos', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
   ];
 
   return (
@@ -1646,7 +1646,7 @@ function CharacterClassesSection() {
           </button>
         </form>
 
-        <div className="space-y-1 overflow-y-auto" style={{ maxHeight: '320px' }}>
+        <div className="space-y-1">
           {classes.length === 0 && (
             <p className="text-xs py-3 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
               No hay clases definidas. Agrega una para que aparezca en el registro.

@@ -776,8 +776,8 @@ export default function WarehouseClan() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-3 items-center mb-4">
-              <div className="relative min-w-[180px]" style={{ flex: '1 1 180px' }}>
+            <div className="grid gap-3 items-center mb-4" style={{ gridTemplateColumns: '1fr 230px 200px' }}>
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
                 <input
                   type="text" placeholder="Buscar por nombre..."
@@ -786,7 +786,7 @@ export default function WarehouseClan() {
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
                 />
               </div>
-              <div style={{ minWidth: 210, flex: '0 0 auto' }}>
+              <div>
                 <FancySelect<string>
                   value={catFilter}
                   onChange={setCatFilter}
@@ -802,7 +802,7 @@ export default function WarehouseClan() {
                   ]}
                 />
               </div>
-              <div style={{ minWidth: 190, flex: '0 0 auto' }}>
+              <div>
                 <FancySelect<string>
                   value={stockFilter}
                   onChange={setStockFilter}
