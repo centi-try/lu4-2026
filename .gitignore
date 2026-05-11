@@ -111,6 +111,7 @@ backups/
 data_storage.backup.*
 data_storage.json.backup-*
 data_storage.json.tmp
+data_storage.json
 
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
