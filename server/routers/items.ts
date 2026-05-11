@@ -2,7 +2,7 @@ import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
-  getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance,
+  getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance, getAllUsers,
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
   markReservationPreSold, unmarkReservationPreSold,
@@ -46,6 +46,18 @@ const SellItemSchema = z.object({
 export const itemsRouter = router({
   list: protectedProcedure.query(async () => {
     return await getItems();
+  }),
+
+  legacyBuyers: protectedProcedure.query(async () => {
+    const users = await getAllUsers();
+    return users
+      .filter((u: any) => u.legacyAccess && u.isActive !== false)
+      .map((u: any) => ({
+        id: String(u.id),
+        name: u.characterName || u.name || u.displayName || 'Sin nombre',
+        classMain: u.classMain || '',
+        role: u.role || 'user',
+      }));
   }),
 
   create: protectedProcedure

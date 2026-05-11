@@ -116,6 +116,9 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   );
   const reservations: ItemReservationRecord[] = (reservationsData as any[]) || [];
 
+  const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
+  const legacyBuyers = (legacyBuyersData as any[]) || [];
+
   const utils = trpc.useUtils();
   const markPreSoldMutation = trpc.items.reservations.markPreSold.useMutation({
     onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Reserva marcada como pre-vendida.'); },
@@ -294,7 +297,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       return;
     }
 
-    const buyer = characters.find(c => String(c.id) === String(selectedBuyerId));
+    const buyer = legacyBuyers.find((u: any) => String(u.id) === String(selectedBuyerId));
     if (!buyer) {
       toast.error('Comprador no encontrado');
       return;
@@ -864,12 +867,12 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 placeholder="Seleccionar cuenta..."
                 searchable
                 searchPlaceholder="Buscar personaje..."
-                options={characters.map<FancyOption<string>>(char => ({
-                  value: String(char.id),
-                  label: char.name,
-                  description: char.class,
+                options={legacyBuyers.map((u: any) => ({
+                  value: String(u.id),
+                  label: u.name,
+                  description: u.classMain || u.role,
                   emoji: '👤',
-                }))}
+                } as FancyOption<string>))}
               />
             </div>
 
