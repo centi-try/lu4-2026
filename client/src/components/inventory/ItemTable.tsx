@@ -373,7 +373,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<ItemCategory | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL' | 'WITH_RESERVATIONS'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D'>('ALL');
   const [sortKey, setSortKey] = useState<'name' | 'price' | 'createdAt'>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [editId, setEditId] = useState<string | null>(null);
@@ -411,6 +411,9 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       if (statusStr === 'WITH_RESERVATIONS') {
         const rs = reservationsByItem.get(String(i.id));
         matchesStatus = !!(rs && rs.length > 0);
+      } else if (statusStr === 'STALE_7D') {
+        const daysOld = Math.floor((Date.now() - new Date(i.createdAt).getTime()) / 86400000);
+        matchesStatus = daysOld >= 7 && i.status !== 'VENDIDO' && i.quantitySold < i.quantity;
       } else if (statusStr !== 'ALL') {
         matchesStatus = i.status === statusFilter;
       }
@@ -654,9 +657,9 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   }),
                 ]}
               />
-              <FancySelect<ItemStatus | 'ALL' | 'WITH_RESERVATIONS'>
+              <FancySelect<ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D'>
                 value={statusFilter}
-                onChange={(v) => setStatusFilter(v as ItemStatus | 'ALL' | 'WITH_RESERVATIONS')}
+                onChange={(v) => setStatusFilter(v as ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D')}
                 accent="turquoise"
                 size="md"
                 placeholder="Todos los estados"
@@ -666,6 +669,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   { value: 'EN_REGISTRO', label: 'En Registro', emoji: '🟡' },
                   { value: 'VENDIDO', label: 'Vendido', emoji: '💰' },
                   { value: 'WITH_RESERVATIONS', label: 'Con reservas', emoji: '🔖' },
+                  { value: 'STALE_7D', label: 'Sin vender (+7 días)', emoji: '⏳' },
                 ]}
               />
             </div>
@@ -715,6 +719,11 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const reservedCount = itemReservations.length;
                 const reservedUnits = itemReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
                 const hasReservations = reservedCount > 0;
+                const daysUnsold = Math.floor((Date.now() - new Date(item.createdAt).getTime()) / 86400000);
+                const isStale = daysUnsold >= 7 && item.status !== 'VENDIDO' && item.quantitySold < item.quantity;
+                const staleColor = daysUnsold >= 30 ? '#ef4444' : daysUnsold >= 15 ? '#f97316' : '#fb923c';
+                const staleBg = daysUnsold >= 30 ? 'rgba(239,68,68,0.1)' : daysUnsold >= 15 ? 'rgba(249,115,22,0.1)' : 'rgba(251,146,60,0.08)';
+                const staleBorder = daysUnsold >= 30 ? 'rgba(239,68,68,0.3)' : daysUnsold >= 15 ? 'rgba(249,115,22,0.25)' : 'rgba(251,146,60,0.2)';
 
                 return (
                   <tr
@@ -745,8 +754,6 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
                         {hasReservations && (
-                          // Mismo pill que /raids/inventory (ReservationsPill en
-                          // DropReservationsCell.tsx): "R {unidades} uds".
                           <span
                             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
                             style={{
@@ -760,8 +767,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                             {reservedUnits} uds
                           </span>
                         )}
+                        {isStale && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
+                            style={{ background: staleBg, border: `1px solid ${staleBorder}`, color: staleColor }}
+                            title={`Registrado hace ${daysUnsold} días sin vender todo el stock`}
+                          >
+                            ⏳ {daysUnsold}d
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
+                        {isStale && hasReservations && (
+                          <span className="text-[9px]" style={{ color: staleColor }}>Sin vender hace {daysUnsold} días</span>
+                        )}
+                      </div>
                     </td>
                     {/* Category */}
                     <td className="px-4 py-3">
