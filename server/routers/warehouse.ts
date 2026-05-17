@@ -22,6 +22,25 @@ const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 // ─── Warehouse Items ────────────────────────────────────────────────────────
 
 export const warehouseRouter = router({
+  // List all character names (primary + secondary) for assignment
+  listCharacters: protectedProcedure.query(() => {
+    const db = dbInstance;
+    const chars: { name: string; userId: number; type: string }[] = [];
+    // Primary characters from users
+    for (const u of (db.users || [])) {
+      if (u.characterName) {
+        chars.push({ name: u.characterName, userId: Number(u.id), type: 'principal' });
+      }
+    }
+    // Secondary characters
+    for (const sc of (db.secondaryCharacters || [])) {
+      if (sc.name) {
+        chars.push({ name: sc.name, userId: Number(sc.userId), type: 'secundario' });
+      }
+    }
+    return chars;
+  }),
+
   // List confirmed warehouse items
   list: protectedProcedure.query(() => {
     const db = dbInstance;
@@ -315,6 +334,7 @@ export const warehouseRouter = router({
       .input(z.object({
         recipeId: z.number(),
         notes: z.string().optional(),
+        priority: z.boolean().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -331,6 +351,7 @@ export const warehouseRouter = router({
           recipeName: recipe.name,
           status: 'active',
           notes: input.notes || '',
+          priority: input.priority || false,
           createdAt: nowIso(),
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         };
@@ -341,12 +362,12 @@ export const warehouseRouter = router({
           action: 'CRAFT_PROJECT_CREATE',
           actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
           actorRole: String(ctx.user?.role || 'USER'),
-          detail: `Creó proyecto de crafteo: "${recipe.name}".`,
+          detail: `Creó proyecto de crafteo: "${recipe.name}"${input.priority ? ' (PRIORIDAD)' : ''}.`,
         });
         return { success: true, project };
       }),
 
-    complete: protectedProcedure
+    togglePriority: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -356,9 +377,53 @@ export const warehouseRouter = router({
         const db = dbInstance;
         const project = (db.craftProjects || []).find((p: any) => Number(p.id) === Number(input.id));
         if (!project) throw new TRPCError({ code: 'NOT_FOUND' });
+        project.priority = !project.priority;
+        saveDbToDisk();
+        return { success: true, priority: project.priority };
+      }),
+
+    complete: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        assignedCharacter: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        const db = dbInstance;
+        const project = (db.craftProjects || []).find((p: any) => Number(p.id) === Number(input.id));
+        if (!project) throw new TRPCError({ code: 'NOT_FOUND' });
+        const recipe = (db.craftRecipes || []).find((r: any) => Number(r.id) === Number(project.recipeId));
+        if (!recipe) throw new TRPCError({ code: 'NOT_FOUND', message: 'Receta asociada no encontrada.' });
+
+        // Deduct all materials recursively from warehouse
+        const deductMats = (mats: any[]) => {
+          for (const mat of mats) {
+            const need = Number(mat.quantity) || 0;
+            const nameLower = String(mat.name || '').trim().toLowerCase();
+            const warehouseItem = (db.warehouseItems || []).find((w: any) => String(w.nameLower || w.name || '').toLowerCase() === nameLower);
+            if (warehouseItem && need > 0) {
+              warehouseItem.quantity = Math.max(0, (Number(warehouseItem.quantity) || 0) - need);
+              warehouseItem.updatedAt = nowIso();
+            }
+            if (mat.subMaterials?.length) deductMats(mat.subMaterials);
+          }
+        };
+        deductMats(recipe.materials || []);
+
         project.status = 'completed';
         project.completedAt = nowIso();
+        project.assignedCharacter = input.assignedCharacter;
         saveDbToDisk();
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'CRAFT_PROJECT_COMPLETE',
+          actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          detail: `Completó proyecto "${project.recipeName}" — entregado a ${input.assignedCharacter}. Materiales descontados de bodega.`,
+        });
         return { success: true };
       }),
 
