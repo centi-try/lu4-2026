@@ -241,6 +241,7 @@ export const warehouseRouter = router({
     create: protectedProcedure
       .input(z.object({
         name: z.string().min(1),
+        category: z.string().optional(),
         imageUrl: z.string().optional(),
         wikiUrl: z.string().optional(),
         materials: z.array(z.object({
@@ -281,6 +282,7 @@ export const warehouseRouter = router({
         const recipe = {
           id: randId(),
           name: input.name.trim(),
+          category: input.category || null,
           imageUrl: input.imageUrl || null,
           wikiUrl: input.wikiUrl || null,
           materials: mapMats(input.materials),
@@ -416,6 +418,8 @@ export const warehouseRouter = router({
         project.status = 'completed';
         project.completedAt = nowIso();
         project.assignedCharacter = input.assignedCharacter;
+        project.recipeImage = recipe.imageUrl || null;
+        project.recipeCategory = recipe.category || null;
         saveDbToDisk();
         await createAuditLog({
           userId: Number(ctx.user?.id || 0),
@@ -423,6 +427,32 @@ export const warehouseRouter = router({
           actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
           actorRole: String(ctx.user?.role || 'USER'),
           detail: `Completó proyecto "${project.recipeName}" — entregado a ${input.assignedCharacter}. Materiales descontados de bodega.`,
+        });
+        return { success: true };
+      }),
+
+    editAssignment: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        assignedCharacter: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
+        const db = dbInstance;
+        const project = (db.craftProjects || []).find((p: any) => Number(p.id) === Number(input.id));
+        if (!project) throw new TRPCError({ code: 'NOT_FOUND' });
+        const oldChar = project.assignedCharacter || '(sin asignar)';
+        project.assignedCharacter = input.assignedCharacter;
+        saveDbToDisk();
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'CRAFT_PROJECT_EDIT_ASSIGNMENT',
+          actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          detail: `Cambió asignación de "${project.recipeName}" de ${oldChar} a ${input.assignedCharacter}.`,
         });
         return { success: true };
       }),

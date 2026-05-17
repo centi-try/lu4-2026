@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User } from 'lucide-react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Pencil } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -283,6 +283,7 @@ export default function WarehouseClan() {
   const completeProjectMut = trpc.warehouse.projects.complete.useMutation({ onSuccess: () => { refetchProjects(); refetchItems(); toast.success('Proyecto completado — materiales descontados'); } });
   const deleteProjectMut = trpc.warehouse.projects.delete.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Proyecto eliminado'); } });
   const togglePriorityMut = trpc.warehouse.projects.togglePriority.useMutation({ onSuccess: () => { refetchProjects(); } });
+  const editAssignmentMut = trpc.warehouse.projects.editAssignment.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Asignación actualizada'); } });
   const { data: allCharacters = [] } = trpc.warehouse.listCharacters.useQuery();
 
   // Tab state
@@ -316,6 +317,7 @@ export default function WarehouseClan() {
   // Recipe form
   // Recipe registration is now inline in the Crafteo tab (no modal)
   const [recipeName, setRecipeName] = useState('');
+  const [recipeCategory, setRecipeCategory] = useState('');
   const [recipeImg, setRecipeImg] = useState('');
   const [recipeWiki, setRecipeWiki] = useState('');
 
@@ -339,6 +341,11 @@ export default function WarehouseClan() {
   const [completeProjectModal, setCompleteProjectModal] = useState<{ id: number; name: string } | null>(null);
   const [completeCharSearch, setCompleteCharSearch] = useState('');
   const [completeCharSelected, setCompleteCharSelected] = useState('');
+
+  // Edit assignment modal (for completed projects)
+  const [editAssignmentModal, setEditAssignmentModal] = useState<{ id: number; name: string; current: string } | null>(null);
+  const [editCharSearch, setEditCharSearch] = useState('');
+  const [editCharSelected, setEditCharSelected] = useState('');
 
   // Filtered items (combines name search + category filter + stock filter)
   const filtered = useMemo(() => {
@@ -452,11 +459,12 @@ export default function WarehouseClan() {
     if (mats.length === 0) { toast.error('Agrega al menos 1 material'); return; }
     createRecipeMut.mutate({
       name: recipeName.trim(),
+      category: recipeCategory || undefined,
       imageUrl: recipeImg || undefined,
       wikiUrl: recipeWiki || undefined,
       materials: mats,
     });
-    setRecipeName(''); setRecipeImg(''); setRecipeWiki('');
+    setRecipeName(''); setRecipeCategory(''); setRecipeImg(''); setRecipeWiki('');
     setRecipeMaterials([emptyNode()]);
   };
 
@@ -959,12 +967,27 @@ export default function WarehouseClan() {
               </div>
 
               {/* Recipe item final */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <div>
                   <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
                     Nombre del ítem final <span style={{ color: '#f87171' }}>*</span>
                   </label>
                   <input value={recipeName} onChange={e => setRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="Lance, Majestic Plate Armor..." />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Categoría</label>
+                  <FancySelect<string>
+                    value={recipeCategory || null}
+                    onChange={(v) => setRecipeCategory(v)}
+                    accent="purple"
+                    size="sm"
+                    placeholder="— Seleccionar —"
+                    options={CATEGORIES.map((c: string) => ({
+                      value: c,
+                      label: categoryMeta[c as ItemCategory]?.label || c,
+                      emoji: categoryMeta[c as ItemCategory]?.emoji || '📦',
+                    }))}
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>URL Wiki</label>
@@ -1199,15 +1222,17 @@ export default function WarehouseClan() {
             {(projects as any[]).filter((p: any) => p.status === 'active').sort((a: any, b: any) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)).map((project: any) => {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
-              // Smart stock: count ALL materials recursively (including sub-materials)
-              const countAllMats = (mats: any[]): { total: number; completed: number } => {
+              // Smart stock: if parent material exists in warehouse, sub-materials are auto-completed
+              const countAllMats = (mats: any[], parentCovered: boolean = false): { total: number; completed: number } => {
                 let total = 0, completed = 0;
                 for (const m of mats) {
                   total++;
                   const have = stockLookup.get(String(m.nameLower || m.name || '').toLowerCase()) || 0;
-                  if (have >= (Number(m.quantity) || 0)) completed++;
+                  const need = Number(m.quantity) || 0;
+                  const isCovered = parentCovered || have >= need;
+                  if (isCovered) completed++;
                   if (m.subMaterials?.length) {
-                    const sub = countAllMats(m.subMaterials);
+                    const sub = countAllMats(m.subMaterials, isCovered);
                     total += sub.total;
                     completed += sub.completed;
                   }
@@ -1253,6 +1278,7 @@ export default function WarehouseClan() {
                       <table className="w-full text-xs mt-2">
                         <thead>
                           <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <th className="py-2 text-left font-semibold" style={{ color: 'rgba(255,255,255,0.3)', width: 32 }}>IMG</th>
                             <th className="py-2 text-left font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Material</th>
                             <th className="py-2 text-right font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Necesario</th>
                             <th className="py-2 text-right font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Tenemos</th>
@@ -1262,32 +1288,34 @@ export default function WarehouseClan() {
                         </thead>
                         <tbody>
                           {(() => {
-                            const renderMatRows = (mats: any[], depth: number, parentKey: string): React.ReactNode[] => {
+                            const renderMatRows = (mats: any[], depth: number, parentKey: string, parentCovered: boolean): React.ReactNode[] => {
                               const rows: React.ReactNode[] = [];
                               mats.forEach((mat: any, mi: number) => {
                                 const key = `${parentKey}-${mi}`;
                                 const need = Number(mat.quantity) || 0;
                                 const have = stockLookup.get(String(mat.nameLower || mat.name || '').toLowerCase()) || 0;
-                                const missing = Math.max(0, need - have);
-                                const status = have >= need ? 'complete' : have > 0 ? 'partial' : 'none';
+                                const isCovered = parentCovered || have >= need;
+                                const missing = isCovered ? 0 : Math.max(0, need - have);
+                                const status = isCovered ? 'complete' : have > 0 ? 'partial' : 'none';
                                 const subs = mat.subMaterials || [];
                                 const indent = depth * 20;
-                                // Check if whole subtree is complete
-                                const isSubtreeComplete = (m: any): boolean => {
-                                  const h = stockLookup.get(String(m.nameLower || m.name || '').toLowerCase()) || 0;
-                                  if (h < (Number(m.quantity) || 0)) return false;
-                                  for (const s of (m.subMaterials || [])) { if (!isSubtreeComplete(s)) return false; }
-                                  return true;
-                                };
-                                const rowComplete = isSubtreeComplete(mat);
                                 rows.push(
-                                  <tr key={key} style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)', background: rowComplete ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
+                                  <tr key={key} style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)', background: isCovered ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
+                                    <td className="py-2">
+                                      {mat.imageUrl ? (
+                                        <img src={mat.imageUrl} alt="" className={depth === 0 ? 'h-6 w-6 rounded object-cover' : 'h-5 w-5 rounded object-cover'} />
+                                      ) : (
+                                        <div className={`${depth === 0 ? 'h-6 w-6' : 'h-5 w-5'} rounded flex items-center justify-center`} style={{ background: 'rgba(255,255,255,0.04)' }}>
+                                          <Package className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
+                                        </div>
+                                      )}
+                                    </td>
                                     <td className="py-2" style={{ paddingLeft: indent }}>
                                       <div className="flex items-center gap-2">
                                         {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
-                                        {mat.imageUrl && <img src={mat.imageUrl} alt="" className={depth === 0 ? 'h-5 w-5 rounded object-cover' : 'h-4 w-4 rounded object-cover'} />}
-                                        <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: rowComplete ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: rowComplete ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
+                                        <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: isCovered ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: isCovered ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
                                         {subs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
+                                        {parentCovered && depth > 0 && <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>padre listo</span>}
                                       </div>
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
@@ -1296,11 +1324,11 @@ export default function WarehouseClan() {
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
                                 );
-                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key));
+                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key, isCovered));
                               });
                               return rows;
                             };
-                            return renderMatRows(materials, 0, 'mat');
+                            return renderMatRows(materials, 0, 'mat', false);
                           })()}
                         </tbody>
                       </table>
@@ -1417,45 +1445,97 @@ export default function WarehouseClan() {
             </div>
           </div>
 
-          {(projects as any[]).filter((p: any) => p.status === 'completed').length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos Completados</h3>
-              {(projects as any[]).filter((p: any) => p.status === 'completed').map((project: any) => (
-                <div key={project.id} className="rounded-xl px-4 py-3 flex items-center justify-between" style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">✅</span>
-                    <div>
-                      <p className="text-sm font-bold" style={{ color: '#34d399' }}>{project.recipeName}</p>
-                      <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                        {project.assignedCharacter && (
-                          <span className="font-semibold flex items-center gap-1" style={{ color: '#6ee7b7' }}>
-                            <User className="h-3 w-3" /> Entregado a {project.assignedCharacter}
-                          </span>
-                        )}
-                        <span>· {project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}</span>
+          {(() => {
+            const completed = (projects as any[]).filter((p: any) => p.status === 'completed');
+            if (completed.length === 0) return null;
+            // Group by assignedCharacter
+            const charGroups = new Map<string, any[]>();
+            for (const p of completed) {
+              const char = p.assignedCharacter || 'Sin asignar';
+              if (!charGroups.has(char)) charGroups.set(char, []);
+              charGroups.get(char)!.push(p);
+            }
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyectos Completados ({completed.length})</h3>
+                </div>
+                {Array.from(charGroups.entries()).map(([charName, charProjects]) => (
+                  <div key={charName} className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(52,211,153,0.15)' }}>
+                    {/* Character group header */}
+                    <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'rgba(52,211,153,0.08)', borderBottom: '1px solid rgba(52,211,153,0.1)' }}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" style={{ color: '#6ee7b7' }} />
+                        <span className="text-sm font-bold" style={{ color: '#6ee7b7' }}>{charName}</span>
                       </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.25)' }}>
+                        {charProjects.length} ítem{charProjects.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {/* Items in this character group */}
+                    <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                      {charProjects.map((project: any) => {
+                        const recipeForCompleted = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
+                        const img = project.recipeImage || recipeForCompleted?.imageUrl || null;
+                        const cat = project.recipeCategory || recipeForCompleted?.category || null;
+                        const catInfo = cat ? categoryMeta[cat as ItemCategory] : null;
+                        return (
+                          <div key={project.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02] transition-colors" style={{ background: 'rgba(52,211,153,0.03)' }}>
+                            <div className="flex items-center gap-3">
+                              {img ? (
+                                <img src={img} alt="" className="h-8 w-8 rounded-lg object-cover" style={{ border: '1px solid rgba(52,211,153,0.2)' }} />
+                              ) : (
+                                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.08)' }}>
+                                  <span className="text-base">✅</span>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-sm font-bold" style={{ color: '#34d399' }}>{project.recipeName}</p>
+                                <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                  {catInfo && (
+                                    <span className="px-1.5 py-0.5 rounded" style={{ background: 'rgba(168,85,247,0.1)', color: '#c084fc' }}>
+                                      {catInfo.emoji} {catInfo.label}
+                                    </span>
+                                  )}
+                                  <span>{project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {isSA && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => { setEditAssignmentModal({ id: Number(project.id), name: project.recipeName, current: project.assignedCharacter || '' }); setEditCharSelected(project.assignedCharacter || ''); setEditCharSearch(''); }}
+                                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(96,165,250,0.6)' }}
+                                  title="Editar asignación"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setConfirmAction({
+                                    title: 'Eliminar proyecto completado',
+                                    message: 'Se eliminará el registro del proyecto completado. No se puede deshacer.',
+                                    label: 'Sí, eliminar',
+                                    color: '#ef4444',
+                                    action: () => { deleteProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
+                                    itemName: project.recipeName,
+                                    itemDetail: `Completado ${project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}`,
+                                    itemImage: img,
+                                  })}
+                                  className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'rgba(239,68,68,0.4)' }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  {isSA && (
-                    <button
-                      onClick={() => setConfirmAction({
-                        title: 'Eliminar proyecto completado',
-                        message: 'Se eliminará el registro del proyecto completado. No se puede deshacer.',
-                        label: 'Sí, eliminar',
-                        color: '#ef4444',
-                        action: () => { deleteProjectMut.mutate({ id: Number(project.id) }); setConfirmAction(null); },
-                        itemName: project.recipeName,
-                        itemDetail: `Completado ${project.completedAt ? new Date(project.completedAt).toLocaleDateString('es-CL') : ''}`,
-                      })}
-                      className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.4)' }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1634,6 +1714,66 @@ export default function WarehouseClan() {
                 style={{ background: completeCharSelected ? 'linear-gradient(90deg, rgba(52,211,153,0.8), rgba(45,212,191,0.8))' : 'rgba(255,255,255,0.04)', border: `1px solid ${completeCharSelected ? 'rgba(52,211,153,0.5)' : 'rgba(255,255,255,0.1)'}`, color: completeCharSelected ? '#fff' : 'rgba(255,255,255,0.4)' }}
               >
                 <CheckCircle className="h-4 w-4" /> Confirmar y Crear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Assignment Modal for Completed Projects */}
+      {editAssignmentModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }} onClick={() => setEditAssignmentModal(null)}>
+          <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.98), rgba(18,18,30,0.98))', border: '1px solid rgba(96,165,250,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(96,165,250,0.12)' }}>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Pencil className="h-5 w-5" style={{ color: '#60a5fa' }} />
+                  <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Editar Asignación</h3>
+                </div>
+                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Proyecto: <strong>{editAssignmentModal.name}</strong></p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>Actual: <strong style={{ color: '#6ee7b7' }}>{editAssignmentModal.current || 'Sin asignar'}</strong></p>
+              </div>
+              <button onClick={() => setEditAssignmentModal(null)} className="rounded-lg p-1.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }}><X className="h-4 w-4" /></button>
+            </div>
+            <div className="px-5 py-4">
+              <label className="block text-[10px] uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Seleccionar nuevo personaje / cuenta *</label>
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                <input value={editCharSearch} onChange={e => setEditCharSearch(e.target.value)} className="w-full rounded-lg pl-9 pr-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="Buscar personaje..." autoFocus />
+              </div>
+              <div className="space-y-1 max-h-60 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+                {(allCharacters as any[]).filter((c: any) => !editCharSearch || String(c.name).toLowerCase().includes(editCharSearch.toLowerCase())).map((c: any, ci: number) => {
+                  const isSelected = editCharSelected === c.name;
+                  return (
+                    <button key={ci} onClick={() => setEditCharSelected(c.name)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all" style={{ background: isSelected ? 'rgba(96,165,250,0.12)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isSelected ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.05)'}` }}>
+                      <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ background: isSelected ? 'rgba(96,165,250,0.2)' : 'rgba(255,255,255,0.06)' }}>
+                        <User className="h-4 w-4" style={{ color: isSelected ? '#60a5fa' : 'rgba(255,255,255,0.4)' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: isSelected ? '#60a5fa' : 'rgba(255,255,255,0.8)' }}>{c.name}</p>
+                        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{c.type === 'principal' ? 'Personaje principal' : 'Personaje secundario'}</p>
+                      </div>
+                      {isSelected && <CheckCircle className="h-5 w-5 shrink-0" style={{ color: '#60a5fa' }} />}
+                    </button>
+                  );
+                })}
+                {(allCharacters as any[]).filter((c: any) => !editCharSearch || String(c.name).toLowerCase().includes(editCharSearch.toLowerCase())).length === 0 && (
+                  <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>No se encontraron personajes</p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 px-5 pb-5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setEditAssignmentModal(null)} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.75)' }}>Cancelar</button>
+              <button
+                disabled={!editCharSelected || editCharSelected === editAssignmentModal.current}
+                onClick={() => {
+                  if (!editCharSelected) return;
+                  editAssignmentMut.mutate({ id: editAssignmentModal.id, assignedCharacter: editCharSelected });
+                  setEditAssignmentModal(null);
+                }}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: editCharSelected && editCharSelected !== editAssignmentModal.current ? 'linear-gradient(90deg, rgba(96,165,250,0.8), rgba(59,130,246,0.8))' : 'rgba(255,255,255,0.04)', border: `1px solid ${editCharSelected && editCharSelected !== editAssignmentModal.current ? 'rgba(96,165,250,0.5)' : 'rgba(255,255,255,0.1)'}`, color: editCharSelected && editCharSelected !== editAssignmentModal.current ? '#fff' : 'rgba(255,255,255,0.4)' }}
+              >
+                <CheckCircle className="h-4 w-4" /> Guardar Cambio
               </button>
             </div>
           </div>
