@@ -118,3 +118,4 @@ data_storage.json
 
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
+data_storage_backup.json
