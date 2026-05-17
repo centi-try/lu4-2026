@@ -324,6 +324,14 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
       : { clanTaxPercent: 0, internalDiscountPercent: 0 },
     clanFundTransactions: ensureArray(data?.clanFundTransactions),
     clanFundCurrentCycleAccrued: Number(data?.clanFundCurrentCycleAccrued) || 0,
+    // ============================================================
+    // Warehouse & Crafteo collections
+    // ============================================================
+    warehouseItems: ensureArray(data?.warehouseItems),
+    warehouseIncoming: ensureArray(data?.warehouseIncoming),
+    craftRecipes: ensureArray(data?.craftRecipes),
+    craftProjects: ensureArray(data?.craftProjects),
+    materialCatalog: ensureArray(data?.materialCatalog),
   };
 }
 
