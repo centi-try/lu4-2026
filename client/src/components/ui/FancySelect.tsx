@@ -25,7 +25,7 @@ import { ChevronDown, Search, Check } from 'lucide-react';
 // y no cambie la lógica de las páginas.
 // ---------------------------------------------------------------------------
 
-export type FancyAccent = 'turquoise' | 'magenta' | 'amber' | 'neutral';
+export type FancyAccent = 'turquoise' | 'magenta' | 'amber' | 'neutral' | 'purple';
 
 export interface FancyOption<V extends string | number = string> {
   value: V;
@@ -96,6 +96,12 @@ const ACCENTS: Record<FancyAccent, { color: string; border: string; bg: string; 
     border: 'rgba(255,255,255,0.2)',
     bg: 'rgba(255,255,255,0.05)',
     shadow: '0 0 0 3px rgba(255,255,255,0.05)',
+  },
+  purple: {
+    color: '#a855f7',
+    border: 'rgba(168,85,247,0.4)',
+    bg: 'rgba(168,85,247,0.1)',
+    shadow: '0 0 0 3px rgba(168,85,247,0.1)',
   },
 };
 
