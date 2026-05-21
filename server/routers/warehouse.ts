@@ -14,8 +14,18 @@ import {
   dbInstance,
   saveDbToDisk,
   createAuditLog,
-  getCommandParties,
   getAllUsers,
+  getWarehouseClans,
+  getWarehouseClanById,
+  createWarehouseClan,
+  updateWarehouseClan,
+  deleteWarehouseClan,
+  getWarehouseCPs,
+  getWarehouseCPsByClan,
+  getWarehouseCPById,
+  createWarehouseCP,
+  updateWarehouseCP,
+  deleteWarehouseCP,
 } from '../db';
 
 const nowIso = () => new Date().toISOString();
@@ -23,9 +33,9 @@ const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Resolve the CP(s) this user leads. Returns array of cpIds. */
+/** Resolve the warehouse CP(s) this user leads. Returns array of cpIds. */
 async function getCpIdsLedByUser(userId: number): Promise<number[]> {
-  const allCps = await getCommandParties();
+  const allCps = await getWarehouseCPs();
   return allCps
     .filter((cp: any) => Number(cp.leaderId) === userId)
     .map((cp: any) => Number(cp.id));
@@ -41,9 +51,9 @@ async function canWriteCp(role: string, userId: number, cpId: number): Promise<b
 // ─── Warehouse Items ────────────────────────────────────────────────────────
 
 export const warehouseRouter = router({
-  // List CPs available for warehouse (all users can see)
+  // List warehouse CPs (all users can see)
   listCps: protectedProcedure.query(async () => {
-    const allCps = await getCommandParties();
+    const allCps = await getWarehouseCPs();
     const allUsers = await getAllUsers();
     return allCps.map((cp: any) => {
       const leader = cp.leaderId
@@ -689,5 +699,111 @@ export const warehouseRouter = router({
         });
         return { success: true };
       }),
+  }),
+
+  // ─── Warehouse Clans & CPs (independent from raid module) ──────────────
+  clans: router({
+    list: protectedProcedure.query(async () => {
+      return getWarehouseClans();
+    }),
+
+    create: protectedProcedure
+      .input(z.object({ name: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const clan = await createWarehouseClan({ name: input.name });
+        return { success: true, clan };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({ id: z.number(), name: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const clan = await updateWarehouseClan(input.id, { name: input.name });
+        if (!clan) throw new TRPCError({ code: 'NOT_FOUND' });
+        return { success: true, clan };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const clan = await deleteWarehouseClan(input.id);
+        if (!clan) throw new TRPCError({ code: 'NOT_FOUND' });
+        return { success: true };
+      }),
+  }),
+
+  commandParties: router({
+    list: protectedProcedure.query(async () => {
+      const allCps = await getWarehouseCPs();
+      const allUsers = await getAllUsers();
+      const allClans = await getWarehouseClans();
+      return allCps.map((cp: any) => {
+        const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
+        const leader = cp.leaderId
+          ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId))
+          : null;
+        return {
+          ...cp,
+          clanName: clan?.name || 'Sin clan',
+          leaderName: leader?.characterName || leader?.name || null,
+        };
+      });
+    }),
+
+    create: protectedProcedure
+      .input(z.object({ name: z.string().min(1), clanId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const clan = await getWarehouseClanById(input.clanId);
+        if (!clan) throw new TRPCError({ code: 'NOT_FOUND', message: 'Clan no encontrado.' });
+        const cp = await createWarehouseCP({ name: input.name, clanId: input.clanId });
+        return { success: true, cp };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).optional(),
+        leaderId: z.number().nullable().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const data: any = {};
+        if (input.name) data.name = input.name;
+        if (input.leaderId !== undefined) data.leaderId = input.leaderId;
+        const cp = await updateWarehouseCP(input.id, data);
+        if (!cp) throw new TRPCError({ code: 'NOT_FOUND' });
+        return { success: true, cp };
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const cp = await deleteWarehouseCP(input.id);
+        if (!cp) throw new TRPCError({ code: 'NOT_FOUND' });
+        return { success: true };
+      }),
+
+    listUsers: protectedProcedure.query(async () => {
+      const allUsers = await getAllUsers();
+      return allUsers
+        .filter((u: any) => u.isActive !== false)
+        .map((u: any) => ({
+          id: Number(u.id),
+          name: u.name || u.characterName || u.email,
+          characterName: u.characterName || u.name || '',
+          email: u.email,
+          role: u.role,
+        }));
+    }),
   }),
 });

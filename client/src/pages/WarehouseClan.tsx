@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Pencil, Shield } from 'lucide-react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Pencil, Shield, Crown, Flag, Settings } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -298,7 +298,29 @@ export default function WarehouseClan() {
   const { data: allCharacters = [] } = trpc.warehouse.listCharacters.useQuery();
 
   // Tab state
-  const [tab, setTab] = useState<'bodega' | 'crafteo'>('bodega');
+  const [tab, setTab] = useState<'bodega' | 'crafteo' | 'config'>('bodega');
+
+  // Config tab queries & mutations
+  const { data: whClans = [], refetch: refetchWhClans } = trpc.warehouse.clans.list.useQuery();
+  const { data: whCps = [], refetch: refetchWhCps } = trpc.warehouse.commandParties.list.useQuery();
+  const { data: allAppUsers = [] } = trpc.warehouse.commandParties.listUsers.useQuery();
+  const createClanMut = trpc.warehouse.clans.create.useMutation({ onSuccess: () => { refetchWhClans(); toast.success('Clan creado'); } });
+  const updateClanMut = trpc.warehouse.clans.update.useMutation({ onSuccess: () => { refetchWhClans(); toast.success('Clan actualizado'); } });
+  const deleteClanMut = trpc.warehouse.clans.delete.useMutation({ onSuccess: () => { refetchWhClans(); refetchWhCps(); toast.success('Clan eliminado'); } });
+  const refetchCpSelector = trpc.warehouse.listCps.useQuery().refetch;
+  const createCpMut = trpc.warehouse.commandParties.create.useMutation({ onSuccess: () => { refetchWhCps(); refetchCpSelector(); toast.success('CP creada'); } });
+  const updateCpMut = trpc.warehouse.commandParties.update.useMutation({ onSuccess: () => { refetchWhCps(); refetchCpSelector(); toast.success('CP actualizada'); } });
+  const deleteCpMut = trpc.warehouse.commandParties.delete.useMutation({ onSuccess: () => { refetchWhCps(); refetchCpSelector(); toast.success('CP eliminada'); } });
+
+  // Config tab state
+  const [newClanName, setNewClanName] = useState('');
+  const [editingClan, setEditingClan] = useState<any>(null);
+  const [editClanName, setEditClanName] = useState('');
+  const [newCpName, setNewCpName] = useState('');
+  const [newCpClanId, setNewCpClanId] = useState('');
+  const [editingCp, setEditingCp] = useState<any>(null);
+  const [editCpName, setEditCpName] = useState('');
+  const [editCpLeaderId, setEditCpLeaderId] = useState<string>('');
 
   // Search / filters
   const [search, setSearch] = useState('');
@@ -601,6 +623,23 @@ export default function WarehouseClan() {
           <Hammer className="h-4 w-4" />
           Crafteo ({activeProjects})
         </button>
+        {isSA && (
+          <button
+            type="button"
+            onClick={() => setTab('config')}
+            className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+            style={{
+              background: tab === 'config'
+                ? 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.25))'
+                : 'transparent',
+              color: tab === 'config' ? '#fbbf24' : 'rgba(255,255,255,0.55)',
+              border: tab === 'config' ? '1px solid rgba(251,191,36,0.25)' : '1px solid transparent',
+            }}
+          >
+            <Settings className="h-4 w-4" />
+            Config
+          </button>
+        )}
       </div>
 
       {/* ═══ TAB: BODEGA ═══ */}
@@ -1633,6 +1672,222 @@ export default function WarehouseClan() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* ═══ TAB: CONFIG ═══ */}
+      {tab === 'config' && isSA && (
+        <div className="space-y-5">
+          {/* Clanes */}
+          <div className="card-glass rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <Flag className="h-5 w-5" style={{ color: '#fbbf24' }} />
+                Clanes
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>{(whClans as any[]).length}</span>
+              </h3>
+            </div>
+
+            {/* Create Clan */}
+            <div className="flex gap-2 mb-4">
+              <input
+                value={newClanName}
+                onChange={e => setNewClanName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && newClanName.trim()) { createClanMut.mutate({ name: newClanName.trim() }); setNewClanName(''); } }}
+                placeholder="Nombre del clan..."
+                className="flex-1 rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+              />
+              <button
+                onClick={() => { if (newClanName.trim()) { createClanMut.mutate({ name: newClanName.trim() }); setNewClanName(''); } }}
+                disabled={!newClanName.trim()}
+                className="px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                style={{ background: newClanName.trim() ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.02)', color: newClanName.trim() ? '#fbbf24' : 'rgba(255,255,255,0.3)', border: `1px solid ${newClanName.trim() ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.06)'}` }}
+              >
+                <Plus className="h-3.5 w-3.5" /> Crear Clan
+              </button>
+            </div>
+
+            {/* Clans List */}
+            {(whClans as any[]).length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay clanes. Crea uno arriba.</p>
+            ) : (
+              <div className="space-y-2">
+                {(whClans as any[]).map((clan: any) => {
+                  const isEditing = editingClan?.id === clan.id;
+                  return (
+                    <div key={clan.id} className="rounded-xl p-3 flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            value={editClanName}
+                            onChange={e => setEditClanName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { updateClanMut.mutate({ id: clan.id, name: editClanName.trim() }); setEditingClan(null); } if (e.key === 'Escape') setEditingClan(null); }}
+                            className="flex-1 rounded-lg px-3 py-1.5 text-sm"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(251,191,36,0.3)', color: 'rgba(255,255,255,0.9)' }}
+                            autoFocus
+                          />
+                          <button onClick={() => { updateClanMut.mutate({ id: clan.id, name: editClanName.trim() }); setEditingClan(null); }} className="p-1.5 rounded-lg" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}><CheckCircle className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => setEditingClan(null)} className="p-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><X className="h-3.5 w-3.5" /></button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <Flag className="h-4 w-4" style={{ color: '#fbbf24' }} />
+                            <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{clan.name}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}>
+                              {(whCps as any[]).filter((cp: any) => Number(cp.clanId) === Number(clan.id)).length} CPs
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => { setEditingClan(clan); setEditClanName(clan.name); }} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.4)' }} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => { deleteClanMut.mutate({ id: clan.id }); }} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: '#ef4444' }} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Command Parties */}
+          <div className="card-glass rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <Shield className="h-5 w-5" style={{ color: '#e879f9' }} />
+                Command Parties (CPs)
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(232,121,249,0.15)', color: '#e879f9' }}>{(whCps as any[]).length}</span>
+              </h3>
+            </div>
+
+            {/* Create CP */}
+            {(whClans as any[]).length > 0 && (
+              <div className="flex gap-2 mb-4">
+                <select
+                  value={newCpClanId}
+                  onChange={e => setNewCpClanId(e.target.value)}
+                  className="rounded-lg px-3 py-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+                >
+                  <option value="">Clan...</option>
+                  {(whClans as any[]).map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <input
+                  value={newCpName}
+                  onChange={e => setNewCpName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && newCpName.trim() && newCpClanId) { createCpMut.mutate({ name: newCpName.trim(), clanId: Number(newCpClanId) }); setNewCpName(''); } }}
+                  placeholder="Nombre de la CP..."
+                  className="flex-1 rounded-lg px-3 py-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+                />
+                <button
+                  onClick={() => { if (newCpName.trim() && newCpClanId) { createCpMut.mutate({ name: newCpName.trim(), clanId: Number(newCpClanId) }); setNewCpName(''); } }}
+                  disabled={!newCpName.trim() || !newCpClanId}
+                  className="px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                  style={{ background: (newCpName.trim() && newCpClanId) ? 'rgba(232,121,249,0.15)' : 'rgba(255,255,255,0.02)', color: (newCpName.trim() && newCpClanId) ? '#e879f9' : 'rgba(255,255,255,0.3)', border: `1px solid ${(newCpName.trim() && newCpClanId) ? 'rgba(232,121,249,0.3)' : 'rgba(255,255,255,0.06)'}` }}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Crear CP
+                </button>
+              </div>
+            )}
+
+            {/* CPs List grouped by clan */}
+            {(whClans as any[]).length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Crea un clan primero para poder crear CPs.</p>
+            ) : (whCps as any[]).length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay CPs. Crea una arriba.</p>
+            ) : (
+              <div className="space-y-4">
+                {(whClans as any[]).map((clan: any) => {
+                  const clanCps = (whCps as any[]).filter((cp: any) => Number(cp.clanId) === Number(clan.id));
+                  if (clanCps.length === 0) return null;
+                  return (
+                    <div key={clan.id}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Flag className="h-3.5 w-3.5" style={{ color: '#fbbf24' }} />
+                        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(251,191,36,0.6)' }}>{clan.name}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {clanCps.map((cp: any) => {
+                          const isEditing = editingCp?.id === cp.id;
+                          return (
+                            <div key={cp.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              {isEditing ? (
+                                <div className="space-y-3">
+                                  <div className="flex gap-2">
+                                    <input
+                                      value={editCpName}
+                                      onChange={e => setEditCpName(e.target.value)}
+                                      className="flex-1 rounded-lg px-3 py-1.5 text-sm"
+                                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(232,121,249,0.3)', color: 'rgba(255,255,255,0.9)' }}
+                                      placeholder="Nombre CP"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Líder de CP</label>
+                                    <select
+                                      value={editCpLeaderId}
+                                      onChange={e => setEditCpLeaderId(e.target.value)}
+                                      className="w-full rounded-lg px-3 py-2 text-sm"
+                                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+                                    >
+                                      <option value="">Sin líder</option>
+                                      {(allAppUsers as any[]).map((u: any) => (
+                                        <option key={u.id} value={u.id}>{u.characterName || u.name} ({u.email})</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => {
+                                      updateCpMut.mutate({
+                                        id: cp.id,
+                                        name: editCpName.trim() || undefined,
+                                        leaderId: editCpLeaderId ? Number(editCpLeaderId) : null,
+                                      });
+                                      setEditingCp(null);
+                                    }} className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                                      <CheckCircle className="h-3.5 w-3.5" /> Guardar
+                                    </button>
+                                    <button onClick={() => setEditingCp(null)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-4 w-4" style={{ color: '#e879f9' }} />
+                                    <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{cp.name}</span>
+                                    {cp.leaderName && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
+                                        <Crown className="h-3 w-3" /> {cp.leaderName}
+                                      </span>
+                                    )}
+                                    {!cp.leaderName && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>Sin líder</span>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => { setEditingCp(cp); setEditCpName(cp.name); setEditCpLeaderId(cp.leaderId ? String(cp.leaderId) : ''); }} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.4)' }} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                                    <button onClick={() => deleteCpMut.mutate({ id: cp.id })} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: '#ef4444' }} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

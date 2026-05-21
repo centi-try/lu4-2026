@@ -99,6 +99,9 @@ interface DatabaseSchema {
   craftRecipes: any[];         // recetas de crafteo (persistentes, reutilizables)
   craftProjects: any[];        // proyectos activos de crafteo
   materialCatalog: any[];      // catálogo persistente de materiales (nombre, categoría, imagen)
+  // Warehouse-specific clans & CPs (independent from raid module)
+  warehouseClans: any[];       // clanes del warehouse (id, name, createdAt)
+  warehouseCPs: any[];         // command parties del warehouse (id, name, clanId, leaderId)
 }
 
 const initialSchema: DatabaseSchema = {
@@ -135,6 +138,8 @@ const initialSchema: DatabaseSchema = {
   craftRecipes: [],
   craftProjects: [],
   materialCatalog: [],
+  warehouseClans: [],
+  warehouseCPs: [],
 };
 
 // ============================================================================
@@ -332,6 +337,8 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     craftRecipes: ensureArray(data?.craftRecipes),
     craftProjects: ensureArray(data?.craftProjects),
     materialCatalog: ensureArray(data?.materialCatalog),
+    warehouseClans: ensureArray(data?.warehouseClans),
+    warehouseCPs: ensureArray(data?.warehouseCPs),
   };
 }
 
@@ -3680,3 +3687,111 @@ export const closeRaidSalesCycle = async (closedByUser: any) => {
     console.warn('[migration] backfill raid sales clansParticipated falló:', err);
   }
 })();
+
+// ============================================================================
+// Warehouse Clans & CPs (independent from raid module)
+// ============================================================================
+
+export const getWarehouseClans = async () => {
+  return (dbInstance.warehouseClans || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getWarehouseClanById = async (id: number) => {
+  return (dbInstance.warehouseClans || []).find((c: any) => Number(c.id) === Number(id));
+};
+
+export const createWarehouseClan = async (data: { name: string }) => {
+  if (!dbInstance.warehouseClans) dbInstance.warehouseClans = [];
+  const newClan = {
+    id: genId(),
+    name: data.name.trim(),
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.warehouseClans.push(newClan);
+  saveDb(dbInstance);
+  return newClan;
+};
+
+export const updateWarehouseClan = async (id: number, data: { name?: string }) => {
+  if (!dbInstance.warehouseClans) dbInstance.warehouseClans = [];
+  const idx = dbInstance.warehouseClans.findIndex((c: any) => Number(c.id) === Number(id));
+  if (idx === -1) return null;
+  if (data.name) dbInstance.warehouseClans[idx].name = data.name.trim();
+  dbInstance.warehouseClans[idx].updatedAt = nowIso();
+  saveDb(dbInstance);
+  return dbInstance.warehouseClans[idx];
+};
+
+export const deleteWarehouseClan = async (id: number) => {
+  if (!dbInstance.warehouseClans) dbInstance.warehouseClans = [];
+  const clan = dbInstance.warehouseClans.find((c: any) => Number(c.id) === Number(id));
+  if (!clan) return null;
+  dbInstance.warehouseClans = dbInstance.warehouseClans.filter((c: any) => Number(c.id) !== Number(id));
+  // Also remove all CPs of this clan
+  if (dbInstance.warehouseCPs) {
+    dbInstance.warehouseCPs = dbInstance.warehouseCPs.filter((cp: any) => Number(cp.clanId) !== Number(id));
+  }
+  saveDb(dbInstance);
+  return clan;
+};
+
+export const getWarehouseCPs = async () => {
+  return (dbInstance.warehouseCPs || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getWarehouseCPsByClan = async (clanId: number) => {
+  return (dbInstance.warehouseCPs || []).filter(
+    (cp: any) => Number(cp.clanId) === Number(clanId)
+  );
+};
+
+export const getWarehouseCPById = async (id: number) => {
+  return (dbInstance.warehouseCPs || []).find((cp: any) => Number(cp.id) === Number(id));
+};
+
+export const createWarehouseCP = async (data: { name: string; clanId: number }) => {
+  if (!dbInstance.warehouseCPs) dbInstance.warehouseCPs = [];
+  const newCp = {
+    id: genId(),
+    name: data.name.trim(),
+    clanId: Number(data.clanId),
+    leaderId: null as number | null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.warehouseCPs.push(newCp);
+  saveDb(dbInstance);
+  return newCp;
+};
+
+export const updateWarehouseCP = async (id: number, data: Partial<{
+  name: string;
+  leaderId: number | null;
+}>) => {
+  if (!dbInstance.warehouseCPs) dbInstance.warehouseCPs = [];
+  const idx = dbInstance.warehouseCPs.findIndex((cp: any) => Number(cp.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.warehouseCPs[idx] = {
+    ...dbInstance.warehouseCPs[idx],
+    ...data,
+    updatedAt: nowIso(),
+  };
+  saveDb(dbInstance);
+  return dbInstance.warehouseCPs[idx];
+};
+
+export const deleteWarehouseCP = async (id: number) => {
+  if (!dbInstance.warehouseCPs) dbInstance.warehouseCPs = [];
+  const cp = dbInstance.warehouseCPs.find((c: any) => Number(c.id) === Number(id));
+  if (!cp) return null;
+  dbInstance.warehouseCPs = dbInstance.warehouseCPs.filter(
+    (c: any) => Number(c.id) !== Number(id)
+  );
+  saveDb(dbInstance);
+  return cp;
+};
