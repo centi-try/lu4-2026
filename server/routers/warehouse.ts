@@ -29,6 +29,11 @@ import {
   getWarehouseCPMembers,
   addWarehouseCPMember,
   removeWarehouseCPMember,
+  // Raid data (for sync feature)
+  getClans as getRaidClans,
+  getCommandParties as getRaidCommandParties,
+  getUsersByCp as getRaidUsersByCp,
+  getSecondaryCharactersByUsers,
 } from '../db';
 
 const nowIso = () => new Date().toISOString();
@@ -842,6 +847,80 @@ export const warehouseRouter = router({
         const removed = await removeWarehouseCPMember(input.cpId, input.userId);
         if (!removed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Miembro no encontrado.' });
         return { success: true };
+      }),
+
+    // Get detailed members of a CP (with secondaryCharacters and class info)
+    members: protectedProcedure
+      .input(z.object({ cpId: z.number() }))
+      .query(async ({ input }) => {
+        const cp = await getWarehouseCPById(input.cpId);
+        if (!cp) return [];
+        const cpMembers = await getWarehouseCPMembers(input.cpId);
+        const allUsers = await getAllUsers();
+        const userIds = cpMembers.map((m: any) => Number(m.userId));
+        const secondaries = await getSecondaryCharactersByUsers(userIds);
+        return cpMembers.map((m: any) => {
+          const user = allUsers.find((u: any) => Number(u.id) === Number(m.userId));
+          if (!user) return null;
+          return {
+            id: Number(user.id),
+            name: user.name || user.characterName || user.email,
+            characterName: user.characterName || user.name || '',
+            email: user.email || '',
+            classMain: user.classMain || null,
+            cpStatus: m.status || 'confirmed',
+            isLeader: Number(cp.leaderId) === Number(user.id),
+            secondaryCharacters: secondaries.filter((sc: any) => Number(sc.userId) === Number(user.id)),
+            addedAt: m.addedAt,
+          };
+        }).filter(Boolean).sort((a: any, b: any) => {
+          if (a.isLeader !== b.isLeader) return a.isLeader ? -1 : 1;
+          return 0;
+        });
+      }),
+
+    // Sync members from matching raid clan
+    syncFromRaid: protectedProcedure
+      .input(z.object({ clanId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const whClan = await getWarehouseClanById(input.clanId);
+        if (!whClan) throw new TRPCError({ code: 'NOT_FOUND', message: 'Clan warehouse no encontrado.' });
+        // Find matching raid clan by name
+        const raidClans = await getRaidClans();
+        const matchingRaidClan = raidClans.find((rc: any) =>
+          String(rc.name || '').toLowerCase().trim() === String(whClan.name || '').toLowerCase().trim()
+        );
+        if (!matchingRaidClan) throw new TRPCError({ code: 'NOT_FOUND', message: `No existe un clan raid con el nombre "${whClan.name}".` });
+        // Get raid CPs for this clan
+        const raidCPs = await getRaidCommandParties();
+        const matchingRaidCPs = raidCPs.filter((rcp: any) => Number(rcp.clanId) === Number(matchingRaidClan.id));
+        let syncedCps = 0;
+        let syncedMembers = 0;
+        for (const raidCp of matchingRaidCPs) {
+          // Check if warehouse CP with same name already exists
+          const existingWhCps = await getWarehouseCPsByClan(input.clanId);
+          let whCp = existingWhCps.find((wcp: any) =>
+            String(wcp.name || '').toLowerCase().trim() === String(raidCp.name || '').toLowerCase().trim()
+          );
+          if (!whCp) {
+            whCp = await createWarehouseCP({ name: raidCp.name, clanId: input.clanId });
+            syncedCps++;
+          }
+          // Set leader if raid CP has one
+          if (raidCp.leaderId && !whCp.leaderId) {
+            await updateWarehouseCP(whCp.id, { leaderId: Number(raidCp.leaderId) });
+          }
+          // Add raid members to warehouse CP
+          const raidMembers = await getRaidUsersByCp(Number(raidCp.id));
+          for (const rm of raidMembers) {
+            const added = await addWarehouseCPMember(whCp.id, Number(rm.id));
+            if (added && !('userId' in added && (added as any).cpId)) syncedMembers++;
+            else syncedMembers++;
+          }
+        }
+        return { success: true, syncedCps, syncedMembers, raidClanName: matchingRaidClan.name };
       }),
   }),
 });
