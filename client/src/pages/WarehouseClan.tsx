@@ -337,6 +337,7 @@ export default function WarehouseClan() {
   const [projectPriority, setProjectPriority] = useState(false);
   const [projectCharSearch, setProjectCharSearch] = useState('');
   const [projectCharSelected, setProjectCharSelected] = useState('');
+  const [projectPreviewOpen, setProjectPreviewOpen] = useState(false);
   const [expandedProject, setExpandedProject] = useState<number | null>(null);
   const [expandedCompleted, setExpandedCompleted] = useState<number | null>(null);
 
@@ -382,7 +383,7 @@ export default function WarehouseClan() {
     updateRow(rowId, {
       name: item.name,
       category: (item.category as ItemCategory) || '',
-      imageUrl: item.imageUrl || resolveCategoryIcon(item.category) || '',
+      imageUrl: item.imageUrl || '',
       quantity: '0',
     });
   };
@@ -390,8 +391,7 @@ export default function WarehouseClan() {
   const handleCategoryChange = (rowId: string, newCat: ItemCategory | '') => {
     setRows(prev => prev.map(r => {
       if (r.id !== rowId) return r;
-      const nextImg = newCat ? resolveCategoryIcon(newCat) : '';
-      return { ...r, category: newCat, imageUrl: nextImg || r.imageUrl };
+      return { ...r, category: newCat };
     }));
   };
 
@@ -1054,7 +1054,7 @@ export default function WarehouseClan() {
                                     Material #{idx + 1}{node.name ? ` — ${node.name}` : ''}
                                   </span>
                                   {subCount > 0 && !node.expanded && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: lv.light, color: lv.color }}>{subCount} sub</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: lv.light, color: lv.color }}>{subCount} sub</span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1.5">
@@ -1105,7 +1105,7 @@ export default function WarehouseClan() {
                                 {!node.expanded && collapsedNames.length > 0 && (
                                   <div className="mt-2 flex flex-wrap gap-1">
                                     {collapsedNames.map((n, i) => (
-                                      <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>{n}</span>
+                                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>{n}</span>
                                     ))}
                                   </div>
                                 )}
@@ -1157,7 +1157,7 @@ export default function WarehouseClan() {
                                 {node.expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                               </button>
                               {subCount > 0 && !node.expanded && (
-                                <span className="text-[8px] px-1 py-0.5 rounded-full shrink-0" style={{ background: lv.light, color: lv.color }}>{subCount}</span>
+                                <span className="text-[10px] px-1 py-0.5 rounded-full shrink-0" style={{ background: lv.light, color: lv.color }}>{subCount}</span>
                               )}
                               <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="p-1 rounded shrink-0" style={{ color: 'rgba(239,68,68,0.5)' }}><X className="h-3 w-3" /></button>
                             </div>
@@ -1165,7 +1165,7 @@ export default function WarehouseClan() {
                             {!node.expanded && collapsedNames.length > 0 && (
                               <div className="px-2.5 pb-2 flex flex-wrap gap-1" style={{ marginLeft: 12 }}>
                                 {collapsedNames.map((n, i) => (
-                                  <span key={i} className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>{n}</span>
+                                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>{n}</span>
                                 ))}
                               </div>
                             )}
@@ -1174,11 +1174,11 @@ export default function WarehouseClan() {
                               <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
                                 <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLevel(depth + 1).border }} />
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <p className="text-[9px] uppercase tracking-wider font-bold flex items-center gap-1" style={{ color: getLevel(depth + 1).color }}>
+                                  <p className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1" style={{ color: getLevel(depth + 1).color }}>
                                     <span className="w-1.5 h-0.5 rounded-full inline-block" style={{ background: getLevel(depth + 1).color }} />
                                     Sub-materiales
                                   </p>
-                                  <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>
+                                  <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>
                                     <Plus className="h-2 w-2" /> Añadir
                                   </button>
                                 </div>
@@ -1266,10 +1266,10 @@ export default function WarehouseClan() {
                       {isPriority ? <Star className="h-5 w-5 fill-current" style={{ color: '#fbbf24' }} /> : <span className="text-lg">🎯</span>}
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{project.recipeName}</p>
-                          {isPriority && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>PRIORIDAD</span>}
+                          <p className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>{project.recipeName}</p>
+                          {isPriority && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>PRIORIDAD</span>}
                         </div>
-                        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
                           Creado por {project.createdBy} · {new Date(project.createdAt).toLocaleDateString('es-CL')}
                           {project.assignedCharacter && <> · <span style={{ color: '#6ee7b7' }}>Para: {project.assignedCharacter}</span></>}
                         </p>
@@ -1342,8 +1342,8 @@ export default function WarehouseClan() {
                                       <div className="flex items-center gap-2">
                                         {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
                                         <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: isCovered ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: isCovered ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
-                                        {subs.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
-                                        {parentCovered && depth > 0 && <span className="text-[9px] px-1 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>padre listo</span>}
+                                        {subs.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
+                                        {parentCovered && depth > 0 && <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>padre listo</span>}
                                       </div>
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
@@ -1461,7 +1461,7 @@ export default function WarehouseClan() {
                           )}
                           <span className="font-medium">{m.name}</span>
                           <span className="font-mono text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>×{m.quantity}</span>
-                          {m.subMaterials?.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{m.subMaterials.length} sub</span>}
+                          {m.subMaterials?.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{m.subMaterials.length} sub</span>}
                         </div>
                       ))}
                       {(recipe.materials || []).length > 5 && (
@@ -1675,7 +1675,7 @@ export default function WarehouseClan() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold truncate" style={{ color: isSelected ? '#34d399' : 'rgba(255,255,255,0.8)' }}>{c.name}</p>
-                          <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{c.type === 'principal' ? 'Principal' : 'Secundario'}</p>
+                          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{c.type === 'principal' ? 'Principal' : 'Secundario'}</p>
                         </div>
                         {isSelected && <CheckCircle className="h-4 w-4 shrink-0" style={{ color: '#34d399' }} />}
                       </button>
@@ -1700,9 +1700,13 @@ export default function WarehouseClan() {
                 const selRecipe = (recipes as any[]).find((r: any) => String(r.id) === projectRecipeId);
                 if (!selRecipe) return null;
                 return (
-                  <div className="rounded-xl p-3" style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.12)' }}>
-                    <p className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: 'rgba(52,211,153,0.6)' }}>Vista previa de materiales</p>
-                    <div className="space-y-1">
+                  <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.12)' }}>
+                    <button type="button" onClick={() => setProjectPreviewOpen(!projectPreviewOpen)} className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/[0.02] transition-colors">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'rgba(52,211,153,0.6)' }}>Vista previa de materiales ({selRecipe.materials?.length || 0})</span>
+                      {projectPreviewOpen ? <ChevronUp className="h-3.5 w-3.5" style={{ color: 'rgba(52,211,153,0.4)' }} /> : <ChevronDown className="h-3.5 w-3.5" style={{ color: 'rgba(52,211,153,0.4)' }} />}
+                    </button>
+                    {projectPreviewOpen && (
+                    <div className="space-y-1 px-3 pb-3">
                       {(selRecipe.materials || []).map((m: any, mi: number) => {
                         const stock = (warehouseItems as any[]).find((w: any) => String(w.nameLower || w.name || '').toLowerCase() === String(m.nameLower || m.name || '').toLowerCase());
                         const have = stock?.quantity || 0;
@@ -1718,6 +1722,7 @@ export default function WarehouseClan() {
                         );
                       })}
                     </div>
+                    )}
                   </div>
                 );
               })()}
