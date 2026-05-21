@@ -337,6 +337,7 @@ export const warehouseRouter = router({
         recipeId: z.number(),
         notes: z.string().optional(),
         priority: z.boolean().optional(),
+        assignedCharacter: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -347,13 +348,14 @@ export const warehouseRouter = router({
         if (!db.craftProjects) db.craftProjects = [];
         const recipe = (db.craftRecipes || []).find((r: any) => Number(r.id) === Number(input.recipeId));
         if (!recipe) throw new TRPCError({ code: 'NOT_FOUND', message: 'Receta no encontrada.' });
-        const project = {
+        const project: any = {
           id: randId(),
           recipeId: input.recipeId,
           recipeName: recipe.name,
           status: 'active',
           notes: input.notes || '',
           priority: input.priority || false,
+          assignedCharacter: input.assignedCharacter || '',
           createdAt: nowIso(),
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         };
@@ -364,7 +366,7 @@ export const warehouseRouter = router({
           action: 'CRAFT_PROJECT_CREATE',
           actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
           actorRole: String(ctx.user?.role || 'USER'),
-          detail: `Creó proyecto de crafteo: "${recipe.name}"${input.priority ? ' (PRIORIDAD)' : ''}.`,
+          detail: `Creó proyecto de crafteo: "${recipe.name}"${input.assignedCharacter ? ` para ${input.assignedCharacter}` : ''}${input.priority ? ' (PRIORIDAD)' : ''}.`,
         });
         return { success: true, project };
       }),
