@@ -321,6 +321,11 @@ export default function WarehouseClan() {
   const [editingCp, setEditingCp] = useState<any>(null);
   const [editCpName, setEditCpName] = useState('');
   const [editCpLeaderId, setEditCpLeaderId] = useState<string>('');
+  const [expandedConfigCps, setExpandedConfigCps] = useState<Set<number>>(new Set());
+  const [addMemberCpId, setAddMemberCpId] = useState<number | null>(null);
+  const [addMemberSearch, setAddMemberSearch] = useState('');
+  const addMemberMut = trpc.warehouse.commandParties.addMember.useMutation({ onSuccess: () => { refetchWhCps(); toast.success('Miembro agregado'); setAddMemberSearch(''); } });
+  const removeMemberMut = trpc.warehouse.commandParties.removeMember.useMutation({ onSuccess: () => { refetchWhCps(); toast.success('Miembro removido'); } });
 
   // Search / filters
   const [search, setSearch] = useState('');
@@ -1858,26 +1863,100 @@ export default function WarehouseClan() {
                                     </button>
                                   </div>
                                 </div>
-                              ) : (
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Shield className="h-4 w-4" style={{ color: '#e879f9' }} />
-                                    <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{cp.name}</span>
-                                    {cp.leaderName && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
-                                        <Crown className="h-3 w-3" /> {cp.leaderName}
-                                      </span>
-                                    )}
-                                    {!cp.leaderName && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>Sin líder</span>
+                              ) : (() => {
+                                const isExpanded = expandedConfigCps.has(cp.id);
+                                const members = cp.members || [];
+                                const memberUserIds = new Set(members.map((m: any) => Number(m.userId)));
+                                const availableUsers = (allAppUsers as any[]).filter((u: any) => !memberUserIds.has(Number(u.id)));
+                                const filteredAvailable = addMemberSearch.trim()
+                                  ? availableUsers.filter((u: any) => {
+                                      const q = addMemberSearch.toLowerCase();
+                                      return (u.characterName || '').toLowerCase().includes(q) || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
+                                    })
+                                  : availableUsers;
+                                return (
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <button
+                                        onClick={() => setExpandedConfigCps(prev => { const s = new Set(prev); if (s.has(cp.id)) s.delete(cp.id); else s.add(cp.id); return s; })}
+                                        className="flex items-center gap-2 flex-1 text-left"
+                                      >
+                                        {isExpanded ? <ChevronDown className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} /> : <ChevronUp className="h-3.5 w-3.5 rotate-90" style={{ color: 'rgba(255,255,255,0.4)' }} />}
+                                        <Shield className="h-4 w-4" style={{ color: '#e879f9' }} />
+                                        <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{cp.name}</span>
+                                        {cp.leaderName && (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
+                                            <Crown className="h-3 w-3" /> {cp.leaderName}
+                                          </span>
+                                        )}
+                                        {!cp.leaderName && (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>Sin líder</span>
+                                        )}
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>
+                                          {members.length} miembro{members.length !== 1 ? 's' : ''}
+                                        </span>
+                                      </button>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => { setEditingCp(cp); setEditCpName(cp.name); setEditCpLeaderId(cp.leaderId ? String(cp.leaderId) : ''); }} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.4)' }} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
+                                        <button onClick={() => deleteCpMut.mutate({ id: cp.id })} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: '#ef4444' }} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
+                                      </div>
+                                    </div>
+
+                                    {/* Expanded: Members */}
+                                    {isExpanded && (
+                                      <div className="mt-3 ml-6 space-y-2" style={{ borderLeft: '2px solid rgba(232,121,249,0.15)', paddingLeft: '12px' }}>
+                                        {/* Current Members */}
+                                        {members.length > 0 ? (
+                                          <div className="space-y-1">
+                                            {members.map((m: any) => (
+                                              <div key={m.userId} className="flex items-center justify-between rounded-lg px-3 py-1.5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                                <div className="flex items-center gap-2">
+                                                  <User className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                                                  <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{m.characterName || m.name}</span>
+                                                  <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{m.email}</span>
+                                                </div>
+                                                <button onClick={() => removeMemberMut.mutate({ cpId: cp.id, userId: m.userId })} className="p-1 rounded hover:bg-white/5" style={{ color: '#ef4444' }} title="Quitar miembro"><X className="h-3 w-3" /></button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="text-[10px] py-1" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay miembros asignados.</p>
+                                        )}
+
+                                        {/* Add Member */}
+                                        <div className="pt-1">
+                                          <div className="relative">
+                                            <input
+                                              value={addMemberCpId === cp.id ? addMemberSearch : ''}
+                                              onChange={e => { setAddMemberCpId(cp.id); setAddMemberSearch(e.target.value); }}
+                                              onFocus={() => setAddMemberCpId(cp.id)}
+                                              placeholder="Buscar usuario para agregar..."
+                                              className="w-full rounded-lg px-3 py-1.5 text-xs"
+                                              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+                                            />
+                                            {addMemberCpId === cp.id && addMemberSearch.trim() && filteredAvailable.length > 0 && (
+                                              <div className="absolute top-full left-0 right-0 mt-1 rounded-lg max-h-40 overflow-y-auto" style={{ background: '#1e1e2e', border: '1px solid rgba(255,255,255,0.1)', zIndex: 50 }}>
+                                                {filteredAvailable.slice(0, 10).map((u: any) => (
+                                                  <button
+                                                    key={u.id}
+                                                    onClick={() => { addMemberMut.mutate({ cpId: cp.id, userId: u.id }); setAddMemberCpId(null); }}
+                                                    className="w-full text-left px-3 py-2 text-xs hover:bg-white/5 flex items-center gap-2"
+                                                    style={{ color: 'rgba(255,255,255,0.7)' }}
+                                                  >
+                                                    <User className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                                                    <span className="font-medium">{u.characterName || u.name}</span>
+                                                    <span style={{ color: 'rgba(255,255,255,0.3)' }}>{u.email}</span>
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => { setEditingCp(cp); setEditCpName(cp.name); setEditCpLeaderId(cp.leaderId ? String(cp.leaderId) : ''); }} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.4)' }} title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                                    <button onClick={() => deleteCpMut.mutate({ id: cp.id })} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: '#ef4444' }} title="Eliminar"><Trash2 className="h-3.5 w-3.5" /></button>
-                                  </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           );
                         })}

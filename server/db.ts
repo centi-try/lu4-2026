@@ -102,6 +102,7 @@ interface DatabaseSchema {
   // Warehouse-specific clans & CPs (independent from raid module)
   warehouseClans: any[];       // clanes del warehouse (id, name, createdAt)
   warehouseCPs: any[];         // command parties del warehouse (id, name, clanId, leaderId)
+  warehouseCPMembers: any[];   // miembros de CP (id, cpId, userId, addedAt)
 }
 
 const initialSchema: DatabaseSchema = {
@@ -140,6 +141,7 @@ const initialSchema: DatabaseSchema = {
   materialCatalog: [],
   warehouseClans: [],
   warehouseCPs: [],
+  warehouseCPMembers: [],
 };
 
 // ============================================================================
@@ -339,6 +341,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     materialCatalog: ensureArray(data?.materialCatalog),
     warehouseClans: ensureArray(data?.warehouseClans),
     warehouseCPs: ensureArray(data?.warehouseCPs),
+    warehouseCPMembers: ensureArray(data?.warehouseCPMembers),
   };
 }
 
@@ -3792,6 +3795,49 @@ export const deleteWarehouseCP = async (id: number) => {
   dbInstance.warehouseCPs = dbInstance.warehouseCPs.filter(
     (c: any) => Number(c.id) !== Number(id)
   );
+  // Also remove all members of this CP
+  if (dbInstance.warehouseCPMembers) {
+    dbInstance.warehouseCPMembers = dbInstance.warehouseCPMembers.filter(
+      (m: any) => Number(m.cpId) !== Number(id)
+    );
+  }
   saveDb(dbInstance);
   return cp;
+};
+
+// ─── Warehouse CP Members ───────────────────────────────────────────────
+
+export const getWarehouseCPMembers = async (cpId?: number) => {
+  const members = (dbInstance.warehouseCPMembers || []).slice();
+  if (cpId !== undefined) return members.filter((m: any) => Number(m.cpId) === Number(cpId));
+  return members;
+};
+
+export const addWarehouseCPMember = async (cpId: number, userId: number) => {
+  if (!dbInstance.warehouseCPMembers) dbInstance.warehouseCPMembers = [];
+  // Check if already a member
+  const existing = dbInstance.warehouseCPMembers.find(
+    (m: any) => Number(m.cpId) === Number(cpId) && Number(m.userId) === Number(userId)
+  );
+  if (existing) return existing;
+  const entry = {
+    id: genId(),
+    cpId: Number(cpId),
+    userId: Number(userId),
+    addedAt: nowIso(),
+  };
+  dbInstance.warehouseCPMembers.push(entry);
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const removeWarehouseCPMember = async (cpId: number, userId: number) => {
+  if (!dbInstance.warehouseCPMembers) dbInstance.warehouseCPMembers = [];
+  const idx = dbInstance.warehouseCPMembers.findIndex(
+    (m: any) => Number(m.cpId) === Number(cpId) && Number(m.userId) === Number(userId)
+  );
+  if (idx === -1) return null;
+  const removed = dbInstance.warehouseCPMembers.splice(idx, 1)[0];
+  saveDb(dbInstance);
+  return removed;
 };

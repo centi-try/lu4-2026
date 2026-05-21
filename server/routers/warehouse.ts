@@ -26,6 +26,9 @@ import {
   createWarehouseCP,
   updateWarehouseCP,
   deleteWarehouseCP,
+  getWarehouseCPMembers,
+  addWarehouseCPMember,
+  removeWarehouseCPMember,
 } from '../db';
 
 const nowIso = () => new Date().toISOString();
@@ -742,15 +745,29 @@ export const warehouseRouter = router({
       const allCps = await getWarehouseCPs();
       const allUsers = await getAllUsers();
       const allClans = await getWarehouseClans();
+      const allMembers = await getWarehouseCPMembers();
       return allCps.map((cp: any) => {
         const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
         const leader = cp.leaderId
           ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId))
           : null;
+        const cpMembers = allMembers.filter((m: any) => Number(m.cpId) === Number(cp.id));
+        const membersWithInfo = cpMembers.map((m: any) => {
+          const user = allUsers.find((u: any) => Number(u.id) === Number(m.userId));
+          return {
+            userId: Number(m.userId),
+            name: user?.name || user?.characterName || 'Desconocido',
+            characterName: user?.characterName || user?.name || '',
+            email: user?.email || '',
+            addedAt: m.addedAt,
+          };
+        });
         return {
           ...cp,
           clanName: clan?.name || 'Sin clan',
           leaderName: leader?.characterName || leader?.name || null,
+          members: membersWithInfo,
+          memberCount: membersWithInfo.length,
         };
       });
     }),
@@ -805,5 +822,26 @@ export const warehouseRouter = router({
           role: u.role,
         }));
     }),
+
+    addMember: protectedProcedure
+      .input(z.object({ cpId: z.number(), userId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const cp = await getWarehouseCPById(input.cpId);
+        if (!cp) throw new TRPCError({ code: 'NOT_FOUND', message: 'CP no encontrada.' });
+        const entry = await addWarehouseCPMember(input.cpId, input.userId);
+        return { success: true, entry };
+      }),
+
+    removeMember: protectedProcedure
+      .input(z.object({ cpId: z.number(), userId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const removed = await removeWarehouseCPMember(input.cpId, input.userId);
+        if (!removed) throw new TRPCError({ code: 'NOT_FOUND', message: 'Miembro no encontrado.' });
+        return { success: true };
+      }),
   }),
 });
