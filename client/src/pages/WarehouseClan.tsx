@@ -1710,8 +1710,8 @@ export default function WarehouseClan() {
             </div>
           </div>
 
-          {/* Create CP form */}
-          {showCreateCpForm && (whClans as any[]).length > 0 && (
+          {/* Create CP form — always visible like Raid */}
+          {(whClans as any[]).length > 0 && (
             <div className="rounded-xl p-4" style={{ background: 'rgba(232,121,249,0.06)', border: '1px solid rgba(232,121,249,0.2)' }}>
               <p className="text-sm font-semibold mb-3" style={{ color: '#e879f9' }}>Crear nueva CP</p>
               <div className="flex gap-3">
@@ -1721,7 +1721,6 @@ export default function WarehouseClan() {
                 </select>
                 <input value={newCpName} onChange={e => setNewCpName(e.target.value)} placeholder="Nombre de la CP..." className="flex-1" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} />
                 <button onClick={() => { if (newCpName.trim() && newCpClanId) { createCpMut.mutate({ name: newCpName.trim(), clanId: Number(newCpClanId) }); setNewCpName(''); } }} disabled={!newCpName.trim() || !newCpClanId} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ background: 'rgba(232,121,249,0.2)', color: '#e879f9', opacity: (!newCpName.trim() || !newCpClanId) ? 0.4 : 1 }}>Crear</button>
-                <button onClick={() => setShowCreateCpForm(false)} className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)' }}><X className="h-5 w-5" /></button>
               </div>
             </div>
           )}
