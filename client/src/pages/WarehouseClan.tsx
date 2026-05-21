@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Pencil } from 'lucide-react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Pencil, Shield } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -248,13 +248,24 @@ export default function WarehouseClan() {
   const roleLc = String(currentUser?.role || '').toLowerCase();
   const isSA = roleLc === 'super_admin';
   const isAdminOrAbove = isSA || roleLc === 'admin';
-  const canRegister = isSA || roleLc === 'admin' || roleLc === 'mapper';
+  const currentUserId = Number(currentUser?.id || 0);
 
-  // Data queries
-  const { data: warehouseItems = [], refetch: refetchItems } = trpc.warehouse.list.useQuery();
-  const { data: incoming = [], refetch: refetchIncoming } = trpc.warehouse.listIncoming.useQuery();
+  // CP selector
+  const [selectedCpId, setSelectedCpId] = useState<number | null>(null);
+  const { data: warehouseCps = [] } = trpc.warehouse.listCps.useQuery();
+  const ledCpIds = useMemo(() => {
+    return (warehouseCps as any[]).filter((cp: any) => Number(cp.leaderId) === currentUserId).map((cp: any) => Number(cp.id));
+  }, [warehouseCps, currentUserId]);
+  const isLeaderOfSelected = selectedCpId != null && ledCpIds.includes(selectedCpId);
+  const canRegister = isSA || roleLc === 'admin' || roleLc === 'mapper' || isLeaderOfSelected;
+  const canWriteSelected = isSA || isLeaderOfSelected;
+
+  // Data queries (filtered by selected CP)
+  const cpQueryArg = selectedCpId ? { cpId: selectedCpId } : undefined;
+  const { data: warehouseItems = [], refetch: refetchItems } = trpc.warehouse.list.useQuery(cpQueryArg);
+  const { data: incoming = [], refetch: refetchIncoming } = trpc.warehouse.listIncoming.useQuery(cpQueryArg);
   const { data: recipes = [], refetch: refetchRecipes } = trpc.warehouse.recipes.list.useQuery();
-  const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery();
+  const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery(cpQueryArg);
   const { data: catalog = [] } = trpc.warehouse.catalog.list.useQuery();
 
   // Category icons
@@ -427,6 +438,7 @@ export default function WarehouseClan() {
         category: r.category as string,
         quantity: parseInt(r.quantity, 10) || 1,
         imageUrl: r.imageUrl || undefined,
+        cpId: selectedCpId || undefined,
       });
     });
 
@@ -479,6 +491,7 @@ export default function WarehouseClan() {
       notes: projectNotes || undefined,
       priority: projectPriority || undefined,
       assignedCharacter: projectCharSelected,
+      cpId: selectedCpId || undefined,
     });
     setProjectOpen(false);
     setProjectRecipeId(''); setProjectNotes(''); setProjectPriority(false);
@@ -512,6 +525,46 @@ export default function WarehouseClan() {
           Bodega del clan — materiales para crafteo. Los ítems se acumulan automáticamente al confirmar.
         </p>
       </div>
+
+      {/* CP Selector */}
+      {(warehouseCps as any[]).length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 mr-1">
+            <Shield className="h-4 w-4" style={{ color: '#e879f9' }} />
+            <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>CP:</span>
+          </div>
+          <button
+            onClick={() => setSelectedCpId(null)}
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+            style={{
+              background: selectedCpId === null ? 'linear-gradient(135deg, rgba(232,121,249,0.2), rgba(168,85,247,0.2))' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${selectedCpId === null ? 'rgba(232,121,249,0.4)' : 'rgba(255,255,255,0.08)'}`,
+              color: selectedCpId === null ? '#e879f9' : 'rgba(255,255,255,0.5)',
+            }}
+          >
+            Todas
+          </button>
+          {(warehouseCps as any[]).map((cp: any) => {
+            const isActive = selectedCpId === Number(cp.id);
+            const isLeader = ledCpIds.includes(Number(cp.id));
+            return (
+              <button
+                key={cp.id}
+                onClick={() => setSelectedCpId(Number(cp.id))}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all flex items-center gap-1.5"
+                style={{
+                  background: isActive ? 'linear-gradient(135deg, rgba(232,121,249,0.2), rgba(168,85,247,0.2))' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${isActive ? 'rgba(232,121,249,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                  color: isActive ? '#e879f9' : 'rgba(255,255,255,0.5)',
+                }}
+              >
+                {cp.name}
+                {isLeader && <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>Líder</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tabs — pill style */}
       <div
@@ -765,7 +818,7 @@ export default function WarehouseClan() {
                       <span className="font-mono font-bold" style={{ color: '#60a5fa' }}>×{inc.quantity}</span>
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>por {inc.registeredBy}</span>
                     </div>
-                    {isSA && (
+                    {(isSA || canWriteSelected) && (
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => setConfirmAction({
@@ -920,12 +973,12 @@ export default function WarehouseClan() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1.5">
-                            {isAdminOrAbove && inStock && (
+                            {(isAdminOrAbove || canWriteSelected) && inStock && (
                               <button onClick={() => { setWithdrawItem(item); setWithdrawQty('1'); setWithdrawReason(''); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }} title="Descontar">
                                 <Minus className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            {isSA && (
+                            {(isSA || canWriteSelected) && (
                               <button
                                 onClick={() => setConfirmAction({
                                   title: 'Eliminar material',
@@ -1214,7 +1267,7 @@ export default function WarehouseClan() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Proyectos Activos</h3>
-              {isSA && (
+              {(isSA || canWriteSelected) && (
                 <button onClick={() => setProjectOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
                   <Hammer className="h-3.5 w-3.5" /> Nuevo Proyecto
                 </button>
@@ -1360,7 +1413,7 @@ export default function WarehouseClan() {
                           })()}
                         </tbody>
                       </table>
-                      {isSA && (
+                      {(isSA || canWriteSelected) && (
                         <div className="flex flex-wrap gap-2 mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                           {progress === 100 && (
                             <button
@@ -1543,7 +1596,7 @@ export default function WarehouseClan() {
                                 </div>
                               </div>
                             </div>
-                            {isSA && (
+                            {(isSA || canWriteSelected) && (
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => { setEditAssignmentModal({ id: Number(project.id), name: project.recipeName, current: project.assignedCharacter || '' }); setEditCharSelected(project.assignedCharacter || ''); setEditCharSearch(''); }}

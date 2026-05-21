@@ -14,14 +14,51 @@ import {
   dbInstance,
   saveDbToDisk,
   createAuditLog,
+  getCommandParties,
+  getAllUsers,
 } from '../db';
 
 const nowIso = () => new Date().toISOString();
 const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Resolve the CP(s) this user leads. Returns array of cpIds. */
+async function getCpIdsLedByUser(userId: number): Promise<number[]> {
+  const allCps = await getCommandParties();
+  return allCps
+    .filter((cp: any) => Number(cp.leaderId) === userId)
+    .map((cp: any) => Number(cp.id));
+}
+
+/** Check if user can WRITE to a given CP's warehouse (SA or CP leader). */
+async function canWriteCp(role: string, userId: number, cpId: number): Promise<boolean> {
+  if (role === 'super_admin') return true;
+  const ledCps = await getCpIdsLedByUser(userId);
+  return ledCps.includes(cpId);
+}
+
 // ─── Warehouse Items ────────────────────────────────────────────────────────
 
 export const warehouseRouter = router({
+  // List CPs available for warehouse (all users can see)
+  listCps: protectedProcedure.query(async () => {
+    const allCps = await getCommandParties();
+    const allUsers = await getAllUsers();
+    return allCps.map((cp: any) => {
+      const leader = cp.leaderId
+        ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId))
+        : null;
+      return {
+        id: Number(cp.id),
+        name: cp.name,
+        clanId: Number(cp.clanId),
+        leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+        leaderName: leader?.characterName || leader?.name || null,
+      };
+    });
+  }),
+
   // List all character names (primary + secondary) for assignment
   listCharacters: protectedProcedure.query(() => {
     const db = dbInstance;
@@ -41,40 +78,57 @@ export const warehouseRouter = router({
     return chars;
   }),
 
-  // List confirmed warehouse items
-  list: protectedProcedure.query(() => {
-    const db = dbInstance;
-    return (db.warehouseItems || []).slice();
-  }),
+  // List confirmed warehouse items (optionally filtered by cpId)
+  list: protectedProcedure
+    .input(z.object({ cpId: z.number().optional() }).optional())
+    .query(({ input }) => {
+      const db = dbInstance;
+      const items = (db.warehouseItems || []).slice();
+      if (input?.cpId) return items.filter((i: any) => Number(i.cpId) === Number(input.cpId));
+      return items;
+    }),
 
-  // List incoming (pending confirmation)
-  listIncoming: protectedProcedure.query(() => {
-    const db = dbInstance;
-    return (db.warehouseIncoming || []).slice();
-  }),
+  // List incoming (pending confirmation), optionally filtered by cpId
+  listIncoming: protectedProcedure
+    .input(z.object({ cpId: z.number().optional() }).optional())
+    .query(({ input }) => {
+      const db = dbInstance;
+      const items = (db.warehouseIncoming || []).slice();
+      if (input?.cpId) return items.filter((i: any) => Number(i.cpId) === Number(input.cpId));
+      return items;
+    }),
 
-  // Register new incoming material (mapper/admin/SA)
+  // Register new incoming material (SA, CP leader for their own CP, admin, mapper)
   register: protectedProcedure
     .input(z.object({
       name: z.string().min(1),
       category: z.string().min(1),
       quantity: z.number().int().min(1),
       imageUrl: z.string().optional(),
+      cpId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin' && role !== 'admin' && role !== 'mapper') {
+      const userId = Number(ctx.user?.id || 0);
+      // CP leader can register for their own CP
+      if (input.cpId) {
+        const allowed = await canWriteCp(role, userId, input.cpId);
+        if (!allowed && role !== 'admin' && role !== 'mapper') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para registrar en esta CP.' });
+        }
+      } else if (role !== 'super_admin' && role !== 'admin' && role !== 'mapper') {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo mapper, admin o super admin pueden registrar.' });
       }
       const db = dbInstance;
       if (!db.warehouseIncoming) db.warehouseIncoming = [];
-      const entry = {
+      const entry: any = {
         id: randId(),
         name: input.name.trim(),
         nameLower: input.name.trim().toLowerCase(),
         category: input.category,
         quantity: input.quantity,
         imageUrl: input.imageUrl || null,
+        cpId: input.cpId || null,
         status: 'EN_REGISTRO',
         registeredBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         registeredById: ctx.user?.id || 0,
@@ -92,14 +146,12 @@ export const warehouseRouter = router({
       return { success: true, entry };
     }),
 
-  // Confirm incoming → merge into warehouse (SA only)
+  // Confirm incoming → merge into warehouse (SA or CP leader of that CP)
   confirm: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede confirmar.' });
-      }
+      const userId = Number(ctx.user?.id || 0);
       const db = dbInstance;
       if (!db.warehouseIncoming) db.warehouseIncoming = [];
       if (!db.warehouseItems) db.warehouseItems = [];
@@ -107,9 +159,21 @@ export const warehouseRouter = router({
       if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND', message: 'Registro no encontrado.' });
       const incoming = db.warehouseIncoming[idx];
 
-      // Find existing warehouse item with same name (case-insensitive)
+      // Permission check: SA can confirm anything; CP leader can confirm their CP's items
+      if (incoming.cpId) {
+        const allowed = await canWriteCp(role, userId, Number(incoming.cpId));
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para confirmar en esta CP.' });
+      } else if (role !== 'super_admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede confirmar.' });
+      }
+
+      // Find existing warehouse item with same name AND same cpId (case-insensitive)
       const nameLower = String(incoming.name || '').trim().toLowerCase();
-      const existing = db.warehouseItems.find((w: any) => String(w.nameLower || w.name || '').toLowerCase() === nameLower);
+      const incomingCpId = incoming.cpId || null;
+      const existing = db.warehouseItems.find((w: any) =>
+        String(w.nameLower || w.name || '').toLowerCase() === nameLower &&
+        (w.cpId || null) == incomingCpId
+      );
 
       if (existing) {
         // Merge: add quantity
@@ -132,6 +196,7 @@ export const warehouseRouter = router({
           category: incoming.category,
           quantity: Number(incoming.quantity) || 0,
           imageUrl: incoming.imageUrl || null,
+          cpId: incomingCpId,
           createdAt: nowIso(),
           updatedAt: nowIso(),
         });
@@ -175,7 +240,7 @@ export const warehouseRouter = router({
       return { success: true };
     }),
 
-  // Withdraw stock (admin/SA) — descontar materiales
+  // Withdraw stock (SA, admin, or CP leader of the item's CP)
   withdraw: protectedProcedure
     .input(z.object({
       id: z.number(),
@@ -184,13 +249,18 @@ export const warehouseRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin' && role !== 'admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Admin o Super Admin pueden descontar.' });
-      }
+      const userId = Number(ctx.user?.id || 0);
       const db = dbInstance;
       if (!db.warehouseItems) db.warehouseItems = [];
       const item = db.warehouseItems.find((w: any) => Number(w.id) === Number(input.id));
       if (!item) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ítem no encontrado.' });
+      // Permission check
+      if (item.cpId) {
+        const allowed = await canWriteCp(role, userId, Number(item.cpId));
+        if (!allowed && role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para descontar en esta CP.' });
+      } else if (role !== 'super_admin' && role !== 'admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Admin o Super Admin pueden descontar.' });
+      }
       if ((Number(item.quantity) || 0) < input.quantity) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: `Stock insuficiente. Disponible: ${item.quantity}` });
       }
@@ -207,18 +277,23 @@ export const warehouseRouter = router({
       return { success: true, remaining: item.quantity };
     }),
 
-  // Delete warehouse item (SA only)
+  // Delete warehouse item (SA or CP leader)
   deleteItem: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar.' });
-      }
+      const userId = Number(ctx.user?.id || 0);
       const db = dbInstance;
       if (!db.warehouseItems) return { success: true };
       const idx = db.warehouseItems.findIndex((w: any) => Number(w.id) === Number(input.id));
       if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND' });
+      const target = db.warehouseItems[idx];
+      if (target.cpId) {
+        const allowed = await canWriteCp(role, userId, Number(target.cpId));
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para eliminar en esta CP.' });
+      } else if (role !== 'super_admin') {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar.' });
+      }
       const removed = db.warehouseItems.splice(idx, 1)[0];
       saveDbToDisk();
       await createAuditLog({
@@ -327,10 +402,14 @@ export const warehouseRouter = router({
 
   // ─── Craft Projects ─────────────────────────────────────────────────────
   projects: router({
-    list: protectedProcedure.query(() => {
-      const db = dbInstance;
-      return (db.craftProjects || []).slice();
-    }),
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number().optional() }).optional())
+      .query(({ input }) => {
+        const db = dbInstance;
+        const projects = (db.craftProjects || []).slice();
+        if (input?.cpId) return projects.filter((p: any) => Number(p.cpId) === Number(input.cpId));
+        return projects;
+      }),
 
     create: protectedProcedure
       .input(z.object({
@@ -338,10 +417,15 @@ export const warehouseRouter = router({
         notes: z.string().optional(),
         priority: z.boolean().optional(),
         assignedCharacter: z.string().optional(),
+        cpId: z.number().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
-        if (role !== 'super_admin') {
+        const userId = Number(ctx.user?.id || 0);
+        if (input.cpId) {
+          const allowed = await canWriteCp(role, userId, input.cpId);
+          if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para crear proyectos en esta CP.' });
+        } else if (role !== 'super_admin') {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede crear proyectos.' });
         }
         const db = dbInstance;
@@ -356,6 +440,7 @@ export const warehouseRouter = router({
           notes: input.notes || '',
           priority: input.priority || false,
           assignedCharacter: input.assignedCharacter || '',
+          cpId: input.cpId || null,
           createdAt: nowIso(),
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         };
@@ -393,21 +478,30 @@ export const warehouseRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
-        if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN' });
-        }
+        const userId = Number(ctx.user?.id || 0);
         const db = dbInstance;
         const project = (db.craftProjects || []).find((p: any) => Number(p.id) === Number(input.id));
         if (!project) throw new TRPCError({ code: 'NOT_FOUND' });
+        // Permission check: SA or CP leader
+        if (project.cpId) {
+          const allowed = await canWriteCp(role, userId, Number(project.cpId));
+          if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para completar proyectos en esta CP.' });
+        } else if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
         const recipe = (db.craftRecipes || []).find((r: any) => Number(r.id) === Number(project.recipeId));
         if (!recipe) throw new TRPCError({ code: 'NOT_FOUND', message: 'Receta asociada no encontrada.' });
 
-        // Deduct all materials recursively from warehouse
+        // Deduct all materials recursively from warehouse (same CP)
+        const projectCpId = project.cpId || null;
         const deductMats = (mats: any[]) => {
           for (const mat of mats) {
             const need = Number(mat.quantity) || 0;
             const nameLower = String(mat.name || '').trim().toLowerCase();
-            const warehouseItem = (db.warehouseItems || []).find((w: any) => String(w.nameLower || w.name || '').toLowerCase() === nameLower);
+            const warehouseItem = (db.warehouseItems || []).find((w: any) =>
+              String(w.nameLower || w.name || '').toLowerCase() === nameLower &&
+              (w.cpId || null) == projectCpId
+            );
             if (warehouseItem && need > 0) {
               warehouseItem.quantity = Math.max(0, (Number(warehouseItem.quantity) || 0) - need);
               warehouseItem.updatedAt = nowIso();
@@ -440,12 +534,16 @@ export const warehouseRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
-        if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN' });
-        }
+        const userId = Number(ctx.user?.id || 0);
         const db = dbInstance;
         const project = (db.craftProjects || []).find((p: any) => Number(p.id) === Number(input.id));
         if (!project) throw new TRPCError({ code: 'NOT_FOUND' });
+        if (project.cpId) {
+          const allowed = await canWriteCp(role, userId, Number(project.cpId));
+          if (!allowed) throw new TRPCError({ code: 'FORBIDDEN' });
+        } else if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
         const oldChar = project.assignedCharacter || '(sin asignar)';
         project.assignedCharacter = input.assignedCharacter;
         saveDbToDisk();
@@ -463,13 +561,18 @@ export const warehouseRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
-        if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN' });
-        }
+        const userId = Number(ctx.user?.id || 0);
         const db = dbInstance;
         if (!db.craftProjects) return { success: true };
         const idx = db.craftProjects.findIndex((p: any) => Number(p.id) === Number(input.id));
         if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND' });
+        const target = db.craftProjects[idx];
+        if (target.cpId) {
+          const allowed = await canWriteCp(role, userId, Number(target.cpId));
+          if (!allowed) throw new TRPCError({ code: 'FORBIDDEN' });
+        } else if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN' });
+        }
         db.craftProjects.splice(idx, 1);
         saveDbToDisk();
         return { success: true };
