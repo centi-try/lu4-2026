@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ClansAndCps from "./pages/ClansAndCps";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/images" component={() => <ProtectedRoute component={Images} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
+      <Route path="/clans" component={() => <ProtectedRoute component={ClansAndCps} />} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

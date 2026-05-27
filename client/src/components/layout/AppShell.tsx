@@ -13,6 +13,7 @@ const navItems = [
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
   { href: '/images', label: 'Imágenes', icon: ImageIcon, desc: 'Gestión de imágenes' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
+  { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
 ];
 
 const adminNavItems = [

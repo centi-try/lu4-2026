@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { DEFAULT_SUPER_ADMIN_EMAIL, DEFAULT_SUPER_ADMIN_NAME, getDb, getUserByEmail, hashStoredPassword, upsertUser } from "../db";
+import { DEFAULT_SUPER_ADMIN_EMAIL, DEFAULT_SUPER_ADMIN_NAME, getDb, getUserByEmail, hashStoredPassword, upsertUser, getClans, getCommandParties, getAvailableClasses } from "../db";
 
 // Esquemas dummy para compatibilidad
 const users = { name: 'users' };
@@ -46,6 +46,9 @@ async function startServer() {
       const email = String(req.body?.email || '').trim().toLowerCase();
       const characterName = String(req.body?.characterName || '').trim();
       const password = String(req.body?.password || '');
+      const clanId = req.body?.clanId ? Number(req.body.clanId) : null;
+      const cpId = req.body?.cpId ? Number(req.body.cpId) : null;
+      const classMain = req.body?.classMain ? String(req.body.classMain).trim() : null;
 
       if (!email || !characterName || password.length < 6) {
         return res.status(400).json({ message: 'Datos de registro inválidos' });
@@ -66,7 +69,11 @@ async function startServer() {
         loginMethod: 'local',
         role: 'user',
         isActive: true,
-        openId: `local-${email}`
+        openId: `local-${email}`,
+        clanId: clanId || null,
+        clanCpId: cpId || null,
+        cpStatus: cpId ? 'pending' : null,
+        classMain: classMain || null,
       });
       
       // Establecer cookie de sesión
@@ -98,6 +105,27 @@ async function startServer() {
   // Endpoint de seeding desactivado para producción
   app.post('/api/seed-demo', express.json(), async (req, res) => {
     res.status(403).json({ message: 'Seeding is disabled in production' });
+  });
+
+  // Public endpoint for registration form: list clans + CPs (no auth required)
+  app.get('/api/public/clans-and-cps', async (_req, res) => {
+    try {
+      const clans = await getClans();
+      const cps = await getCommandParties();
+      const classes = await getAvailableClasses();
+      res.json({
+        clans: clans.map((c: any) => ({ id: Number(c.id), name: c.name })),
+        commandParties: cps.map((cp: any) => ({
+          id: Number(cp.id),
+          name: cp.name,
+          clanId: Number(cp.clanId),
+        })),
+        availableClasses: classes.map((c: any) => ({ id: Number(c.id), name: c.name })),
+      });
+    } catch (error) {
+      console.error('Error fetching clans and CPs:', error);
+      res.status(500).json({ clans: [], commandParties: [], availableClasses: [] });
+    }
   });
 
   app.get('/api/auth/me', async (req, res) => {
