@@ -7,6 +7,7 @@ import { FancySelect, type FancyOption } from '../components/ui/FancySelect';
 import { categoryMeta, CATEGORIES } from '../lib/category-meta';
 import type { ItemCategory } from '../lib/types';
 import { toast } from 'sonner';
+import RaidClansAndCps from './raid/RaidClansAndCps';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CatalogTypeahead
@@ -1682,129 +1683,7 @@ export default function WarehouseClan() {
 
       {/* ═══ TAB: CONFIG ═══ */}
       {tab === 'config' && isSA && (
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(232,121,249,0.15)', border: '1px solid rgba(232,121,249,0.3)' }}>
-                <Shield className="h-5 w-5" style={{ color: '#e879f9' }} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Clanes & Command Parties</h2>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{(whClans as any[]).length} clan(es) · {(whCps as any[]).length} CP(s)</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowCreateCpForm(!showCreateCpForm)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium" style={{ background: 'rgba(232,121,249,0.15)', border: '1px solid rgba(232,121,249,0.3)', color: '#e879f9' }}>
-                <Plus className="h-5 w-5" /> Nueva CP
-              </button>
-            </div>
-          </div>
-
-          {/* Create Clan form */}
-          <div className="rounded-xl p-4" style={{ background: 'rgba(123,241,214,0.04)', border: '1px solid rgba(123,241,214,0.15)' }}>
-            <p className="text-sm font-semibold mb-3" style={{ color: '#7bf1d6' }}>Crear nuevo Clan</p>
-            <div className="flex gap-3">
-              <input value={newClanName} onChange={e => setNewClanName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newClanName.trim()) { createClanMut.mutate({ name: newClanName.trim() }); setNewClanName(''); } }} placeholder="Nombre del clan..." className="input-dark flex-1" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} />
-              <button onClick={() => { if (newClanName.trim()) { createClanMut.mutate({ name: newClanName.trim() }); setNewClanName(''); } }} disabled={!newClanName.trim()} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ background: 'rgba(123,241,214,0.2)', color: '#7bf1d6', opacity: newClanName.trim() ? 1 : 0.4 }}>Crear</button>
-            </div>
-          </div>
-
-          {/* Create CP form — always visible like Raid */}
-          {(whClans as any[]).length > 0 && (
-            <div className="rounded-xl p-4" style={{ background: 'rgba(232,121,249,0.06)', border: '1px solid rgba(232,121,249,0.2)' }}>
-              <p className="text-sm font-semibold mb-3" style={{ color: '#e879f9' }}>Crear nueva CP</p>
-              <div className="flex gap-3">
-                <select value={newCpClanId} onChange={e => setNewCpClanId(e.target.value)} className="flex-1" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem', appearance: 'auto' as any }}>
-                  <option value="">Seleccionar clan...</option>
-                  {(whClans as any[]).map((c: any) => (<option key={c.id} value={String(c.id)}>{c.name}</option>))}
-                </select>
-                <input value={newCpName} onChange={e => setNewCpName(e.target.value)} placeholder="Nombre de la CP..." className="flex-1" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} />
-                <button onClick={() => { if (newCpName.trim() && newCpClanId) { createCpMut.mutate({ name: newCpName.trim(), clanId: Number(newCpClanId) }); setNewCpName(''); } }} disabled={!newCpName.trim() || !newCpClanId} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ background: 'rgba(232,121,249,0.2)', color: '#e879f9', opacity: (!newCpName.trim() || !newCpClanId) ? 0.4 : 1 }}>Crear</button>
-              </div>
-            </div>
-          )}
-
-          {/* Clans + CPs tree */}
-          {(whClans as any[]).map((clan: any) => {
-            const clanCps = (whCps as any[]).filter((cp: any) => Number(cp.clanId) === Number(clan.id));
-            const isEditingClan = editingClan?.id === clan.id;
-            return (
-              <div key={clan.id} className="rounded-xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                {/* Clan header */}
-                <div className="flex items-center gap-3 p-4" style={{ background: 'rgba(123,241,214,0.04)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <Flag className="h-6 w-6 shrink-0" style={{ color: '#7bf1d6' }} />
-                  <div className="flex-1 min-w-0">
-                    {isEditingClan ? (
-                      <div className="flex items-center gap-2">
-                        <input value={editClanName} onChange={e => setEditClanName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { updateClanMut.mutate({ id: clan.id, name: editClanName.trim() }); setEditingClan(null); } if (e.key === 'Escape') setEditingClan(null); }} className="flex-1" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(123,241,214,0.3)', color: 'rgba(255,255,255,0.9)', borderRadius: '0.375rem', padding: '0.25rem 0.5rem', fontSize: '0.875rem' }} autoFocus />
-                        <button onClick={() => { updateClanMut.mutate({ id: clan.id, name: editClanName.trim() }); setEditingClan(null); }} className="p-1.5 rounded" style={{ color: '#34d399' }}><CheckCircle className="h-4 w-4" /></button>
-                        <button onClick={() => setEditingClan(null)} className="p-1.5 rounded" style={{ color: '#ef4444' }}><X className="h-4 w-4" /></button>
-                      </div>
-                    ) : (
-                      <p className="text-sm font-semibold" style={{ color: '#7bf1d6' }}>{clan.name}</p>
-                    )}
-                  </div>
-                  <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: 'rgba(123,241,214,0.1)', color: '#7bf1d6' }}>{clanCps.length} CP{clanCps.length !== 1 ? 's' : ''}</span>
-                  <button onClick={() => syncFromRaidMut.mutate({ clanId: clan.id })} className="p-2 rounded-lg hover:bg-white/5 transition" style={{ color: '#38bdf8' }} title="Sincronizar miembros desde Raid"><RefreshCw className={`h-5 w-5 ${syncFromRaidMut.isPending ? 'animate-spin' : ''}`} /></button>
-                  {!isEditingClan && (
-                    <>
-                      <button onClick={() => { setEditingClan(clan); setEditClanName(clan.name); }} className="p-2 rounded-lg hover:bg-white/5 transition" style={{ color: '#a78bfa' }} title="Editar Clan"><Pencil className="h-5 w-5" /></button>
-                      <button onClick={() => deleteClanMut.mutate({ id: clan.id })} className="p-2 rounded-lg hover:bg-white/5 transition" style={{ color: '#ef4444' }} title="Eliminar Clan"><Trash2 className="h-5 w-5" /></button>
-                    </>
-                  )}
-                </div>
-
-                {/* CPs list */}
-                {clanCps.length === 0 && (
-                  <p className="p-4 text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay CPs creadas para este clan</p>
-                )}
-                {clanCps.map((cp: any) => (
-                  <WarehouseCpRow
-                    key={cp.id}
-                    cp={cp}
-                    expanded={expandedConfigCps.has(Number(cp.id))}
-                    onToggle={() => setExpandedConfigCps(prev => { const s = new Set(prev); if (s.has(Number(cp.id))) s.delete(Number(cp.id)); else s.add(Number(cp.id)); return s; })}
-                    onEdit={() => { setEditingCp(cp); setEditCpName(cp.name); setEditCpLeaderId(cp.leaderId ? String(cp.leaderId) : ''); }}
-                    onDelete={() => deleteCpMut.mutate({ id: cp.id })}
-                    onRemoveMember={(userId: number) => removeMemberMut.mutate({ cpId: cp.id, userId })}
-                    onAddMember={(userId: number) => addMemberMut.mutate({ cpId: cp.id, userId })}
-                    allAppUsers={allAppUsers as any[]}
-                  />
-                ))}
-              </div>
-            );
-          })}
-
-          {/* Edit CP modal */}
-          {editingCp && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-              <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(232,121,249,0.2)' }}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ background: 'rgba(232,121,249,0.15)' }}><Pencil className="h-5 w-5" style={{ color: '#e879f9' }} /></div>
-                  <h3 className="text-base font-semibold" style={{ color: '#e879f9' }}>Editar CP</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Nombre</label>
-                    <input value={editCpName} onChange={e => setEditCpName(e.target.value)} className="w-full" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem' }} />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Leader</label>
-                    <select value={editCpLeaderId} onChange={e => setEditCpLeaderId(e.target.value)} className="w-full" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontSize: '0.875rem', appearance: 'auto' as any }}>
-                      <option value="">Sin leader asignado</option>
-                      {(allAppUsers as any[]).map((u: any) => (<option key={u.id} value={String(u.id)}>{u.characterName || u.name}</option>))}
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-5">
-                  <button onClick={() => setEditingCp(null)} className="flex-1 py-2.5 rounded-xl text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>Cancelar</button>
-                  <button onClick={() => { updateCpMut.mutate({ id: editingCp.id, name: editCpName.trim() || undefined, leaderId: editCpLeaderId ? Number(editCpLeaderId) : null }); setEditingCp(null); }} className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ background: 'rgba(232,121,249,0.2)', border: '1px solid rgba(232,121,249,0.3)', color: '#e879f9' }}>Guardar</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <RaidClansAndCps />
       )}
 
       {/* ═══ MODALS ═══ */}
