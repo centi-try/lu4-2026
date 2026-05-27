@@ -14,7 +14,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, characterName: string) => Promise<void>;
+  register: (email: string, password: string, characterName: string, clanId?: number | null, cpId?: number | null, classMain?: string | null) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -77,12 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, characterName: string) => {
+  const register = async (email: string, password: string, characterName: string, clanId?: number | null, cpId?: number | null, classMain?: string | null) => {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, password, characterName }),
+      body: JSON.stringify({ email, password, characterName, clanId: clanId || null, cpId: cpId || null, classMain: classMain || null }),
     });
 
     const data = await response.json();

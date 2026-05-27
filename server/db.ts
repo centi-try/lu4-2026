@@ -18,6 +18,10 @@ interface DatabaseSchema {
   auditLogs: any[];
   purchases: any[];
   settings: any[];
+  clans: any[];
+  commandParties: any[];
+  availableClasses: any[];
+  secondaryCharacters: any[];
 }
 
 const initialSchema: DatabaseSchema = {
@@ -27,7 +31,11 @@ const initialSchema: DatabaseSchema = {
   salesCycles: [],
   auditLogs: [],
   purchases: [],
-  settings: []
+  settings: [],
+  clans: [],
+  commandParties: [],
+  availableClasses: [],
+  secondaryCharacters: [],
 };
 
 function hashLocalPassword(password: string): string {
@@ -122,6 +130,10 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     auditLogs: ensureArray(data?.auditLogs),
     purchases: ensureArray(data?.purchases),
     settings: Array.isArray(data?.settings) ? data.settings : (data?.settings ? [data.settings] : []),
+    clans: ensureArray(data?.clans),
+    commandParties: ensureArray(data?.commandParties),
+    availableClasses: ensureArray(data?.availableClasses),
+    secondaryCharacters: ensureArray(data?.secondaryCharacters),
   };
 }
 
@@ -619,6 +631,10 @@ export const getAllUsers = async () => {
     createdAt: u.createdAt,
     lastSignedIn: u.lastSignedIn,
     openId: u.openId,
+    clanId: u.clanId || null,
+    clanCpId: u.clanCpId || null,
+    cpStatus: u.cpStatus || null,
+    classMain: u.classMain || null,
   }));
 };
 
@@ -656,4 +672,274 @@ export const updateUserPassword = async (userId: number, passwordHash: string) =
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], passwordHash, updatedAt: new Date() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
+};
+
+// ============================================================
+// Clans
+// ============================================================
+
+function genId() {
+  return Math.floor(Math.random() * 1000000000);
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+export const getClans = async () => {
+  return (dbInstance.clans || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getClanById = async (id: number) => {
+  return (dbInstance.clans || []).find((c: any) => Number(c.id) === Number(id));
+};
+
+export const createClan = async (data: { name: string; tag?: string | null; description?: string | null }) => {
+  const newClan = {
+    id: genId(),
+    name: data.name.trim(),
+    tag: data.tag || null,
+    description: data.description || null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.clans.push(newClan);
+  saveDb(dbInstance);
+  return newClan;
+};
+
+export const updateClan = async (id: number, data: Partial<{ name: string; tag: string | null; description: string | null }>) => {
+  const idx = dbInstance.clans.findIndex((c: any) => Number(c.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.clans[idx] = { ...dbInstance.clans[idx], ...data, updatedAt: nowIso() };
+  saveDb(dbInstance);
+  return dbInstance.clans[idx];
+};
+
+export const deleteClan = async (id: number) => {
+  const clan = dbInstance.clans.find((c: any) => Number(c.id) === Number(id));
+  if (!clan) return null;
+  dbInstance.clans = dbInstance.clans.filter((c: any) => Number(c.id) !== Number(id));
+  saveDb(dbInstance);
+  return clan;
+};
+
+// ============================================================
+// Command Parties (CP)
+// ============================================================
+
+export const getCommandParties = async () => {
+  return (dbInstance.commandParties || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const getCommandPartiesByClan = async (clanId: number) => {
+  return (dbInstance.commandParties || []).filter(
+    (cp: any) => Number(cp.clanId) === Number(clanId)
+  );
+};
+
+export const getCommandPartyById = async (id: number) => {
+  return (dbInstance.commandParties || []).find((cp: any) => Number(cp.id) === Number(id));
+};
+
+export const createCommandParty = async (data: { name: string; clanId: number }) => {
+  if (!dbInstance.commandParties) dbInstance.commandParties = [];
+  const newCp = {
+    id: genId(),
+    name: data.name.trim(),
+    clanId: Number(data.clanId),
+    leaderId: null as number | null,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  dbInstance.commandParties.push(newCp);
+  saveDb(dbInstance);
+  return newCp;
+};
+
+export const updateCommandParty = async (id: number, data: Partial<{
+  name: string; clanId: number; leaderId: number | null;
+}>) => {
+  if (!dbInstance.commandParties) dbInstance.commandParties = [];
+  const idx = dbInstance.commandParties.findIndex((cp: any) => Number(cp.id) === Number(id));
+  if (idx === -1) return null;
+  dbInstance.commandParties[idx] = { ...dbInstance.commandParties[idx], ...data, updatedAt: nowIso() };
+  saveDb(dbInstance);
+  return dbInstance.commandParties[idx];
+};
+
+export const deleteCommandParty = async (id: number) => {
+  if (!dbInstance.commandParties) dbInstance.commandParties = [];
+  const cp = dbInstance.commandParties.find((c: any) => Number(c.id) === Number(id));
+  if (!cp) return null;
+  dbInstance.commandParties = dbInstance.commandParties.filter(
+    (c: any) => Number(c.id) !== Number(id)
+  );
+  (dbInstance.users || []).forEach((u: any) => {
+    if (Number(u.clanCpId) === Number(id)) {
+      u.clanCpId = null;
+      u.cpStatus = 'removed';
+    }
+  });
+  saveDb(dbInstance);
+  return cp;
+};
+
+// ============================================================
+// User ↔ Clan/CP membership
+// ============================================================
+
+export const getUsersByCp = async (cpId: number) => {
+  return (dbInstance.users || []).filter(
+    (u: any) => Number(u.clanCpId) === Number(cpId)
+  );
+};
+
+export const getUsersByClan = async (clanId: number) => {
+  return (dbInstance.users || []).filter(
+    (u: any) => Number(u.clanId) === Number(clanId)
+  );
+};
+
+export const getUsersWithoutCp = async () => {
+  return (dbInstance.users || []).filter(
+    (u: any) => u.clanId && !u.clanCpId && u.cpStatus === 'removed'
+  );
+};
+
+export const setUserCpStatus = async (
+  userId: number,
+  status: 'confirmed' | 'removed',
+  _actorUserId?: number,
+) => {
+  const user = (dbInstance.users || []).find((u: any) => Number(u.id) === Number(userId));
+  if (!user) throw new Error(`Usuario ${userId} no encontrado`);
+  user.cpStatus = status;
+  if (status === 'removed') {
+    user.clanCpId = null;
+  }
+  user.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return user;
+};
+
+export const reassignUserCp = async (
+  userId: number,
+  clanId: number | null,
+  cpId: number | null,
+  _actorUserId?: number,
+) => {
+  const user = (dbInstance.users || []).find((u: any) => Number(u.id) === Number(userId));
+  if (!user) throw new Error(`Usuario ${userId} no encontrado`);
+  user.clanId = clanId;
+  user.clanCpId = cpId;
+  user.cpStatus = cpId ? 'pending' : null;
+  user.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return user;
+};
+
+// ============================================================
+// Available character classes
+// ============================================================
+
+export const getAvailableClasses = async () => {
+  return (dbInstance.availableClasses || []).slice().sort((a: any, b: any) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+};
+
+export const addAvailableClass = async (name: string) => {
+  if (!dbInstance.availableClasses) dbInstance.availableClasses = [];
+  const exists = dbInstance.availableClasses.some(
+    (c: any) => String(c.name).toLowerCase() === name.trim().toLowerCase()
+  );
+  if (exists) throw new Error(`La clase "${name}" ya existe`);
+  const entry = { id: genId(), name: name.trim(), createdAt: nowIso() };
+  dbInstance.availableClasses.push(entry);
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const updateAvailableClass = async (id: number, name: string) => {
+  if (!dbInstance.availableClasses) return null;
+  const cls = dbInstance.availableClasses.find((c: any) => Number(c.id) === Number(id));
+  if (!cls) return null;
+  const trimmed = name.trim();
+  const duplicate = dbInstance.availableClasses.some(
+    (c: any) => Number(c.id) !== Number(id) && String(c.name).toLowerCase() === trimmed.toLowerCase()
+  );
+  if (duplicate) throw new Error(`La clase "${trimmed}" ya existe`);
+  cls.name = trimmed;
+  cls.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return cls;
+};
+
+export const deleteAvailableClass = async (id: number) => {
+  if (!dbInstance.availableClasses) return null;
+  const idx = dbInstance.availableClasses.findIndex((c: any) => Number(c.id) === Number(id));
+  if (idx === -1) return null;
+  const removed = dbInstance.availableClasses.splice(idx, 1)[0];
+  saveDb(dbInstance);
+  return removed;
+};
+
+// ============================================================
+// Secondary characters (alts per user)
+// ============================================================
+
+export const getSecondaryCharacters = async (userId: number) => {
+  return (dbInstance.secondaryCharacters || []).filter(
+    (sc: any) => Number(sc.userId) === Number(userId)
+  );
+};
+
+export const getSecondaryCharactersByUsers = async (userIds: number[]) => {
+  const idSet = new Set(userIds.map(Number));
+  return (dbInstance.secondaryCharacters || []).filter(
+    (sc: any) => idSet.has(Number(sc.userId))
+  );
+};
+
+export const addSecondaryCharacter = async (userId: number, data: { name: string; className?: string }) => {
+  if (!dbInstance.secondaryCharacters) dbInstance.secondaryCharacters = [];
+  const entry = {
+    id: genId(),
+    userId: Number(userId),
+    name: data.name.trim(),
+    className: data.className?.trim() || null,
+    createdAt: nowIso(),
+  };
+  dbInstance.secondaryCharacters.push(entry);
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const updateSecondaryCharacter = async (id: number, userId: number, data: { name?: string; className?: string | null }) => {
+  if (!dbInstance.secondaryCharacters) return null;
+  const sc = dbInstance.secondaryCharacters.find(
+    (s: any) => Number(s.id) === Number(id) && Number(s.userId) === Number(userId)
+  );
+  if (!sc) return null;
+  if (data.name !== undefined) sc.name = data.name.trim();
+  if (data.className !== undefined) sc.className = data.className?.trim() || null;
+  sc.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return sc;
+};
+
+export const deleteSecondaryCharacter = async (id: number, userId: number) => {
+  if (!dbInstance.secondaryCharacters) return null;
+  const idx = dbInstance.secondaryCharacters.findIndex(
+    (s: any) => Number(s.id) === Number(id) && Number(s.userId) === Number(userId)
+  );
+  if (idx === -1) return null;
+  const removed = dbInstance.secondaryCharacters.splice(idx, 1)[0];
+  saveDb(dbInstance);
+  return removed;
 };

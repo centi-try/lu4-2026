@@ -10,6 +10,7 @@ import { dashboardRouter } from "./routers/dashboard";
 import { uploadsRouter } from "./routers/uploads";
 import { settingsRouter } from "./routers/settings";
 import { adminUsersRouter } from "./routers/adminUsers";
+import { clansRouter } from "./routers/clans";
 
 export const appRouter = router({
   system: systemRouter,
@@ -31,6 +32,7 @@ export const appRouter = router({
   uploads: uploadsRouter,
   settings: settingsRouter,
   adminUsers: adminUsersRouter,
+  clanModule: clansRouter,
 });
 
 export type AppRouter = typeof appRouter;
