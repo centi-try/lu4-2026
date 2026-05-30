@@ -41,9 +41,9 @@ const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Resolve the warehouse CP(s) this user leads. Returns array of cpIds. */
+/** Resolve the raid CP(s) this user leads. Returns array of cpIds. */
 async function getCpIdsLedByUser(userId: number): Promise<number[]> {
-  const allCps = await getWarehouseCPs();
+  const allCps = await getRaidCommandParties();
   return allCps
     .filter((cp: any) => Number(cp.leaderId) === userId)
     .map((cp: any) => Number(cp.id));
@@ -59,9 +59,9 @@ async function canWriteCp(role: string, userId: number, cpId: number): Promise<b
 // ─── Warehouse Items ────────────────────────────────────────────────────────
 
 export const warehouseRouter = router({
-  // List warehouse CPs (all users can see)
+  // List raid CPs (unified — all users can see)
   listCps: protectedProcedure.query(async () => {
-    const allCps = await getWarehouseCPs();
+    const allCps = await getRaidCommandParties();
     const allUsers = await getAllUsers();
     return allCps.map((cp: any) => {
       const leader = cp.leaderId

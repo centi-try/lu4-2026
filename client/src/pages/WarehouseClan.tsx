@@ -861,6 +861,7 @@ export default function WarehouseClan() {
                         ) : null;
                       })()}
                       <span className="font-mono font-bold" style={{ color: '#60a5fa' }}>×{inc.quantity}</span>
+                      {(() => { const cp = (warehouseCps as any[]).find((c: any) => Number(c.id) === Number(inc.cpId)); return cp ? <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(232,121,249,0.1)', border: '1px solid rgba(232,121,249,0.25)', color: '#e879f9' }}>{cp.name}</span> : null; })()}
                       <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>por {inc.registeredBy}</span>
                     </div>
                     {(isSA || canWriteSelected) && (
@@ -967,6 +968,7 @@ export default function WarehouseClan() {
                   <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>IMG</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>NOMBRE</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>CP</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>CATEGORÍA</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>CANTIDAD</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>ESTADO</th>
@@ -975,7 +977,7 @@ export default function WarehouseClan() {
                 </thead>
                 <tbody>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={6} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    <tr><td colSpan={7} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
                       No hay materiales en la bodega.
                     </td></tr>
                   )}
@@ -996,6 +998,18 @@ export default function WarehouseClan() {
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const cp = (warehouseCps as any[]).find((c: any) => Number(c.id) === Number(item.cpId));
+                            return cp ? (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'rgba(232,121,249,0.1)', border: '1px solid rgba(232,121,249,0.25)', color: '#e879f9' }}>
+                                {cp.name}
+                              </span>
+                            ) : (
+                              <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${meta.color}15`, border: `1px solid ${meta.color}30`, color: meta.color }}>
@@ -1368,6 +1382,7 @@ export default function WarehouseClan() {
                           {isPriority && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}>PRIORIDAD</span>}
                         </div>
                         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                          {(() => { const cp = (warehouseCps as any[]).find((c: any) => Number(c.id) === Number(project.cpId)); return cp ? <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 mr-1.5 text-[10px] font-semibold" style={{ background: 'rgba(232,121,249,0.1)', border: '1px solid rgba(232,121,249,0.25)', color: '#e879f9' }}>{cp.name}</span> : null; })()}
                           Creado por {project.createdBy} · {new Date(project.createdAt).toLocaleDateString('es-CL')}
                           {project.assignedCharacter && <> · <span style={{ color: '#6ee7b7' }}>Para: {project.assignedCharacter}</span></>}
                         </p>
