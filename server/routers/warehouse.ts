@@ -108,6 +108,21 @@ export const warehouseRouter = router({
       return history.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }),
 
+  // Delete a history entry (SA only, permanent, no trace)
+  deleteHistory: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input, ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar historial.' });
+      const db = dbInstance;
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      const idx = db.warehouseHistory.findIndex((h: any) => Number(h.id) === Number(input.id));
+      if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entrada no encontrada.' });
+      db.warehouseHistory.splice(idx, 1);
+      saveDbToDisk();
+      return { success: true };
+    }),
+
   // List members of a specific CP (for project assignment filtering)
   listCpMembers: protectedProcedure
     .input(z.object({ cpId: z.number() }))
@@ -479,6 +494,67 @@ export const warehouseRouter = router({
           detail: `Eliminó receta de crafteo: "${removed.name}".`,
         });
         return { success: true };
+      }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).optional(),
+        category: z.string().optional(),
+        imageUrl: z.string().optional().nullable(),
+        wikiUrl: z.string().optional().nullable(),
+        materials: z.array(z.object({
+          name: z.string().min(1),
+          quantity: z.number().int().min(1),
+          imageUrl: z.string().optional(),
+          subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
+            name: z.string().min(1),
+            quantity: z.number().int().min(1),
+            imageUrl: z.string().optional(),
+            subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
+              name: z.string().min(1),
+              quantity: z.number().int().min(1),
+              imageUrl: z.string().optional(),
+              subMaterials: z.array(z.object({
+                name: z.string().min(1),
+                quantity: z.number().int().min(1),
+                imageUrl: z.string().optional(),
+              })).optional(),
+            })).optional()),
+          })).optional()),
+        })).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede editar recetas.' });
+        }
+        const db = dbInstance;
+        const recipe = (db.craftRecipes || []).find((r: any) => Number(r.id) === Number(input.id));
+        if (!recipe) throw new TRPCError({ code: 'NOT_FOUND', message: 'Receta no encontrada.' });
+        if (input.name) recipe.name = input.name.trim();
+        if (input.category !== undefined) recipe.category = input.category || null;
+        if (input.imageUrl !== undefined) recipe.imageUrl = input.imageUrl || null;
+        if (input.wikiUrl !== undefined) recipe.wikiUrl = input.wikiUrl || null;
+        if (input.materials) {
+          const mapMats = (arr: any[]): any[] => arr.map((m: any) => ({
+            name: m.name.trim(),
+            nameLower: m.name.trim().toLowerCase(),
+            quantity: m.quantity,
+            imageUrl: m.imageUrl || null,
+            subMaterials: m.subMaterials?.length ? mapMats(m.subMaterials) : [],
+          }));
+          recipe.materials = mapMats(input.materials);
+        }
+        saveDbToDisk();
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'CRAFT_RECIPE_UPDATE',
+          actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          detail: `Editó receta de crafteo: "${recipe.name}".`,
+        });
+        return { success: true, recipe };
       }),
   }),
 

@@ -292,6 +292,8 @@ export default function WarehouseClan() {
   const deleteItemMut = trpc.warehouse.deleteItem.useMutation({ onSuccess: () => { refetchItems(); refetchHistory(); toast.success('Ítem eliminado'); } });
   const createRecipeMut = trpc.warehouse.recipes.create.useMutation({ onSuccess: () => { refetchRecipes(); toast.success('Receta creada'); } });
   const deleteRecipeMut = trpc.warehouse.recipes.delete.useMutation({ onSuccess: () => { refetchRecipes(); toast.success('Receta eliminada'); } });
+  const updateRecipeMut = trpc.warehouse.recipes.update.useMutation({ onSuccess: () => { refetchRecipes(); toast.success('Receta actualizada'); setEditRecipe(null); } });
+  const deleteHistoryMut = trpc.warehouse.deleteHistory.useMutation({ onSuccess: () => { refetchHistory(); toast.success('Entrada de historial eliminada'); } });
   const createProjectMut = trpc.warehouse.projects.create.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Proyecto creado'); } });
   const completeProjectMut = trpc.warehouse.projects.complete.useMutation({ onSuccess: () => { refetchProjects(); refetchItems(); toast.success('Proyecto completado — materiales descontados'); } });
   const deleteProjectMut = trpc.warehouse.projects.delete.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Proyecto eliminado'); } });
@@ -374,6 +376,13 @@ export default function WarehouseClan() {
   const [recipeCategory, setRecipeCategory] = useState('');
   const [recipeImg, setRecipeImg] = useState('');
   const [recipeWiki, setRecipeWiki] = useState('');
+
+  // Edit recipe state
+  const [editRecipe, setEditRecipe] = useState<any>(null);
+  const [editRecipeName, setEditRecipeName] = useState('');
+  const [editRecipeCategory, setEditRecipeCategory] = useState('');
+  const [editRecipeImg, setEditRecipeImg] = useState('');
+  const [editRecipeWiki, setEditRecipeWiki] = useState('');
 
   // Recursive material node type
   type MaterialNode = {
@@ -1479,6 +1488,7 @@ export default function WarehouseClan() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay proyectos activos. {isSA ? 'Crea uno desde "Nuevo Proyecto".' : ''}</p>
               </div>
             )}
+            <div className="max-h-[600px] overflow-y-auto pr-1 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(168,85,247,0.3) transparent' }}>
             {(projects as any[]).filter((p: any) => p.status === 'active').sort((a: any, b: any) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)).map((project: any) => {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
@@ -1658,6 +1668,7 @@ export default function WarehouseClan() {
                 </div>
               );
             })}
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -1667,6 +1678,7 @@ export default function WarehouseClan() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas. {isSA ? 'Crea una desde "Nueva Receta".' : ''}</p>
               </div>
             )}
+            <div className="max-h-[500px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(192,132,252,0.3) transparent' }}>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {(recipes as any[]).map((recipe: any) => (
                 <div key={recipe.id} className="card-glass rounded-xl overflow-hidden">
@@ -1686,21 +1698,29 @@ export default function WarehouseClan() {
                       <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{recipe.materials?.length || 0} materiales{recipe.materials?.some((m: any) => m.subMaterials?.length > 0) ? ' (con sub-materiales)' : ''}</p>
                     </div>
                     {isSA && (
-                      <button
-                        onClick={() => setConfirmAction({
-                          title: 'Eliminar receta',
-                          message: 'Los proyectos existentes no se eliminarán, pero ya no podrás crear nuevos proyectos con esta receta.',
-                          label: 'Sí, eliminar',
-                          color: '#ef4444',
-                          action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
-                          itemName: recipe.name,
-                          itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
-                          itemImage: recipe.imageUrl || null,
-                        })}
-                        className="p-1.5 rounded-lg hover:bg-white/5 shrink-0" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => { setEditRecipe(recipe); setEditRecipeName(recipe.name); setEditRecipeCategory(recipe.category || ''); setEditRecipeImg(recipe.imageUrl || ''); setEditRecipeWiki(recipe.wikiUrl || ''); }}
+                          className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(96,165,250,0.7)' }} title="Editar receta"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setConfirmAction({
+                            title: 'Eliminar receta',
+                            message: 'Los proyectos existentes no se eliminarán, pero ya no podrás crear nuevos proyectos con esta receta.',
+                            label: 'Sí, eliminar',
+                            color: '#ef4444',
+                            action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
+                            itemName: recipe.name,
+                            itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
+                            itemImage: recipe.imageUrl || null,
+                          })}
+                          className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     )}
                   </div>
                   {/* Body */}
@@ -1733,6 +1753,7 @@ export default function WarehouseClan() {
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           </div>
 
@@ -1950,9 +1971,20 @@ export default function WarehouseClan() {
                             <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{recipe.category || 'Sin categoría'} · {recipe.materials?.length || 0} materiales</p>
                           </div>
                         </div>
-                        <button onClick={() => deleteRecipeMut.mutate({ id: Number(recipe.id) })} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar receta">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => { setEditRecipe(recipe); setEditRecipeName(recipe.name); setEditRecipeCategory(recipe.category || ''); setEditRecipeImg(recipe.imageUrl || ''); setEditRecipeWiki(recipe.wikiUrl || ''); }}
+                            className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(96,165,250,0.7)', border: '1px solid rgba(96,165,250,0.2)' }} title="Editar receta"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmAction({ title: 'Eliminar receta', message: 'Se eliminará permanentemente. No se puede deshacer.', label: 'Eliminar', color: '#ef4444', action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); }, itemName: recipe.name })}
+                            className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar receta"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2041,6 +2073,14 @@ export default function WarehouseClan() {
                           <span className="font-mono font-bold" style={{ color: h.type === 'withdraw' ? '#fbbf24' : '#ef4444' }}>-{h.quantity}</span>
                           <span>·</span>
                           <span className="flex-1 truncate">{h.reason}</span>
+                          {isSA && (
+                            <button
+                              onClick={() => setConfirmAction({ title: 'Eliminar entrada de historial', message: 'Se eliminará permanentemente esta entrada. No deja rastro.', label: 'Eliminar', color: '#ef4444', action: () => { deleteHistoryMut.mutate({ id: Number(h.id) }); setConfirmAction(null); }, itemName: h.type === 'withdraw' ? 'Descuento' : 'Eliminación', itemDetail: `${h.reason} — ${h.actor}` })}
+                              className="shrink-0 p-1 rounded hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.6)' }} title="Eliminar entrada"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                         <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
                           Por: {h.actor} {h.type === 'withdraw' ? `· Stock restante: ${h.remainingStock}` : ''}
@@ -2283,6 +2323,61 @@ export default function WarehouseClan() {
                 style={{ background: editCharSelected && editCharSelected !== editAssignmentModal.current ? 'linear-gradient(90deg, rgba(96,165,250,0.8), rgba(59,130,246,0.8))' : 'rgba(255,255,255,0.04)', border: `1px solid ${editCharSelected && editCharSelected !== editAssignmentModal.current ? 'rgba(96,165,250,0.5)' : 'rgba(255,255,255,0.1)'}`, color: editCharSelected && editCharSelected !== editAssignmentModal.current ? '#fff' : 'rgba(255,255,255,0.4)' }}
               >
                 <CheckCircle className="h-4 w-4" /> Guardar Cambio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Recipe Modal */}
+      {editRecipe && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(168,85,247,0.2)' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <Pencil className="inline h-4 w-4 mr-2" style={{ color: '#a855f7' }} />
+                Editar Receta
+              </h3>
+              <button onClick={() => setEditRecipe(null)} className="p-1 rounded-lg hover:bg-white/5"><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Nombre</label>
+                <input value={editRecipeName} onChange={e => setEditRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Categoría</label>
+                <select value={editRecipeCategory} onChange={e => setEditRecipeCategory(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
+                  <option value="">Sin categoría</option>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{categoryMeta[c]?.emoji} {categoryMeta[c]?.label || c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>URL Imagen</label>
+                <input value={editRecipeImg} onChange={e => setEditRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>URL Wiki</label>
+                <input value={editRecipeWiki} onChange={e => setEditRecipeWiki(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setEditRecipe(null)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
+              <button
+                onClick={() => {
+                  updateRecipeMut.mutate({
+                    id: Number(editRecipe.id),
+                    name: editRecipeName.trim() || undefined,
+                    category: editRecipeCategory || undefined,
+                    imageUrl: editRecipeImg || null,
+                    wikiUrl: editRecipeWiki || null,
+                  });
+                }}
+                disabled={!editRecipeName.trim()}
+                className="px-4 py-2 rounded-lg text-xs font-semibold"
+                style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.7), rgba(139,92,246,0.7))', color: '#fff', border: '1px solid rgba(168,85,247,0.3)', opacity: editRecipeName.trim() ? 1 : 0.4 }}
+              >
+                {updateRecipeMut.isPending ? 'Guardando...' : 'Guardar cambios'}
               </button>
             </div>
           </div>
