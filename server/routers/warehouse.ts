@@ -518,6 +518,8 @@ export const warehouseRouter = router({
           id: randId(),
           recipeId: input.recipeId,
           recipeName: recipe.name,
+          recipeImage: recipe.imageUrl || null,
+          recipeCategory: recipe.category || null,
           status: 'active',
           notes: input.notes || '',
           priority: input.priority || false,

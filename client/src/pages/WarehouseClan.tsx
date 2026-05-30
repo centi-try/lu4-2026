@@ -8,6 +8,7 @@ import { categoryMeta, CATEGORIES } from '../lib/category-meta';
 import type { ItemCategory } from '../lib/types';
 import { toast } from 'sonner';
 import RaidClansAndCps from './raid/RaidClansAndCps';
+import { ImageHoverPreview } from '../components/ui/ImageHoverPreview';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CatalogTypeahead
@@ -253,7 +254,7 @@ export default function WarehouseClan() {
 
   // CP selector
   const [selectedCpId, setSelectedCpId] = useState<number | null>(null);
-  const { data: warehouseCps = [] } = trpc.warehouse.listCps.useQuery();
+  const { data: warehouseCps = [] } = trpc.warehouse.listCps.useQuery(undefined, { refetchInterval: 5000 });
   const ledCpIds = useMemo(() => {
     return (warehouseCps as any[]).filter((cp: any) => Number(cp.leaderId) === currentUserId).map((cp: any) => Number(cp.id));
   }, [warehouseCps, currentUserId]);
@@ -754,8 +755,15 @@ export default function WarehouseClan() {
       {/* ═══ TAB: BODEGA ═══ */}
       {tab === 'bodega' && (
         <div className="space-y-5">
-          {/* Registration Panel (card-glass, CreateItemPanel style) */}
-          {canRegister && (
+          {/* Hint: SA must select a CP */}
+          {isSA && !selectedCpId && (
+            <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+              <AlertCircle className="h-4 w-4 shrink-0" style={{ color: '#fbbf24' }} />
+              <p className="text-xs" style={{ color: 'rgba(251,191,36,0.8)' }}>Selecciona una CP arriba para registrar materiales o crear proyectos.</p>
+            </div>
+          )}
+          {/* Registration Panel (card-glass, CreateItemPanel style) — requires CP selected */}
+          {canRegister && selectedCpId && (
             <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
               <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
                 <div>
@@ -1091,13 +1099,15 @@ export default function WarehouseClan() {
                     return (
                       <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                         <td className="px-4 py-3">
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-                          ) : (
-                            <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                              <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.2)' }} />
-                            </div>
-                          )}
+                          <ImageHoverPreview src={item.imageUrl} caption={item.name} size={280}>
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover border" style={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                            ) : (
+                              <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                <Package className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                              </div>
+                            )}
+                          </ImageHoverPreview>
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
@@ -1139,20 +1149,49 @@ export default function WarehouseClan() {
                               <button
                                 onClick={inStock ? () => { setWithdrawItem(item); setWithdrawQty('1'); setWithdrawReason(''); } : undefined}
                                 disabled={!inStock}
-                                className="p-1.5 rounded-lg transition-all hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-                                style={{ color: inStock ? '#fbbf24' : 'rgba(251,191,36,0.35)', border: `1px solid ${inStock ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.1)'}` }}
+                                className="btn-ghost p-2"
+                                style={{ color: inStock ? '#fbbf24' : 'rgba(251,191,36,0.35)', borderColor: inStock ? 'rgba(251,191,36,0.25)' : 'rgba(251,191,36,0.08)', background: inStock ? 'rgba(251,191,36,0.08)' : 'rgba(255,255,255,0.02)', opacity: inStock ? 1 : 0.4, cursor: inStock ? 'pointer' : 'not-allowed' }}
                                 title={inStock ? 'Descontar' : 'Sin stock'}
                               >
                                 <Minus className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            <button onClick={() => setHistoryItem(item)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }} title="Historial">
-                              <Clock className="h-3.5 w-3.5" />
-                            </button>
+                            {(() => {
+                              const hasHistory = (warehouseHistory as any[]).some((h: any) => Number(h.itemId) === Number(item.id));
+                              return (
+                                <button
+                                  onClick={hasHistory ? () => setHistoryItem(item) : undefined}
+                                  disabled={!hasHistory}
+                                  className="btn-ghost p-2"
+                                  title={hasHistory ? `Historial de movimientos` : 'Sin historial'}
+                                  style={{
+                                    color: hasHistory ? '#a78bfa' : 'rgba(255,255,255,0.2)',
+                                    borderColor: hasHistory ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
+                                    background: hasHistory ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.02)',
+                                    opacity: hasHistory ? 1 : 0.4,
+                                    cursor: hasHistory ? 'pointer' : 'not-allowed',
+                                  }}
+                                >
+                                  <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">H</span>
+                                </button>
+                              );
+                            })()}
+                            {isSA && (
+                              <button
+                                onClick={() => { /* edit item inline — future */ }}
+                                className="btn-ghost p-2"
+                                title="Editar (Super Admin)"
+                                style={{ color: '#60a5fa', borderColor: 'rgba(96,165,250,0.25)', background: 'rgba(96,165,250,0.08)' }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             {(isSA || canWriteSelected) && (
                               <button
                                 onClick={() => { setDeleteReasonItem(item); setDeleteReason(''); }}
-                                className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar"
+                                className="btn-ghost p-2"
+                                style={{ color: 'rgba(255,120,120,0.7)', borderColor: 'rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.08)' }}
+                                title="Eliminar"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -1429,7 +1468,7 @@ export default function WarehouseClan() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Proyectos Activos</h3>
-              {(isSA || canWriteSelected) && (
+              {(isSA || canWriteSelected) && selectedCpId && (
                 <button onClick={() => setProjectOpen(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
                   <Hammer className="h-3.5 w-3.5" /> Nuevo Proyecto
                 </button>
@@ -1633,13 +1672,15 @@ export default function WarehouseClan() {
                 <div key={recipe.id} className="card-glass rounded-xl overflow-hidden">
                   {/* Header with recipe image + name */}
                   <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'rgba(168,85,247,0.04)', borderBottom: '1px solid rgba(168,85,247,0.1)' }}>
-                    {recipe.imageUrl ? (
-                      <img src={recipe.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" style={{ border: '2px solid rgba(168,85,247,0.2)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    ) : (
-                      <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.1)', border: '2px solid rgba(168,85,247,0.2)' }}>
-                        <Hammer className="h-5 w-5" style={{ color: '#a855f7' }} />
-                      </div>
-                    )}
+                    <ImageHoverPreview src={recipe.imageUrl} caption={recipe.name} size={280}>
+                      {recipe.imageUrl ? (
+                        <img src={recipe.imageUrl} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" style={{ border: '2px solid rgba(168,85,247,0.2)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center" style={{ background: 'rgba(168,85,247,0.1)', border: '2px solid rgba(168,85,247,0.2)' }}>
+                          <Hammer className="h-5 w-5" style={{ color: '#a855f7' }} />
+                        </div>
+                      )}
+                    </ImageHoverPreview>
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-bold truncate" style={{ color: 'rgba(255,255,255,0.95)' }}>{recipe.name}</p>
                       <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{recipe.materials?.length || 0} materiales{recipe.materials?.some((m: any) => m.subMaterials?.length > 0) ? ' (con sub-materiales)' : ''}</p>
@@ -1740,13 +1781,15 @@ export default function WarehouseClan() {
                         return (
                           <div key={project.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02] transition-colors" style={{ background: 'rgba(52,211,153,0.03)' }}>
                             <div className="flex items-center gap-3">
-                              {img ? (
-                                <img src={img} alt="" className="h-8 w-8 rounded-lg object-cover" style={{ border: '1px solid rgba(52,211,153,0.2)' }} />
-                              ) : (
-                                <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.08)' }}>
-                                  <span className="text-base">✅</span>
-                                </div>
-                              )}
+                              <ImageHoverPreview src={img} caption={project.recipeName} size={280}>
+                                {img ? (
+                                  <img src={img} alt="" className="h-8 w-8 rounded-lg object-cover" style={{ border: '1px solid rgba(52,211,153,0.2)' }} />
+                                ) : (
+                                  <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.08)' }}>
+                                    <span className="text-base">✅</span>
+                                  </div>
+                                )}
+                              </ImageHoverPreview>
                               <div>
                                 <p className="text-sm font-bold" style={{ color: '#34d399' }}>{project.recipeName}</p>
                                 <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
