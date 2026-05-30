@@ -96,6 +96,40 @@ export const warehouseRouter = router({
     return chars;
   }),
 
+  // List warehouse history (withdrawals, deletions) for an item or all
+  listHistory: protectedProcedure
+    .input(z.object({ itemId: z.number().optional(), cpId: z.number().optional() }).optional())
+    .query(({ input }) => {
+      const db = dbInstance;
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      let history = (db.warehouseHistory as any[]).slice();
+      if (input?.itemId) history = history.filter((h: any) => Number(h.itemId) === Number(input.itemId));
+      if (input?.cpId) history = history.filter((h: any) => Number(h.cpId) === Number(input.cpId));
+      return history.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }),
+
+  // List members of a specific CP (for project assignment filtering)
+  listCpMembers: protectedProcedure
+    .input(z.object({ cpId: z.number() }))
+    .query(async ({ input }) => {
+      const members = await getRaidUsersByCp(input.cpId);
+      const chars: { name: string; userId: number; type: string }[] = [];
+      for (const u of members) {
+        if (u.characterName) {
+          chars.push({ name: u.characterName, userId: Number(u.id), type: 'principal' });
+        }
+      }
+      // Also get secondary characters for these users
+      const userIds = members.map((u: any) => Number(u.id));
+      const db = dbInstance;
+      for (const sc of (db.secondaryCharacters || [])) {
+        if (sc.name && userIds.includes(Number(sc.userId))) {
+          chars.push({ name: sc.name, userId: Number(sc.userId), type: 'secundario' });
+        }
+      }
+      return chars;
+    }),
+
   // List confirmed warehouse items (optionally filtered by cpId)
   list: protectedProcedure
     .input(z.object({ cpId: z.number().optional() }).optional())
@@ -284,6 +318,21 @@ export const warehouseRouter = router({
       }
       item.quantity = (Number(item.quantity) || 0) - input.quantity;
       item.updatedAt = nowIso();
+      // Log to history
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(item.id),
+        itemName: item.name,
+        cpId: item.cpId || null,
+        type: 'withdraw',
+        quantity: input.quantity,
+        reason: input.reason,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: Number(ctx.user?.id || 0),
+        date: nowIso(),
+        remainingStock: item.quantity,
+      });
       saveDbToDisk();
       await createAuditLog({
         userId: Number(ctx.user?.id || 0),
@@ -297,7 +346,7 @@ export const warehouseRouter = router({
 
   // Delete warehouse item (SA or CP leader)
   deleteItem: protectedProcedure
-    .input(z.object({ id: z.number() }))
+    .input(z.object({ id: z.number(), reason: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
       const userId = Number(ctx.user?.id || 0);
@@ -313,13 +362,28 @@ export const warehouseRouter = router({
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar.' });
       }
       const removed = db.warehouseItems.splice(idx, 1)[0];
+      // Log to history
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(removed.id),
+        itemName: removed.name,
+        cpId: removed.cpId || null,
+        type: 'delete',
+        quantity: Number(removed.quantity) || 0,
+        reason: input.reason,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: Number(ctx.user?.id || 0),
+        date: nowIso(),
+        remainingStock: 0,
+      });
       saveDbToDisk();
       await createAuditLog({
         userId: Number(ctx.user?.id || 0),
         action: 'WAREHOUSE_DELETE',
         actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
         actorRole: String(ctx.user?.role || 'USER'),
-        detail: `Eliminó ${removed.name} (${removed.quantity} uds) de la bodega.`,
+        detail: `Eliminó ${removed.name} (${removed.quantity} uds) de la bodega. Motivo: ${input.reason}.`,
       });
       return { success: true };
     }),

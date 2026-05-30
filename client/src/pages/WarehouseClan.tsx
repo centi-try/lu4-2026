@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ChevronRight, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Users, Pencil, Shield, Crown, Flag, Settings, Swords, UserCheck, UserX, RefreshCw } from 'lucide-react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ChevronRight, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Users, Pencil, Shield, Crown, Flag, Settings, Swords, UserCheck, UserX, RefreshCw, Clock } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -287,8 +287,8 @@ export default function WarehouseClan() {
   const registerMut = trpc.warehouse.register.useMutation({ onSuccess: () => { refetchIncoming(); toast.success('Material registrado'); } });
   const confirmMut = trpc.warehouse.confirm.useMutation({ onSuccess: () => { refetchItems(); refetchIncoming(); toast.success('Confirmado y agrupado'); } });
   const deleteIncomingMut = trpc.warehouse.deleteIncoming.useMutation({ onSuccess: () => { refetchIncoming(); toast.success('Registro eliminado'); } });
-  const withdrawMut = trpc.warehouse.withdraw.useMutation({ onSuccess: () => { refetchItems(); toast.success('Stock descontado'); } });
-  const deleteItemMut = trpc.warehouse.deleteItem.useMutation({ onSuccess: () => { refetchItems(); toast.success('Ítem eliminado'); } });
+  const withdrawMut = trpc.warehouse.withdraw.useMutation({ onSuccess: () => { refetchItems(); refetchHistory(); toast.success('Stock descontado'); } });
+  const deleteItemMut = trpc.warehouse.deleteItem.useMutation({ onSuccess: () => { refetchItems(); refetchHistory(); toast.success('Ítem eliminado'); } });
   const createRecipeMut = trpc.warehouse.recipes.create.useMutation({ onSuccess: () => { refetchRecipes(); toast.success('Receta creada'); } });
   const deleteRecipeMut = trpc.warehouse.recipes.delete.useMutation({ onSuccess: () => { refetchRecipes(); toast.success('Receta eliminada'); } });
   const createProjectMut = trpc.warehouse.projects.create.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Proyecto creado'); } });
@@ -297,9 +297,16 @@ export default function WarehouseClan() {
   const togglePriorityMut = trpc.warehouse.projects.togglePriority.useMutation({ onSuccess: () => { refetchProjects(); } });
   const editAssignmentMut = trpc.warehouse.projects.editAssignment.useMutation({ onSuccess: () => { refetchProjects(); toast.success('Asignación actualizada'); } });
   const { data: allCharacters = [] } = trpc.warehouse.listCharacters.useQuery();
+  const { data: warehouseHistory = [], refetch: refetchHistory } = trpc.warehouse.listHistory.useQuery(cpQueryArg);
+  // CP members for project assignment (only members of the selected CP)
+  const { data: cpMembersChars = [] } = trpc.warehouse.listCpMembers.useQuery(
+    { cpId: selectedCpId! },
+    { enabled: !!selectedCpId }
+  );
 
   // Tab state
   const [tab, setTab] = useState<'bodega' | 'crafteo' | 'config'>('bodega');
+  const [configSubTab, setConfigSubTab] = useState<'clans' | 'recipes'>('clans');
 
   // Config tab queries & mutations
   const { data: whClans = [], refetch: refetchWhClans } = trpc.warehouse.clans.list.useQuery();
@@ -349,6 +356,13 @@ export default function WarehouseClan() {
   const [withdrawItem, setWithdrawItem] = useState<any>(null);
   const [withdrawQty, setWithdrawQty] = useState('1');
   const [withdrawReason, setWithdrawReason] = useState('');
+
+  // History modal
+  const [historyItem, setHistoryItem] = useState<any>(null);
+
+  // Delete with reason modal
+  const [deleteReasonItem, setDeleteReasonItem] = useState<any>(null);
+  const [deleteReason, setDeleteReason] = useState('');
 
   // Confirmation modals
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; label: string; color: string; action: () => void; itemName?: string; itemDetail?: string; itemImage?: string | null } | null>(null);
@@ -541,6 +555,95 @@ export default function WarehouseClan() {
   };
   const addMaterialRow = () => setRecipeMaterials(prev => [...prev, emptyNode()]);
   const removeMaterialRow = (idx: number) => setRecipeMaterials(prev => prev.filter((_, i) => i !== idx));
+
+  // Reusable recipe materials tree renderer
+  const renderRecipeMaterialsTree = () => {
+    const palette = [
+      { color: '#2dd4bf', bg: 'rgba(45,212,191,0.06)', border: 'rgba(45,212,191,0.25)', light: 'rgba(45,212,191,0.12)' },
+      { color: '#a855f7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.25)', light: 'rgba(168,85,247,0.12)' },
+      { color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.25)', light: 'rgba(245,158,11,0.12)' },
+      { color: '#ec4899', bg: 'rgba(236,72,153,0.06)', border: 'rgba(236,72,153,0.25)', light: 'rgba(236,72,153,0.12)' },
+      { color: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.25)', light: 'rgba(59,130,246,0.12)' },
+      { color: '#10b981', bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.25)', light: 'rgba(16,185,129,0.12)' },
+    ];
+    const getLevel = (d: number) => palette[d % palette.length];
+    const renderNodes = (nodes: MaterialNode[], path: number[], depth: number): React.ReactNode => {
+      const lv = getLevel(depth);
+      const isRoot = depth === 0;
+      return (
+        <div className={isRoot ? 'space-y-3' : 'space-y-2'}>
+          {nodes.map((node, idx) => {
+            const currentPath = [...path, idx];
+            const catMatch = (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === node.name.trim().toLowerCase());
+            const imgSrc = node.imageUrl || catMatch?.imageUrl || '';
+            const subCount = node.subMaterials.length;
+            if (isRoot) {
+              return (
+                <div key={idx} className="rounded-xl" style={{ border: `1px solid ${lv.border}`, background: 'rgba(255,255,255,0.015)' }}>
+                  <div className="flex items-center justify-between px-3 py-2" style={{ background: lv.bg, borderBottom: `1px solid ${lv.border}` }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-5 rounded-full" style={{ background: lv.color }} />
+                      {imgSrc && <img src={imgSrc} alt="" className="h-6 w-6 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                      <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>Material #{idx + 1}{node.name ? ` — ${node.name}` : ''}</span>
+                      {subCount > 0 && !node.expanded && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: lv.light, color: lv.color }}>{subCount} sub</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all" style={{ background: node.expanded ? lv.light : 'rgba(255,255,255,0.03)', color: node.expanded ? lv.color : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? lv.border : 'rgba(255,255,255,0.08)'}` }}>
+                        {node.expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        Sub-materiales
+                      </button>
+                      {nodes.length > 1 && (
+                        <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="rounded-lg px-2 py-1 text-[10px] flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
+                          <Trash2 className="h-3 w-3" /> quitar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
+                    <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Nombre material..." />
+                    <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
+                    <input value={node.imageUrl} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, imageUrl: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL imagen..." />
+                  </div>
+                  {node.expanded && (
+                    <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
+                      <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLevel(depth + 1).border }} />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1" style={{ color: getLevel(depth + 1).color }}>
+                          <span className="w-1.5 h-0.5 rounded-full inline-block" style={{ background: getLevel(depth + 1).color }} />Sub-materiales
+                        </p>
+                        <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>
+                          <Plus className="h-2 w-2" /> Añadir
+                        </button>
+                      </div>
+                      {renderNodes(node.subMaterials, currentPath, depth + 1)}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            // Non-root compact row
+            return (
+              <div key={idx} className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
+                {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
+                <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+                <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
+                  {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
+                </button>
+                {nodes.length > 1 && (
+                  <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-3 w-3" /></button>
+                )}
+                {node.expanded && node.subMaterials.length > 0 && (
+                  <div className="w-full mt-1.5 ml-4">{renderNodes(node.subMaterials, currentPath, depth + 1)}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+    return renderNodes(recipeMaterials, [], 0);
+  };
 
   const validCount = rows.filter(r => r.name.trim() && r.category).length;
 
@@ -1032,23 +1135,23 @@ export default function WarehouseClan() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1.5">
-                            {(isAdminOrAbove || canWriteSelected) && inStock && (
-                              <button onClick={() => { setWithdrawItem(item); setWithdrawQty('1'); setWithdrawReason(''); }} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }} title="Descontar">
+                            {(isAdminOrAbove || canWriteSelected) && (
+                              <button
+                                onClick={inStock ? () => { setWithdrawItem(item); setWithdrawQty('1'); setWithdrawReason(''); } : undefined}
+                                disabled={!inStock}
+                                className="p-1.5 rounded-lg transition-all hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+                                style={{ color: inStock ? '#fbbf24' : 'rgba(251,191,36,0.35)', border: `1px solid ${inStock ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.1)'}` }}
+                                title={inStock ? 'Descontar' : 'Sin stock'}
+                              >
                                 <Minus className="h-3.5 w-3.5" />
                               </button>
                             )}
+                            <button onClick={() => setHistoryItem(item)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }} title="Historial">
+                              <Clock className="h-3.5 w-3.5" />
+                            </button>
                             {(isSA || canWriteSelected) && (
                               <button
-                                onClick={() => setConfirmAction({
-                                  title: 'Eliminar material',
-                                  message: 'Esta acción eliminará el material de la bodega de forma permanente. No se puede deshacer.',
-                                  label: 'Sí, eliminar',
-                                  color: '#ef4444',
-                                  action: () => { deleteItemMut.mutate({ id: Number(item.id) }); setConfirmAction(null); },
-                                  itemName: item.name,
-                                  itemDetail: `${meta.emoji} ${meta.label} · Stock ${qty}`,
-                                  itemImage: item.imageUrl || null,
-                                })}
+                                onClick={() => { setDeleteReasonItem(item); setDeleteReason(''); }}
                                 className="p-1.5 rounded-lg transition-all hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1069,8 +1172,8 @@ export default function WarehouseClan() {
       {/* ═══ TAB: CRAFTEO ═══ */}
       {tab === 'crafteo' && (
         <div className="space-y-5">
-          {/* Recipe Registration Panel (inline, CreateItemPanel style) */}
-          {isSA && (
+          {/* Recipe Registration moved to Config tab */}
+          {false && isSA && (
             <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
               <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
                 <div>
@@ -1698,7 +1801,123 @@ export default function WarehouseClan() {
 
       {/* ═══ TAB: CONFIG ═══ */}
       {tab === 'config' && isSA && (
-        <RaidClansAndCps />
+        <div className="space-y-5">
+          {/* Config sub-tabs */}
+          <div className="flex gap-2">
+            <button onClick={() => setConfigSubTab('clans')} className="px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: configSubTab === 'clans' ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)', color: configSubTab === 'clans' ? '#fbbf24' : 'rgba(255,255,255,0.5)', border: configSubTab === 'clans' ? '1px solid rgba(251,191,36,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
+              <Users className="inline h-3.5 w-3.5 mr-1.5" />Clanes & CPs
+            </button>
+            <button onClick={() => setConfigSubTab('recipes')} className="px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: configSubTab === 'recipes' ? 'rgba(192,132,252,0.15)' : 'rgba(255,255,255,0.03)', color: configSubTab === 'recipes' ? '#c084fc' : 'rgba(255,255,255,0.5)', border: configSubTab === 'recipes' ? '1px solid rgba(192,132,252,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
+              <Hammer className="inline h-3.5 w-3.5 mr-1.5" />Recetas
+            </button>
+          </div>
+
+          {configSubTab === 'clans' && <RaidClansAndCps />}
+
+          {configSubTab === 'recipes' && (
+            <div className="space-y-5">
+              {/* Recipe Registration Panel */}
+              <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                  <div>
+                    <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                      <Hammer className="h-5 w-5" style={{ color: '#c084fc' }} />
+                      Registro de Recetas
+                    </h3>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      Define el ítem final y los materiales necesarios. Los materiales pueden tener <strong style={{ color: 'rgba(255,255,255,0.7)' }}>sub-materiales</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recipe item final */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Nombre del ítem final <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <input value={recipeName} onChange={e => setRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="Lance, Majestic Plate Armor..." />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Categoría</label>
+                    <FancySelect<string>
+                      value={recipeCategory || null}
+                      onChange={(v) => setRecipeCategory(v)}
+                      accent="purple"
+                      size="sm"
+                      placeholder="— Seleccionar —"
+                      options={CATEGORIES.map((c: string) => ({
+                        value: c,
+                        label: categoryMeta[c as ItemCategory]?.label || c,
+                        emoji: categoryMeta[c as ItemCategory]?.emoji || '📦',
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>URL Wiki</label>
+                    <input value={recipeWiki} onChange={e => setRecipeWiki(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="https://wikipedia1.mw2.wiki/..." />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>URL Imagen</label>
+                    <input value={recipeImg} onChange={e => setRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="https://..." />
+                  </div>
+                </div>
+
+                {/* Materials */}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Materiales <span style={{ color: '#f87171' }}>*</span> ({recipeMaterials.filter(m => m.name.trim()).length})
+                  </label>
+                  <button type="button" onClick={addMaterialRow} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all" style={{ background: 'rgba(192,132,252,0.1)', border: '1px solid rgba(192,132,252,0.25)', color: '#c084fc' }}>
+                    <Plus className="h-3 w-3" /> Añadir material
+                  </button>
+                </div>
+
+                {renderRecipeMaterialsTree()}
+
+                {/* Submit button */}
+                <button
+                  type="button"
+                  onClick={handleCreateRecipe}
+                  disabled={createRecipeMut.isPending}
+                  className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all mt-4"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(192,132,252,0.2), rgba(168,85,247,0.2))',
+                    border: '1px solid rgba(192,132,252,0.35)',
+                    color: '#c084fc',
+                  }}
+                >
+                  {createRecipeMut.isPending ? <><Loader2 className="inline h-4 w-4 mr-2 animate-spin" /> Creando...</> : <><Hammer className="inline h-4 w-4 mr-2" /> Crear Receta</>}
+                </button>
+              </div>
+
+              {/* Existing Recipes List */}
+              <div className="card-glass rounded-2xl p-5">
+                <h3 className="text-sm font-bold mb-3" style={{ color: 'rgba(255,255,255,0.7)' }}>Recetas Registradas ({(recipes as any[]).length})</h3>
+                {(recipes as any[]).length === 0 ? (
+                  <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas registradas</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(recipes as any[]).map((recipe: any) => (
+                      <div key={recipe.id} className="flex items-center justify-between rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center gap-3">
+                          {recipe.imageUrl && <img src={recipe.imageUrl} className="h-8 w-8 rounded-lg object-cover" alt="" />}
+                          <div>
+                            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>{recipe.name}</p>
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{recipe.category || 'Sin categoría'} · {recipe.materials?.length || 0} materiales</p>
+                          </div>
+                        </div>
+                        <button onClick={() => deleteRecipeMut.mutate({ id: Number(recipe.id) })} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.7)', border: '1px solid rgba(239,68,68,0.2)' }} title="Eliminar receta">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* ═══ MODALS ═══ */}
@@ -1744,6 +1963,82 @@ export default function WarehouseClan() {
         </div>
       )}
 
+      {/* History Modal */}
+      {historyItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="rounded-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" style={{ background: '#1a1a2e', border: '1px solid rgba(96,165,250,0.2)' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <Clock className="h-4 w-4" style={{ color: '#60a5fa' }} />
+                Historial: {historyItem.name}
+              </h3>
+              <button onClick={() => setHistoryItem(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-3" style={{ scrollbarWidth: 'thin' }}>
+              {(() => {
+                const itemHistory = (warehouseHistory as any[]).filter((h: any) => Number(h.itemId) === Number(historyItem.id));
+                if (itemHistory.length === 0) return <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin registros de historial</p>;
+                return (
+                  <div className="space-y-2">
+                    {itemHistory.map((h: any) => (
+                      <div key={h.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{
+                            background: h.type === 'withdraw' ? 'rgba(251,191,36,0.1)' : 'rgba(239,68,68,0.1)',
+                            border: `1px solid ${h.type === 'withdraw' ? 'rgba(251,191,36,0.25)' : 'rgba(239,68,68,0.25)'}`,
+                            color: h.type === 'withdraw' ? '#fbbf24' : '#ef4444',
+                          }}>
+                            {h.type === 'withdraw' ? '⬇ Descuento' : '🗑 Eliminación'}
+                          </span>
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                            {new Date(h.date).toLocaleDateString('es-CL')} {new Date(h.date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                          <span className="font-mono font-bold" style={{ color: h.type === 'withdraw' ? '#fbbf24' : '#ef4444' }}>-{h.quantity}</span>
+                          <span>·</span>
+                          <span className="flex-1 truncate">{h.reason}</span>
+                        </div>
+                        <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                          Por: {h.actor} {h.type === 'withdraw' ? `· Stock restante: ${h.remainingStock}` : ''}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="flex justify-end px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setHistoryItem(null)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete with Reason Modal */}
+      {deleteReasonItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Eliminar: {deleteReasonItem.name}</h3>
+              <button onClick={() => setDeleteReasonItem(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-xs" style={{ color: 'rgba(239,68,68,0.7)' }}>Esta acción eliminará el material de forma permanente. No se puede deshacer.</p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Stock actual: <span className="font-bold" style={{ color: '#34d399' }}>{Number(deleteReasonItem.quantity).toLocaleString()}</span></p>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Motivo de eliminación *</label>
+                <input value={deleteReason} onChange={e => setDeleteReason(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material obsoleto, error de registro, etc." />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setDeleteReasonItem(null)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
+              <button onClick={() => { if (!deleteReason.trim()) { toast.error('Debe indicar un motivo'); return; } deleteItemMut.mutate({ id: Number(deleteReasonItem.id), reason: deleteReason.trim() }); setDeleteReasonItem(null); setDeleteReason(''); }} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Old recipe modal removed — now inline in Crafteo tab */}
 
       {/* Create Project Modal */}
@@ -1776,15 +2071,15 @@ export default function WarehouseClan() {
                   }))}
                 />
               </div>
-              {/* Character selection */}
+              {/* Character selection — only CP members when CP selected */}
               <div>
-                <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Asignar a Personaje / Cuenta *</label>
+                <label className="block text-[10px] uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Asignar a Personaje / Cuenta * {selectedCpId ? <span className="normal-case" style={{ color: 'rgba(232,121,249,0.7)' }}>(miembros de CP)</span> : ''}</label>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.3)' }} />
                   <input value={projectCharSearch} onChange={e => setProjectCharSearch(e.target.value)} className="w-full rounded-lg pl-9 pr-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} placeholder="Buscar personaje..." />
                 </div>
                 <div className="space-y-1 max-h-40 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
-                  {(allCharacters as any[]).filter((c: any) => !projectCharSearch || String(c.name).toLowerCase().includes(projectCharSearch.toLowerCase())).map((c: any, ci: number) => {
+                  {((selectedCpId ? cpMembersChars : allCharacters) as any[]).filter((c: any) => !projectCharSearch || String(c.name).toLowerCase().includes(projectCharSearch.toLowerCase())).map((c: any, ci: number) => {
                     const isSelected = projectCharSelected === c.name;
                     return (
                       <button key={ci} onClick={() => setProjectCharSelected(c.name)} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all" style={{ background: isSelected ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isSelected ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.05)'}` }}>
@@ -1799,7 +2094,7 @@ export default function WarehouseClan() {
                       </button>
                     );
                   })}
-                  {(allCharacters as any[]).filter((c: any) => !projectCharSearch || String(c.name).toLowerCase().includes(projectCharSearch.toLowerCase())).length === 0 && (
+                  {((selectedCpId ? cpMembersChars : allCharacters) as any[]).filter((c: any) => !projectCharSearch || String(c.name).toLowerCase().includes(projectCharSearch.toLowerCase())).length === 0 && (
                     <p className="text-xs text-center py-3" style={{ color: 'rgba(255,255,255,0.3)' }}>No se encontraron personajes</p>
                   )}
                 </div>
