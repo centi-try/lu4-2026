@@ -149,7 +149,7 @@ function ConfirmModal({ open, title, message, confirmLabel, confirmColor, onConf
   const isDelete = confirmColor === '#ef4444';
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
       onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
@@ -383,7 +383,6 @@ export default function WarehouseClan() {
   const [editRecipeCategory, setEditRecipeCategory] = useState('');
   const [editRecipeImg, setEditRecipeImg] = useState('');
   const [editRecipeWiki, setEditRecipeWiki] = useState('');
-
   // Recursive material node type
   type MaterialNode = {
     name: string; quantity: string; imageUrl: string;
@@ -391,6 +390,7 @@ export default function WarehouseClan() {
     subMaterials: MaterialNode[];
   };
   const emptyNode = (): MaterialNode => ({ name: '', quantity: '1', imageUrl: '', expanded: false, subMaterials: [] });
+  const [editRecipeMaterials, setEditRecipeMaterials] = useState<MaterialNode[]>([]);
   const [recipeMaterials, setRecipeMaterials] = useState<MaterialNode[]>([emptyNode()]);
 
   // Project form
@@ -565,6 +565,27 @@ export default function WarehouseClan() {
   };
   const addMaterialRow = () => setRecipeMaterials(prev => [...prev, emptyNode()]);
   const removeMaterialRow = (idx: number) => setRecipeMaterials(prev => prev.filter((_, i) => i !== idx));
+
+  // Convert DB materials to MaterialNode format for editing
+  const dbMatsToNodes = (mats: any[]): MaterialNode[] =>
+    (mats || []).map((m: any) => ({
+      name: m.name || '',
+      quantity: String(m.quantity || 1),
+      imageUrl: m.imageUrl || '',
+      expanded: false,
+      subMaterials: dbMatsToNodes(m.subMaterials),
+    }));
+
+  // Open edit modal with all recipe data including materials
+  const openEditRecipe = (recipe: any) => {
+    setEditRecipe(recipe);
+    setEditRecipeName(recipe.name);
+    setEditRecipeCategory(recipe.category || '');
+    setEditRecipeImg(recipe.imageUrl || '');
+    setEditRecipeWiki(recipe.wikiUrl || '');
+    const nodes = dbMatsToNodes(recipe.materials);
+    setEditRecipeMaterials(nodes.length > 0 ? nodes : [emptyNode()]);
+  };
 
   // Reusable recipe materials tree renderer
   const renderRecipeMaterialsTree = () => {
@@ -1488,7 +1509,7 @@ export default function WarehouseClan() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay proyectos activos. {isSA ? 'Crea uno desde "Nuevo Proyecto".' : ''}</p>
               </div>
             )}
-            <div className="max-h-[600px] overflow-y-auto pr-1 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(168,85,247,0.3) transparent' }}>
+            <div className="max-h-[400px] overflow-y-auto pr-1 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(168,85,247,0.3) transparent' }}>
             {(projects as any[]).filter((p: any) => p.status === 'active').sort((a: any, b: any) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)).map((project: any) => {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
@@ -1678,7 +1699,7 @@ export default function WarehouseClan() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas. {isSA ? 'Crea una desde "Nueva Receta".' : ''}</p>
               </div>
             )}
-            <div className="max-h-[500px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(192,132,252,0.3) transparent' }}>
+            <div className="max-h-[400px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(192,132,252,0.3) transparent' }}>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {(recipes as any[]).map((recipe: any) => (
                 <div key={recipe.id} className="card-glass rounded-xl overflow-hidden">
@@ -1698,29 +1719,21 @@ export default function WarehouseClan() {
                       <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{recipe.materials?.length || 0} materiales{recipe.materials?.some((m: any) => m.subMaterials?.length > 0) ? ' (con sub-materiales)' : ''}</p>
                     </div>
                     {isSA && (
-                      <div className="flex gap-1 shrink-0">
-                        <button
-                          onClick={() => { setEditRecipe(recipe); setEditRecipeName(recipe.name); setEditRecipeCategory(recipe.category || ''); setEditRecipeImg(recipe.imageUrl || ''); setEditRecipeWiki(recipe.wikiUrl || ''); }}
-                          className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(96,165,250,0.7)' }} title="Editar receta"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setConfirmAction({
-                            title: 'Eliminar receta',
-                            message: 'Los proyectos existentes no se eliminarán, pero ya no podrás crear nuevos proyectos con esta receta.',
-                            label: 'Sí, eliminar',
-                            color: '#ef4444',
-                            action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
-                            itemName: recipe.name,
-                            itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
-                            itemImage: recipe.imageUrl || null,
-                          })}
-                          className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setConfirmAction({
+                          title: 'Eliminar receta',
+                          message: 'Los proyectos existentes no se eliminarán, pero ya no podrás crear nuevos proyectos con esta receta.',
+                          label: 'Sí, eliminar',
+                          color: '#ef4444',
+                          action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
+                          itemName: recipe.name,
+                          itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
+                          itemImage: recipe.imageUrl || null,
+                        })}
+                        className="p-1.5 rounded-lg hover:bg-white/5 shrink-0" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                   {/* Body */}
@@ -1973,7 +1986,7 @@ export default function WarehouseClan() {
                         </div>
                         <div className="flex gap-1">
                           <button
-                            onClick={() => { setEditRecipe(recipe); setEditRecipeName(recipe.name); setEditRecipeCategory(recipe.category || ''); setEditRecipeImg(recipe.imageUrl || ''); setEditRecipeWiki(recipe.wikiUrl || ''); }}
+                            onClick={() => openEditRecipe(recipe)}
                             className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(96,165,250,0.7)', border: '1px solid rgba(96,165,250,0.2)' }} title="Editar receta"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -2330,47 +2343,149 @@ export default function WarehouseClan() {
       )}
 
       {/* Edit Recipe Modal */}
-      {editRecipe && (
+      {editRecipe && (() => {
+        const palette = [
+          { color: '#2dd4bf', bg: 'rgba(45,212,191,0.06)', border: 'rgba(45,212,191,0.25)', light: 'rgba(45,212,191,0.12)' },
+          { color: '#a855f7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.25)', light: 'rgba(168,85,247,0.12)' },
+          { color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.25)', light: 'rgba(245,158,11,0.12)' },
+          { color: '#ec4899', bg: 'rgba(236,72,153,0.06)', border: 'rgba(236,72,153,0.25)', light: 'rgba(236,72,153,0.12)' },
+          { color: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.25)', light: 'rgba(59,130,246,0.12)' },
+        ];
+        const getLv = (d: number) => palette[d % palette.length];
+        const renderEditNodes = (nodes: MaterialNode[], path: number[], depth: number): React.ReactNode => {
+          const lv = getLv(depth);
+          const isRoot = depth === 0;
+          return (
+            <div className={isRoot ? 'space-y-2' : 'space-y-1.5'}>
+              {nodes.map((node, idx) => {
+                const cp = [...path, idx];
+                const imgSrc = node.imageUrl || (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === node.name.trim().toLowerCase())?.imageUrl || '';
+                if (isRoot) {
+                  return (
+                    <div key={idx} className="rounded-xl" style={{ border: `1px solid ${lv.border}`, background: 'rgba(255,255,255,0.015)' }}>
+                      <div className="flex items-center justify-between px-2.5 py-1.5" style={{ background: lv.bg, borderBottom: `1px solid ${lv.border}` }}>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1 h-4 rounded-full" style={{ background: lv.color }} />
+                          {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                          <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>#{idx + 1}{node.name ? ` — ${node.name}` : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: node.expanded ? lv.light : 'rgba(255,255,255,0.03)', color: node.expanded ? lv.color : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? lv.border : 'rgba(255,255,255,0.08)'}` }}>
+                            {node.expanded ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
+                            Sub
+                          </button>
+                          {nodes.length > 1 && (
+                            <button type="button" onClick={() => setEditRecipeMaterials(prev => removeNodeAt(prev, cp))} className="rounded px-1.5 py-0.5 text-[9px] flex items-center gap-0.5" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 p-2">
+                        <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Nombre..." />
+                        <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
+                        <input value={node.imageUrl} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, imageUrl: e.target.value })))} className="rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL img..." />
+                      </div>
+                      {node.expanded && (
+                        <div className="px-2 pb-2 relative" style={{ paddingLeft: 16 }}>
+                          <div className="absolute left-1.5 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLv(depth + 1).border }} />
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-[9px] uppercase tracking-wider font-bold" style={{ color: getLv(depth + 1).color }}>Sub-materiales</p>
+                            <button type="button" onClick={() => setEditRecipeMaterials(prev => addNodeAt(prev, cp))} className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLv(depth + 1).light, color: getLv(depth + 1).color }}>
+                              <Plus className="h-2 w-2" /> Añadir
+                            </button>
+                          </div>
+                          {renderEditNodes(node.subMaterials, cp, depth + 1)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={idx} className="flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
+                    {imgSrc && <img src={imgSrc} alt="" className="h-4 w-4 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                    <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-1.5 py-0.5 text-[10px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
+                    <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="w-12 rounded px-1.5 py-0.5 text-[10px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+                    <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[9px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
+                      {node.expanded ? <ChevronUp className="h-2.5 w-2.5 inline" /> : <Plus className="h-2.5 w-2.5 inline" />}
+                    </button>
+                    {nodes.length > 1 && (
+                      <button type="button" onClick={() => setEditRecipeMaterials(prev => removeNodeAt(prev, cp))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-2.5 w-2.5" /></button>
+                    )}
+                    {node.expanded && node.subMaterials.length > 0 && (
+                      <div className="w-full mt-1 ml-3">{renderEditNodes(node.subMaterials, cp, depth + 1)}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        };
+        const mapEditNodes = (nodes: MaterialNode[]): any[] => nodes.filter(n => n.name.trim()).map(n => ({
+          name: n.name.trim(),
+          quantity: parseInt(n.quantity) || 1,
+          imageUrl: n.imageUrl || undefined,
+          subMaterials: n.subMaterials?.length ? mapEditNodes(n.subMaterials) : undefined,
+        }));
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(168,85,247,0.2)' }}>
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col" style={{ background: '#1a1a2e', border: '1px solid rgba(168,85,247,0.2)' }}>
+            <div className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 <Pencil className="inline h-4 w-4 mr-2" style={{ color: '#a855f7' }} />
                 Editar Receta
               </h3>
               <button onClick={() => setEditRecipe(null)} className="p-1 rounded-lg hover:bg-white/5"><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
             </div>
-            <div className="px-5 py-4 space-y-3">
-              <div>
-                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Nombre</label>
-                <input value={editRecipeName} onChange={e => setEditRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} />
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(168,85,247,0.3) transparent' }}>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Nombre</label>
+                  <input value={editRecipeName} onChange={e => setEditRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Categoría</label>
+                  <select value={editRecipeCategory} onChange={e => setEditRecipeCategory(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
+                    <option value="">Sin categoría</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{categoryMeta[c]?.emoji} {categoryMeta[c]?.label || c}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>Categoría</label>
-                <select value={editRecipeCategory} onChange={e => setEditRecipeCategory(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
-                  <option value="">Sin categoría</option>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{categoryMeta[c]?.emoji} {categoryMeta[c]?.label || c}</option>)}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>URL Imagen</label>
+                  <input value={editRecipeImg} onChange={e => setEditRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>URL Wiki</label>
+                  <input value={editRecipeWiki} onChange={e => setEditRecipeWiki(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
+                </div>
               </div>
+              {/* Materials editing */}
               <div>
-                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>URL Imagen</label>
-                <input value={editRecipeImg} onChange={e => setEditRecipeImg(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>URL Wiki</label>
-                <input value={editRecipeWiki} onChange={e => setEditRecipeWiki(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="https://..." />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Materiales ({editRecipeMaterials.filter(m => m.name.trim()).length})
+                  </label>
+                  <button type="button" onClick={() => setEditRecipeMaterials(prev => [...prev, emptyNode()])} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg font-semibold" style={{ background: 'rgba(45,212,191,0.08)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.2)' }}>
+                    <Plus className="h-3 w-3" /> Material
+                  </button>
+                </div>
+                {renderEditNodes(editRecipeMaterials, [], 0)}
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex justify-end gap-2 px-5 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <button onClick={() => setEditRecipe(null)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
               <button
                 onClick={() => {
+                  const mats = mapEditNodes(editRecipeMaterials);
                   updateRecipeMut.mutate({
                     id: Number(editRecipe.id),
                     name: editRecipeName.trim() || undefined,
                     category: editRecipeCategory || undefined,
                     imageUrl: editRecipeImg || null,
                     wikiUrl: editRecipeWiki || null,
+                    materials: mats.length > 0 ? mats : undefined,
                   });
                 }}
                 disabled={!editRecipeName.trim()}
@@ -2382,7 +2497,8 @@ export default function WarehouseClan() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </AppShell>
   );
 }
