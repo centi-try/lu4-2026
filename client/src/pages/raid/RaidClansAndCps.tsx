@@ -513,11 +513,11 @@ function EditCpModal({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const clanMembersQ = trpc.raid.commandParties.clanMembers.useQuery(
-    { clanId: Number(cp.clanId) },
-    { enabled: !!cp.clanId },
+  const cpMembersQ = trpc.raid.commandParties.cpMembersForLeader.useQuery(
+    { cpId: Number(cp.id) },
+    { enabled: !!cp.id },
   );
-  const clanMembers = (clanMembersQ.data || []) as any[];
+  const clanMembers = (cpMembersQ.data || []) as any[];
 
   return (
     <div className="w-full max-w-sm rounded-2xl p-6"
@@ -537,7 +537,7 @@ function EditCpModal({
         </div>
         <div>
           <label className="block text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Leader</label>
-          {clanMembersQ.isLoading ? (
+          {cpMembersQ.isLoading ? (
             <p className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Cargando miembros...</p>
           ) : (
             <select

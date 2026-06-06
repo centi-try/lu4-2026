@@ -267,15 +267,15 @@ export default function WarehouseClan() {
   const crossCpVisible = whSettings?.crossCpVisibility !== false;
   const updateSettingsMut = trpc.warehouse.updateSettings.useMutation({ onSuccess: () => { toast.success('Configuración actualizada'); } });
 
-  // My CP membership (for visibility restriction)
-  const { data: myCps } = trpc.warehouse.myCps.useQuery(undefined, { refetchInterval: 5000 });
+  // My CP membership (for visibility restriction) — use client-side data so impersonation works
+  const myMemberCpId = (currentUser as any)?.raidCpId ? Number((currentUser as any).raidCpId) : null;
   const allowedCpIds = useMemo(() => {
     if (isSA || crossCpVisible) return null; // null = no restriction, show all
     const ids = new Set<number>();
-    if (myCps?.memberCpId) ids.add(myCps.memberCpId);
-    (myCps?.leaderCpIds || []).forEach(id => ids.add(id));
+    if (myMemberCpId) ids.add(myMemberCpId);
+    ledCpIds.forEach(id => ids.add(id));
     return ids.size > 0 ? Array.from(ids) : [];
-  }, [isSA, crossCpVisible, myCps]);
+  }, [isSA, crossCpVisible, myMemberCpId, ledCpIds]);
 
   // Filter visible CPs
   const visibleCps = useMemo(() => {
@@ -293,10 +293,12 @@ export default function WarehouseClan() {
   const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery(cpQueryArg);
   const { data: catalog = [] } = trpc.warehouse.catalog.list.useQuery();
 
-  // Auto-select CP when visibility is restricted
+  // Auto-select CP when visibility is restricted or when current selection is invalid
   React.useEffect(() => {
-    if (allowedCpIds && allowedCpIds.length > 0 && selectedCpId === null) {
-      setSelectedCpId(allowedCpIds[0]);
+    if (allowedCpIds && allowedCpIds.length > 0) {
+      if (selectedCpId === null || !allowedCpIds.includes(selectedCpId)) {
+        setSelectedCpId(allowedCpIds[0]);
+      }
     }
   }, [allowedCpIds, selectedCpId]);
 
@@ -1303,16 +1305,16 @@ export default function WarehouseClan() {
                               const hasAny = itemLoans.length > 0;
                               return (
                                 <button
-                                  onClick={hasAny ? () => setLoansModalCpId(Number(item.cpId) || effectiveCpId || 0) : undefined}
-                                  disabled={!hasAny}
+                                  onClick={hasPending ? () => setLoansModalCpId(Number(item.cpId) || effectiveCpId || 0) : undefined}
+                                  disabled={!hasPending}
                                   className="btn-ghost p-2"
                                   title={hasAny ? `Préstamos${hasPending ? ' (pendientes)' : ''}` : 'Sin préstamos'}
                                   style={{
-                                    color: hasPending ? '#f59e0b' : hasAny ? 'rgba(45,212,191,0.6)' : 'rgba(255,255,255,0.2)',
-                                    borderColor: hasPending ? 'rgba(245,158,11,0.25)' : hasAny ? 'rgba(45,212,191,0.25)' : 'rgba(255,255,255,0.04)',
-                                    background: hasPending ? 'rgba(245,158,11,0.08)' : hasAny ? 'rgba(45,212,191,0.08)' : 'rgba(255,255,255,0.02)',
-                                    opacity: hasAny ? 1 : 0.4,
-                                    cursor: hasAny ? 'pointer' : 'not-allowed',
+                                    color: hasPending ? '#22c55e' : 'rgba(255,255,255,0.2)',
+                                    borderColor: hasPending ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.04)',
+                                    background: hasPending ? 'rgba(34,197,94,0.08)' : 'rgba(255,255,255,0.02)',
+                                    opacity: hasPending ? 1 : 0.4,
+                                    cursor: hasPending ? 'pointer' : 'not-allowed',
                                   }}
                                 >
                                   <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">P</span>

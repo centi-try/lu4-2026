@@ -1080,6 +1080,18 @@ export const raidRouter = router({
         }));
       }),
 
+    // List members of a specific CP (for leader dropdown) — super admin only
+    cpMembersForLeader: raidSuperAdminProcedure
+      .input(z.object({ cpId: z.number().int() }))
+      .query(async ({ input }) => {
+        const members = await getUsersByCp(input.cpId);
+        return members.filter((u: any) => u.cpStatus === 'confirmed').map((u: any) => ({
+          id: Number(u.id),
+          name: u.name || u.characterName || u.email,
+          characterName: u.characterName,
+        }));
+      }),
+
     // Create CP (super admin only)
     create: raidSuperAdminProcedure
       .input(z.object({

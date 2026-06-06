@@ -315,6 +315,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   currentCycleEarnings: 0,
                                   legacyAccess: !!u.legacyAccess,
                                   raidAccessLevel: u.raidAccessLevel || null,
+                                  raidCpId: u.raidCpId || null,
                                 } as any);
                                 setUserMenuOpen(false);
                               }}
