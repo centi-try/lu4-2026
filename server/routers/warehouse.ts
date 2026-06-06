@@ -434,6 +434,132 @@ export const warehouseRouter = router({
       return { success: true };
     }),
 
+  // ─── Material Loans between CPs ─────────────────────────────────────────
+
+  // Create a loan (lend materials from one CP to another)
+  createLoan: protectedProcedure
+    .input(z.object({
+      itemId: z.number(),
+      quantity: z.number().int().min(1),
+      toCpId: z.number(),
+      reason: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      const userId = Number(ctx.user?.id || 0);
+      const db = dbInstance;
+      if (!db.warehouseItems) db.warehouseItems = [];
+      const item = db.warehouseItems.find((w: any) => Number(w.id) === Number(input.itemId));
+      if (!item) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ítem no encontrado.' });
+      const fromCpId = Number(item.cpId);
+      if (!fromCpId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'El ítem no tiene CP asignada.' });
+      if (fromCpId === input.toCpId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No puedes prestar a la misma CP.' });
+      // Permission check
+      const allowed = await canWriteCp(role, userId, fromCpId);
+      if (!allowed && role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para prestar desde esta CP.' });
+      if ((Number(item.quantity) || 0) < input.quantity) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `Stock insuficiente. Disponible: ${item.quantity}` });
+      }
+      // Deduct from source
+      item.quantity = (Number(item.quantity) || 0) - input.quantity;
+      item.updatedAt = nowIso();
+      // Create loan record
+      if (!db.warehouseLoans) db.warehouseLoans = [];
+      const allCps = await getRaidCommandParties();
+      const fromCp = allCps.find((cp: any) => Number(cp.id) === fromCpId);
+      const toCp = allCps.find((cp: any) => Number(cp.id) === input.toCpId);
+      const loanId = randId();
+      db.warehouseLoans.push({
+        id: loanId,
+        itemId: Number(item.id),
+        itemName: item.name,
+        itemImageUrl: item.imageUrl || '',
+        fromCpId,
+        fromCpName: fromCp?.name || `CP-${fromCpId}`,
+        toCpId: input.toCpId,
+        toCpName: toCp?.name || `CP-${input.toCpId}`,
+        quantity: input.quantity,
+        reason: input.reason || '',
+        lentBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        lentById: userId,
+        lentAt: nowIso(),
+        returned: false,
+        returnedAt: null,
+      });
+      // History log
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(item.id),
+        itemName: item.name,
+        cpId: fromCpId,
+        type: 'loan_out',
+        quantity: input.quantity,
+        reason: `Préstamo a ${toCp?.name || 'CP-' + input.toCpId}${input.reason ? ': ' + input.reason : ''}`,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: userId,
+        date: nowIso(),
+        remainingStock: item.quantity,
+      });
+      saveDbToDisk();
+      return { success: true, loanId, remaining: item.quantity };
+    }),
+
+  // List all loans (optionally filter by cpId — shows loans FROM or TO that CP)
+  listLoans: protectedProcedure
+    .input(z.object({ cpId: z.number().optional() }).optional())
+    .query(({ input }) => {
+      const db = dbInstance;
+      const loans = (db.warehouseLoans || []).slice();
+      if (input?.cpId) {
+        return loans.filter((l: any) => Number(l.fromCpId) === Number(input.cpId) || Number(l.toCpId) === Number(input.cpId));
+      }
+      return loans;
+    }),
+
+  // Mark a loan as returned (only source CP leader or SA)
+  returnLoan: protectedProcedure
+    .input(z.object({ loanId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      const userId = Number(ctx.user?.id || 0);
+      const db = dbInstance;
+      if (!db.warehouseLoans) db.warehouseLoans = [];
+      const loan = db.warehouseLoans.find((l: any) => Number(l.id) === Number(input.loanId));
+      if (!loan) throw new TRPCError({ code: 'NOT_FOUND', message: 'Préstamo no encontrado.' });
+      if (loan.returned) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Este préstamo ya fue devuelto.' });
+      // Only source CP leader or SA can confirm return
+      const allowed = await canWriteCp(role, userId, Number(loan.fromCpId));
+      if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el líder de la CP prestadora o SA puede confirmar devolución.' });
+      // Return materials to source CP
+      if (!db.warehouseItems) db.warehouseItems = [];
+      const sourceItem = db.warehouseItems.find((w: any) => Number(w.id) === Number(loan.itemId));
+      if (sourceItem) {
+        sourceItem.quantity = (Number(sourceItem.quantity) || 0) + loan.quantity;
+        sourceItem.updatedAt = nowIso();
+      }
+      loan.returned = true;
+      loan.returnedAt = nowIso();
+      loan.returnedBy = ctx.user?.characterName || ctx.user?.name || 'Sistema';
+      // History log
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(loan.itemId),
+        itemName: loan.itemName,
+        cpId: Number(loan.fromCpId),
+        type: 'loan_return',
+        quantity: loan.quantity,
+        reason: `Devolución de préstamo desde ${loan.toCpName}`,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: userId,
+        date: nowIso(),
+        remainingStock: sourceItem ? sourceItem.quantity : 0,
+      });
+      saveDbToDisk();
+      return { success: true };
+    }),
+
   // ─── Craft Recipes ──────────────────────────────────────────────────────
   recipes: router({
     list: protectedProcedure.query(() => {
