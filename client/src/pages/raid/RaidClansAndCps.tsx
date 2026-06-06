@@ -23,14 +23,17 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 
 interface Props {
   raidAccess?: RaidAccessInfo;
+  readOnly?: boolean;
+  allowSecondaryChars?: boolean;
 }
 
-export default function RaidClansAndCps({ raidAccess }: Props) {
+export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryChars }: Props) {
   const { user } = useAuth();
   const utils = trpc.useUtils();
   const role = String(user?.role || '').toLowerCase();
-  const isSuperAdmin = role === 'super_admin';
-  const isAdmin = isSuperAdmin || raidAccess?.accessLevel === 'raid_admin';
+  const isSuperAdmin = readOnly ? false : role === 'super_admin';
+  const isAdmin = readOnly ? false : (isSuperAdmin || raidAccess?.accessLevel === 'raid_admin');
+  const canManageAltsOverride = allowSecondaryChars && (role === 'super_admin' || role === 'admin');
 
   // Data queries
   const clansQ = trpc.raid.clans.list.useQuery();
@@ -300,6 +303,8 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
               }}
               onDelete={() => setDeleteConfirmCp(cp)}
               onSetMemberStatus={handleSetMemberStatus}
+              canManageAltsOverride={canManageAltsOverride}
+              readOnly={readOnly}
             />
           ))}
         </div>
@@ -571,7 +576,7 @@ function EditCpModal({
 
 function CpRow({
   cp, expanded, onToggle, isSuperAdmin, isAdmin, currentUserId,
-  onEdit, onDelete, onSetMemberStatus,
+  onEdit, onDelete, onSetMemberStatus, canManageAltsOverride, readOnly: cpReadOnly,
 }: {
   cp: any;
   expanded: boolean;
@@ -582,6 +587,8 @@ function CpRow({
   onEdit: () => void;
   onDelete: () => void;
   onSetMemberStatus: (userId: number, memberName: string, status: 'confirmed' | 'removed') => void;
+  canManageAltsOverride?: boolean;
+  readOnly?: boolean;
 }) {
   const membersQ = trpc.raid.commandParties.members.useQuery(
     { cpId: Number(cp.id) },
@@ -589,7 +596,7 @@ function CpRow({
   );
   const members = (membersQ.data || []) as any[];
   const isLeader = Number(cp.leaderId) === currentUserId;
-  const canManageMembers = isSuperAdmin || isAdmin || isLeader;
+  const canManageMembers = cpReadOnly ? false : (isSuperAdmin || isAdmin || isLeader);
 
   return (
     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -645,7 +652,7 @@ function CpRow({
                 member={m}
                 isFirst={idx === 0}
                 canManageMembers={canManageMembers}
-                canManageAlts={isSuperAdmin || isAdmin}
+                canManageAlts={isSuperAdmin || isAdmin || isLeader || !!canManageAltsOverride}
                 onSetMemberStatus={onSetMemberStatus}
                 currentUserId={currentUserId}
               />

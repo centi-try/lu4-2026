@@ -123,6 +123,37 @@ export const warehouseRouter = router({
       return { success: true };
     }),
 
+  // Get current user's CP memberships
+  myCps: protectedProcedure.query(async ({ ctx }) => {
+    const userId = Number(ctx.user?.id || 0);
+    const allCps = await getRaidCommandParties();
+    const allUsers = await getAllUsers();
+    const user = allUsers.find((u: any) => Number(u.id) === userId);
+    const myCpId = user?.raidCpId ? Number(user.raidCpId) : null;
+    const ledCps = allCps.filter((cp: any) => Number(cp.leaderId) === userId).map((cp: any) => Number(cp.id));
+    return { memberCpId: myCpId, leaderCpIds: ledCps };
+  }),
+
+  // Get warehouse settings
+  getSettings: protectedProcedure.query(() => {
+    const db = dbInstance;
+    if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true };
+    return db.warehouseSettings as { crossCpVisibility: boolean };
+  }),
+
+  // Update warehouse settings (SA only)
+  updateSettings: protectedProcedure
+    .input(z.object({ crossCpVisibility: z.boolean().optional() }))
+    .mutation(({ input, ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin.' });
+      const db = dbInstance;
+      if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true };
+      if (input.crossCpVisibility !== undefined) (db.warehouseSettings as any).crossCpVisibility = input.crossCpVisibility;
+      saveDbToDisk();
+      return db.warehouseSettings;
+    }),
+
   // List members of a specific CP (for project assignment filtering)
   listCpMembers: protectedProcedure
     .input(z.object({ cpId: z.number() }))

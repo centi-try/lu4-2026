@@ -262,6 +262,27 @@ export default function WarehouseClan() {
   const canRegister = isSA || roleLc === 'admin' || roleLc === 'mapper' || isLeaderOfSelected;
   const canWriteSelected = isSA || isLeaderOfSelected;
 
+  // Settings
+  const { data: whSettings } = trpc.warehouse.getSettings.useQuery(undefined, { refetchInterval: 5000 });
+  const crossCpVisible = whSettings?.crossCpVisibility !== false;
+  const updateSettingsMut = trpc.warehouse.updateSettings.useMutation({ onSuccess: () => { toast.success('Configuración actualizada'); } });
+
+  // My CP membership (for visibility restriction)
+  const { data: myCps } = trpc.warehouse.myCps.useQuery(undefined, { refetchInterval: 5000 });
+  const allowedCpIds = useMemo(() => {
+    if (isSA || crossCpVisible) return null; // null = no restriction, show all
+    const ids = new Set<number>();
+    if (myCps?.memberCpId) ids.add(myCps.memberCpId);
+    (myCps?.leaderCpIds || []).forEach(id => ids.add(id));
+    return ids.size > 0 ? Array.from(ids) : [];
+  }, [isSA, crossCpVisible, myCps]);
+
+  // Filter visible CPs
+  const visibleCps = useMemo(() => {
+    if (!allowedCpIds) return warehouseCps as any[];
+    return (warehouseCps as any[]).filter((cp: any) => allowedCpIds.includes(Number(cp.id)));
+  }, [warehouseCps, allowedCpIds]);
+
   // Data queries (filtered by selected CP)
   const cpQueryArg = selectedCpId ? { cpId: selectedCpId } : undefined;
   const { data: warehouseItems = [], refetch: refetchItems } = trpc.warehouse.list.useQuery(cpQueryArg);
@@ -269,6 +290,13 @@ export default function WarehouseClan() {
   const { data: recipes = [], refetch: refetchRecipes } = trpc.warehouse.recipes.list.useQuery();
   const { data: projects = [], refetch: refetchProjects } = trpc.warehouse.projects.list.useQuery(cpQueryArg);
   const { data: catalog = [] } = trpc.warehouse.catalog.list.useQuery();
+
+  // Auto-select CP when visibility is restricted
+  React.useEffect(() => {
+    if (allowedCpIds && allowedCpIds.length > 0 && selectedCpId === null) {
+      setSelectedCpId(allowedCpIds[0]);
+    }
+  }, [allowedCpIds, selectedCpId]);
 
   // Category icons
   const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery(undefined, { staleTime: 60_000 });
@@ -689,24 +717,27 @@ export default function WarehouseClan() {
       </div>
 
       {/* CP Selector */}
-      {(warehouseCps as any[]).length > 0 && (
+      {visibleCps.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 mr-1">
             <Shield className="h-4 w-4" style={{ color: '#e879f9' }} />
             <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>CP:</span>
           </div>
-          <button
-            onClick={() => setSelectedCpId(null)}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-            style={{
-              background: selectedCpId === null ? 'linear-gradient(135deg, rgba(232,121,249,0.2), rgba(168,85,247,0.2))' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${selectedCpId === null ? 'rgba(232,121,249,0.4)' : 'rgba(255,255,255,0.08)'}`,
-              color: selectedCpId === null ? '#e879f9' : 'rgba(255,255,255,0.5)',
-            }}
-          >
-            Todas
-          </button>
-          {(warehouseCps as any[]).map((cp: any) => {
+          {/* "Todas" button — only when cross-CP visibility is ON or user is SA */}
+          {(isSA || !allowedCpIds) && (
+            <button
+              onClick={() => setSelectedCpId(null)}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+              style={{
+                background: selectedCpId === null ? 'linear-gradient(135deg, rgba(232,121,249,0.2), rgba(168,85,247,0.2))' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${selectedCpId === null ? 'rgba(232,121,249,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                color: selectedCpId === null ? '#e879f9' : 'rgba(255,255,255,0.5)',
+              }}
+            >
+              Todas
+            </button>
+          )}
+          {visibleCps.map((cp: any) => {
             const isActive = selectedCpId === Number(cp.id);
             const isLeader = ledCpIds.includes(Number(cp.id));
             return (
@@ -763,23 +794,21 @@ export default function WarehouseClan() {
           <Hammer className="h-4 w-4" />
           Crafteo ({activeProjects})
         </button>
-        {isSA && (
-          <button
-            type="button"
-            onClick={() => setTab('config')}
-            className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
-            style={{
-              background: tab === 'config'
-                ? 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.25))'
-                : 'transparent',
-              color: tab === 'config' ? '#fbbf24' : 'rgba(255,255,255,0.55)',
-              border: tab === 'config' ? '1px solid rgba(251,191,36,0.25)' : '1px solid transparent',
-            }}
-          >
-            <Settings className="h-4 w-4" />
-            Config
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setTab('config')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background: tab === 'config'
+              ? 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.25))'
+              : 'transparent',
+            color: tab === 'config' ? '#fbbf24' : 'rgba(255,255,255,0.55)',
+            border: tab === 'config' ? '1px solid rgba(251,191,36,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Settings className="h-4 w-4" />
+          Config
+        </button>
       </div>
 
       {/* ═══ TAB: BODEGA ═══ */}
@@ -1718,23 +1747,7 @@ export default function WarehouseClan() {
                       <p className="text-base font-bold truncate" style={{ color: 'rgba(255,255,255,0.95)' }}>{recipe.name}</p>
                       <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{recipe.materials?.length || 0} materiales{recipe.materials?.some((m: any) => m.subMaterials?.length > 0) ? ' (con sub-materiales)' : ''}</p>
                     </div>
-                    {isSA && (
-                      <button
-                        onClick={() => setConfirmAction({
-                          title: 'Eliminar receta',
-                          message: 'Los proyectos existentes no se eliminarán, pero ya no podrás crear nuevos proyectos con esta receta.',
-                          label: 'Sí, eliminar',
-                          color: '#ef4444',
-                          action: () => { deleteRecipeMut.mutate({ id: Number(recipe.id) }); setConfirmAction(null); },
-                          itemName: recipe.name,
-                          itemDetail: `${recipe.materials?.length || 0} materiales · por ${recipe.createdBy}`,
-                          itemImage: recipe.imageUrl || null,
-                        })}
-                        className="p-1.5 rounded-lg hover:bg-white/5 shrink-0" style={{ color: 'rgba(239,68,68,0.6)' }} title="Eliminar receta"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    {/* Delete button removed from Crafteo — only available in Config tab */}
                   </div>
                   {/* Body */}
                   <div className="px-4 py-3">
@@ -1877,21 +1890,47 @@ export default function WarehouseClan() {
       )}
 
       {/* ═══ TAB: CONFIG ═══ */}
-      {tab === 'config' && isSA && (
+      {tab === 'config' && (
         <div className="space-y-5">
           {/* Config sub-tabs */}
           <div className="flex gap-2">
             <button onClick={() => setConfigSubTab('clans')} className="px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: configSubTab === 'clans' ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)', color: configSubTab === 'clans' ? '#fbbf24' : 'rgba(255,255,255,0.5)', border: configSubTab === 'clans' ? '1px solid rgba(251,191,36,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
               <Users className="inline h-3.5 w-3.5 mr-1.5" />Clanes & CPs
             </button>
-            <button onClick={() => setConfigSubTab('recipes')} className="px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: configSubTab === 'recipes' ? 'rgba(192,132,252,0.15)' : 'rgba(255,255,255,0.03)', color: configSubTab === 'recipes' ? '#c084fc' : 'rgba(255,255,255,0.5)', border: configSubTab === 'recipes' ? '1px solid rgba(192,132,252,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
-              <Hammer className="inline h-3.5 w-3.5 mr-1.5" />Recetas
-            </button>
+            {isSA && (
+              <button onClick={() => setConfigSubTab('recipes')} className="px-4 py-2 rounded-lg text-xs font-semibold transition-all" style={{ background: configSubTab === 'recipes' ? 'rgba(192,132,252,0.15)' : 'rgba(255,255,255,0.03)', color: configSubTab === 'recipes' ? '#c084fc' : 'rgba(255,255,255,0.5)', border: configSubTab === 'recipes' ? '1px solid rgba(192,132,252,0.25)' : '1px solid rgba(255,255,255,0.06)' }}>
+                <Hammer className="inline h-3.5 w-3.5 mr-1.5" />Recetas
+              </button>
+            )}
           </div>
 
-          {configSubTab === 'clans' && <RaidClansAndCps />}
+          {/* SA visibility toggle */}
+          {isSA && configSubTab === 'clans' && (
+            <div className="card-glass rounded-xl p-3 flex items-center justify-between" style={{ border: '1px solid rgba(251,191,36,0.15)' }}>
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4" style={{ color: '#fbbf24' }} />
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>Visibilidad entre CPs</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{crossCpVisible ? 'Todas las CPs pueden ver las bodegas de todos' : 'Cada CP solo puede ver su propia bodega'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettingsMut.mutate({ crossCpVisibility: !crossCpVisible })}
+                className="relative w-12 h-6 rounded-full transition-all"
+                style={{ background: crossCpVisible ? 'rgba(45,212,191,0.3)' : 'rgba(255,255,255,0.1)', border: `1px solid ${crossCpVisible ? 'rgba(45,212,191,0.5)' : 'rgba(255,255,255,0.15)'}` }}
+              >
+                <div className="absolute top-0.5 h-4 w-4 rounded-full transition-all" style={{ background: crossCpVisible ? '#2dd4bf' : 'rgba(255,255,255,0.4)', left: crossCpVisible ? '26px' : '3px' }} />
+              </button>
+            </div>
+          )}
 
-          {configSubTab === 'recipes' && (
+          {configSubTab === 'clans' && (
+            isSA
+              ? <RaidClansAndCps />
+              : <RaidClansAndCps readOnly allowSecondaryChars={(roleLc === 'admin' || ledCpIds.length > 0)} />
+          )}
+
+          {configSubTab === 'recipes' && isSA && (
             <div className="space-y-5">
               {/* Recipe Registration Panel */}
               <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
@@ -2356,42 +2395,46 @@ export default function WarehouseClan() {
           const lv = getLv(depth);
           const isRoot = depth === 0;
           return (
-            <div className={isRoot ? 'space-y-2' : 'space-y-1.5'}>
+            <div className={isRoot ? 'space-y-3' : 'space-y-2'}>
               {nodes.map((node, idx) => {
                 const cp = [...path, idx];
                 const imgSrc = node.imageUrl || (catalog as any[]).find((c: any) => String(c.name || '').toLowerCase() === node.name.trim().toLowerCase())?.imageUrl || '';
+                const subCount = node.subMaterials.length;
                 if (isRoot) {
                   return (
                     <div key={idx} className="rounded-xl" style={{ border: `1px solid ${lv.border}`, background: 'rgba(255,255,255,0.015)' }}>
-                      <div className="flex items-center justify-between px-2.5 py-1.5" style={{ background: lv.bg, borderBottom: `1px solid ${lv.border}` }}>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1 h-4 rounded-full" style={{ background: lv.color }} />
-                          {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-                          <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>#{idx + 1}{node.name ? ` — ${node.name}` : ''}</span>
+                      <div className="flex items-center justify-between px-3 py-2" style={{ background: lv.bg, borderBottom: `1px solid ${lv.border}` }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-5 rounded-full" style={{ background: lv.color }} />
+                          {imgSrc && <img src={imgSrc} alt="" className="h-6 w-6 rounded object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                          <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>Material #{idx + 1}{node.name ? ` — ${node.name}` : ''}</span>
+                          {subCount > 0 && !node.expanded && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: lv.light, color: lv.color }}>{subCount} sub</span>}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: node.expanded ? lv.light : 'rgba(255,255,255,0.03)', color: node.expanded ? lv.color : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? lv.border : 'rgba(255,255,255,0.08)'}` }}>
-                            {node.expanded ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
-                            Sub
+                        <div className="flex items-center gap-1.5">
+                          <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-all" style={{ background: node.expanded ? lv.light : 'rgba(255,255,255,0.03)', color: node.expanded ? lv.color : 'rgba(255,255,255,0.4)', border: `1px solid ${node.expanded ? lv.border : 'rgba(255,255,255,0.08)'}` }}>
+                            {node.expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            Sub-materiales
                           </button>
                           {nodes.length > 1 && (
-                            <button type="button" onClick={() => setEditRecipeMaterials(prev => removeNodeAt(prev, cp))} className="rounded px-1.5 py-0.5 text-[9px] flex items-center gap-0.5" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
-                              <Trash2 className="h-2.5 w-2.5" />
+                            <button type="button" onClick={() => setConfirmAction({ title: 'Eliminar material', message: `¿Eliminar "${node.name || `Material #${idx + 1}`}" y todos sus sub-materiales?`, label: 'Eliminar', color: '#ef4444', action: () => { setEditRecipeMaterials(prev => removeNodeAt(prev, cp)); setConfirmAction(null); }, itemName: node.name || `Material #${idx + 1}` })} className="rounded-lg px-2 py-1 text-[10px] flex items-center gap-1" style={{ background: 'rgba(255,120,120,0.05)', border: '1px solid rgba(255,120,120,0.15)', color: 'rgba(255,120,120,0.7)' }}>
+                              <Trash2 className="h-3 w-3" /> quitar
                             </button>
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 p-2">
-                        <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Nombre..." />
-                        <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
-                        <input value={node.imageUrl} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, imageUrl: e.target.value })))} className="rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL img..." />
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
+                        <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Nombre material..." />
+                        <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
+                        <input value={node.imageUrl} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, imageUrl: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL imagen..." />
                       </div>
                       {node.expanded && (
-                        <div className="px-2 pb-2 relative" style={{ paddingLeft: 16 }}>
-                          <div className="absolute left-1.5 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLv(depth + 1).border }} />
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-[9px] uppercase tracking-wider font-bold" style={{ color: getLv(depth + 1).color }}>Sub-materiales</p>
-                            <button type="button" onClick={() => setEditRecipeMaterials(prev => addNodeAt(prev, cp))} className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLv(depth + 1).light, color: getLv(depth + 1).color }}>
+                        <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
+                          <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLv(depth + 1).border }} />
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1" style={{ color: getLv(depth + 1).color }}>
+                              <span className="w-1.5 h-0.5 rounded-full inline-block" style={{ background: getLv(depth + 1).color }} />Sub-materiales
+                            </p>
+                            <button type="button" onClick={() => setEditRecipeMaterials(prev => addNodeAt(prev, cp))} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLv(depth + 1).light, color: getLv(depth + 1).color }}>
                               <Plus className="h-2 w-2" /> Añadir
                             </button>
                           </div>
@@ -2401,19 +2444,31 @@ export default function WarehouseClan() {
                     </div>
                   );
                 }
+                // Non-root: vertical block layout (not inline flex)
                 return (
-                  <div key={idx} className="flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
-                    {imgSrc && <img src={imgSrc} alt="" className="h-4 w-4 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-                    <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-1.5 py-0.5 text-[10px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
-                    <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="w-12 rounded px-1.5 py-0.5 text-[10px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
-                    <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[9px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
-                      {node.expanded ? <ChevronUp className="h-2.5 w-2.5 inline" /> : <Plus className="h-2.5 w-2.5 inline" />}
-                    </button>
-                    {nodes.length > 1 && (
-                      <button type="button" onClick={() => setEditRecipeMaterials(prev => removeNodeAt(prev, cp))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-2.5 w-2.5" /></button>
-                    )}
+                  <div key={idx} className="rounded-lg" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
+                    <div className="flex items-center gap-2 px-2 py-1.5">
+                      {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                      <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
+                      <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+                      <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
+                        {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
+                      </button>
+                      {nodes.length > 1 && (
+                        <button type="button" onClick={() => setConfirmAction({ title: 'Eliminar sub-material', message: `¿Eliminar "${node.name || 'sub-material'}"?`, label: 'Eliminar', color: '#ef4444', action: () => { setEditRecipeMaterials(prev => removeNodeAt(prev, cp)); setConfirmAction(null); }, itemName: node.name || 'sub-material' })} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-3 w-3" /></button>
+                      )}
+                    </div>
                     {node.expanded && node.subMaterials.length > 0 && (
-                      <div className="w-full mt-1 ml-3">{renderEditNodes(node.subMaterials, cp, depth + 1)}</div>
+                      <div className="px-2 pb-2 relative" style={{ paddingLeft: 16 }}>
+                        <div className="absolute left-1.5 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLv(depth + 1).border }} />
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[9px] uppercase tracking-wider font-bold" style={{ color: getLv(depth + 1).color }}>Sub-materiales</p>
+                          <button type="button" onClick={() => setEditRecipeMaterials(prev => addNodeAt(prev, cp))} className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLv(depth + 1).light, color: getLv(depth + 1).color }}>
+                            <Plus className="h-2 w-2" /> Añadir
+                          </button>
+                        </div>
+                        {renderEditNodes(node.subMaterials, cp, depth + 1)}
+                      </div>
                     )}
                   </div>
                 );
