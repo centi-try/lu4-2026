@@ -1781,18 +1781,20 @@ export default function WarehouseClan() {
                             // PROPORTIONAL CALCULATOR: sub-materials scale based on parent deficit.
                             // Revert note: to go back to full-quantity mode, remove scaleFactor param and use originalNeed directly as need.
                             const renderMatRows = (mats: any[], depth: number, parentKey: string, parentCovered: boolean, scaleFactor: number = 1): React.ReactNode[] => {
+                              // When parent is fully covered, skip rendering children (not needed)
+                              if (parentCovered) return [];
                               const rows: React.ReactNode[] = [];
                               mats.forEach((mat: any, mi: number) => {
                                 const key = `${parentKey}-${mi}`;
                                 const originalNeed = Number(mat.quantity) || 0;
-                                // Scale by parent deficit ratio; if parent is covered show original as reference
-                                const need = parentCovered ? originalNeed : Math.ceil(originalNeed * scaleFactor);
+                                // Scale by parent deficit ratio
+                                const need = Math.ceil(originalNeed * scaleFactor);
                                 const matKey = String(mat.nameLower || mat.name || '').toLowerCase();
                                 const poolAvail = displayPool.get(matKey) || 0;
-                                const isCovered = parentCovered || poolAvail >= need;
-                                const allocated = isCovered && !parentCovered ? need : 0;
+                                const isCovered = poolAvail >= need;
+                                const allocated = isCovered ? need : 0;
                                 if (allocated > 0) displayPool.set(matKey, poolAvail - allocated);
-                                const have = parentCovered ? need : Math.min(poolAvail, need);
+                                const have = Math.min(poolAvail, need);
                                 const missing = isCovered ? 0 : Math.max(0, need - poolAvail);
                                 const status = isCovered ? 'complete' : poolAvail > 0 ? 'partial' : 'none';
                                 const subs = mat.subMaterials || [];
@@ -1816,7 +1818,7 @@ export default function WarehouseClan() {
                                         {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
                                         <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: isCovered ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: isCovered ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
                                         {subs.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
-                                        {parentCovered && depth > 0 && <span className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}>padre listo</span>}
+
                                       </div>
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
