@@ -735,18 +735,31 @@ export default function WarehouseClan() {
             }
             // Non-root compact row
             return (
-              <div key={idx} className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
-                {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-                <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
-                <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
-                <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
-                  {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
-                </button>
-                {nodes.length > 1 && (
-                  <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-3 w-3" /></button>
-                )}
+              <div key={idx} className="rounded-lg" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
+                <div className="flex items-center gap-2 px-2.5 py-2">
+                  {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                  <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
+                  <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+                  <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
+                    {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
+                  </button>
+                  {nodes.length > 1 && (
+                    <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-3 w-3" /></button>
+                  )}
+                </div>
                 {node.expanded && node.subMaterials.length > 0 && (
-                  <div className="w-full mt-1.5 ml-4">{renderNodes(node.subMaterials, currentPath, depth + 1)}</div>
+                  <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
+                    <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLevel(depth + 1).border }} />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[10px] uppercase tracking-wider font-bold flex items-center gap-1" style={{ color: getLevel(depth + 1).color }}>
+                        <span className="w-1.5 h-0.5 rounded-full inline-block" style={{ background: getLevel(depth + 1).color }} />Sub-materiales
+                      </p>
+                      <button type="button" onClick={() => setRecipeMaterials(prev => addNodeAt(prev, currentPath))} className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: getLevel(depth + 1).light, color: getLevel(depth + 1).color }}>
+                        <Plus className="h-2 w-2" /> Añadir
+                      </button>
+                    </div>
+                    {renderNodes(node.subMaterials, currentPath, depth + 1)}
+                  </div>
                 )}
               </div>
             );
