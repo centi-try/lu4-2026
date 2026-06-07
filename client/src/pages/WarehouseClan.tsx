@@ -899,17 +899,17 @@ export default function WarehouseClan() {
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-0.5">
-                            <p className="text-xs font-bold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{loan.itemName}</p>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>PRESTADO</span>
+                            <p className="text-sm font-bold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{loan.itemName}</p>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>PRESTADO</span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
                             <span>De: <span style={{ color: 'rgba(96,165,250,0.8)' }}>{loan.fromCpName}</span></span>
                             <span>·</span>
                             <span className="font-mono font-bold" style={{ color: '#60a5fa' }}>{loan.quantity}×</span>
                             <span>·</span>
                             <span>Por: {loan.lentBy}</span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
                             <span>📅 {new Date(loan.lentAt).toLocaleDateString('es-CL')} {new Date(loan.lentAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
                             <span>·</span>
                             <span className="font-semibold" style={{ color: days > 3 ? '#ef4444' : days > 1 ? '#f59e0b' : '#22c55e' }}>⏱ {elapsedStr}</span>
@@ -2260,7 +2260,7 @@ export default function WarehouseClan() {
                 )}
                 <div>
                   <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Historial</h3>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{historyItem.name}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{historyItem.name}</p>
                 </div>
               </div>
               <button onClick={() => setHistoryItem(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
@@ -2286,10 +2286,10 @@ export default function WarehouseClan() {
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${typeColor}15`, border: `1px solid ${typeColor}40`, color: typeColor }}>
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${typeColor}15`, border: `1px solid ${typeColor}40`, color: typeColor }}>
                                   {typeLabel}
                                 </span>
-                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
                                   {new Date(h.date).toLocaleDateString('es-CL')} {new Date(h.date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
@@ -2306,7 +2306,7 @@ export default function WarehouseClan() {
                                   </button>
                                 )}
                               </div>
-                              <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
                                 Por: {h.actor} {h.type === 'withdraw' ? `· Stock restante: ${h.remainingStock}` : ''}
                               </p>
                             </div>
@@ -2389,7 +2389,7 @@ export default function WarehouseClan() {
                 <ArrowRightLeft className="h-4 w-4" style={{ color: '#f59e0b' }} />
                 Préstamos enviados
                 {pendingSentLoans.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>{pendingSentLoans.length} pendientes</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>{pendingSentLoans.length} pendientes</span>
                 )}
               </h3>
               <button onClick={() => setLoansModalCpId(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
@@ -2417,22 +2417,22 @@ export default function WarehouseClan() {
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-0.5">
-                            <p className="text-xs font-bold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{loan.itemName}</p>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2" style={{
+                            <p className="text-sm font-bold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{loan.itemName}</p>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2" style={{
                               background: loan.returned ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
                               color: loan.returned ? '#22c55e' : '#f59e0b',
                             }}>
                               {loan.returned ? 'DEVUELTO' : 'PENDIENTE'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                          <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
                             <span>→ <span style={{ color: loan.returned ? 'rgba(34,197,94,0.7)' : 'rgba(245,158,11,0.8)' }}>{loan.toCpName}</span></span>
                             <span>·</span>
                             <span className="font-mono font-bold" style={{ color: loan.returned ? '#22c55e' : '#f59e0b' }}>{loan.quantity}×</span>
                             <span>·</span>
                             <span>Por: {loan.lentBy}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
                             <span>📅 {new Date(loan.lentAt).toLocaleDateString('es-CL')} {new Date(loan.lentAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
                             {!loan.returned && (
                               <>
@@ -2443,7 +2443,7 @@ export default function WarehouseClan() {
                             {loan.reason && <><span>·</span><span>{loan.reason}</span></>}
                           </div>
                           {loan.returned && loan.returnedAt && (
-                            <p className="text-[10px] mt-1" style={{ color: 'rgba(34,197,94,0.5)' }}>
+                            <p className="text-xs mt-1" style={{ color: 'rgba(34,197,94,0.5)' }}>
                               ✓ Devuelto: {new Date(loan.returnedAt).toLocaleDateString('es-CL')} {new Date(loan.returnedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                               {loan.returnedBy && ` · Por: ${loan.returnedBy}`}
                             </p>
@@ -2461,7 +2461,7 @@ export default function WarehouseClan() {
                                   itemDetail: `Préstamo a ${loan.toCpName}`,
                                   itemImage: loan.itemImageUrl || null,
                                 })}
-                                className="px-3 py-1.5 rounded-lg text-[10px] font-semibold"
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold"
                                 style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
                               >
                                 Marcar devuelto
