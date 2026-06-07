@@ -1802,15 +1802,12 @@ export default function WarehouseClan() {
                               const k = String(item.nameLower || item.name || '').toLowerCase();
                               displayPool.set(k, (displayPool.get(k) || 0) + (Number(item.quantity) || 0));
                             }
-                            // PROPORTIONAL CALCULATOR: sub-materials scale based on parent deficit.
-                            // Revert note: to go back to full-quantity mode, remove scaleFactor param and use originalNeed directly as need.
-                            const renderMatRows = (mats: any[], depth: number, parentKey: string, parentCovered: boolean, scaleFactor: number = 1): React.ReactNode[] => {
+                            // FULL-QUANTITY MODE: shows the full recipe quantities for all materials.
+                            const renderMatRows = (mats: any[], depth: number, parentKey: string, parentCovered: boolean): React.ReactNode[] => {
                               const rows: React.ReactNode[] = [];
                               mats.forEach((mat: any, mi: number) => {
                                 const key = `${parentKey}-${mi}`;
-                                const originalNeed = Number(mat.quantity) || 0;
-                                // Scale by parent deficit ratio; if parent is covered show original as reference
-                                const need = parentCovered ? originalNeed : Math.ceil(originalNeed * scaleFactor);
+                                const need = Number(mat.quantity) || 0;
                                 const matKey = String(mat.nameLower || mat.name || '').toLowerCase();
                                 const poolAvail = displayPool.get(matKey) || 0;
                                 const isCovered = parentCovered || poolAvail >= need;
@@ -1820,27 +1817,6 @@ export default function WarehouseClan() {
                                 const missing = isCovered ? 0 : Math.max(0, need - poolAvail);
                                 const status = isCovered ? 'complete' : poolAvail > 0 ? 'partial' : 'none';
                                 const subs = mat.subMaterials || [];
-                                // Child scale: proportional to deficit of this material
-                                const deficit = Math.max(0, need - poolAvail);
-                                const childScale = isCovered ? 0 : (originalNeed > 0 ? deficit / originalNeed : 0);
-                                // Calculate how many of this material can be crafted from sub-materials
-                                // Auto-detect: any material with sub-materials is crafteable
-                                const isCraftable = subs.length > 0;
-                                let canCraftFromSubs = 0;
-                                if (isCraftable && !isCovered) {
-                                  // Find the minimum craft count based on available sub-materials
-                                  let minCraft = Infinity;
-                                  subs.forEach((sub: any) => {
-                                    const subQty = Number(sub.quantity) || 1;
-                                    const subKey = String(sub.nameLower || sub.name || '').toLowerCase();
-                                    const subAvail = displayPool.get(subKey) || 0;
-                                    // ratio: how many of this parent can be made from available sub-material
-                                    const ratio = originalNeed > 0 ? subQty / originalNeed : subQty;
-                                    const craftable = ratio > 0 ? Math.floor(subAvail / ratio) : 0;
-                                    minCraft = Math.min(minCraft, craftable);
-                                  });
-                                  canCraftFromSubs = minCraft === Infinity ? 0 : minCraft;
-                                }
                                 const indent = depth * 20;
                                 rows.push(
                                   <tr key={key} style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)', background: isCovered ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
@@ -1858,12 +1834,6 @@ export default function WarehouseClan() {
                                         {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
                                         <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: isCovered ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: isCovered ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
                                         {subs.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
-                                        {isCraftable && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>crafteable</span>}
-                                        {isCraftable && canCraftFromSubs > 0 && !isCovered && (
-                                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: canCraftFromSubs >= missing ? 'rgba(52,211,153,0.15)' : 'rgba(251,191,36,0.15)', color: canCraftFromSubs >= missing ? '#34d399' : '#fbbf24' }}>
-                                            ⚒ {canCraftFromSubs.toLocaleString()}/{need.toLocaleString()}
-                                          </span>
-                                        )}
                                       </div>
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
@@ -1872,11 +1842,11 @@ export default function WarehouseClan() {
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
                                 );
-                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key, isCovered, childScale));
+                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key, isCovered));
                               });
                               return rows;
                             };
-                            return renderMatRows(materials, 0, 'mat', false, 1);
+                            return renderMatRows(materials, 0, 'mat', false);
                           })()}
                         </tbody>
                       </table>
