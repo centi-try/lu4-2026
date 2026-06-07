@@ -449,9 +449,10 @@ export default function WarehouseClan() {
   type MaterialNode = {
     name: string; quantity: string; imageUrl: string;
     expanded: boolean;
+    isCraftable: boolean;
     subMaterials: MaterialNode[];
   };
-  const emptyNode = (): MaterialNode => ({ name: '', quantity: '1', imageUrl: '', expanded: false, subMaterials: [] });
+  const emptyNode = (): MaterialNode => ({ name: '', quantity: '1', imageUrl: '', expanded: false, isCraftable: false, subMaterials: [] });
   const [editRecipeMaterials, setEditRecipeMaterials] = useState<MaterialNode[]>([]);
   const [recipeMaterials, setRecipeMaterials] = useState<MaterialNode[]>([emptyNode()]);
 
@@ -601,6 +602,7 @@ export default function WarehouseClan() {
       name: n.name.trim(),
       quantity: Number(n.quantity) || 1,
       imageUrl: n.imageUrl || undefined,
+      isCraftable: n.isCraftable || undefined,
       subMaterials: n.subMaterials.length > 0 ? mapNodes(n.subMaterials) : undefined,
     }));
     const mats = mapNodes(recipeMaterials);
@@ -654,6 +656,7 @@ export default function WarehouseClan() {
       quantity: String(m.quantity || 1),
       imageUrl: m.imageUrl || '',
       expanded: false,
+      isCraftable: m.isCraftable || false,
       subMaterials: dbMatsToNodes(m.subMaterials),
     }));
 
@@ -716,6 +719,13 @@ export default function WarehouseClan() {
                     <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
                     <input value={node.imageUrl} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, imageUrl: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL imagen..." />
                   </div>
+                  {node.subMaterials.length > 0 && (
+                    <div className="px-3 pb-2">
+                      <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, isCraftable: !n.isCraftable })))} className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg font-semibold transition-all" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.03)', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.4)' }}>
+                        ⚒ {node.isCraftable ? 'Material padre (crafteable)' : 'Marcar como crafteable'}
+                      </button>
+                    </div>
+                  )}
                   {node.expanded && (
                     <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
                       <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLevel(depth + 1).border }} />
@@ -740,6 +750,9 @@ export default function WarehouseClan() {
                   {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
                   <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
                   <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+                  <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, isCraftable: !n.isCraftable })))} className="text-[9px] px-1 py-0.5 rounded shrink-0 font-semibold" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'transparent', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.1)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.3)' }} title="Marcar como material padre crafteable">
+                    ⚒
+                  </button>
                   <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
                     {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
                   </button>
@@ -1565,6 +1578,14 @@ export default function WarehouseClan() {
                                     </div>
                                   </div>
                                 </div>
+                                {/* Crafteable toggle */}
+                                {node.subMaterials.length > 0 && (
+                                  <div className="mt-2">
+                                    <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, isCraftable: !n.isCraftable })))} className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg font-semibold transition-all" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.03)', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.4)' }}>
+                                      ⚒ {node.isCraftable ? 'Material padre (crafteable)' : 'Marcar como crafteable'}
+                                    </button>
+                                  </div>
+                                )}
                                 {/* Collapsed summary chips */}
                                 {!node.expanded && collapsedNames.length > 0 && (
                                   <div className="mt-2 flex flex-wrap gap-1">
@@ -1617,6 +1638,9 @@ export default function WarehouseClan() {
                               <div className="w-16 shrink-0">
                                 <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded-lg px-2 py-1 text-xs text-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${lv.border}`, color: 'rgba(255,255,255,0.9)', height: 30 }} />
                               </div>
+                              <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, isCraftable: !n.isCraftable })))} className="text-[9px] px-1 py-0.5 rounded shrink-0 font-semibold" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'transparent', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.1)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.3)' }} title="Marcar como material padre crafteable">
+                                ⚒
+                              </button>
                               <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="p-1 rounded shrink-0" style={{ color: node.expanded ? lv.color : 'rgba(255,255,255,0.3)' }} title="Sub-materiales">
                                 {node.expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                               </button>
@@ -1781,26 +1805,41 @@ export default function WarehouseClan() {
                             // PROPORTIONAL CALCULATOR: sub-materials scale based on parent deficit.
                             // Revert note: to go back to full-quantity mode, remove scaleFactor param and use originalNeed directly as need.
                             const renderMatRows = (mats: any[], depth: number, parentKey: string, parentCovered: boolean, scaleFactor: number = 1): React.ReactNode[] => {
-                              // When parent is fully covered, skip rendering children (not needed)
-                              if (parentCovered) return [];
                               const rows: React.ReactNode[] = [];
                               mats.forEach((mat: any, mi: number) => {
                                 const key = `${parentKey}-${mi}`;
                                 const originalNeed = Number(mat.quantity) || 0;
-                                // Scale by parent deficit ratio
-                                const need = Math.ceil(originalNeed * scaleFactor);
+                                // Scale by parent deficit ratio; if parent is covered show original as reference
+                                const need = parentCovered ? originalNeed : Math.ceil(originalNeed * scaleFactor);
                                 const matKey = String(mat.nameLower || mat.name || '').toLowerCase();
                                 const poolAvail = displayPool.get(matKey) || 0;
-                                const isCovered = poolAvail >= need;
-                                const allocated = isCovered ? need : 0;
+                                const isCovered = parentCovered || poolAvail >= need;
+                                const allocated = isCovered && !parentCovered ? need : 0;
                                 if (allocated > 0) displayPool.set(matKey, poolAvail - allocated);
-                                const have = Math.min(poolAvail, need);
+                                const have = parentCovered ? need : Math.min(poolAvail, need);
                                 const missing = isCovered ? 0 : Math.max(0, need - poolAvail);
                                 const status = isCovered ? 'complete' : poolAvail > 0 ? 'partial' : 'none';
                                 const subs = mat.subMaterials || [];
                                 // Child scale: proportional to deficit of this material
                                 const deficit = Math.max(0, need - poolAvail);
                                 const childScale = isCovered ? 0 : (originalNeed > 0 ? deficit / originalNeed : 0);
+                                // Calculate how many of this material can be crafted from sub-materials
+                                const isCraftable = mat.isCraftable && subs.length > 0;
+                                let canCraftFromSubs = 0;
+                                if (isCraftable && !isCovered) {
+                                  // Find the minimum craft count based on available sub-materials
+                                  let minCraft = Infinity;
+                                  subs.forEach((sub: any) => {
+                                    const subQty = Number(sub.quantity) || 1;
+                                    const subKey = String(sub.nameLower || sub.name || '').toLowerCase();
+                                    const subAvail = displayPool.get(subKey) || 0;
+                                    // ratio: how many of this parent can be made from available sub-material
+                                    const ratio = originalNeed > 0 ? subQty / originalNeed : subQty;
+                                    const craftable = ratio > 0 ? Math.floor(subAvail / ratio) : 0;
+                                    minCraft = Math.min(minCraft, craftable);
+                                  });
+                                  canCraftFromSubs = minCraft === Infinity ? 0 : minCraft;
+                                }
                                 const indent = depth * 20;
                                 rows.push(
                                   <tr key={key} style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)', background: isCovered ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
@@ -1814,11 +1853,16 @@ export default function WarehouseClan() {
                                       )}
                                     </td>
                                     <td className="py-2" style={{ paddingLeft: indent }}>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
                                         <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: isCovered ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: isCovered ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
                                         {subs.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
-
+                                        {isCraftable && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>crafteable</span>}
+                                        {isCraftable && canCraftFromSubs > 0 && !isCovered && (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: canCraftFromSubs >= missing ? 'rgba(52,211,153,0.15)' : 'rgba(251,191,36,0.15)', color: canCraftFromSubs >= missing ? '#34d399' : '#fbbf24' }}>
+                                            ⚒ {canCraftFromSubs.toLocaleString()}/{need.toLocaleString()}
+                                          </span>
+                                        )}
                                       </div>
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
@@ -2845,6 +2889,13 @@ export default function WarehouseClan() {
                         <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
                         <input value={node.imageUrl} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, imageUrl: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL imagen..." />
                       </div>
+                      {node.subMaterials.length > 0 && (
+                        <div className="px-3 pb-2">
+                          <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, isCraftable: !n.isCraftable })))} className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg font-semibold transition-all" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.03)', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.4)' }}>
+                            ⚒ {node.isCraftable ? 'Material padre (crafteable)' : 'Marcar como crafteable'}
+                          </button>
+                        </div>
+                      )}
                       {node.expanded && (
                         <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
                           <div className="absolute left-2 top-0 bottom-2 w-0.5 rounded-full" style={{ background: getLv(depth + 1).border }} />
@@ -2869,6 +2920,9 @@ export default function WarehouseClan() {
                       {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
                       <input value={node.name} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
                       <input type="number" min="1" value={node.quantity} onChange={e => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
+                      <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, isCraftable: !n.isCraftable })))} className="text-[9px] px-1 py-0.5 rounded shrink-0 font-semibold" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'transparent', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.1)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.3)' }} title="Marcar como material padre crafteable">
+                        ⚒
+                      </button>
                       <button type="button" onClick={() => setEditRecipeMaterials(prev => updateNodeAt(prev, cp, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
                         {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
                       </button>
@@ -2898,6 +2952,7 @@ export default function WarehouseClan() {
           name: n.name.trim(),
           quantity: parseInt(n.quantity) || 1,
           imageUrl: n.imageUrl || undefined,
+          isCraftable: n.isCraftable || undefined,
           subMaterials: n.subMaterials?.length ? mapEditNodes(n.subMaterials) : undefined,
         }));
         return (
