@@ -419,6 +419,12 @@ export default function WarehouseClan() {
   // History modal
   const [historyItem, setHistoryItem] = useState<any>(null);
 
+  // Edit item modal (SA only)
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editCategory, setEditCategory] = useState('');
+  const [editQuantity, setEditQuantity] = useState('');
+  const updateItemMut = trpc.warehouse.updateItem.useMutation({ onSuccess: () => { refetchItems(); toast.success('Item actualizado'); setEditingItem(null); } });
+
   // Delete with reason modal
   const [deleteReasonItem, setDeleteReasonItem] = useState<any>(null);
   const [deleteReason, setDeleteReason] = useState('');
@@ -470,17 +476,36 @@ export default function WarehouseClan() {
   const [editCharSearch, setEditCharSearch] = useState('');
   const [editCharSelected, setEditCharSelected] = useState('');
 
-  // Filtered items (combines name search + category filter + stock filter)
+  // Loaned filter
+  const [loanedFilter, setLoanedFilter] = useState('ALL');
+
+  // Filtered items (combines name search + category filter + stock filter + loaned filter)
   const filtered = useMemo(() => {
-    return (warehouseItems as any[]).filter((i: any) => {
+    const result = (warehouseItems as any[]).filter((i: any) => {
       const q = search.toLowerCase();
       const matchName = !q || String(i.name || '').toLowerCase().includes(q);
       const matchCat = catFilter === 'ALL' || i.category === catFilter;
       const qty = Number(i.quantity) || 0;
       const matchStock = stockFilter === 'ALL' || (stockFilter === 'IN_STOCK' && qty > 0) || (stockFilter === 'OUT_OF_STOCK' && qty === 0);
-      return matchName && matchCat && matchStock;
+      // Loaned filter
+      let matchLoaned = true;
+      if (loanedFilter === 'LOANED') {
+        matchLoaned = sentLoans.some((l: any) => Number(l.itemId) === Number(i.id) && !l.returned);
+      } else if (loanedFilter === 'NOT_LOANED') {
+        matchLoaned = !sentLoans.some((l: any) => Number(l.itemId) === Number(i.id) && !l.returned);
+      }
+      return matchName && matchCat && matchStock && matchLoaned;
     });
-  }, [warehouseItems, search, catFilter, stockFilter]);
+    // Sort: in-stock first, out-of-stock last
+    result.sort((a: any, b: any) => {
+      const aQty = Number(a.quantity) || 0;
+      const bQty = Number(b.quantity) || 0;
+      if (aQty > 0 && bQty === 0) return -1;
+      if (aQty === 0 && bQty > 0) return 1;
+      return 0;
+    });
+    return result;
+  }, [warehouseItems, search, catFilter, stockFilter, loanedFilter, sentLoans]);
 
   const stockLookup = useMemo(() => {
     const m = new Map<string, number>();
@@ -857,30 +882,43 @@ export default function WarehouseClan() {
                 <h3 className="text-sm font-semibold" style={{ color: '#60a5fa' }}>Materiales prestados recibidos</h3>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(96,165,250,0.15)', color: '#60a5fa' }}>{receivedLoans.length}</span>
               </div>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(96,165,250,0.3) transparent' }}>
-                {receivedLoans.map((loan: any) => (
-                  <div key={loan.id} className="flex items-center justify-between rounded-xl p-2.5" style={{ background: 'rgba(96,165,250,0.04)', border: '1px solid rgba(96,165,250,0.1)' }}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {loan.itemImageUrl && (
-                        <img src={loan.itemImageUrl} className="h-8 w-8 rounded object-cover shrink-0" alt="" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{loan.itemName}</p>
-                        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                          De: {loan.fromCpName} · {loan.quantity}× · {loan.lentBy}
-                        </p>
+              <div className="space-y-2 max-h-[250px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(96,165,250,0.3) transparent' }}>
+                {receivedLoans.map((loan: any) => {
+                  const elapsed = Date.now() - new Date(loan.lentAt).getTime();
+                  const days = Math.floor(elapsed / 86400000);
+                  const hours = Math.floor((elapsed % 86400000) / 3600000);
+                  const mins = Math.floor((elapsed % 3600000) / 60000);
+                  const elapsedStr = days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                  return (
+                    <div key={loan.id} className="rounded-xl p-3" style={{ background: 'rgba(96,165,250,0.04)', border: '1px solid rgba(96,165,250,0.1)' }}>
+                      <div className="flex items-center gap-3">
+                        {loan.itemImageUrl ? (
+                          <img src={loan.itemImageUrl} className="h-10 w-10 rounded-lg object-cover shrink-0" alt="" style={{ border: '1px solid rgba(96,165,250,0.2)' }} />
+                        ) : (
+                          <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center text-sm" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>📦</div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className="text-xs font-bold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{loan.itemName}</p>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>PRESTADO</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                            <span>De: <span style={{ color: 'rgba(96,165,250,0.8)' }}>{loan.fromCpName}</span></span>
+                            <span>·</span>
+                            <span className="font-mono font-bold" style={{ color: '#60a5fa' }}>{loan.quantity}×</span>
+                            <span>·</span>
+                            <span>Por: {loan.lentBy}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            <span>📅 {new Date(loan.lentAt).toLocaleDateString('es-CL')} {new Date(loan.lentAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+                            <span>·</span>
+                            <span className="font-semibold" style={{ color: days > 3 ? '#ef4444' : days > 1 ? '#f59e0b' : '#22c55e' }}>⏱ {elapsedStr}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                        PRESTADO
-                      </span>
-                      <p className="text-[9px] mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                        {new Date(loan.lentAt).toLocaleDateString('es-CL')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1153,7 +1191,7 @@ export default function WarehouseClan() {
             </div>
 
             {/* Filters */}
-            <div className="grid gap-3 items-center mb-4" style={{ gridTemplateColumns: '1fr 230px 200px' }}>
+            <div className="grid gap-3 items-center mb-4" style={{ gridTemplateColumns: '1fr 200px 180px 180px' }}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.3)' }} />
                 <input
@@ -1190,6 +1228,20 @@ export default function WarehouseClan() {
                     { value: 'ALL', label: 'Todos los estados', emoji: '📋' },
                     { value: 'IN_STOCK', label: 'Con stock', emoji: '✅' },
                     { value: 'OUT_OF_STOCK', label: 'Sin stock', emoji: '❌' },
+                  ]}
+                />
+              </div>
+              <div>
+                <FancySelect<string>
+                  value={loanedFilter}
+                  onChange={setLoanedFilter}
+                  accent="turquoise"
+                  size="md"
+                  placeholder="Préstamos"
+                  options={[
+                    { value: 'ALL', label: 'Todos', emoji: '📋' },
+                    { value: 'LOANED', label: 'Con préstamo activo', emoji: '🔄' },
+                    { value: 'NOT_LOANED', label: 'Sin préstamo', emoji: '✔️' },
                   ]}
                 />
               </div>
@@ -1323,7 +1375,7 @@ export default function WarehouseClan() {
                             })()}
                             {isSA && (
                               <button
-                                onClick={() => { /* edit item inline — future */ }}
+                                onClick={() => { setEditingItem(item); setEditCategory(item.category || ''); setEditQuantity(String(Number(item.quantity) || 0)); }}
                                 className="btn-ghost p-2"
                                 title="Editar (Super Admin)"
                                 style={{ color: '#60a5fa', borderColor: 'rgba(96,165,250,0.25)', background: 'rgba(96,165,250,0.08)' }}
@@ -2200,10 +2252,17 @@ export default function WarehouseClan() {
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
           <div className="rounded-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col" style={{ background: '#1a1a2e', border: '1px solid rgba(96,165,250,0.2)' }}>
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                <Clock className="h-4 w-4" style={{ color: '#60a5fa' }} />
-                Historial: {historyItem.name}
-              </h3>
+              <div className="flex items-center gap-3">
+                {historyItem.imageUrl ? (
+                  <img src={historyItem.imageUrl} className="h-9 w-9 rounded-lg object-cover" alt="" style={{ border: '1px solid rgba(96,165,250,0.2)' }} />
+                ) : (
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center text-sm" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>📦</div>
+                )}
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Historial</h3>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{historyItem.name}</p>
+                </div>
+              </div>
               <button onClick={() => setHistoryItem(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-3" style={{ scrollbarWidth: 'thin' }}>
@@ -2212,38 +2271,49 @@ export default function WarehouseClan() {
                 if (itemHistory.length === 0) return <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin registros de historial</p>;
                 return (
                   <div className="space-y-2">
-                    {itemHistory.map((h: any) => (
-                      <div key={h.id} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{
-                            background: h.type === 'withdraw' ? 'rgba(251,191,36,0.1)' : h.type === 'loan_out' ? 'rgba(96,165,250,0.1)' : h.type === 'loan_return' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                            border: `1px solid ${h.type === 'withdraw' ? 'rgba(251,191,36,0.25)' : h.type === 'loan_out' ? 'rgba(96,165,250,0.25)' : h.type === 'loan_return' ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'}`,
-                            color: h.type === 'withdraw' ? '#fbbf24' : h.type === 'loan_out' ? '#60a5fa' : h.type === 'loan_return' ? '#22c55e' : '#ef4444',
-                          }}>
-                            {h.type === 'withdraw' ? '⬇ Descuento' : h.type === 'loan_out' ? '↗ Préstamo' : h.type === 'loan_return' ? '↩ Devolución' : '🗑 Eliminación'}
-                          </span>
-                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                            {new Date(h.date).toLocaleDateString('es-CL')} {new Date(h.date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                    {itemHistory.map((h: any) => {
+                      const typeColor = h.type === 'withdraw' ? '#fbbf24' : h.type === 'loan_out' ? '#60a5fa' : h.type === 'loan_return' ? '#22c55e' : '#ef4444';
+                      const typeBg = h.type === 'withdraw' ? 'rgba(251,191,36,0.06)' : h.type === 'loan_out' ? 'rgba(96,165,250,0.06)' : h.type === 'loan_return' ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.06)';
+                      const typeBorder = h.type === 'withdraw' ? 'rgba(251,191,36,0.15)' : h.type === 'loan_out' ? 'rgba(96,165,250,0.15)' : h.type === 'loan_return' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+                      const typeLabel = h.type === 'withdraw' ? '⬇ Descuento' : h.type === 'loan_out' ? '↗ Préstamo' : h.type === 'loan_return' ? '↩ Devolución' : '🗑 Eliminación';
+                      return (
+                        <div key={h.id} className="rounded-xl p-3" style={{ background: typeBg, border: `1px solid ${typeBorder}` }}>
+                          <div className="flex items-start gap-3">
+                            {historyItem.imageUrl ? (
+                              <img src={historyItem.imageUrl} className="h-8 w-8 rounded object-cover shrink-0 mt-0.5" alt="" />
+                            ) : (
+                              <div className="h-8 w-8 rounded shrink-0 mt-0.5 flex items-center justify-center text-xs" style={{ background: 'rgba(255,255,255,0.05)' }}>📦</div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${typeColor}15`, border: `1px solid ${typeColor}40`, color: typeColor }}>
+                                  {typeLabel}
+                                </span>
+                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                  {new Date(h.date).toLocaleDateString('es-CL')} {new Date(h.date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                                <span className="font-mono font-bold" style={{ color: typeColor }}>{h.type === 'loan_return' ? '+' : '-'}{h.quantity}</span>
+                                <span>·</span>
+                                <span className="flex-1 truncate">{h.reason}</span>
+                                {isSA && (
+                                  <button
+                                    onClick={() => setConfirmAction({ title: 'Eliminar entrada de historial', message: 'Se eliminará permanentemente esta entrada. No deja rastro.', label: 'Eliminar', color: '#ef4444', action: () => { deleteHistoryMut.mutate({ id: Number(h.id) }); setConfirmAction(null); }, itemName: typeLabel, itemDetail: `${h.reason} — ${h.actor}` })}
+                                    className="shrink-0 p-1 rounded hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.6)' }} title="Eliminar entrada"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                              <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                Por: {h.actor} {h.type === 'withdraw' ? `· Stock restante: ${h.remainingStock}` : ''}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3 text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                          <span className="font-mono font-bold" style={{ color: h.type === 'withdraw' ? '#fbbf24' : h.type === 'loan_out' ? '#60a5fa' : h.type === 'loan_return' ? '#22c55e' : '#ef4444' }}>{h.type === 'loan_return' ? '+' : '-'}{h.quantity}</span>
-                          <span>·</span>
-                          <span className="flex-1 truncate">{h.reason}</span>
-                          {isSA && (
-                            <button
-                              onClick={() => setConfirmAction({ title: 'Eliminar entrada de historial', message: 'Se eliminará permanentemente esta entrada. No deja rastro.', label: 'Eliminar', color: '#ef4444', action: () => { deleteHistoryMut.mutate({ id: Number(h.id) }); setConfirmAction(null); }, itemName: h.type === 'withdraw' ? 'Descuento' : 'Eliminación', itemDetail: `${h.reason} — ${h.actor}` })}
-                              className="shrink-0 p-1 rounded hover:bg-white/5" style={{ color: 'rgba(255,120,120,0.6)' }} title="Eliminar entrada"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-                        <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                          Por: {h.actor} {h.type === 'withdraw' ? `· Stock restante: ${h.remainingStock}` : ''}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}
@@ -2318,6 +2388,9 @@ export default function WarehouseClan() {
               <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 <ArrowRightLeft className="h-4 w-4" style={{ color: '#f59e0b' }} />
                 Préstamos enviados
+                {pendingSentLoans.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>{pendingSentLoans.length} pendientes</span>
+                )}
               </h3>
               <button onClick={() => setLoansModalCpId(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
             </div>
@@ -2325,62 +2398,81 @@ export default function WarehouseClan() {
               {sentLoans.length === 0 ? (
                 <p className="text-xs text-center py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay préstamos registrados</p>
               ) : (
-                sentLoans.map((loan: any) => (
-                  <div key={loan.id} className="rounded-xl p-3" style={{
-                    background: loan.returned ? 'rgba(34,197,94,0.06)' : 'rgba(245,158,11,0.06)',
-                    border: `1px solid ${loan.returned ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}`,
-                  }}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        {loan.itemImageUrl && (
-                          <img src={loan.itemImageUrl} className="h-8 w-8 rounded object-cover" alt="" />
+                sentLoans.map((loan: any) => {
+                  const elapsed = Date.now() - new Date(loan.lentAt).getTime();
+                  const days = Math.floor(elapsed / 86400000);
+                  const hours = Math.floor((elapsed % 86400000) / 3600000);
+                  const mins = Math.floor((elapsed % 3600000) / 60000);
+                  const elapsedStr = days > 0 ? `${days}d ${hours}h` : hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+                  return (
+                    <div key={loan.id} className="rounded-xl p-3" style={{
+                      background: loan.returned ? 'rgba(34,197,94,0.04)' : 'rgba(245,158,11,0.04)',
+                      border: `1px solid ${loan.returned ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)'}`,
+                    }}>
+                      <div className="flex items-start gap-3">
+                        {loan.itemImageUrl ? (
+                          <img src={loan.itemImageUrl} className="h-10 w-10 rounded-lg object-cover shrink-0" alt="" style={{ border: `1px solid ${loan.returned ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}` }} />
+                        ) : (
+                          <div className="h-10 w-10 rounded-lg shrink-0 flex items-center justify-center text-sm" style={{ background: 'rgba(255,255,255,0.05)' }}>📦</div>
                         )}
-                        <div>
-                          <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{loan.itemName}</p>
-                          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                            → {loan.toCpName} · {loan.quantity}×
-                          </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className="text-xs font-bold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{loan.itemName}</p>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2" style={{
+                              background: loan.returned ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
+                              color: loan.returned ? '#22c55e' : '#f59e0b',
+                            }}>
+                              {loan.returned ? 'DEVUELTO' : 'PENDIENTE'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                            <span>→ <span style={{ color: loan.returned ? 'rgba(34,197,94,0.7)' : 'rgba(245,158,11,0.8)' }}>{loan.toCpName}</span></span>
+                            <span>·</span>
+                            <span className="font-mono font-bold" style={{ color: loan.returned ? '#22c55e' : '#f59e0b' }}>{loan.quantity}×</span>
+                            <span>·</span>
+                            <span>Por: {loan.lentBy}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                            <span>📅 {new Date(loan.lentAt).toLocaleDateString('es-CL')} {new Date(loan.lentAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+                            {!loan.returned && (
+                              <>
+                                <span>·</span>
+                                <span className="font-semibold" style={{ color: days > 3 ? '#ef4444' : days > 1 ? '#f59e0b' : '#22c55e' }}>⏱ {elapsedStr}</span>
+                              </>
+                            )}
+                            {loan.reason && <><span>·</span><span>{loan.reason}</span></>}
+                          </div>
+                          {loan.returned && loan.returnedAt && (
+                            <p className="text-[10px] mt-1" style={{ color: 'rgba(34,197,94,0.5)' }}>
+                              ✓ Devuelto: {new Date(loan.returnedAt).toLocaleDateString('es-CL')} {new Date(loan.returnedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                              {loan.returnedBy && ` · Por: ${loan.returnedBy}`}
+                            </p>
+                          )}
+                          {!loan.returned && canWriteSelected && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => setConfirmAction({
+                                  title: 'Confirmar devolución',
+                                  message: `¿Confirmar que ${loan.toCpName} devolvió ${loan.quantity}× ${loan.itemName}? Se restaurará el stock.`,
+                                  label: 'Confirmar devolución',
+                                  color: '#22c55e',
+                                  action: () => { returnLoanMut.mutate({ loanId: Number(loan.id) }); setConfirmAction(null); },
+                                  itemName: loan.itemName,
+                                  itemDetail: `Préstamo a ${loan.toCpName}`,
+                                  itemImage: loan.itemImageUrl || null,
+                                })}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-semibold"
+                                style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                              >
+                                Marcar devuelto
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{
-                        background: loan.returned ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
-                        color: loan.returned ? '#22c55e' : '#f59e0b',
-                      }}>
-                        {loan.returned ? 'DEVUELTO' : 'PENDIENTE'}
-                      </span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                      <span>
-                        {new Date(loan.lentAt).toLocaleDateString('es-CL')} {new Date(loan.lentAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                        {' · Por: '}{loan.lentBy}
-                        {loan.reason && ` · ${loan.reason}`}
-                      </span>
-                      {!loan.returned && canWriteSelected && (
-                        <button
-                          onClick={() => setConfirmAction({
-                            title: 'Confirmar devolución',
-                            message: `¿Confirmar que ${loan.toCpName} devolvió ${loan.quantity}× ${loan.itemName}? Se restaurará el stock.`,
-                            label: 'Confirmar devolución',
-                            color: '#22c55e',
-                            action: () => { returnLoanMut.mutate({ loanId: Number(loan.id) }); setConfirmAction(null); },
-                            itemName: loan.itemName,
-                            itemDetail: `Préstamo a ${loan.toCpName}`,
-                          })}
-                          className="px-2 py-1 rounded text-[10px] font-semibold"
-                          style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
-                        >
-                          Marcar devuelto
-                        </button>
-                      )}
-                    </div>
-                    {loan.returned && loan.returnedAt && (
-                      <p className="text-[10px] mt-1" style={{ color: 'rgba(34,197,94,0.5)' }}>
-                        Devuelto: {new Date(loan.returnedAt).toLocaleDateString('es-CL')} {new Date(loan.returnedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                        {loan.returnedBy && ` · Por: ${loan.returnedBy}`}
-                      </p>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <div className="flex justify-end px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
@@ -2409,6 +2501,70 @@ export default function WarehouseClan() {
             <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <button onClick={() => setDeleteReasonItem(null)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
               <button onClick={() => { if (!deleteReason.trim()) { toast.error('Debe indicar un motivo'); return; } deleteItemMut.mutate({ id: Number(deleteReasonItem.id), reason: deleteReason.trim() }); setDeleteReasonItem(null); setDeleteReason(''); }} className="px-4 py-2 rounded-lg text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Item Modal (SA only) */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: '#1a1a2e', border: '1px solid rgba(96,165,250,0.2)' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3">
+                {editingItem.imageUrl ? (
+                  <img src={editingItem.imageUrl} className="h-9 w-9 rounded-lg object-cover" alt="" style={{ border: '1px solid rgba(96,165,250,0.2)' }} />
+                ) : (
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center text-sm" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa' }}>📦</div>
+                )}
+                <div>
+                  <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Editar Item</h3>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{editingItem.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setEditingItem(null)}><X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Categoría</label>
+                <select
+                  value={editCategory}
+                  onChange={e => setEditCategory(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+                >
+                  <option value="">Seleccionar categoría</option>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{categoryMeta[c]?.emoji} {categoryMeta[c]?.label || c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Cantidad</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editQuantity}
+                  onChange={e => setEditQuantity(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => setEditingItem(null)} className="px-4 py-2 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
+              <button
+                onClick={() => {
+                  const updates: any = {};
+                  if (editCategory && editCategory !== editingItem.category) updates.category = editCategory;
+                  const qty = parseInt(editQuantity, 10);
+                  if (!isNaN(qty) && qty !== Number(editingItem.quantity)) updates.quantity = qty;
+                  if (Object.keys(updates).length === 0) { toast.error('No hay cambios'); return; }
+                  updateItemMut.mutate({ id: Number(editingItem.id), ...updates });
+                }}
+                className="px-4 py-2 rounded-lg text-xs font-semibold"
+                style={{ background: 'rgba(96,165,250,0.2)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}
+              >
+                Guardar cambios
+              </button>
             </div>
           </div>
         </div>

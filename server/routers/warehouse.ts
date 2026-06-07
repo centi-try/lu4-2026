@@ -434,6 +434,23 @@ export const warehouseRouter = router({
       return { success: true };
     }),
 
+  // Update item (category, quantity) — SA only
+  updateItem: protectedProcedure
+    .input(z.object({ id: z.number(), category: z.string().optional(), quantity: z.number().int().min(0).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede editar.' });
+      const db = dbInstance;
+      if (!db.warehouseItems) return { success: false };
+      const item = db.warehouseItems.find((w: any) => Number(w.id) === Number(input.id));
+      if (!item) throw new TRPCError({ code: 'NOT_FOUND' });
+      if (input.category !== undefined) item.category = input.category;
+      if (input.quantity !== undefined) item.quantity = input.quantity;
+      item.updatedAt = nowIso();
+      saveDbToDisk();
+      return { success: true };
+    }),
+
   // ─── Material Loans between CPs ─────────────────────────────────────────
 
   // Create a loan (lend materials from one CP to another)
