@@ -1824,7 +1824,8 @@ export default function WarehouseClan() {
                                 const deficit = Math.max(0, need - poolAvail);
                                 const childScale = isCovered ? 0 : (originalNeed > 0 ? deficit / originalNeed : 0);
                                 // Calculate how many of this material can be crafted from sub-materials
-                                const isCraftable = mat.isCraftable && subs.length > 0;
+                                // Auto-detect: any material with sub-materials is crafteable
+                                const isCraftable = subs.length > 0;
                                 let canCraftFromSubs = 0;
                                 if (isCraftable && !isCovered) {
                                   // Find the minimum craft count based on available sub-materials
