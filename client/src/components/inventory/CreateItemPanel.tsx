@@ -209,10 +209,10 @@ export function CreateItemPanel() {
   // resetea a '0' para forzar al usuario a tipearla manualmente — así
   // evitamos registrar accidentalmente 1 unidad cuando el mapper solo
   // quiso reutilizar los datos del ítem existente.
-  const applyTypeaheadSelection = (rowId: string, item: Item) => {
-    const pickedCat = item.category;
-    const picked = item.image?.publicUrl;
-    // Si el ítem histórico tiene imagen propia la reutilizamos; si no, caemos
+  const applyTypeaheadSelection = (rowId: string, item: any) => {
+    const pickedCat = item.category || '';
+    const picked = item.image?.publicUrl || item.imageUrl || '';
+    // Si el ítem tiene imagen propia la reutilizamos; si no, caemos
     // al icono global de la categoría (cargado en /raids/settings).
     const fallback =
       pickedCat && CATEGORIES.includes(pickedCat as ItemCategory)
@@ -221,10 +221,9 @@ export function CreateItemPanel() {
     updateRow(rowId, {
       name: item.name,
       category: pickedCat,
-      price: item.price != null ? String(item.price) : '',
+      price: item.price != null && item.price > 0 ? String(item.price) : '',
       imageUrl: picked || fallback,
       quantity: '0', // <- reset de seguridad, obliga a re-ingresar
-      // selectedCharIds se mantienen como estaban (vacíos o lo que haya)
     });
   };
 
