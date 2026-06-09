@@ -1718,10 +1718,8 @@ export default function WarehouseClan() {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
               // Smart stock allocation with proportional sub-material calculation
-              // Filter warehouse items to ONLY this project's CP (so CP 'Todas' doesn't inflate stock)
-              const projectCpItems = (warehouseItems as any[]).filter((wi: any) => Number(wi.cpId) === Number(project.cpId));
               const stockPool = new Map<string, number>();
-              for (const item of projectCpItems) {
+              for (const item of warehouseItems as any[]) {
                 const key = String(item.nameLower || item.name || '').toLowerCase();
                 stockPool.set(key, (stockPool.get(key) || 0) + (Number(item.quantity) || 0));
               }
@@ -1763,7 +1761,7 @@ export default function WarehouseClan() {
               // Check if all base materials (no sub-materials) are covered → ready to craft
               const checkBaseCovered = (mats: any[], pScale: number = 1): { allBaseCovered: boolean; hasUncoveredCraftable: boolean } => {
                 const bPool = new Map<string, number>();
-                for (const item of projectCpItems) {
+                for (const item of warehouseItems as any[]) {
                   const k = String(item.nameLower || item.name || '').toLowerCase();
                   bPool.set(k, (bPool.get(k) || 0) + (Number(item.quantity) || 0));
                 }
@@ -1856,7 +1854,7 @@ export default function WarehouseClan() {
                           {(() => {
                             // Separate pool for display rendering (the counting pool above already consumed stock)
                             const displayPool = new Map<string, number>();
-                            for (const item of projectCpItems) {
+                            for (const item of warehouseItems as any[]) {
                               const k = String(item.nameLower || item.name || '').toLowerCase();
                               displayPool.set(k, (displayPool.get(k) || 0) + (Number(item.quantity) || 0));
                             }
