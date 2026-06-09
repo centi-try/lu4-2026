@@ -594,18 +594,22 @@ export const warehouseRouter = router({
           name: z.string().min(1),
           quantity: z.number().int().min(1),
           imageUrl: z.string().optional(),
+          isCraftable: z.boolean().optional(),
           subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
             name: z.string().min(1),
             quantity: z.number().int().min(1),
             imageUrl: z.string().optional(),
+            isCraftable: z.boolean().optional(),
             subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
               name: z.string().min(1),
               quantity: z.number().int().min(1),
               imageUrl: z.string().optional(),
+              isCraftable: z.boolean().optional(),
               subMaterials: z.array(z.object({
                 name: z.string().min(1),
                 quantity: z.number().int().min(1),
                 imageUrl: z.string().optional(),
+                isCraftable: z.boolean().optional(),
               })).optional(),
             })).optional()),
           })).optional()),
@@ -623,6 +627,7 @@ export const warehouseRouter = router({
           nameLower: m.name.trim().toLowerCase(),
           quantity: m.quantity,
           imageUrl: m.imageUrl || null,
+          isCraftable: m.isCraftable || false,
           subMaterials: m.subMaterials?.length ? mapMats(m.subMaterials) : [],
         }));
         const recipe = {
@@ -681,18 +686,22 @@ export const warehouseRouter = router({
           name: z.string().min(1),
           quantity: z.number().int().min(1),
           imageUrl: z.string().optional(),
+          isCraftable: z.boolean().optional(),
           subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
             name: z.string().min(1),
             quantity: z.number().int().min(1),
             imageUrl: z.string().optional(),
+            isCraftable: z.boolean().optional(),
             subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
               name: z.string().min(1),
               quantity: z.number().int().min(1),
               imageUrl: z.string().optional(),
+              isCraftable: z.boolean().optional(),
               subMaterials: z.array(z.object({
                 name: z.string().min(1),
                 quantity: z.number().int().min(1),
                 imageUrl: z.string().optional(),
+                isCraftable: z.boolean().optional(),
               })).optional(),
             })).optional()),
           })).optional()),
@@ -716,6 +725,7 @@ export const warehouseRouter = router({
             nameLower: m.name.trim().toLowerCase(),
             quantity: m.quantity,
             imageUrl: m.imageUrl || null,
+            isCraftable: m.isCraftable || false,
             subMaterials: m.subMaterials?.length ? mapMats(m.subMaterials) : [],
           }));
           recipe.materials = mapMats(input.materials);

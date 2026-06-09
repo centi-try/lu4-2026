@@ -1718,8 +1718,10 @@ export default function WarehouseClan() {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
               // Smart stock allocation with proportional sub-material calculation
+              // Filter warehouse items to ONLY this project's CP (so CP 'Todas' doesn't inflate stock)
+              const projectCpItems = (warehouseItems as any[]).filter((wi: any) => Number(wi.cpId) === Number(project.cpId));
               const stockPool = new Map<string, number>();
-              for (const item of warehouseItems as any[]) {
+              for (const item of projectCpItems) {
                 const key = String(item.nameLower || item.name || '').toLowerCase();
                 stockPool.set(key, (stockPool.get(key) || 0) + (Number(item.quantity) || 0));
               }
@@ -1761,7 +1763,7 @@ export default function WarehouseClan() {
               // Check if all base materials (no sub-materials) are covered → ready to craft
               const checkBaseCovered = (mats: any[], pScale: number = 1): { allBaseCovered: boolean; hasUncoveredCraftable: boolean } => {
                 const bPool = new Map<string, number>();
-                for (const item of warehouseItems as any[]) {
+                for (const item of projectCpItems) {
                   const k = String(item.nameLower || item.name || '').toLowerCase();
                   bPool.set(k, (bPool.get(k) || 0) + (Number(item.quantity) || 0));
                 }
@@ -1854,7 +1856,7 @@ export default function WarehouseClan() {
                           {(() => {
                             // Separate pool for display rendering (the counting pool above already consumed stock)
                             const displayPool = new Map<string, number>();
-                            for (const item of warehouseItems as any[]) {
+                            for (const item of projectCpItems) {
                               const k = String(item.nameLower || item.name || '').toLowerCase();
                               displayPool.set(k, (displayPool.get(k) || 0) + (Number(item.quantity) || 0));
                             }
@@ -1909,12 +1911,13 @@ export default function WarehouseClan() {
                                         {depth > 0 && <span className="text-[10px]" style={{ color: `rgba(168,85,247,${0.3 + depth * 0.1})` }}>└</span>}
                                         <span className={depth === 0 ? '' : 'text-[11px]'} style={{ color: isCovered ? '#34d399' : depth === 0 ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.65)', textDecoration: isCovered ? 'line-through' : 'none', fontWeight: subs.length > 0 ? 600 : 400 }}>{mat.name}</span>
                                         {subs.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
+                                        {(mat.isCraftable || subs.length > 0) && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)', color: '#60a5fa' }}>⚒ Crafteable</span>}
                                       </div>
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{recipeQty.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: craftNet > 0 ? '#ef4444' : '#34d399' }}>{craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
-                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: subs.length === 0 ? 'rgba(255,255,255,0.15)' : craftNet <= 0 ? '#34d399' : '#60a5fa' }}>{subs.length === 0 ? '—' : craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: !(mat.isCraftable || subs.length > 0) ? 'rgba(255,255,255,0.15)' : craftNet <= 0 ? '#34d399' : '#60a5fa' }}>{!(mat.isCraftable || subs.length > 0) ? '—' : craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
                                 );
