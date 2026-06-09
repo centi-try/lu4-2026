@@ -19,7 +19,7 @@ export default function Dashboard() {
   const { user: authUser } = useAuth();
   const isSuperAdmin = effectiveIsSuperAdmin;
 
-  const { data: registeredUsers } = trpc.adminUsers.list.useQuery(undefined, { enabled: !!authUser });
+  const { data: registeredUsers } = trpc.adminUsers.listUsers.useQuery(undefined, { enabled: !!authUser && isSuperAdmin, retry: false });
   const { data: clanSummary } = trpc.clanFund.getSummary.useQuery(undefined, { enabled: !!authUser });
   const { data: clanTransactions } = trpc.clanFund.listTransactions.useQuery(undefined, { enabled: !!authUser });
   const utils = trpc.useUtils();
