@@ -2,6 +2,8 @@ import React from 'react';
 import {
   CheckCircle, ImageIcon, Plus, Pencil, Trash2, Shield, DollarSign, BarChart3,
   Bookmark, BookmarkX, UserPlus, UserMinus, UserCog, Key, Coins, CircleDollarSign,
+  Package, Hammer, Download, Upload, RotateCcw, BookOpen, UserPen, LogIn, LogOut,
+  Receipt, Settings,
 } from 'lucide-react';
 import type { AuditLog } from '../../lib/types';
 
@@ -48,6 +50,30 @@ const actionMeta: Record<string, { icon: React.ElementType; color: string; label
   USER_ROLE_CHANGED:        { icon: UserCog,     color: '#60a5fa', label: 'Cambió rol' },
   USER_PASSWORD_RESET:      { icon: Key,         color: '#fbbf24', label: 'Reseteó contraseña' },
   USER_PASSWORD_CHANGED:    { icon: Key,         color: '#fbbf24', label: 'Cambió contraseña' },
+  USER_PROFILE_UPDATED:     { icon: UserPen,     color: '#60a5fa', label: 'Actualizó perfil usuario' },
+  LOGIN_SUCCESS:            { icon: LogIn,       color: '#34d399', label: 'Inicio de sesión' },
+  LOGIN_FAILED:             { icon: LogOut,      color: '#f87171', label: 'Inicio de sesión fallido' },
+  LEGACY_ACCESS_ENABLED:    { icon: UserCog,     color: '#34d399', label: 'Activó menú antiguo' },
+  LEGACY_ACCESS_DISABLED:   { icon: UserCog,     color: '#f87171', label: 'Desactivó menú antiguo' },
+  WAREHOUSE_REGISTER:       { icon: Package,     color: '#60a5fa', label: 'Registró material bodega' },
+  WAREHOUSE_CONFIRM:        { icon: CheckCircle, color: '#34d399', label: 'Confirmó material bodega' },
+  WAREHOUSE_DELETE_INCOMING: { icon: Trash2,     color: '#f87171', label: 'Rechazó registro bodega' },
+  WAREHOUSE_WITHDRAW:       { icon: Receipt,     color: '#fbbf24', label: 'Descontó material bodega' },
+  WAREHOUSE_DELETE:          { icon: Trash2,     color: '#ef4444', label: 'Eliminó ítem bodega' },
+  CRAFT_RECIPE_CREATE:      { icon: Pencil,      color: '#a855f7', label: 'Creó receta crafteo' },
+  CRAFT_RECIPE_DELETE:      { icon: Trash2,      color: '#ef4444', label: 'Eliminó receta crafteo' },
+  CRAFT_RECIPE_UPDATE:      { icon: Pencil,      color: '#a855f7', label: 'Actualizó receta crafteo' },
+  CRAFT_PROJECT_CREATE:     { icon: Hammer,      color: '#34d399', label: 'Creó proyecto crafteo' },
+  CRAFT_PROJECT_COMPLETE:   { icon: CheckCircle, color: '#10b981', label: 'Completó proyecto crafteo' },
+  CRAFT_PROJECT_EDIT_ASSIGNMENT: { icon: Pencil, color: '#60a5fa', label: 'Editó asignación crafteo' },
+  CATALOG_MATERIAL_CREATE:  { icon: BookOpen,    color: '#7bf1d6', label: 'Creó material catálogo' },
+  CLAN_FUND_EXPENSE:        { icon: Receipt,     color: '#f87171', label: 'Registró gasto' },
+  CLAN_FUND_EXPENSE_UPDATED: { icon: Pencil,     color: '#60a5fa', label: 'Actualizó gasto' },
+  CLAN_FUND_EXPENSE_DELETED: { icon: Trash2,     color: '#f87171', label: 'Eliminó gasto' },
+  CLAN_FUND_SETTINGS_UPDATED: { icon: Settings,  color: '#a78bfa', label: 'Actualizó config. fondo' },
+  BACKUP_DOWNLOADED:        { icon: Download,    color: '#3b82f6', label: 'Descargó backup' },
+  BACKUP_IMPORTED:          { icon: Upload,      color: '#a78bfa', label: 'Importó backup' },
+  FACTORY_RESET:            { icon: RotateCcw,   color: '#ef4444', label: 'Reseteó base de datos' },
 };
 
 function timeAgo(iso: string): string {

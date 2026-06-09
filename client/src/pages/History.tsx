@@ -3,7 +3,7 @@ import {
   CheckCircle, ImageIcon, Plus, Pencil, Trash2, Shield, Search, DollarSign,
   UserMinus, UserX, UserCog, KeyRound, RefreshCcw, Bookmark, BookmarkX, AlertTriangle,
   Coins, CircleDollarSign, LogIn, LogOut, Ban, Settings, Receipt, Undo2,
-  Package, Hammer,
+  Package, Hammer, Download, Upload, RotateCcw, BookOpen, UserPen,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
@@ -91,6 +91,16 @@ const actionMeta: Record<string, ActionMeta> = {
   CRAFT_RECIPE_CREATE:         { icon: Pencil,  color: '#a855f7', label: 'Creó receta crafteo',       desc: 'Nueva receta de crafteo creada' },
   CRAFT_RECIPE_DELETE:         { icon: Trash2,  color: '#ef4444', label: 'Eliminó receta crafteo',    desc: 'Receta de crafteo eliminada' },
   CRAFT_PROJECT_CREATE:        { icon: Hammer,  color: '#34d399', label: 'Creó proyecto crafteo',     desc: 'Nuevo proyecto de crafteo iniciado' },
+  CRAFT_PROJECT_COMPLETE:       { icon: CheckCircle, color: '#10b981', label: 'Completó proyecto crafteo', desc: 'Proyecto de crafteo marcado como completado' },
+  CRAFT_PROJECT_EDIT_ASSIGNMENT: { icon: Pencil, color: '#60a5fa', label: 'Editó asignación crafteo',  desc: 'Asignación de materiales del proyecto modificada' },
+  CRAFT_RECIPE_UPDATE:          { icon: Pencil,  color: '#a855f7', label: 'Actualizó receta crafteo',  desc: 'Receta de crafteo modificada' },
+  CATALOG_MATERIAL_CREATE:      { icon: BookOpen, color: '#7bf1d6', label: 'Creó material catálogo',   desc: 'Nuevo material agregado al catálogo' },
+  // Perfil de usuario
+  USER_PROFILE_UPDATED:         { icon: UserPen, color: '#60a5fa', label: 'Actualizó perfil usuario',  desc: 'Perfil de usuario modificado por administrador' },
+  // Backups
+  BACKUP_DOWNLOADED:            { icon: Download, color: '#3b82f6', label: 'Descargó backup',          desc: 'Backup de base de datos descargado' },
+  BACKUP_IMPORTED:              { icon: Upload,   color: '#a78bfa', label: 'Importó backup',           desc: 'Backup importado desde archivo' },
+  FACTORY_RESET:                { icon: RotateCcw, color: '#ef4444', label: 'Reseteó base de datos',   desc: 'Reset completo de la base de datos' },
 };
 
 function metaFor(action: string): ActionMeta {

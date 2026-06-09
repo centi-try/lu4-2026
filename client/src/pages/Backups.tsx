@@ -183,36 +183,31 @@ export function Backups() {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => {
-                listQuery.refetch();
-                statusQuery.refetch();
-              }}
-              className="rounded-xl px-3 py-2 text-sm transition-all flex items-center gap-2"
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.7)',
-              }}
+              onClick={() => { listQuery.refetch(); statusQuery.refetch(); }}
+              className="rounded-2xl border px-4 py-3 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
+              style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(255,255,255,0.15)' }}
             >
-              <RefreshCw className="h-4 w-4" />
-              Refrescar
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                <RefreshCw className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
+              </div>
+              <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Refrescar</span>
             </button>
             <button
               onClick={() => createMutation.mutate({ reason: 'manual' })}
               disabled={createMutation.isPending}
-              className="rounded-xl px-4 py-2 text-sm font-semibold transition-all flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #7bf1d6 0%, #5db8a3 100%)',
-                color: '#060910',
-                boxShadow: '0 4px 12px rgba(123,241,214,0.25)',
-              }}
+              className="rounded-2xl border px-4 py-3 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
+              style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(123,241,214,0.3)' }}
             >
-              {createMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Crear backup ahora
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(123,241,214,0.15)', border: '1px solid rgba(123,241,214,0.3)' }}>
+                {createMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />
+                ) : (
+                  <Database className="h-4 w-4" style={{ color: '#7bf1d6' }} />
+                )}
+              </div>
+              <span className="text-sm font-semibold" style={{ color: '#7bf1d6' }}>Crear backup</span>
             </button>
           </div>
         </div>
