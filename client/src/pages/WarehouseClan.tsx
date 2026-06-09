@@ -1758,6 +1758,42 @@ export default function WarehouseClan() {
               const isExpanded = expandedProject === Number(project.id);
               const isPriority = !!project.priority;
 
+              // Check if all base materials (no sub-materials) are covered → ready to craft
+              const checkBaseCovered = (mats: any[], pScale: number = 1): { allBaseCovered: boolean; hasUncoveredCraftable: boolean } => {
+                const bPool = new Map<string, number>();
+                for (const item of warehouseItems as any[]) {
+                  const k = String(item.nameLower || item.name || '').toLowerCase();
+                  bPool.set(k, (bPool.get(k) || 0) + (Number(item.quantity) || 0));
+                }
+                let allBase = true;
+                let hasUncraftable = false;
+                const walk = (ms: any[], ps: number) => {
+                  for (const m of ms) {
+                    const k = String(m.nameLower || m.name || '').toLowerCase();
+                    const rq = Number(m.quantity) || 0;
+                    const cn = Math.ceil(rq * ps);
+                    const av = bPool.get(k) || 0;
+                    const covered = cn <= 0 || av >= cn;
+                    if (covered && cn > 0) bPool.set(k, av - cn);
+                    const subs = m.subMaterials || [];
+                    if (subs.length === 0) {
+                      // Base material
+                      if (!covered) allBase = false;
+                    } else {
+                      // Crafteable material
+                      if (!covered) hasUncraftable = true;
+                      let cs = 0;
+                      if (!covered && rq > 0) cs = Math.max(0, cn - av) / rq;
+                      walk(subs, cs);
+                    }
+                  }
+                };
+                walk(mats, pScale);
+                return { allBaseCovered: allBase, hasUncoveredCraftable: hasUncraftable };
+              };
+              const { allBaseCovered, hasUncoveredCraftable } = checkBaseCovered(materials);
+              const readyToCraft = allBaseCovered && hasUncoveredCraftable && progress < 100;
+
               return (
                 <div key={project.id} className="card-glass rounded-2xl overflow-hidden" style={{ borderColor: isPriority ? 'rgba(251,191,36,0.3)' : 'rgba(168,85,247,0.15)' }}>
                   <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors" onClick={() => setExpandedProject(isExpanded ? null : Number(project.id))}>
@@ -1792,6 +1828,15 @@ export default function WarehouseClan() {
                         <a href={recipe.wikiUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] mt-3 mb-3 px-2 py-1 rounded-lg" style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }}>
                           <ExternalLink className="h-3 w-3" /> Ver en Wiki
                         </a>
+                      )}
+                      {readyToCraft && (
+                        <div className="flex items-center gap-3 mt-3 mb-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                          <span style={{ fontSize: 22 }}>✅</span>
+                          <div>
+                            <p className="text-xs font-bold" style={{ color: '#34d399' }}>Tienes todos los materiales base</p>
+                            <p className="text-[11px]" style={{ color: 'rgba(52,211,153,0.7)' }}>Ve al juego, craftea los materiales y guárdalos en la bodega para completar el proyecto.</p>
+                          </div>
+                        </div>
                       )}
                       <table className="w-full text-xs mt-2">
                         <thead>
@@ -1869,7 +1914,7 @@ export default function WarehouseClan() {
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{recipeQty.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: missingFull > 0 ? '#ef4444' : '#34d399' }}>{missingFull > 0 ? missingFull.toLocaleString() : '—'}</td>
-                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: craftNet <= 0 ? '#34d399' : '#60a5fa' }}>{craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: subs.length === 0 ? 'rgba(255,255,255,0.15)' : craftNet <= 0 ? '#34d399' : '#60a5fa' }}>{subs.length === 0 ? '—' : craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
                                 );
