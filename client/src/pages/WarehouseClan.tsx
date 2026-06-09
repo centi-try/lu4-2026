@@ -1713,7 +1713,7 @@ export default function WarehouseClan() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay proyectos activos. {isSA ? 'Crea uno desde "Nuevo Proyecto".' : ''}</p>
               </div>
             )}
-            <div className="max-h-[400px] overflow-y-auto pr-1 space-y-3" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(168,85,247,0.3) transparent' }}>
+            <div className="space-y-3">
             {(projects as any[]).filter((p: any) => p.status === 'active').sort((a: any, b: any) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)).map((project: any) => {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
@@ -1903,7 +1903,7 @@ export default function WarehouseClan() {
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay recetas. {isSA ? 'Crea una desde "Nueva Receta".' : ''}</p>
               </div>
             )}
-            <div className="max-h-[400px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(192,132,252,0.3) transparent' }}>
+            <div>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {(recipes as any[]).map((recipe: any) => (
                 <div key={recipe.id} className="card-glass rounded-xl overflow-hidden">

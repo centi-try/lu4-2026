@@ -608,35 +608,7 @@ export default function Dashboard() {
                     <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Usuarios</p>
                   </div>
                 </div>
-                {activeUsers.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      Personajes registrados
-                    </p>
-                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-                      {activeUsers.slice(0, 10).map((u: any) => {
-                        const r = String(u.role || 'user').toLowerCase();
-                        const grad = r === 'super_admin' || r === 'admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : 'from-fuchsia-400 to-purple-600';
-                        return (
-                          <div key={u.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
-                            style={{ background: 'rgba(255,255,255,0.03)' }}>
-                            <div className="flex items-center gap-2">
-                              <div className={`flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br ${grad} text-white`}
-                                style={{ fontSize: '9px', fontWeight: 'bold' }}>
-                                {(u.characterName || u.name || '??').slice(0, 2).toUpperCase()}
-                              </div>
-                              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{u.characterName || u.name || u.email}</span>
-                            </div>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{
-                              background: r === 'super_admin' || r === 'admin' ? 'rgba(123,241,214,0.1)' : r === 'mapper' ? 'rgba(251,191,36,0.1)' : 'rgba(167,139,250,0.1)',
-                              color: r === 'super_admin' || r === 'admin' ? '#7bf1d6' : r === 'mapper' ? '#fbbf24' : '#a78bfa',
-                            }}>{r === 'super_admin' || r === 'admin' ? 'SA' : r === 'mapper' ? 'Mapper' : 'User'}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+
               </>
             );
           })()}

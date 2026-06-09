@@ -181,35 +181,27 @@ export function Backups() {
               operaciones riesgosas (cierre de ciclo), y manuales on-demand.
             </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { listQuery.refetch(); statusQuery.refetch(); }}
-              className="rounded-2xl border px-4 py-3 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
-              style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(255,255,255,0.15)' }}
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                <RefreshCw className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.7)' }} />
-              </div>
-              <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Refrescar</span>
-            </button>
-            <button
-              onClick={() => createMutation.mutate({ reason: 'manual' })}
-              disabled={createMutation.isPending}
-              className="rounded-2xl border px-4 py-3 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
-              style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(123,241,214,0.3)' }}
-            >
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(123,241,214,0.15)', border: '1px solid rgba(123,241,214,0.3)' }}>
-                {createMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />
-                ) : (
-                  <Database className="h-4 w-4" style={{ color: '#7bf1d6' }} />
-                )}
-              </div>
-              <span className="text-sm font-semibold" style={{ color: '#7bf1d6' }}>Crear backup</span>
-            </button>
-          </div>
+          <button
+            onClick={() => createMutation.mutate({ reason: 'manual' })}
+            disabled={createMutation.isPending}
+            className="rounded-2xl border p-4 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
+            style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(123,241,214,0.3)' }}
+          >
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(123,241,214,0.15)', border: '1px solid rgba(123,241,214,0.3)' }}>
+              {createMutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#7bf1d6' }} />
+              ) : (
+                <Database className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+              )}
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold" style={{ color: '#7bf1d6' }}>
+                {createMutation.isPending ? 'Creando...' : 'Crear backup'}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Snapshot manual del estado actual</p>
+            </div>
+          </button>
         </div>
 
         {/* Action buttons: Download, Upload, Reset */}
