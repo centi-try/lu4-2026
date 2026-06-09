@@ -577,6 +577,42 @@ export function restoreFromBackup(file: string): boolean {
   }
 }
 
+// Export raw DB content as JSON string (for download)
+export function getDbRawContent(): string {
+  return JSON.stringify(dbInstance, null, 2);
+}
+
+// Import DB content from a JSON string (for upload/import)
+export function importDbContent(jsonString: string): boolean {
+  try {
+    const parsed = tryParseDatabase(jsonString);
+    if (!parsed) return false;
+    createBackup('pre-import');
+    const imported = ensureDefaultSuperAdmin(parsed);
+    dbInstance = imported;
+    writeDbAtomic(imported);
+    return true;
+  } catch (err) {
+    console.error('[db] Error importando backup:', err);
+    return false;
+  }
+}
+
+// Reset database to initial empty state (factory reset)
+export function resetDatabase(): boolean {
+  try {
+    createBackup('pre-reset');
+    const fresh = { ...initialSchema };
+    const withAdmin = ensureDefaultSuperAdmin(fresh);
+    dbInstance = withAdmin;
+    writeDbAtomic(withAdmin);
+    return true;
+  } catch (err) {
+    console.error('[db] Error reseteando base de datos:', err);
+    return false;
+  }
+}
+
 // Snapshot diario: al arrancar chequea si hay backup en las últimas 24h. Si
 // no, crea uno. Después programa un intervalo de 24h para repetir.
 export function startDailyBackupScheduler() {

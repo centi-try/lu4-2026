@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   Database,
   Download,
+  Upload,
   RefreshCw,
   HardDrive,
   Shield,
@@ -12,6 +13,7 @@ import {
   AlertTriangle,
   Loader2,
   FolderOpen,
+  RotateCcw,
 } from 'lucide-react';
 
 function formatBytes(bytes: number): string {
@@ -49,6 +51,9 @@ export function Backups() {
 
   const [confirmRestoreFile, setConfirmRestoreFile] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const createMutation = trpc.backups.create.useMutation({
     onSuccess: (info) => {
@@ -75,11 +80,70 @@ export function Backups() {
       toast.success('Base de datos restaurada. Recargando…');
       setConfirmRestoreFile(null);
       setConfirmText('');
-      // Dar un segundo a que el toast se vea antes de full reload
       setTimeout(() => window.location.reload(), 1200);
     },
     onError: (err) => toast.error(err.message),
   });
+
+  const importMutation = trpc.backups.importBackup.useMutation({
+    onSuccess: () => {
+      toast.success('Backup importado correctamente. Recargando…');
+      setTimeout(() => window.location.reload(), 1200);
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const resetMutation = trpc.backups.factoryReset.useMutation({
+    onSuccess: () => {
+      toast.success('Base de datos reseteada. Recargando…');
+      setShowResetModal(false);
+      setResetConfirmText('');
+      setTimeout(() => window.location.reload(), 1200);
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleDownload = async () => {
+    try {
+      const result = await utils.backups.download.fetch();
+      const blob = new Blob([result.content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      a.download = `backup_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Backup descargado');
+    } catch (err: any) {
+      toast.error(err.message || 'Error al descargar');
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      if (!content) {
+        toast.error('No se pudo leer el archivo');
+        return;
+      }
+      try {
+        JSON.parse(content);
+      } catch {
+        toast.error('El archivo no es un JSON válido');
+        return;
+      }
+      importMutation.mutate({ content });
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const backups = listQuery.data || [];
   const status = statusQuery.data;
@@ -151,6 +215,71 @@ export function Backups() {
               Crear backup ahora
             </button>
           </div>
+        </div>
+
+        {/* Action buttons: Download, Upload, Reset */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Download */}
+          <button
+            onClick={handleDownload}
+            className="rounded-2xl border p-4 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
+            style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(59,130,246,0.3)' }}
+          >
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)' }}>
+              <Download className="h-5 w-5" style={{ color: '#3b82f6' }} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold" style={{ color: '#3b82f6' }}>Descargar backup</p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Descarga el JSON completo al PC</p>
+            </div>
+          </button>
+
+          {/* Upload/Import */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importMutation.isPending}
+            className="rounded-2xl border p-4 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
+            style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(167,139,250,0.3)' }}
+          >
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)' }}>
+              {importMutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#a78bfa' }} />
+              ) : (
+                <Upload className="h-5 w-5" style={{ color: '#a78bfa' }} />
+              )}
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold" style={{ color: '#a78bfa' }}>
+                {importMutation.isPending ? 'Importando...' : 'Subir backup'}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Importa un archivo .json desde el PC</p>
+            </div>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+
+          {/* Factory Reset */}
+          <button
+            onClick={() => { setShowResetModal(true); setResetConfirmText(''); }}
+            className="rounded-2xl border p-4 flex items-center gap-3 transition-all hover:bg-white/[0.02]"
+            style={{ background: 'rgba(10,14,22,0.6)', borderColor: 'rgba(239,68,68,0.3)' }}
+          >
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <RotateCcw className="h-5 w-5" style={{ color: '#ef4444' }} />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold" style={{ color: '#ef4444' }}>Resetear sitio</p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Elimina todo y deja como nuevo</p>
+            </div>
+          </button>
         </div>
 
         {/* Estado */}
@@ -406,6 +535,101 @@ export function Backups() {
                   <Shield className="h-4 w-4" />
                 )}
                 Confirmar restauración
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de Factory Reset */}
+      {showResetModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => { setShowResetModal(false); setResetConfirmText(''); }}
+        >
+          <div
+            className="max-w-md w-full rounded-2xl border p-6 space-y-4"
+            style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(239,68,68,0.3)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="h-10 w-10 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)' }}
+              >
+                <AlertTriangle className="h-5 w-5" style={{ color: '#ef4444' }} />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: '#ef4444' }}>
+                Resetear sitio completo
+              </h3>
+            </div>
+
+            <div className="text-sm space-y-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              <p>
+                Esta acción <strong>eliminará TODA la información</strong> del sitio y lo dejará como nuevo:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                <li>Usuarios, personajes, clanes, CPs</li>
+                <li>Inventario, compras, ciclos de ventas</li>
+                <li>Warehouse, recetas, catálogo, crafteo</li>
+                <li>Raid (bosses, drops, eventos, historial)</li>
+                <li>Config, reglas, iconos, auditoría</li>
+              </ul>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Se creará automáticamente un backup <code>pre-reset</code> antes de eliminar.
+                Solo quedará la cuenta Super Admin por defecto.
+              </p>
+              <p className="text-xs pt-2 font-semibold" style={{ color: '#ef4444' }}>
+                Escribí <strong>RESETEAR</strong> para confirmar:
+              </p>
+            </div>
+
+            <input
+              autoFocus
+              value={resetConfirmText}
+              onChange={(e) => setResetConfirmText(e.target.value)}
+              placeholder="RESETEAR"
+              className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all placeholder:text-white/30"
+              style={{
+                borderColor: resetConfirmText === 'RESETEAR' ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.15)',
+                color: 'rgba(255,255,255,0.9)',
+                background: 'rgba(0,0,0,0.3)',
+              }}
+            />
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => { setShowResetModal(false); setResetConfirmText(''); }}
+                className="rounded-xl px-4 py-2 text-sm font-semibold"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  color: 'rgba(255,255,255,0.7)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={resetConfirmText !== 'RESETEAR' || resetMutation.isPending}
+                onClick={() => resetMutation.mutate({ confirmText: resetConfirmText })}
+                className="rounded-xl px-4 py-2 text-sm font-semibold transition-all flex items-center gap-2"
+                style={{
+                  background:
+                    resetConfirmText === 'RESETEAR'
+                      ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)'
+                      : 'rgba(239,68,68,0.2)',
+                  color: resetConfirmText === 'RESETEAR' ? '#fff' : 'rgba(255,255,255,0.4)',
+                  opacity: resetMutation.isPending ? 0.6 : 1,
+                  cursor: resetConfirmText === 'RESETEAR' ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {resetMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                Confirmar reset total
               </button>
             </div>
           </div>
