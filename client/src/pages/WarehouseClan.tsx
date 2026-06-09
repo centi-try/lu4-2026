@@ -1913,7 +1913,7 @@ export default function WarehouseClan() {
                                     </td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{recipeQty.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
-                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: missingFull > 0 ? '#ef4444' : '#34d399' }}>{missingFull > 0 ? missingFull.toLocaleString() : '—'}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: craftNet > 0 ? '#ef4444' : '#34d399' }}>{craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
                                     <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: subs.length === 0 ? 'rgba(255,255,255,0.15)' : craftNet <= 0 ? '#34d399' : '#60a5fa' }}>{subs.length === 0 ? '—' : craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
