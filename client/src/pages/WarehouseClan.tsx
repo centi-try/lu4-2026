@@ -1836,6 +1836,8 @@ export default function WarehouseClan() {
                                 // Display columns: "Tenemos" = available stock (capped at recipe qty), "Falta" = Necesario - Tenemos
                                 const have = Math.min(poolAvail, recipeQty);
                                 const missingFull = Math.max(0, recipeQty - have);
+                                // "Craftear" NET: what you actually still need to obtain (demand minus what you have)
+                                const craftNet = Math.max(0, craftNeed - poolAvail);
                                 const status = isCovered ? 'complete' : poolAvail > 0 ? 'partial' : 'none';
                                 const subs = mat.subMaterials || [];
                                 const indent = depth * 20;
@@ -1843,8 +1845,7 @@ export default function WarehouseClan() {
                                 // Calculate child scale: propagate deficit ratio to sub-materials
                                 let childScale = 0;
                                 if (!isCovered && recipeQty > 0) {
-                                  const deficit = Math.max(0, craftNeed - poolAvail);
-                                  childScale = deficit / recipeQty;
+                                  childScale = craftNet / recipeQty;
                                 }
 
                                 rows.push(
@@ -1868,7 +1869,7 @@ export default function WarehouseClan() {
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{recipeQty.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: missingFull > 0 ? '#ef4444' : '#34d399' }}>{missingFull > 0 ? missingFull.toLocaleString() : '—'}</td>
-                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: isCovered ? '#34d399' : '#60a5fa' }}>{craftNeed > 0 ? craftNeed.toLocaleString() : '—'}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: craftNet <= 0 ? '#34d399' : '#60a5fa' }}>{craftNet > 0 ? craftNet.toLocaleString() : '—'}</td>
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
                                 );
