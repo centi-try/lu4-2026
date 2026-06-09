@@ -1523,7 +1523,45 @@ export const getAllUsers = async () => {
     raidClanId: u.raidClanId || null,
     raidCpId: u.raidCpId || null,
     cpStatus: u.cpStatus || null,
+    classMain: u.classMain || null,
   }));
+};
+
+// Update user profile fields (SA only) — email, characterName, clan, CP, class
+export const updateUserProfile = async (userId: number, data: {
+  email?: string;
+  characterName?: string;
+  raidClanId?: number | null;
+  raidCpId?: number | null;
+  classMain?: string | null;
+}) => {
+  const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
+  if (userIndex === -1) return null;
+  const user = dbInstance.users[userIndex];
+
+  if (data.email !== undefined) {
+    const normalized = data.email.toLowerCase().trim();
+    // Check uniqueness
+    const dup = dbInstance.users.find(
+      (u: any) => u.email === normalized && Number(u.id) !== Number(userId)
+    );
+    if (dup) throw new Error('EMAIL_DUPLICATE');
+    user.email = normalized;
+    user.openId = `local-${normalized}`;
+  }
+  if (data.characterName !== undefined) {
+    user.characterName = data.characterName;
+    user.name = data.characterName;
+  }
+  if (data.raidClanId !== undefined) user.raidClanId = data.raidClanId;
+  if (data.raidCpId !== undefined) {
+    user.raidCpId = data.raidCpId;
+    user.cpStatus = data.raidCpId ? 'approved' : null;
+  }
+  if (data.classMain !== undefined) user.classMain = data.classMain;
+  user.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return user;
 };
 
 export const setUserActive = async (userId: number, isActive: boolean) => {

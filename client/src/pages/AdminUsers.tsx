@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
-import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle } from 'lucide-react';
+import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil } from 'lucide-react';
 
 type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
@@ -18,6 +18,10 @@ interface AdminUser {
   createdAt?: string;
   lastSignedIn?: string;
   openId?: string;
+  raidClanId?: number | null;
+  raidCpId?: number | null;
+  cpStatus?: string | null;
+  classMain?: string | null;
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
@@ -143,6 +147,8 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [deleteModalUser, setDeleteModalUser] = useState<AdminUser | null>(null);
   const [toggleModalUser, setToggleModalUser] = useState<AdminUser | null>(null);
+  const [editModalUser, setEditModalUser] = useState<AdminUser | null>(null);
+  const [editForm, setEditForm] = useState({ email: '', characterName: '', raidClanId: '' as string, raidCpId: '' as string, classMain: '' as string });
 
   const { data: users, isLoading, error, refetch } = trpc.adminUsers.listUsers.useQuery(undefined, {
     retry: false,
@@ -194,6 +200,19 @@ export default function AdminUsers() {
     },
   });
 
+  const { data: clansAndCps } = trpc.adminUsers.clansAndCps.useQuery(undefined, { staleTime: 60_000 });
+
+  const updateProfileMutation = trpc.adminUsers.updateProfile.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Perfil de ${data.user.name} actualizado correctamente.`);
+      setEditModalUser(null);
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al actualizar el perfil.');
+    },
+  });
+
   const toggleLegacyMutation = trpc.adminUsers.toggleLegacyAccess.useMutation({
     onSuccess: (data) => {
       toast.success(
@@ -222,6 +241,32 @@ export default function AdminUsers() {
   const handleRoleChange = (userId: number, role: UserRole) => {
     updateRoleMutation.mutate({ userId, role });
   };
+
+  const handleEditUser = (user: AdminUser) => {
+    setEditForm({
+      email: user.email || '',
+      characterName: user.characterName || user.name || '',
+      raidClanId: user.raidClanId ? String(user.raidClanId) : '',
+      raidCpId: user.raidCpId ? String(user.raidCpId) : '',
+      classMain: user.classMain || '',
+    });
+    setEditModalUser(user);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editModalUser) return;
+    const payload: any = { userId: editModalUser.id };
+    if (editForm.email && editForm.email !== editModalUser.email) payload.email = editForm.email;
+    if (editForm.characterName && editForm.characterName !== (editModalUser.characterName || editModalUser.name)) payload.characterName = editForm.characterName;
+    payload.raidClanId = editForm.raidClanId ? Number(editForm.raidClanId) : null;
+    payload.raidCpId = editForm.raidCpId ? Number(editForm.raidCpId) : null;
+    payload.classMain = editForm.classMain || null;
+    updateProfileMutation.mutate(payload);
+  };
+
+  const editFilteredCps = (clansAndCps?.commandParties || []).filter(
+    (cp: any) => !editForm.raidClanId || Number(cp.clanId) === Number(editForm.raidClanId)
+  );
 
   const handleDeleteUser = (user: AdminUser) => {
     setDeleteModalUser(user);
@@ -522,7 +567,16 @@ export default function AdminUsers() {
                       </div>
 
                       {/* Actions info */}
-                      <div className="flex items-center justify-start md:justify-center gap-2">
+                      <div className="flex items-center justify-start md:justify-center gap-1">
+                        <button
+                          onClick={() => handleEditUser(user)}
+                          disabled={isPending || isDeleting}
+                          title="Editar perfil"
+                          className="p-2 rounded-lg transition-all hover:bg-blue-500/10"
+                          style={{ color: '#3b82f6' }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => setPasswordModal({ userId: user.id, email: user.email })}
                           disabled={isPending || isDeleting}
@@ -749,6 +803,148 @@ export default function AdminUsers() {
                   ? 'Guardando…'
                   : toggleModalUser.isActive ? 'Sí, desactivar' : 'Sí, activar'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {editModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditModalUser(null); }}>
+          <div
+            className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl"
+            style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(59,130,246,0.3)' }}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                <Pencil className="h-5 w-5" style={{ color: '#3b82f6' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Editar Perfil</h3>
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {editModalUser.characterName || editModalUser.name} · {editModalUser.email}
+                </p>
+              </div>
+              <button onClick={() => setEditModalUser(null)} className="ml-auto p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+                />
+              </div>
+
+              {/* Character Name */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Nombre del personaje
+                </label>
+                <input
+                  type="text"
+                  value={editForm.characterName}
+                  onChange={e => setEditForm(f => ({ ...f, characterName: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+                />
+              </div>
+
+              {/* Clan + CP row */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Clan */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Clan
+                  </label>
+                  <select
+                    value={editForm.raidClanId}
+                    onChange={e => {
+                      setEditForm(f => ({ ...f, raidClanId: e.target.value, raidCpId: '' }));
+                    }}
+                    className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                  >
+                    <option value="">Sin clan</option>
+                    {(clansAndCps?.clans || []).map((c: any) => (
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Command Party */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Command Party (CP)
+                  </label>
+                  <select
+                    value={editForm.raidCpId}
+                    onChange={e => setEditForm(f => ({ ...f, raidCpId: e.target.value }))}
+                    disabled={!editForm.raidClanId}
+                    className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none disabled:opacity-40"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                  >
+                    <option value="">Sin CP</option>
+                    {editFilteredCps.map((cp: any) => (
+                      <option key={cp.id} value={String(cp.id)}>{cp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Class */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Clase principal
+                </label>
+                <select
+                  value={editForm.classMain}
+                  onChange={e => setEditForm(f => ({ ...f, classMain: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                >
+                  <option value="">Sin clase</option>
+                  {(clansAndCps?.availableClasses || []).map((c: any) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalUser(null)}
+                  className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  disabled={updateProfileMutation.isPending || !editForm.email || !editForm.characterName}
+                  className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: '#3b82f6', color: '#fff' }}
+                >
+                  {updateProfileMutation.isPending ? (
+                    <><RefreshCw className="h-4 w-4 animate-spin" /> Guardando...</>
+                  ) : (
+                    'Guardar cambios'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
