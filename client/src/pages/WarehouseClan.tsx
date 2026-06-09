@@ -1717,26 +1717,36 @@ export default function WarehouseClan() {
             {(projects as any[]).filter((p: any) => p.status === 'active').sort((a: any, b: any) => (b.priority ? 1 : 0) - (a.priority ? 1 : 0)).map((project: any) => {
               const recipe = (recipes as any[]).find((r: any) => Number(r.id) === Number(project.recipeId));
               const materials = recipe?.materials || [];
-              // Smart stock allocation: build a pool from warehouse and allocate sequentially
+              // Smart stock allocation with proportional sub-material calculation
               const stockPool = new Map<string, number>();
               for (const item of warehouseItems as any[]) {
                 const key = String(item.nameLower || item.name || '').toLowerCase();
                 stockPool.set(key, (stockPool.get(key) || 0) + (Number(item.quantity) || 0));
               }
-              const countAllMats = (mats: any[], parentCovered: boolean = false): { total: number; completed: number } => {
+              // parentScale: ratio (0-1) representing what fraction of this material is actually needed
+              // e.g. if parent needs 232 but only 2 are missing, parentScale = 2/232 for sub-materials
+              const countAllMats = (mats: any[], parentScale: number = 1): { total: number; completed: number } => {
                 let total = 0, completed = 0;
                 for (const m of mats) {
                   total++;
                   const key = String(m.nameLower || m.name || '').toLowerCase();
-                  const need = Number(m.quantity) || 0;
+                  const recipeQty = Number(m.quantity) || 0;
+                  const craftNeed = Math.ceil(recipeQty * parentScale);
                   const available = stockPool.get(key) || 0;
-                  const isCovered = parentCovered || available >= need;
+                  const isCovered = craftNeed <= 0 || available >= craftNeed;
                   if (isCovered) {
                     completed++;
-                    if (!parentCovered && need > 0) stockPool.set(key, available - need);
+                    if (craftNeed > 0) stockPool.set(key, available - craftNeed);
                   }
                   if (m.subMaterials?.length) {
-                    const sub = countAllMats(m.subMaterials, isCovered);
+                    // Calculate scale for children: if this material is covered, children need 0
+                    // Otherwise, propagate the deficit ratio downward
+                    let childScale = 0;
+                    if (!isCovered && recipeQty > 0) {
+                      const deficit = Math.max(0, craftNeed - available);
+                      childScale = deficit / recipeQty;
+                    }
+                    const sub = countAllMats(m.subMaterials, childScale);
                     total += sub.total;
                     completed += sub.completed;
                   }
@@ -1791,33 +1801,52 @@ export default function WarehouseClan() {
                             <th className="py-2 text-right font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Necesario</th>
                             <th className="py-2 text-right font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Tenemos</th>
                             <th className="py-2 text-right font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Falta</th>
+                            <th className="py-2 text-right font-semibold" style={{ color: 'rgba(96,165,250,0.6)' }}>Craftear</th>
                             <th className="py-2 text-center font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>Estado</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(() => {
-                            // Use a separate pool for display to not conflict with counting pool above
+                            // Separate pool for display rendering (the counting pool above already consumed stock)
                             const displayPool = new Map<string, number>();
                             for (const item of warehouseItems as any[]) {
                               const k = String(item.nameLower || item.name || '').toLowerCase();
                               displayPool.set(k, (displayPool.get(k) || 0) + (Number(item.quantity) || 0));
                             }
-                            // FULL-QUANTITY MODE: shows the full recipe quantities for all materials.
-                            const renderMatRows = (mats: any[], depth: number, parentKey: string, parentCovered: boolean): React.ReactNode[] => {
+                            // PROPORTIONAL MODE: "Craftear" column shows what you actually need based on parent deficit.
+                            // parentScale: ratio 0-1 indicating what fraction of this material's recipe qty is actually needed.
+                            // For root materials parentScale = 1 (need the full amount). For sub-materials it's parentDeficit/parentRecipeQty.
+                            const renderMatRows = (mats: any[], depth: number, parentKey: string, parentScale: number): React.ReactNode[] => {
                               const rows: React.ReactNode[] = [];
                               mats.forEach((mat: any, mi: number) => {
                                 const key = `${parentKey}-${mi}`;
-                                const need = Number(mat.quantity) || 0;
+                                const recipeQty = Number(mat.quantity) || 0;
                                 const matKey = String(mat.nameLower || mat.name || '').toLowerCase();
                                 const poolAvail = displayPool.get(matKey) || 0;
-                                const isCovered = parentCovered || poolAvail >= need;
-                                const allocated = isCovered && !parentCovered ? need : 0;
+
+                                // "Craftear": how many of this material you actually need to obtain
+                                const craftNeed = Math.ceil(recipeQty * parentScale);
+
+                                // Evaluate status against craftNeed (the proportional amount), not recipeQty
+                                const isCovered = craftNeed <= 0 || poolAvail >= craftNeed;
+                                // Deduct only what's needed (craftNeed) from pool, not the full recipe qty
+                                const allocated = isCovered && craftNeed > 0 ? craftNeed : 0;
                                 if (allocated > 0) displayPool.set(matKey, poolAvail - allocated);
-                                const have = parentCovered ? need : Math.min(poolAvail, need);
-                                const missing = isCovered ? 0 : Math.max(0, need - poolAvail);
+
+                                // Display columns: "Tenemos" = available stock (capped at recipe qty), "Falta" = Necesario - Tenemos
+                                const have = Math.min(poolAvail, recipeQty);
+                                const missingFull = Math.max(0, recipeQty - have);
                                 const status = isCovered ? 'complete' : poolAvail > 0 ? 'partial' : 'none';
                                 const subs = mat.subMaterials || [];
                                 const indent = depth * 20;
+
+                                // Calculate child scale: propagate deficit ratio to sub-materials
+                                let childScale = 0;
+                                if (!isCovered && recipeQty > 0) {
+                                  const deficit = Math.max(0, craftNeed - poolAvail);
+                                  childScale = deficit / recipeQty;
+                                }
+
                                 rows.push(
                                   <tr key={key} style={{ borderBottom: subs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.04)', background: isCovered ? 'rgba(52,211,153,0.04)' : 'transparent' }}>
                                     <td className="py-2">
@@ -1836,17 +1865,18 @@ export default function WarehouseClan() {
                                         {subs.length > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}>{subs.length} sub</span>}
                                       </div>
                                     </td>
-                                    <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{need.toLocaleString()}</td>
+                                    <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: 'rgba(255,255,255,0.5)' }}>{recipeQty.toLocaleString()}</td>
                                     <td className={`py-2 text-right font-mono ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: have > 0 ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{have.toLocaleString()}</td>
-                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: missing > 0 ? '#ef4444' : '#34d399' }}>{missing > 0 ? missing.toLocaleString() : '—'}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: missingFull > 0 ? '#ef4444' : '#34d399' }}>{missingFull > 0 ? missingFull.toLocaleString() : '—'}</td>
+                                    <td className={`py-2 text-right font-mono font-bold ${depth > 0 ? 'text-[11px]' : ''}`} style={{ color: isCovered ? '#34d399' : '#60a5fa' }}>{craftNeed > 0 ? craftNeed.toLocaleString() : '—'}</td>
                                     <td className="py-2 text-center"><span style={{ fontSize: depth === 0 ? 14 : 12 }}>{status === 'complete' ? '✅' : status === 'partial' ? '⚠️' : '❌'}</span></td>
                                   </tr>
                                 );
-                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key, isCovered));
+                                if (subs.length > 0) rows.push(...renderMatRows(subs, depth + 1, key, childScale));
                               });
                               return rows;
                             };
-                            return renderMatRows(materials, 0, 'mat', false);
+                            return renderMatRows(materials, 0, 'mat', 1);
                           })()}
                         </tbody>
                       </table>
