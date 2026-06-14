@@ -1592,7 +1592,7 @@ export const updateUserProfile = async (userId: number, data: {
   if (data.raidClanId !== undefined) user.raidClanId = data.raidClanId;
   if (data.raidCpId !== undefined) {
     user.raidCpId = data.raidCpId;
-    user.cpStatus = data.raidCpId ? 'approved' : null;
+    user.cpStatus = data.raidCpId ? 'confirmed' : null;
   }
   if (data.classMain !== undefined) user.classMain = data.classMain;
   user.updatedAt = nowIso();
