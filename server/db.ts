@@ -862,16 +862,16 @@ function normalizeCharacterEarnings(cycle: any): any[] {
       paidBy: ce.paidBy || null,
     }));
   }
-  // Si viene como profitByCharacter (objeto { charId: amount })
+  // Si viene como profitByCharacter (objeto { userId: amount })
   if (cycle.profitByCharacter && typeof cycle.profitByCharacter === 'object') {
-    const chars = dbInstance.characters || [];
+    const allUsers = dbInstance.users || [];
     return Object.entries(cycle.profitByCharacter)
       .filter(([, amount]) => Number(amount) > 0)
-      .map(([charId, amount]) => {
-        const char = chars.find((c: any) => String(c.id) === String(charId));
+      .map(([uid, amount]) => {
+        const user = allUsers.find((u: any) => String(u.id) === String(uid));
         return {
-          characterId: String(charId),
-          characterName: char?.name || String(charId),
+          characterId: String(uid),
+          characterName: user?.characterName || user?.name || String(uid),
           earnings: Number(amount) || 0,
         };
       });
@@ -935,13 +935,12 @@ export const createSalesCycle = async (data: any) => {
 export const closeSalesCycle = async (id: number, data: any) => {
   // 1. Obtener datos actuales para el resumen del ciclo
   const items = dbInstance.items || [];
-  const chars = dbInstance.characters || [];
+  const users = dbInstance.users || [];
 
-  // FIX: Identificar items vendidos en ESTE ciclo (quantitySoldInCycle > 0)
+  // Identificar items vendidos en ESTE ciclo (quantitySoldInCycle > 0)
   const soldItems = items
     .filter(i => (i.quantitySoldInCycle || 0) > 0)
     .map(i => {
-      // FIX: Normalizar associatedCharacterIds como strings para consistencia
       const assocIds = Array.isArray(i.associatedCharacterIds)
         ? i.associatedCharacterIds.map(String)
         : [];
@@ -949,11 +948,9 @@ export const closeSalesCycle = async (id: number, data: any) => {
       const totalRev = (Number(i.price) || 0) * (i.quantitySoldInCycle || 0);
       return {
         itemId: String(i.id),
-        // FIX: Usar 'itemName' consistentemente (no 'name')
         itemName: i.name,
         category: i.category || 'ARMA',
         price: Number(i.price) || 0,
-        // FIX: Usar 'quantitySold' consistentemente (no 'quantity')
         quantitySold: i.quantitySoldInCycle,
         totalRevenue: totalRev,
         associatedCharacterIds: assocIds,
@@ -961,13 +958,13 @@ export const closeSalesCycle = async (id: number, data: any) => {
       };
     });
 
-  // Identificar ganancias por personaje
-  const characterEarnings = chars
-    .filter(c => (c.currentCycleEarnings || 0) > 0)
-    .map(c => ({
-      characterId: String(c.id),
-      characterName: c.name,
-      earnings: Number(c.currentCycleEarnings) || 0,
+  // Identificar ganancias por usuario (1 cuenta = 1 personaje)
+  const characterEarnings = users
+    .filter((u: any) => (Number(u.currentCycleEarnings) || 0) > 0)
+    .map((u: any) => ({
+      characterId: String(u.id),
+      characterName: u.characterName || u.name || 'Sin nombre',
+      earnings: Number(u.currentCycleEarnings) || 0,
     }));
 
   // FIX: Identificar items no vendidos correctamente

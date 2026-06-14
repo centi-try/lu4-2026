@@ -117,7 +117,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { data: serverItems, refetch: refetchItems } = trpc.items.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCharacters, refetch: refetchCharacters } = trpc.characters.list.useQuery(undefined, {
+  const { data: serverCharacters, refetch: refetchCharacters } = trpc.items.legacyBuyers.useQuery(undefined, {
     enabled: !!authUser,
   });
   const { data: serverPurchases, refetch: refetchPurchases } = trpc.items.listPurchases.useQuery(undefined, {
