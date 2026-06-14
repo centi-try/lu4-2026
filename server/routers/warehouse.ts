@@ -137,19 +137,21 @@ export const warehouseRouter = router({
   // Get warehouse settings
   getSettings: protectedProcedure.query(() => {
     const db = dbInstance;
-    if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true };
-    return db.warehouseSettings as { crossCpVisibility: boolean };
+    if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true, crossCpObjectivesVisibility: false };
+    if ((db.warehouseSettings as any).crossCpObjectivesVisibility === undefined) (db.warehouseSettings as any).crossCpObjectivesVisibility = false;
+    return db.warehouseSettings as { crossCpVisibility: boolean; crossCpObjectivesVisibility: boolean };
   }),
 
   // Update warehouse settings (SA only)
   updateSettings: protectedProcedure
-    .input(z.object({ crossCpVisibility: z.boolean().optional() }))
+    .input(z.object({ crossCpVisibility: z.boolean().optional(), crossCpObjectivesVisibility: z.boolean().optional() }))
     .mutation(({ input, ctx }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
       if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin.' });
       const db = dbInstance;
-      if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true };
+      if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true, crossCpObjectivesVisibility: false };
       if (input.crossCpVisibility !== undefined) (db.warehouseSettings as any).crossCpVisibility = input.crossCpVisibility;
+      if (input.crossCpObjectivesVisibility !== undefined) (db.warehouseSettings as any).crossCpObjectivesVisibility = input.crossCpObjectivesVisibility;
       saveDbToDisk();
       return db.warehouseSettings;
     }),
@@ -1247,6 +1249,184 @@ export const warehouseRouter = router({
           }
         }
         return { success: true, syncedCps, syncedMembers, raidClanName: matchingRaidClan.name };
+      }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // OBJETIVOS (Objectives) — weekly calendar with tasks & attendance
+  // ═══════════════════════════════════════════════════════════════════════
+
+  objectives: router({
+    // List objectives for a CP within a date range
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number(), weekStart: z.string().optional() }))
+      .query(async ({ input, ctx }) => {
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const objs = (db.warehouseObjectives as any[]).filter((o: any) => Number(o.cpId) === input.cpId);
+        if (input.weekStart) {
+          const ws = new Date(input.weekStart);
+          const we = new Date(ws); we.setDate(we.getDate() + 7);
+          return objs.filter((o: any) => {
+            const d = new Date(o.date);
+            return d >= ws && d < we;
+          });
+        }
+        return objs;
+      }),
+
+    // Create objective (SA or CP leader)
+    create: protectedProcedure
+      .input(z.object({
+        cpId: z.number(),
+        date: z.string(),
+        title: z.string().min(1),
+        description: z.string().optional(),
+        materials: z.array(z.object({ name: z.string(), quantity: z.number() })).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id || 0);
+        const allowed = await canWriteCp(role, userId, input.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo SA o líder de CP pueden crear objetivos.' });
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const obj = {
+          id: randId(),
+          cpId: input.cpId,
+          date: input.date,
+          title: input.title,
+          description: input.description || '',
+          materials: input.materials || [],
+          achieved: false,
+          createdBy: userId,
+          createdAt: nowIso(),
+        };
+        (db.warehouseObjectives as any[]).push(obj);
+        saveDbToDisk();
+        return obj;
+      }),
+
+    // Update objective
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        materials: z.array(z.object({ name: z.string(), quantity: z.number() })).optional(),
+        achieved: z.boolean().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const obj = (db.warehouseObjectives as any[]).find((o: any) => o.id === input.id);
+        if (!obj) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const allowed = await canWriteCp(role, userId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        if (input.title !== undefined) obj.title = input.title;
+        if (input.description !== undefined) obj.description = input.description;
+        if (input.materials !== undefined) obj.materials = input.materials;
+        if (input.achieved !== undefined) obj.achieved = input.achieved;
+        saveDbToDisk();
+        return obj;
+      }),
+
+    // Delete objective
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const idx = (db.warehouseObjectives as any[]).findIndex((o: any) => o.id === input.id);
+        if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const obj = (db.warehouseObjectives as any[])[idx];
+        const allowed = await canWriteCp(role, userId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        (db.warehouseObjectives as any[]).splice(idx, 1);
+        // Also remove related attendance
+        if (!db.warehouseAttendance) db.warehouseAttendance = [];
+        db.warehouseAttendance = (db.warehouseAttendance as any[]).filter((a: any) => a.objectiveId !== input.id);
+        saveDbToDisk();
+        return { success: true };
+      }),
+
+    // Cleanup old objectives (> 2 months)
+    cleanup: protectedProcedure.mutation(async ({ ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo SA.' });
+      const db = dbInstance;
+      if (!db.warehouseObjectives) db.warehouseObjectives = [];
+      if (!db.warehouseAttendance) db.warehouseAttendance = [];
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      const before = (db.warehouseObjectives as any[]).length;
+      const oldIds = new Set(
+        (db.warehouseObjectives as any[])
+          .filter((o: any) => new Date(o.date) < twoMonthsAgo)
+          .map((o: any) => o.id)
+      );
+      db.warehouseObjectives = (db.warehouseObjectives as any[]).filter((o: any) => !oldIds.has(o.id));
+      db.warehouseAttendance = (db.warehouseAttendance as any[]).filter((a: any) => !oldIds.has(a.objectiveId));
+      saveDbToDisk();
+      return { removed: before - (db.warehouseObjectives as any[]).length };
+    }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ATTENDANCE — per-user per-objective participation tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  attendance: router({
+    // List attendance for objectives in a CP
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number(), weekStart: z.string().optional() }))
+      .query(async ({ input }) => {
+        const db = dbInstance;
+        if (!db.warehouseAttendance) db.warehouseAttendance = [];
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const cpObjIds = new Set(
+          (db.warehouseObjectives as any[])
+            .filter((o: any) => Number(o.cpId) === input.cpId)
+            .map((o: any) => o.id)
+        );
+        return (db.warehouseAttendance as any[]).filter((a: any) => cpObjIds.has(a.objectiveId));
+      }),
+
+    // Toggle attendance for a user on an objective
+    toggle: protectedProcedure
+      .input(z.object({ objectiveId: z.number(), userId: z.number(), present: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        if (!db.warehouseAttendance) db.warehouseAttendance = [];
+        const obj = (db.warehouseObjectives as any[]).find((o: any) => o.id === input.objectiveId);
+        if (!obj) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const allowed = await canWriteCp(role, callerId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const existing = (db.warehouseAttendance as any[]).find(
+          (a: any) => a.objectiveId === input.objectiveId && Number(a.userId) === input.userId
+        );
+        if (existing) {
+          existing.present = input.present;
+          existing.updatedAt = nowIso();
+        } else {
+          (db.warehouseAttendance as any[]).push({
+            id: randId(),
+            objectiveId: input.objectiveId,
+            userId: input.userId,
+            present: input.present,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          });
+        }
+        saveDbToDisk();
+        return { success: true };
       }),
   }),
 });

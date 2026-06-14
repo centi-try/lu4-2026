@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ChevronRight, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Users, Pencil, Shield, Crown, Flag, Settings, Swords, UserCheck, UserX, RefreshCw, Clock, ArrowRightLeft } from 'lucide-react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ChevronRight, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Users, Pencil, Shield, Crown, Flag, Settings, Swords, UserCheck, UserX, RefreshCw, Clock, ArrowRightLeft, Target, Calendar, ChevronLeft, Check } from 'lucide-react';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -364,7 +364,7 @@ export default function WarehouseClan() {
   const pendingSentLoans = useMemo(() => sentLoans.filter((l: any) => !l.returned), [sentLoans]);
 
   // Tab state
-  const [tab, setTab] = useState<'bodega' | 'crafteo' | 'config'>('bodega');
+  const [tab, setTab] = useState<'bodega' | 'crafteo' | 'objetivos' | 'config'>('bodega');
   const [configSubTab, setConfigSubTab] = useState<'clans' | 'recipes'>('clans');
 
   // Config tab queries & mutations
@@ -393,6 +393,38 @@ export default function WarehouseClan() {
   const addMemberMut = trpc.warehouse.commandParties.addMember.useMutation({ onSuccess: () => { refetchWhCps(); refetchCpSelector(); toast.success('Miembro agregado'); } });
   const removeMemberMut = trpc.warehouse.commandParties.removeMember.useMutation({ onSuccess: () => { refetchWhCps(); refetchCpSelector(); toast.success('Miembro removido'); } });
   const syncFromRaidMut = trpc.warehouse.commandParties.syncFromRaid.useMutation({ onSuccess: (data) => { refetchWhClans(); refetchWhCps(); refetchCpSelector(); toast.success(`Sincronizado: ${data.syncedCps} CPs, ${data.syncedMembers} miembros de ${data.raidClanName}`); }, onError: (e: any) => toast.error(e.message) });
+
+  // ─── Objetivos tab ──────────────────────────────────────────
+  const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); dt.setDate(diff); dt.setHours(0, 0, 0, 0); return dt; };
+  const [objWeekStart, setObjWeekStart] = useState(() => getMonday(new Date()).toISOString());
+  const objCpId = effectiveCpId || 0;
+  const { data: objectives = [], refetch: refetchObjectives } = trpc.warehouse.objectives.list.useQuery(
+    { cpId: objCpId, weekStart: objWeekStart },
+    { enabled: objCpId > 0 }
+  );
+  const { data: attendance = [], refetch: refetchAttendance } = trpc.warehouse.attendance.list.useQuery(
+    { cpId: objCpId },
+    { enabled: objCpId > 0 }
+  );
+  const createObjMut = trpc.warehouse.objectives.create.useMutation({ onSuccess: () => { refetchObjectives(); toast.success('Objetivo creado'); } });
+  const updateObjMut = trpc.warehouse.objectives.update.useMutation({ onSuccess: () => { refetchObjectives(); toast.success('Objetivo actualizado'); } });
+  const deleteObjMut = trpc.warehouse.objectives.delete.useMutation({ onSuccess: () => { refetchObjectives(); refetchAttendance(); toast.success('Objetivo eliminado'); } });
+  const toggleAttMut = trpc.warehouse.attendance.toggle.useMutation({ onSuccess: () => { refetchAttendance(); } });
+  const cleanupObjMut = trpc.warehouse.objectives.cleanup.useMutation({ onSuccess: (d) => { refetchObjectives(); toast.success(`Limpieza: ${d.removed} objetivos eliminados`); } });
+
+  // Objectives settings
+  const crossCpObjVisible = (whSettings as any)?.crossCpObjectivesVisibility === true;
+
+  // Objectives form state
+  const [showObjForm, setShowObjForm] = useState(false);
+  const [objFormDate, setObjFormDate] = useState('');
+  const [objFormTitle, setObjFormTitle] = useState('');
+  const [objFormDesc, setObjFormDesc] = useState('');
+  const [objFormMats, setObjFormMats] = useState<{name:string;quantity:number}[]>([]);
+  const [editObjId, setEditObjId] = useState<number | null>(null);
+  const [expandedObjDay, setExpandedObjDay] = useState<string | null>(null);
+
+  const resetObjForm = () => { setShowObjForm(false); setObjFormDate(''); setObjFormTitle(''); setObjFormDesc(''); setObjFormMats([]); setEditObjId(null); };
 
   // Search / filters
   const [search, setSearch] = useState('');
@@ -872,6 +904,21 @@ export default function WarehouseClan() {
         >
           <Hammer className="h-4 w-4" />
           Crafteo ({activeProjects})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('objetivos')}
+          className="flex-1 rounded-lg px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-all"
+          style={{
+            background: tab === 'objetivos'
+              ? 'linear-gradient(135deg, rgba(56,189,248,0.25), rgba(34,211,238,0.25))'
+              : 'transparent',
+            color: tab === 'objetivos' ? '#38bdf8' : 'rgba(255,255,255,0.55)',
+            border: tab === 'objetivos' ? '1px solid rgba(56,189,248,0.25)' : '1px solid transparent',
+          }}
+        >
+          <Target className="h-4 w-4" />
+          Objetivos
         </button>
         <button
           type="button"
@@ -2141,6 +2188,305 @@ export default function WarehouseClan() {
         </div>
       )}
 
+      {/* ═══ TAB: OBJETIVOS ═══ */}
+      {tab === 'objetivos' && (
+        <div className="space-y-5">
+          {/* Week navigator */}
+          {(() => {
+            const ws = new Date(objWeekStart);
+            const we = new Date(ws); we.setDate(we.getDate() + 6);
+            const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+            const weekDays = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(ws); d.setDate(d.getDate() + i);
+              return { date: d, key: d.toISOString().slice(0, 10), label: dayNames[i], dayNum: d.getDate() };
+            });
+            const cpName = (warehouseCps as any[]).find((cp: any) => Number(cp.id) === objCpId)?.name || '';
+            const today = new Date().toISOString().slice(0, 10);
+            const objsByDay: Record<string, any[]> = {};
+            weekDays.forEach(wd => { objsByDay[wd.key] = []; });
+            (objectives as any[]).forEach((o: any) => {
+              const dk = (o.date || '').slice(0, 10);
+              if (objsByDay[dk]) objsByDay[dk].push(o);
+            });
+            const attMap: Record<number, Record<number, boolean>> = {};
+            (attendance as any[]).forEach((a: any) => {
+              if (!attMap[a.objectiveId]) attMap[a.objectiveId] = {};
+              attMap[a.objectiveId][Number(a.userId)] = a.present;
+            });
+
+            const canCreateObj = isSA || ledCpIds.includes(objCpId);
+
+            return (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Target className="h-5 w-5" style={{ color: '#38bdf8' }} />
+                    <div>
+                      <h3 className="text-base font-bold" style={{ color: '#fff' }}>Objetivos {cpName && `— ${cpName}`}</h3>
+                      <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Calendario semanal de tareas y participación</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { const d = new Date(objWeekStart); d.setDate(d.getDate() - 7); setObjWeekStart(d.toISOString()); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronLeft className="h-4 w-4" /></button>
+                    <span className="text-xs font-medium px-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      {ws.getDate()}/{ws.getMonth()+1} — {we.getDate()}/{we.getMonth()+1}/{we.getFullYear()}
+                    </span>
+                    <button onClick={() => { const d = new Date(objWeekStart); d.setDate(d.getDate() + 7); setObjWeekStart(d.toISOString()); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronRight className="h-4 w-4" /></button>
+                    <button onClick={() => setObjWeekStart(getMonday(new Date()).toISOString())} className="text-[10px] px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}>Hoy</button>
+                  </div>
+                </div>
+
+                {!effectiveCpId && (
+                  <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                    <AlertCircle className="h-4 w-4 shrink-0" style={{ color: '#fbbf24' }} />
+                    <p className="text-xs" style={{ color: '#fbbf24' }}>Selecciona una CP para ver los objetivos.</p>
+                  </div>
+                )}
+
+                {effectiveCpId && (
+                  <>
+                    {/* Weekly calendar grid */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {weekDays.map(wd => {
+                        const dayObjs = objsByDay[wd.key] || [];
+                        const isToday = wd.key === today;
+                        const achieved = dayObjs.filter((o: any) => o.achieved).length;
+                        const total = dayObjs.length;
+                        return (
+                          <button
+                            key={wd.key}
+                            type="button"
+                            onClick={() => setExpandedObjDay(expandedObjDay === wd.key ? null : wd.key)}
+                            className="rounded-xl p-2.5 text-center transition-all hover:scale-[1.02]"
+                            style={{
+                              background: expandedObjDay === wd.key
+                                ? 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(34,211,238,0.15))'
+                                : isToday
+                                  ? 'rgba(56,189,248,0.08)'
+                                  : 'rgba(255,255,255,0.02)',
+                              border: expandedObjDay === wd.key
+                                ? '1px solid rgba(56,189,248,0.4)'
+                                : isToday
+                                  ? '1px solid rgba(56,189,248,0.2)'
+                                  : '1px solid rgba(255,255,255,0.06)',
+                            }}
+                          >
+                            <p className="text-[10px] font-bold mb-0.5" style={{ color: isToday ? '#38bdf8' : 'rgba(255,255,255,0.5)' }}>{wd.label}</p>
+                            <p className="text-lg font-bold" style={{ color: isToday ? '#38bdf8' : 'rgba(255,255,255,0.8)' }}>{wd.dayNum}</p>
+                            {total > 0 ? (
+                              <div className="flex items-center justify-center gap-1 mt-1">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: achieved === total ? '#22c55e' : '#f59e0b' }} />
+                                <span className="text-[9px] font-medium" style={{ color: achieved === total ? '#22c55e' : '#f59e0b' }}>{achieved}/{total}</span>
+                              </div>
+                            ) : (
+                              <p className="text-[9px] mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>—</p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Expanded day view */}
+                    {expandedObjDay && (() => {
+                      const dayObjs = objsByDay[expandedObjDay] || [];
+                      const dayLabel = (() => {
+                        const d = new Date(expandedObjDay + 'T12:00:00');
+                        return d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
+                      })();
+
+                      return (
+                        <div className="rounded-xl p-4" style={{ background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" style={{ color: '#38bdf8' }} />
+                              <h4 className="text-sm font-bold capitalize" style={{ color: '#38bdf8' }}>{dayLabel}</h4>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>{dayObjs.length} objetivo{dayObjs.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            {canCreateObj && (
+                              <button
+                                onClick={() => { setObjFormDate(expandedObjDay); setEditObjId(null); setObjFormTitle(''); setObjFormDesc(''); setObjFormMats([]); setShowObjForm(true); }}
+                                className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-lg font-semibold transition-all hover:scale-105"
+                                style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}
+                              >
+                                <Plus className="h-3 w-3" /> Agregar objetivo
+                              </button>
+                            )}
+                          </div>
+
+                          {dayObjs.length === 0 && (
+                            <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin objetivos para este día</p>
+                          )}
+
+                          {dayObjs.map((obj: any) => {
+                            const objAtt = attMap[obj.id] || {};
+                            const members = cpMembersChars as any[];
+                            const presentCount = members.filter((m: any) => objAtt[m.userId]).length;
+
+                            return (
+                              <div key={obj.id} className="rounded-lg p-3 mb-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                                    <button
+                                      onClick={() => canCreateObj && updateObjMut.mutate({ id: obj.id, achieved: !obj.achieved })}
+                                      className="mt-0.5 shrink-0 w-5 h-5 rounded flex items-center justify-center transition-all"
+                                      style={{
+                                        background: obj.achieved ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${obj.achieved ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)'}`,
+                                        cursor: canCreateObj ? 'pointer' : 'default',
+                                      }}
+                                    >
+                                      {obj.achieved && <Check className="h-3 w-3" style={{ color: '#22c55e' }} />}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold" style={{ color: obj.achieved ? '#22c55e' : 'rgba(255,255,255,0.9)', textDecoration: obj.achieved ? 'line-through' : 'none' }}>{obj.title}</p>
+                                      {obj.description && <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{obj.description}</p>}
+                                    </div>
+                                  </div>
+                                  {canCreateObj && (
+                                    <div className="flex gap-1 shrink-0">
+                                      <button onClick={() => { setEditObjId(obj.id); setObjFormDate(obj.date.slice(0, 10)); setObjFormTitle(obj.title); setObjFormDesc(obj.description || ''); setObjFormMats(obj.materials || []); setShowObjForm(true); }} className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.4)' }}><Pencil className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => { if (confirm('¿Eliminar este objetivo?')) deleteObjMut.mutate({ id: obj.id }); }} className="p-1 rounded hover:bg-white/5" style={{ color: '#ef4444' }}><Trash2 className="h-3.5 w-3.5" /></button>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Materials */}
+                                {obj.materials && obj.materials.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {obj.materials.map((m: any, mi: number) => (
+                                      <span key={mi} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9', border: '1px solid rgba(232,121,249,0.2)' }}>
+                                        {m.name} ×{m.quantity}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Attendance / Participation */}
+                                <div className="mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <UserCheck className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                                    <span className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación ({presentCount}/{members.length})</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {members.map((m: any) => {
+                                      const isPresent = objAtt[m.userId] === true;
+                                      return (
+                                        <button
+                                          key={m.userId}
+                                          onClick={() => canCreateObj && toggleAttMut.mutate({ objectiveId: obj.id, userId: m.userId, present: !isPresent })}
+                                          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-medium transition-all"
+                                          style={{
+                                            background: isPresent ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.03)',
+                                            color: isPresent ? '#22c55e' : 'rgba(255,255,255,0.4)',
+                                            border: `1px solid ${isPresent ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                            cursor: canCreateObj ? 'pointer' : 'default',
+                                          }}
+                                        >
+                                          {isPresent ? <Check className="h-2.5 w-2.5" /> : <User className="h-2.5 w-2.5" />}
+                                          {m.name}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Create/Edit objective form modal */}
+                    {showObjForm && (
+                      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => resetObjForm()}>
+                        <div className="w-full max-w-md rounded-2xl p-5" style={{ background: '#1e1e2e', border: '1px solid rgba(56,189,248,0.2)' }} onClick={e => e.stopPropagation()}>
+                          <h3 className="text-base font-bold mb-4" style={{ color: '#38bdf8' }}>{editObjId ? 'Editar objetivo' : 'Nuevo objetivo'}</h3>
+                          <div className="space-y-3">
+                            <div>
+                              <label className="text-[10px] font-semibold block mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Fecha</label>
+                              <input type="date" value={objFormDate} onChange={e => setObjFormDate(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold block mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Título *</label>
+                              <input value={objFormTitle} onChange={e => setObjFormTitle(e.target.value)} placeholder="Ej: Farmear Iron Ore" className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-semibold block mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Descripción</label>
+                              <textarea value={objFormDesc} onChange={e => setObjFormDesc(e.target.value)} placeholder="Detalles del objetivo..." rows={2} className="w-full rounded-lg px-3 py-2 text-sm resize-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Materiales solicitados</label>
+                                <button onClick={() => setObjFormMats(prev => [...prev, { name: '', quantity: 1 }])} className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9' }}>+ Material</button>
+                              </div>
+                              {objFormMats.map((m, mi) => (
+                                <div key={mi} className="flex gap-2 mb-1.5">
+                                  <input value={m.name} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, name: e.target.value } : p))} placeholder="Material..." className="flex-1 rounded px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }} />
+                                  <input type="number" min={1} value={m.quantity} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, quantity: Number(e.target.value) || 1 } : p))} className="w-16 rounded px-2 py-1 text-xs text-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }} />
+                                  <button onClick={() => setObjFormMats(prev => prev.filter((_, i) => i !== mi))} className="p-1 rounded hover:bg-white/5" style={{ color: '#ef4444' }}><X className="h-3 w-3" /></button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2 mt-4">
+                            <button onClick={() => resetObjForm()} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}>Cancelar</button>
+                            <button
+                              onClick={() => {
+                                if (!objFormTitle.trim() || !objFormDate) return;
+                                const mats = objFormMats.filter(m => m.name.trim());
+                                if (editObjId) {
+                                  updateObjMut.mutate({ id: editObjId, title: objFormTitle, description: objFormDesc, materials: mats });
+                                } else {
+                                  createObjMut.mutate({ cpId: objCpId, date: objFormDate, title: objFormTitle, description: objFormDesc, materials: mats });
+                                }
+                                resetObjForm();
+                              }}
+                              className="px-4 py-2 rounded-lg text-xs font-semibold"
+                              style={{ background: 'linear-gradient(135deg, rgba(56,189,248,0.3), rgba(34,211,238,0.3))', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.4)' }}
+                            >
+                              {editObjId ? 'Guardar cambios' : 'Crear objetivo'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Participation summary */}
+                    {(objectives as any[]).length > 0 && (
+                      <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                          <Users className="h-3.5 w-3.5" /> Resumen de participación semanal
+                        </h4>
+                        <div className="space-y-1.5">
+                          {(() => {
+                            const members = cpMembersChars as any[];
+                            const allObjs = objectives as any[];
+                            return members.map((m: any) => {
+                              const attended = allObjs.filter((o: any) => (attMap[o.id] || {})[m.userId]).length;
+                              const pct = allObjs.length > 0 ? Math.round((attended / allObjs.length) * 100) : 0;
+                              return (
+                                <div key={m.userId} className="flex items-center gap-2">
+                                  <span className="text-[11px] font-medium w-28 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{m.name}</span>
+                                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                  </div>
+                                  <span className="text-[10px] font-bold w-14 text-right" style={{ color: pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }}>{attended}/{allObjs.length} ({pct}%)</span>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {/* ═══ TAB: CONFIG ═══ */}
       {tab === 'config' && (
         <div className="space-y-5">
@@ -2172,6 +2518,26 @@ export default function WarehouseClan() {
                 style={{ background: crossCpVisible ? 'rgba(45,212,191,0.3)' : 'rgba(255,255,255,0.1)', border: `1px solid ${crossCpVisible ? 'rgba(45,212,191,0.5)' : 'rgba(255,255,255,0.15)'}` }}
               >
                 <div className="absolute top-0.5 h-4 w-4 rounded-full transition-all" style={{ background: crossCpVisible ? '#2dd4bf' : 'rgba(255,255,255,0.4)', left: crossCpVisible ? '26px' : '3px' }} />
+              </button>
+            </div>
+          )}
+
+          {/* Objetivos visibility toggle (SA only) */}
+          {isSA && configSubTab === 'clans' && (
+            <div className="card-glass rounded-xl p-3 flex items-center justify-between" style={{ border: '1px solid rgba(56,189,248,0.15)' }}>
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4" style={{ color: '#38bdf8' }} />
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>Objetivos visible entre CPs</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{crossCpObjVisible ? 'Las CPs pueden ver los objetivos de otros (solo lectura)' : 'Cada CP solo ve sus propios objetivos'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => updateSettingsMut.mutate({ crossCpObjectivesVisibility: !crossCpObjVisible })}
+                className="relative w-12 h-6 rounded-full transition-all"
+                style={{ background: crossCpObjVisible ? 'rgba(56,189,248,0.3)' : 'rgba(255,255,255,0.1)', border: `1px solid ${crossCpObjVisible ? 'rgba(56,189,248,0.5)' : 'rgba(255,255,255,0.15)'}` }}
+              >
+                <div className="absolute top-0.5 h-4 w-4 rounded-full transition-all" style={{ background: crossCpObjVisible ? '#38bdf8' : 'rgba(255,255,255,0.4)', left: crossCpObjVisible ? '26px' : '3px' }} />
               </button>
             </div>
           )}
