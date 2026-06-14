@@ -1557,6 +1557,9 @@ export const getAllUsers = async () => {
     raidCpId: u.raidCpId || null,
     cpStatus: u.cpStatus || null,
     classMain: u.classMain || null,
+    raidAccessLevel: u.raidAccessLevel || null,
+    totalEarnings: Number(u.totalEarnings) || 0,
+    currentCycleEarnings: Number(u.currentCycleEarnings) || 0,
   }));
 };
 
