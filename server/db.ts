@@ -3,8 +3,8 @@ import path from 'path';
 import crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
-export const DEFAULT_SUPER_ADMIN_EMAIL = 'superadmin@inventory.com';
-export const DEFAULT_SUPER_ADMIN_PASSWORD = 'SuperAdmin123!';
+export const DEFAULT_SUPER_ADMIN_EMAIL = 'eclipce.callejero@gmail.com';
+export const DEFAULT_SUPER_ADMIN_PASSWORD = 'super#10601@';
 export const DEFAULT_SUPER_ADMIN_NAME = 'Super Admin';
 
 // ============================================================================
