@@ -417,6 +417,12 @@ export default function WarehouseClan() {
   );
   const setDeliveryQtyMut = trpc.warehouse.deliveries.setQuantity.useMutation({ onSuccess: () => { refetchDeliveries(); refetchObjectives(); } });
   const payAllDebtMut = trpc.warehouse.deliveries.payAllDebt.useMutation({ onSuccess: (d) => { refetchDeliveries(); refetchObjectives(); toast.success(`Deuda saldada (${d.updated} registros actualizados)`); } });
+  // Daily attendance (independent of objectives)
+  const { data: dailyAtt = [], refetch: refetchDailyAtt } = trpc.warehouse.dailyAttendance.list.useQuery(
+    { cpId: objCpId, monthStart: objMonth },
+    { enabled: objCpId > 0 }
+  );
+  const toggleDailyAttMut = trpc.warehouse.dailyAttendance.toggle.useMutation({ onSuccess: () => { refetchDailyAtt(); } });
 
   // Objectives settings
   const crossCpObjVisible = (whSettings as any)?.crossCpObjectivesVisibility === true;
@@ -2243,6 +2249,14 @@ export default function WarehouseClan() {
               deliveryMap[d.objectiveId][d.materialIndex][Number(d.userId)] = { quantity: d.quantity || 0, delivered: d.delivered };
             });
 
+            // dailyAttMap: date -> userId -> boolean
+            const dailyAttMap: Record<string, Record<number, boolean>> = {};
+            (dailyAtt as any[]).forEach((a: any) => {
+              const dk = (a.date || '').slice(0, 10);
+              if (!dailyAttMap[dk]) dailyAttMap[dk] = {};
+              dailyAttMap[dk][Number(a.userId)] = a.present;
+            });
+
             const canCreateObj = isSA || ledCpIds.includes(objCpId);
             const members = cpMembersChars as any[];
             const allObjs = objectives as any[];
@@ -2297,6 +2311,8 @@ export default function WarehouseClan() {
                           const isSelected = expandedObjDay === cell.key;
                           const achieved = dayObjs.filter((o: any) => o.achieved).length;
                           const total = dayObjs.length;
+                          const dayAttData = dailyAttMap[cell.key] || {};
+                          const attCount = members.filter((m: any) => dayAttData[m.userId] === true).length;
                           return (
                             <button
                               key={cell.key}
@@ -2309,7 +2325,12 @@ export default function WarehouseClan() {
                                 borderBottom: '1px solid rgba(255,255,255,0.04)',
                               }}
                             >
-                              <span className="text-xs font-bold" style={{ color: isToday ? '#38bdf8' : isSelected ? '#38bdf8' : 'rgba(255,255,255,0.6)' }}>{cell.day}</span>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold" style={{ color: isToday ? '#38bdf8' : isSelected ? '#38bdf8' : 'rgba(255,255,255,0.6)' }}>{cell.day}</span>
+                                {attCount > 0 && (
+                                  <span className="text-[8px] font-semibold px-1 rounded" style={{ background: attCount === members.length ? 'rgba(34,197,94,0.2)' : 'rgba(251,191,36,0.15)', color: attCount === members.length ? '#22c55e' : '#fbbf24' }}>{attCount}/{members.length}</span>
+                                )}
+                              </div>
                               {total > 0 && (
                                 <div className="mt-0.5">
                                   <div className="flex items-center gap-1">
@@ -2355,8 +2376,61 @@ export default function WarehouseClan() {
                             )}
                           </div>
 
+                          {/* Daily attendance (always visible) */}
+                          {(() => {
+                            const dayAtt = dailyAttMap[expandedObjDay] || {};
+                            const presentCount = members.filter((m: any) => dayAtt[m.userId] === true).length;
+                            const allPresent = members.length > 0 && members.every((m: any) => dayAtt[m.userId] === true);
+                            return (
+                              <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(34,197,94,0.03)', border: '1px solid rgba(34,197,94,0.1)' }}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <UserCheck className="h-3.5 w-3.5" style={{ color: '#22c55e' }} />
+                                    <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Asistencia del día ({presentCount}/{members.length})</span>
+                                  </div>
+                                  {canCreateObj && members.length > 0 && (
+                                    <button
+                                      onClick={() => {
+                                        members.forEach((m: any) => {
+                                          if (allPresent || !dayAtt[m.userId]) {
+                                            toggleDailyAttMut.mutate({ cpId: objCpId, date: expandedObjDay, userId: m.userId, present: !allPresent });
+                                          }
+                                        });
+                                      }}
+                                      className="text-[9px] px-2.5 py-1 rounded-lg font-semibold"
+                                      style={{ background: allPresent ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.12)', color: allPresent ? '#ef4444' : '#22c55e', border: `1px solid ${allPresent ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.25)'}` }}
+                                    >
+                                      {allPresent ? 'Desmarcar todos' : 'Marcar todos'}
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {members.map((m: any) => {
+                                    const isPresent = dayAtt[m.userId] === true;
+                                    return (
+                                      <button
+                                        key={m.userId}
+                                        onClick={() => canCreateObj && toggleDailyAttMut.mutate({ cpId: objCpId, date: expandedObjDay, userId: m.userId, present: !isPresent })}
+                                        className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg font-medium transition-all"
+                                        style={{
+                                          background: isPresent ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.08)',
+                                          color: isPresent ? '#22c55e' : '#ef4444',
+                                          border: `1px solid ${isPresent ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                                          cursor: canCreateObj ? 'pointer' : 'default',
+                                        }}
+                                      >
+                                        {isPresent ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                                        {m.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {dayObjs.length === 0 && (
-                            <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin objetivos para este día</p>
+                            <p className="text-xs text-center py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin objetivos para este día</p>
                           )}
 
                           {dayObjs.map((obj: any) => {
@@ -2672,15 +2746,17 @@ export default function WarehouseClan() {
                           </div>
                         </div>
 
-                        {/* Participation ranking */}
+                        {/* Participation ranking (based on daily attendance) */}
                         <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación por miembro</p>
+                          <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación por miembro (asistencia diaria)</p>
                           <div className="space-y-1.5">
                             {(() => {
+                              const daysWithAtt = Object.keys(dailyAttMap).length;
+                              const totalDays = Math.max(daysWithAtt, allObjs.length > 0 ? [...new Set(allObjs.map((o: any) => (o.date || '').slice(0, 10)))].length : 0, 1);
                               const ranked = members.map((m: any) => {
-                                const attended = allObjs.filter((o: any) => (attMap[o.id] || {})[m.userId]).length;
-                                const pct = allObjs.length > 0 ? Math.round((attended / allObjs.length) * 100) : 0;
-                                return { ...m, attended, pct };
+                                const attended = Object.values(dailyAttMap).filter((dayData: any) => dayData[m.userId] === true).length;
+                                const pct = totalDays > 0 ? Math.round((attended / totalDays) * 100) : 0;
+                                return { ...m, attended, pct, totalDays };
                               }).sort((a: any, b: any) => b.pct - a.pct);
                               return ranked.map((m: any, ri: number) => (
                                 <div key={m.userId} className="flex items-center gap-2">
@@ -2691,7 +2767,7 @@ export default function WarehouseClan() {
                                   <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                                     <div className="h-full rounded-full transition-all" style={{ width: `${m.pct}%`, background: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }} />
                                   </div>
-                                  <span className="text-[10px] font-bold w-16 text-right" style={{ color: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.attended}/{allObjs.length} ({m.pct}%)</span>
+                                  <span className="text-[10px] font-bold w-20 text-right" style={{ color: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.attended}/{m.totalDays} días ({m.pct}%)</span>
                                 </div>
                               ));
                             })()}
@@ -2770,51 +2846,66 @@ export default function WarehouseClan() {
                           );
                           return (
                             <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)' }}>
-                              <p className="text-[10px] font-semibold mb-2" style={{ color: '#ef4444' }}>Deuda de materiales por miembro</p>
-                              <div className="space-y-2">
-                                {memberDebts.map(md => (
-                                  <div key={md.userId} className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <p className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>{md.name}</p>
-                                      {canCreateObj && (
-                                        <button
-                                          onClick={() => {
-                                            if (!confirm(`¿Saldar TODA la deuda de ${md.name}? Esto marcará todos los materiales pendientes como entregados en todos los días del mes.`)) return;
-                                            md.debts.forEach(d => {
-                                              payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth });
-                                            });
-                                          }}
-                                          className="text-[9px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:scale-105"
-                                          style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
-                                        >
-                                          Saldar todo
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {md.debts.map((d, di) => (
-                                        <div key={di} className="inline-flex items-center gap-1.5">
-                                          <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                                            {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-3.5 w-3.5 rounded-sm object-cover" />}
-                                            {d.matName}: {d.owed.toLocaleString()}
-                                          </span>
-                                          {canCreateObj && (
-                                            <button
-                                              onClick={() => {
-                                                if (!confirm(`¿Marcar ${d.matName} como entregado por ${md.name} en todos los días del mes?`)) return;
-                                                payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth });
-                                              }}
-                                              className="text-[8px] px-1.5 py-0.5 rounded font-semibold shrink-0"
-                                              style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}
-                                            >
-                                              Pagado
-                                            </button>
+                              <p className="text-[10px] font-semibold mb-3" style={{ color: '#ef4444' }}>Deuda de materiales por miembro</p>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-[10px]" style={{ minWidth: 400 }}>
+                                  <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                      <th className="text-left py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Miembro</th>
+                                      <th className="text-left py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Material</th>
+                                      <th className="text-right py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Debe</th>
+                                      {canCreateObj && <th className="text-center py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Acción</th>}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {memberDebts.map((md, mdi) => (
+                                      md.debts.map((d, di) => (
+                                        <tr key={`${md.userId}-${di}`} style={{ borderTop: di === 0 && mdi > 0 ? '2px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.04)' }}>
+                                          {di === 0 && (
+                                            <td rowSpan={md.debts.length} className="py-1.5 px-2 font-bold align-top" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                              <div className="flex flex-col gap-1">
+                                                <span>{md.name}</span>
+                                                {canCreateObj && md.debts.length > 1 && (
+                                                  <button
+                                                    onClick={() => {
+                                                      if (!confirm(`¿Saldar TODA la deuda de ${md.name}?`)) return;
+                                                      md.debts.forEach(debt => payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: debt.matName, monthStart: objMonth }));
+                                                    }}
+                                                    className="text-[8px] px-2 py-0.5 rounded font-semibold w-fit"
+                                                    style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
+                                                  >
+                                                    Saldar todo
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </td>
                                           )}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
+                                          <td className="py-1.5 px-2">
+                                            <div className="flex items-center gap-1.5">
+                                              {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-4 w-4 rounded-sm object-cover" />}
+                                              <span style={{ color: 'rgba(255,255,255,0.7)' }}>{d.matName}</span>
+                                            </div>
+                                          </td>
+                                          <td className="py-1.5 px-2 text-right font-bold" style={{ color: '#ef4444' }}>{d.owed.toLocaleString()}</td>
+                                          {canCreateObj && (
+                                            <td className="py-1.5 px-2 text-center">
+                                              <button
+                                                onClick={() => {
+                                                  if (!confirm(`¿Marcar ${d.matName} como entregado por ${md.name} en todos los días del mes?`)) return;
+                                                  payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth });
+                                                }}
+                                                className="text-[9px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:scale-105"
+                                                style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                                              >
+                                                Pagado
+                                              </button>
+                                            </td>
+                                          )}
+                                        </tr>
+                                      ))
+                                    ))}
+                                  </tbody>
+                                </table>
                               </div>
                             </div>
                           );

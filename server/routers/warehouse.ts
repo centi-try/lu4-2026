@@ -1439,6 +1439,59 @@ export const warehouseRouter = router({
   }),
 
   // ═══════════════════════════════════════════════════════════════════════
+  // DAILY ATTENDANCE — independent of objectives, per-day per-CP
+  // ═══════════════════════════════════════════════════════════════════════
+
+  dailyAttendance: router({
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number(), monthStart: z.string().optional() }))
+      .query(async ({ input }) => {
+        const db = dbInstance;
+        if (!db.warehouseDailyAttendance) db.warehouseDailyAttendance = [];
+        let records = (db.warehouseDailyAttendance as any[]).filter((a: any) => Number(a.cpId) === input.cpId);
+        if (input.monthStart) {
+          const ms = new Date(input.monthStart);
+          const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 1);
+          records = records.filter((a: any) => {
+            const d = new Date(a.date);
+            return d >= ms && d < me;
+          });
+        }
+        return records;
+      }),
+    toggle: protectedProcedure
+      .input(z.object({ cpId: z.number(), date: z.string(), userId: z.number(), present: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const allowed = await canWriteCp(role, callerId, input.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const db = dbInstance;
+        if (!db.warehouseDailyAttendance) db.warehouseDailyAttendance = [];
+        const dateKey = input.date.slice(0, 10);
+        const existing = (db.warehouseDailyAttendance as any[]).find(
+          (a: any) => Number(a.cpId) === input.cpId && a.date === dateKey && Number(a.userId) === input.userId
+        );
+        if (existing) {
+          existing.present = input.present;
+          existing.updatedAt = nowIso();
+        } else {
+          (db.warehouseDailyAttendance as any[]).push({
+            id: randId(),
+            cpId: input.cpId,
+            date: dateKey,
+            userId: input.userId,
+            present: input.present,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          });
+        }
+        saveDbToDisk();
+        return { success: true };
+      }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
   // DELIVERIES — per-user per-material delivery tracking for objectives
   // ═══════════════════════════════════════════════════════════════════════
 
