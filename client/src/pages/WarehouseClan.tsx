@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ChevronRight, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Users, Pencil, Shield, Crown, Flag, Settings, Swords, UserCheck, UserX, RefreshCw, Clock, ArrowRightLeft, Target, Calendar, ChevronLeft, Check } from 'lucide-react';
+import { Package, Plus, CheckCircle, Trash2, Minus, Search, X, Hammer, ChevronDown, ChevronUp, ChevronRight, ExternalLink, PackagePlus, Loader2, Image as ImageIcon, AlertCircle, Star, User, Users, Pencil, Shield, Crown, Flag, Settings, Swords, UserCheck, UserX, RefreshCw, Clock, ArrowRightLeft, Target, Calendar, ChevronLeft, Check, CircleCheck, CircleX, CreditCard, BadgeCheck } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog';
 import { trpc } from '../lib/trpc';
 import { useApp } from '../contexts/AppContext';
 import { AppShell } from '../components/layout/AppShell';
@@ -437,6 +438,8 @@ export default function WarehouseClan() {
   const [expandedObjDay, setExpandedObjDay] = useState<string | null>(null);
   const [expandedObjDelivery, setExpandedObjDelivery] = useState<number | null>(null);
   const [showObjReport, setShowObjReport] = useState(false);
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: '', description: '', onConfirm: () => {} });
 
   const resetObjForm = () => { setShowObjForm(false); setObjFormDate(''); setObjFormTitle(''); setObjFormDesc(''); setObjFormMats([]); setEditObjId(null); };
 
@@ -2460,7 +2463,7 @@ export default function WarehouseClan() {
                                   {canCreateObj && (
                                     <div className="flex gap-1 shrink-0">
                                       <button onClick={() => { setEditObjId(obj.id); setObjFormDate(obj.date.slice(0, 10)); setObjFormTitle(obj.title); setObjFormDesc(obj.description || ''); setObjFormMats(obj.materials || []); setShowObjForm(true); }} className="p-1 rounded hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.4)' }}><Pencil className="h-3.5 w-3.5" /></button>
-                                      <button onClick={() => { if (confirm('¿Eliminar este objetivo?')) deleteObjMut.mutate({ id: obj.id }); }} className="p-1 rounded hover:bg-white/5" style={{ color: '#ef4444' }}><Trash2 className="h-3.5 w-3.5" /></button>
+                                      <button onClick={() => setConfirmModal({ open: true, title: 'Eliminar objetivo', description: `¿Estás seguro de eliminar "${obj.title}"? Esta acción no se puede deshacer.`, onConfirm: () => deleteObjMut.mutate({ id: obj.id }) })} className="p-1 rounded hover:bg-white/5" style={{ color: '#ef4444' }}><Trash2 className="h-3.5 w-3.5" /></button>
                                     </div>
                                   )}
                                 </div>
@@ -2488,20 +2491,20 @@ export default function WarehouseClan() {
                                     {/* Delivery tracking grid with quantities */}
                                     {expandedObjDelivery === obj.id && (
                                       <div className="mt-2 rounded-lg p-2.5 overflow-x-auto" style={{ background: 'rgba(232,121,249,0.03)', border: '1px solid rgba(232,121,249,0.1)' }}>
-                                        <table className="w-full text-[10px]" style={{ minWidth: 350 }}>
+                                        <table className="w-full text-xs" style={{ minWidth: 400 }}>
                                           <thead>
                                             <tr>
-                                              <th className="text-left py-1 px-1.5 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Miembro</th>
+                                              <th className="text-left py-2 px-2 font-bold text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Miembro</th>
                                               {obj.materials.map((m: any, mi: number) => (
-                                                <th key={mi} className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                                                  <div className="flex flex-col items-center gap-0.5">
-                                                    {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="h-4 w-4 rounded-sm object-cover" />}
-                                                    <span className="truncate max-w-[70px]">{m.name}</span>
-                                                    <span style={{ color: '#e879f9' }}>c/u: {m.quantity.toLocaleString()}</span>
+                                                <th key={mi} className="text-center py-2 px-2 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                                  <div className="flex flex-col items-center gap-1">
+                                                    {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="h-8 w-8 rounded object-cover transition-transform hover:scale-[2.5] hover:z-50 hover:relative cursor-zoom-in" />}
+                                                    <span className="truncate max-w-[90px] text-[11px]">{m.name}</span>
+                                                    <span className="text-[10px]" style={{ color: '#e879f9' }}>c/u: {m.quantity.toLocaleString()}</span>
                                                   </div>
                                                 </th>
                                               ))}
-                                              <th className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Estado</th>
+                                              <th className="text-center py-2 px-2 font-bold text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Estado</th>
                                             </tr>
                                           </thead>
                                           <tbody>
@@ -2517,71 +2520,57 @@ export default function WarehouseClan() {
                                                 return { owed, delivered, required };
                                               });
                                               return (
-                                                <tr key={mbr.userId} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                                  <td className="py-1.5 px-1.5 font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{mbr.name}</td>
-                                                  {obj.materials.map((m: any, mi: number) => {
+                                                <tr key={mbr.userId} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                                  <td className="py-2.5 px-2 font-semibold text-sm" style={{ color: 'rgba(255,255,255,0.8)' }}>{mbr.name}</td>
+                                                  {obj.materials.map((_: any, mi: number) => {
                                                     const det = matDetails[mi];
                                                     const isFull = det.delivered >= det.required;
                                                     return (
-                                                      <td key={mi} className="text-center py-1.5 px-1">
+                                                      <td key={mi} className="text-center py-2.5 px-2">
                                                         {canCreateObj ? (
-                                                          <div className="flex flex-col items-center gap-1">
-                                                            {isFull ? (
-                                                              <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>{det.delivered.toLocaleString()}</span>
-                                                            ) : (
-                                                              <>
-                                                                <button
-                                                                  onClick={() => setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: det.required })}
-                                                                  className="text-[9px] px-2 py-0.5 rounded font-semibold transition-all hover:scale-105"
-                                                                  style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
-                                                                >
-                                                                  Completo
-                                                                </button>
-                                                                <input
-                                                                  type="text"
-                                                                  inputMode="numeric"
-                                                                  defaultValue={det.delivered || ''}
-                                                                  placeholder="0"
-                                                                  onBlur={e => {
-                                                                    const val = Math.min(Math.max(0, Number(e.target.value) || 0), det.required);
-                                                                    if (val !== det.delivered) setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: val });
-                                                                  }}
-                                                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                                                  className="w-16 rounded px-1.5 py-0.5 text-[10px] text-center"
-                                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                                                                />
-                                                                <span className="text-[8px] font-medium" style={{ color: '#ef4444' }}>falta {det.owed.toLocaleString()}</span>
-                                                              </>
-                                                            )}
-                                                          </div>
+                                                          isFull ? (
+                                                            <button
+                                                              onClick={() => setConfirmModal({ open: true, title: 'Marcar como deuda', description: `¿Revertir la entrega de ${mbr.name} para este material?`, onConfirm: () => setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: 0 }) })}
+                                                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
+                                                              style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                                                            >
+                                                              <CircleCheck className="h-4 w-4" /> Entregado
+                                                            </button>
+                                                          ) : (
+                                                            <button
+                                                              onClick={() => setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: det.required })}
+                                                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
+                                                              style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                                                            >
+                                                              <CircleX className="h-4 w-4" /> Debe
+                                                            </button>
+                                                          )
                                                         ) : (
-                                                          <span style={{ color: isFull ? '#22c55e' : '#ef4444' }}>{det.delivered.toLocaleString()}/{det.required.toLocaleString()}</span>
+                                                          <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: isFull ? '#22c55e' : '#ef4444' }}>
+                                                            {isFull ? <CircleCheck className="h-4 w-4" /> : <CircleX className="h-4 w-4" />}
+                                                            {isFull ? 'Entregado' : 'Debe'}
+                                                          </span>
                                                         )}
                                                       </td>
                                                     );
                                                   })}
-                                                  <td className="text-center py-1.5 px-1">
+                                                  <td className="text-center py-2.5 px-2">
                                                     {totalOwed > 0 ? (
-                                                      <div className="flex flex-col items-center gap-0.5">
-                                                        <span className="px-1.5 py-0.5 rounded-full font-bold text-[9px]" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                                                          Debe
-                                                        </span>
-                                                        <button
-                                                          onClick={() => {
-                                                            obj.materials.forEach((_: any, mi: number) => {
-                                                              const det = matDetails[mi];
-                                                              if (det.owed > 0) setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: det.required });
-                                                            });
-                                                          }}
-                                                          className="text-[8px] px-1.5 py-0.5 rounded font-semibold"
-                                                          style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}
-                                                        >
-                                                          Todo OK
-                                                        </button>
-                                                      </div>
+                                                      <button
+                                                        onClick={() => {
+                                                          obj.materials.forEach((_: any, mi: number) => {
+                                                            const det = matDetails[mi];
+                                                            if (det.owed > 0) setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: det.required });
+                                                          });
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all hover:scale-105"
+                                                        style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                                                      >
+                                                        <CircleX className="h-4 w-4" /> Pendiente
+                                                      </button>
                                                     ) : (
-                                                      <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
-                                                        Completo
+                                                      <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                                        <BadgeCheck className="h-4 w-4" /> Completo
                                                       </span>
                                                     )}
                                                   </td>
@@ -2595,52 +2584,7 @@ export default function WarehouseClan() {
                                   </div>
                                 )}
 
-                                {/* Attendance / Participation */}
-                                <div className="mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <UserCheck className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                                      <span className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación ({presentCount}/{members.length})</span>
-                                    </div>
-                                    {canCreateObj && members.length > 0 && (
-                                      <button
-                                        onClick={() => {
-                                          const allPresent = members.every((m: any) => objAtt[m.userId] === true);
-                                          members.forEach((m: any) => {
-                                            if (allPresent || !objAtt[m.userId]) {
-                                              toggleAttMut.mutate({ objectiveId: obj.id, userId: m.userId, present: !allPresent });
-                                            }
-                                          });
-                                        }}
-                                        className="text-[9px] px-2 py-0.5 rounded font-medium"
-                                        style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}
-                                      >
-                                        {members.every((m: any) => objAtt[m.userId] === true) ? 'Desmarcar todos' : 'Marcar todos'}
-                                      </button>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {members.map((m: any) => {
-                                      const isPresent = objAtt[m.userId] === true;
-                                      return (
-                                        <button
-                                          key={m.userId}
-                                          onClick={() => canCreateObj && toggleAttMut.mutate({ objectiveId: obj.id, userId: m.userId, present: !isPresent })}
-                                          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg font-medium transition-all"
-                                          style={{
-                                            background: isPresent ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.08)',
-                                            color: isPresent ? '#22c55e' : '#ef4444',
-                                            border: `1px solid ${isPresent ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}`,
-                                            cursor: canCreateObj ? 'pointer' : 'default',
-                                          }}
-                                        >
-                                          {isPresent ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                                          {m.name}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
+                                {/* Participation removed — daily attendance at day level replaces this */}
                               </div>
                             );
                           })}
@@ -2846,58 +2790,41 @@ export default function WarehouseClan() {
                           );
                           return (
                             <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)' }}>
-                              <p className="text-[10px] font-semibold mb-3" style={{ color: '#ef4444' }}>Deuda de materiales por miembro</p>
+                              <p className="text-sm font-bold mb-3" style={{ color: '#ef4444' }}>Deuda de materiales por miembro</p>
                               <div className="overflow-x-auto">
-                                <table className="w-full text-[10px]" style={{ minWidth: 400 }}>
+                                <table className="w-full text-sm" style={{ minWidth: 450 }}>
                                   <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                                      <th className="text-left py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Miembro</th>
-                                      <th className="text-left py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Material</th>
-                                      <th className="text-right py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Debe</th>
-                                      {canCreateObj && <th className="text-center py-1.5 px-2 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Acción</th>}
+                                    <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.1)' }}>
+                                      <th className="text-left py-2.5 px-3 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>Miembro</th>
+                                      <th className="text-left py-2.5 px-3 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>Material</th>
+                                      <th className="text-right py-2.5 px-3 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>Cantidad</th>
+                                      {canCreateObj && <th className="text-center py-2.5 px-3 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>Acción</th>}
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {memberDebts.map((md, mdi) => (
                                       md.debts.map((d, di) => (
-                                        <tr key={`${md.userId}-${di}`} style={{ borderTop: di === 0 && mdi > 0 ? '2px solid rgba(255,255,255,0.08)' : '1px solid rgba(255,255,255,0.04)' }}>
+                                        <tr key={`${md.userId}-${di}`} style={{ borderTop: di === 0 && mdi > 0 ? '2px solid rgba(255,255,255,0.1)' : '1px solid rgba(255,255,255,0.05)' }}>
                                           {di === 0 && (
-                                            <td rowSpan={md.debts.length} className="py-1.5 px-2 font-bold align-top" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                                              <div className="flex flex-col gap-1">
-                                                <span>{md.name}</span>
-                                                {canCreateObj && md.debts.length > 1 && (
-                                                  <button
-                                                    onClick={() => {
-                                                      if (!confirm(`¿Saldar TODA la deuda de ${md.name}?`)) return;
-                                                      md.debts.forEach(debt => payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: debt.matName, monthStart: objMonth }));
-                                                    }}
-                                                    className="text-[8px] px-2 py-0.5 rounded font-semibold w-fit"
-                                                    style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
-                                                  >
-                                                    Saldar todo
-                                                  </button>
-                                                )}
-                                              </div>
+                                            <td rowSpan={md.debts.length} className="py-3 px-3 font-bold align-top text-sm" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                                              {md.name}
                                             </td>
                                           )}
-                                          <td className="py-1.5 px-2">
-                                            <div className="flex items-center gap-1.5">
-                                              {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-4 w-4 rounded-sm object-cover" />}
-                                              <span style={{ color: 'rgba(255,255,255,0.7)' }}>{d.matName}</span>
+                                          <td className="py-3 px-3">
+                                            <div className="flex items-center gap-2">
+                                              {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-7 w-7 rounded object-cover transition-transform hover:scale-[2.5] hover:z-50 hover:relative cursor-zoom-in" />}
+                                              <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>{d.matName}</span>
                                             </div>
                                           </td>
-                                          <td className="py-1.5 px-2 text-right font-bold" style={{ color: '#ef4444' }}>{d.owed.toLocaleString()}</td>
+                                          <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: '#ef4444' }}>{d.owed.toLocaleString()}</td>
                                           {canCreateObj && (
-                                            <td className="py-1.5 px-2 text-center">
+                                            <td className="py-3 px-3 text-center">
                                               <button
-                                                onClick={() => {
-                                                  if (!confirm(`¿Marcar ${d.matName} como entregado por ${md.name} en todos los días del mes?`)) return;
-                                                  payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth });
-                                                }}
-                                                className="text-[9px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:scale-105"
+                                                onClick={() => setConfirmModal({ open: true, title: 'Registrar entrega', description: `¿Marcar ${d.matName} (${d.owed.toLocaleString()}) como entregado por ${md.name} en todos los días del mes?`, onConfirm: () => payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth }) })}
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all hover:scale-105"
                                                 style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
                                               >
-                                                Pagado
+                                                <CreditCard className="h-4 w-4" /> Registrar entrega
                                               </button>
                                             </td>
                                           )}
@@ -2906,6 +2833,17 @@ export default function WarehouseClan() {
                                     ))}
                                   </tbody>
                                 </table>
+                                {canCreateObj && memberDebts.length > 1 && (
+                                  <div className="mt-3 pt-3 flex justify-end" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <button
+                                      onClick={() => setConfirmModal({ open: true, title: 'Saldar toda la deuda', description: `¿Marcar TODOS los materiales pendientes de TODOS los miembros como entregados? Esto afectará a ${memberDebts.length} miembros.`, onConfirm: () => memberDebts.forEach(md => md.debts.forEach(debt => payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: debt.matName, monthStart: objMonth }))) })}
+                                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-105"
+                                      style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}
+                                    >
+                                      <BadgeCheck className="h-5 w-5" /> Saldar toda la deuda
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -2919,6 +2857,20 @@ export default function WarehouseClan() {
           })()}
         </div>
       )}
+
+      {/* ═══ Confirmation Modal ═══ */}
+      <AlertDialog open={confirmModal.open} onOpenChange={(open) => !open && setConfirmModal(prev => ({ ...prev, open: false }))}>
+        <AlertDialogContent style={{ background: '#1e1e2e', border: '1px solid rgba(56,189,248,0.2)' }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold" style={{ color: '#38bdf8' }}>{confirmModal.title}</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>{confirmModal.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="px-4 py-2 rounded-lg text-sm font-semibold" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { confirmModal.onConfirm(); setConfirmModal(prev => ({ ...prev, open: false })); }} className="px-4 py-2 rounded-lg text-sm font-bold" style={{ background: 'rgba(56,189,248,0.2)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ═══ TAB: CONFIG ═══ */}
       {tab === 'config' && (
