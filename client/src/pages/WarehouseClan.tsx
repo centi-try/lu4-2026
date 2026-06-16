@@ -32,7 +32,7 @@ function highlight(text: string, query: string) {
 interface CatalogTypeaheadProps {
   value: string;
   onChange: (v: string) => void;
-  onSelect: (item: { name: string; category: string; imageUrl: string | null }) => void;
+  onSelect: (item: { id?: number; name: string; category: string; imageUrl: string | null }) => void;
   catalog: any[];
   placeholder?: string;
 }
@@ -53,7 +53,7 @@ function CatalogTypeahead({ value, onChange, onSelect, catalog, placeholder = 'E
     suppressRef.current = true;
     setOpen(false);
     setActiveIdx(-1);
-    onSelect({ name: item.name, category: item.category, imageUrl: item.imageUrl || null });
+    onSelect({ id: item.id, name: item.name, category: item.category, imageUrl: item.imageUrl || null });
     setTimeout(() => { suppressRef.current = false; }, 100);
   }, [onSelect]);
 
@@ -411,6 +411,11 @@ export default function WarehouseClan() {
   const deleteObjMut = trpc.warehouse.objectives.delete.useMutation({ onSuccess: () => { refetchObjectives(); refetchAttendance(); toast.success('Objetivo eliminado'); } });
   const toggleAttMut = trpc.warehouse.attendance.toggle.useMutation({ onSuccess: () => { refetchAttendance(); } });
   const cleanupObjMut = trpc.warehouse.objectives.cleanup.useMutation({ onSuccess: (d) => { refetchObjectives(); toast.success(`Limpieza: ${d.removed} objetivos eliminados`); } });
+  const { data: deliveries = [], refetch: refetchDeliveries } = trpc.warehouse.deliveries.list.useQuery(
+    { cpId: objCpId },
+    { enabled: objCpId > 0 }
+  );
+  const toggleDeliveryMut = trpc.warehouse.deliveries.toggle.useMutation({ onSuccess: () => { refetchDeliveries(); } });
 
   // Objectives settings
   const crossCpObjVisible = (whSettings as any)?.crossCpObjectivesVisibility === true;
@@ -420,9 +425,10 @@ export default function WarehouseClan() {
   const [objFormDate, setObjFormDate] = useState('');
   const [objFormTitle, setObjFormTitle] = useState('');
   const [objFormDesc, setObjFormDesc] = useState('');
-  const [objFormMats, setObjFormMats] = useState<{name:string;quantity:number}[]>([]);
+  const [objFormMats, setObjFormMats] = useState<{name:string;quantity:number;imageUrl?:string;catalogId?:number}[]>([]);
   const [editObjId, setEditObjId] = useState<number | null>(null);
   const [expandedObjDay, setExpandedObjDay] = useState<string | null>(null);
+  const [expandedObjDelivery, setExpandedObjDelivery] = useState<number | null>(null);
 
   const resetObjForm = () => { setShowObjForm(false); setObjFormDate(''); setObjFormTitle(''); setObjFormDesc(''); setObjFormMats([]); setEditObjId(null); };
 
@@ -2213,6 +2219,13 @@ export default function WarehouseClan() {
               if (!attMap[a.objectiveId]) attMap[a.objectiveId] = {};
               attMap[a.objectiveId][Number(a.userId)] = a.present;
             });
+            // deliveryMap: objectiveId -> materialIndex -> userId -> boolean
+            const deliveryMap: Record<number, Record<number, Record<number, boolean>>> = {};
+            (deliveries as any[]).forEach((d: any) => {
+              if (!deliveryMap[d.objectiveId]) deliveryMap[d.objectiveId] = {};
+              if (!deliveryMap[d.objectiveId][d.materialIndex]) deliveryMap[d.objectiveId][d.materialIndex] = {};
+              deliveryMap[d.objectiveId][d.materialIndex][Number(d.userId)] = d.delivered;
+            });
 
             const canCreateObj = isSA || ledCpIds.includes(objCpId);
 
@@ -2351,14 +2364,93 @@ export default function WarehouseClan() {
                                   )}
                                 </div>
 
-                                {/* Materials */}
+                                {/* Materials with images */}
                                 {obj.materials && obj.materials.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {obj.materials.map((m: any, mi: number) => (
-                                      <span key={mi} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9', border: '1px solid rgba(232,121,249,0.2)' }}>
-                                        {m.name} ×{m.quantity}
-                                      </span>
-                                    ))}
+                                  <div className="mt-2">
+                                    <div className="flex flex-wrap gap-1.5 mb-1">
+                                      {obj.materials.map((m: any, mi: number) => (
+                                        <span key={mi} className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9', border: '1px solid rgba(232,121,249,0.2)' }}>
+                                          {m.imageUrl && (
+                                            <img src={m.imageUrl} alt={m.name} className="h-4 w-4 rounded-sm object-cover" />
+                                          )}
+                                          {m.name} ×{m.quantity}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    {/* Delivery tracking toggle */}
+                                    {canCreateObj && (
+                                      <button
+                                        onClick={() => setExpandedObjDelivery(expandedObjDelivery === obj.id ? null : obj.id)}
+                                        className="text-[10px] px-2 py-0.5 rounded font-medium transition-all"
+                                        style={{ background: expandedObjDelivery === obj.id ? 'rgba(232,121,249,0.15)' : 'rgba(255,255,255,0.03)', color: expandedObjDelivery === obj.id ? '#e879f9' : 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
+                                      >
+                                        <Package className="h-3 w-3 inline mr-1" />
+                                        {expandedObjDelivery === obj.id ? 'Ocultar entregas' : 'Ver entregas por miembro'}
+                                      </button>
+                                    )}
+                                    {/* Delivery tracking grid */}
+                                    {expandedObjDelivery === obj.id && (
+                                      <div className="mt-2 rounded-lg p-2.5 overflow-x-auto" style={{ background: 'rgba(232,121,249,0.03)', border: '1px solid rgba(232,121,249,0.1)' }}>
+                                        <table className="w-full text-[10px]" style={{ minWidth: 300 }}>
+                                          <thead>
+                                            <tr>
+                                              <th className="text-left py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Miembro</th>
+                                              {obj.materials.map((m: any, mi: number) => (
+                                                <th key={mi} className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                                  <div className="flex flex-col items-center gap-0.5">
+                                                    {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="h-4 w-4 rounded-sm object-cover" />}
+                                                    <span className="truncate max-w-[60px]">{m.name}</span>
+                                                    <span style={{ color: 'rgba(255,255,255,0.3)' }}>×{m.quantity}</span>
+                                                  </div>
+                                                </th>
+                                              ))}
+                                              <th className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Deuda</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {members.map((mbr: any) => {
+                                              const objDel = deliveryMap[obj.id] || {};
+                                              const totalMats = obj.materials.length;
+                                              const deliveredCount = obj.materials.filter((_: any, mi: number) => (objDel[mi] || {})[mbr.userId] === true).length;
+                                              const owedCount = totalMats - deliveredCount;
+                                              return (
+                                                <tr key={mbr.userId} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                                  <td className="py-1.5 px-1 font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{mbr.name}</td>
+                                                  {obj.materials.map((_: any, mi: number) => {
+                                                    const isDel = (objDel[mi] || {})[mbr.userId] === true;
+                                                    return (
+                                                      <td key={mi} className="text-center py-1.5 px-1">
+                                                        <button
+                                                          onClick={() => toggleDeliveryMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, delivered: !isDel })}
+                                                          className="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all"
+                                                          style={{
+                                                            background: isDel ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)',
+                                                            border: `1px solid ${isDel ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)'}`,
+                                                          }}
+                                                        >
+                                                          {isDel && <Check className="h-3 w-3" style={{ color: '#22c55e' }} />}
+                                                        </button>
+                                                      </td>
+                                                    );
+                                                  })}
+                                                  <td className="text-center py-1.5 px-1">
+                                                    {owedCount > 0 ? (
+                                                      <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+                                                        {owedCount} debe
+                                                      </span>
+                                                    ) : (
+                                                      <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
+                                                        ✓ Todo
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
@@ -2421,10 +2513,21 @@ export default function WarehouseClan() {
                                 <button onClick={() => setObjFormMats(prev => [...prev, { name: '', quantity: 1 }])} className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9' }}>+ Material</button>
                               </div>
                               {objFormMats.map((m, mi) => (
-                                <div key={mi} className="flex gap-2 mb-1.5">
-                                  <input value={m.name} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, name: e.target.value } : p))} placeholder="Material..." className="flex-1 rounded px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }} />
-                                  <input type="number" min={1} value={m.quantity} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, quantity: Number(e.target.value) || 1 } : p))} className="w-16 rounded px-2 py-1 text-xs text-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }} />
-                                  <button onClick={() => setObjFormMats(prev => prev.filter((_, i) => i !== mi))} className="p-1 rounded hover:bg-white/5" style={{ color: '#ef4444' }}><X className="h-3 w-3" /></button>
+                                <div key={mi} className="flex gap-2 mb-1.5 items-start">
+                                  {m.imageUrl && (
+                                    <img src={m.imageUrl} alt={m.name} className="h-9 w-9 rounded-lg object-cover shrink-0 border" style={{ borderColor: 'rgba(232,121,249,0.3)' }} />
+                                  )}
+                                  <div className="flex-1 relative" style={{ zIndex: 50 - mi }}>
+                                    <CatalogTypeahead
+                                      value={m.name}
+                                      onChange={v => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, name: v, imageUrl: v !== p.name ? undefined : p.imageUrl } : p))}
+                                      onSelect={item => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, name: item.name, imageUrl: item.imageUrl || undefined, catalogId: item.id } : p))}
+                                      catalog={catalog}
+                                      placeholder="Buscar material del catálogo..."
+                                    />
+                                  </div>
+                                  <input type="number" min={1} value={m.quantity} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, quantity: Number(e.target.value) || 1 } : p))} className="w-16 rounded px-2 py-1 text-xs text-center shrink-0" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', height: 36 }} />
+                                  <button onClick={() => setObjFormMats(prev => prev.filter((_, i) => i !== mi))} className="p-1 rounded hover:bg-white/5 shrink-0 mt-1.5" style={{ color: '#ef4444' }}><X className="h-3 w-3" /></button>
                                 </div>
                               ))}
                             </div>

@@ -1282,7 +1282,7 @@ export const warehouseRouter = router({
         date: z.string(),
         title: z.string().min(1),
         description: z.string().optional(),
-        materials: z.array(z.object({ name: z.string(), quantity: z.number() })).optional(),
+        materials: z.array(z.object({ name: z.string(), quantity: z.number(), imageUrl: z.string().optional(), catalogId: z.number().optional() })).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -1313,7 +1313,7 @@ export const warehouseRouter = router({
         id: z.number(),
         title: z.string().optional(),
         description: z.string().optional(),
-        materials: z.array(z.object({ name: z.string(), quantity: z.number() })).optional(),
+        materials: z.array(z.object({ name: z.string(), quantity: z.number(), imageUrl: z.string().optional(), catalogId: z.number().optional() })).optional(),
         achieved: z.boolean().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
@@ -1421,6 +1421,64 @@ export const warehouseRouter = router({
             objectiveId: input.objectiveId,
             userId: input.userId,
             present: input.present,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          });
+        }
+        saveDbToDisk();
+        return { success: true };
+      }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DELIVERIES — per-user per-material delivery tracking for objectives
+  // ═══════════════════════════════════════════════════════════════════════
+
+  deliveries: router({
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number() }))
+      .query(async ({ input }) => {
+        const db = dbInstance;
+        if (!db.warehouseDeliveries) db.warehouseDeliveries = [];
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const cpObjIds = new Set(
+          (db.warehouseObjectives as any[])
+            .filter((o: any) => Number(o.cpId) === input.cpId)
+            .map((o: any) => o.id)
+        );
+        return (db.warehouseDeliveries as any[]).filter((d: any) => cpObjIds.has(d.objectiveId));
+      }),
+
+    toggle: protectedProcedure
+      .input(z.object({
+        objectiveId: z.number(),
+        userId: z.number(),
+        materialIndex: z.number(),
+        delivered: z.boolean(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        if (!db.warehouseDeliveries) db.warehouseDeliveries = [];
+        const obj = (db.warehouseObjectives as any[]).find((o: any) => o.id === input.objectiveId);
+        if (!obj) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const allowed = await canWriteCp(role, callerId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const existing = (db.warehouseDeliveries as any[]).find(
+          (d: any) => d.objectiveId === input.objectiveId && Number(d.userId) === input.userId && d.materialIndex === input.materialIndex
+        );
+        if (existing) {
+          existing.delivered = input.delivered;
+          existing.updatedAt = nowIso();
+        } else {
+          (db.warehouseDeliveries as any[]).push({
+            id: randId(),
+            objectiveId: input.objectiveId,
+            userId: input.userId,
+            materialIndex: input.materialIndex,
+            delivered: input.delivered,
             createdAt: nowIso(),
             updatedAt: nowIso(),
           });
