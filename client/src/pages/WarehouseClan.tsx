@@ -417,7 +417,7 @@ export default function WarehouseClan() {
     { enabled: objCpId > 0 }
   );
   const setDeliveryQtyMut = trpc.warehouse.deliveries.setQuantity.useMutation({ onSuccess: () => { refetchDeliveries(); refetchObjectives(); } });
-  const payAllDebtMut = trpc.warehouse.deliveries.payAllDebt.useMutation({ onSuccess: (d) => { refetchDeliveries(); refetchObjectives(); toast.success(`Deuda saldada (${d.updated} registros actualizados)`); } });
+  const payAllDebtMut = trpc.warehouse.deliveries.payAllDebt.useMutation({ onSettled: () => { refetchDeliveries(); refetchObjectives(); }, onSuccess: (d) => { toast.success(`Deuda saldada (${d.updated} registros actualizados)`); } });
   // Daily attendance (independent of objectives)
   const { data: dailyAtt = [], refetch: refetchDailyAtt } = trpc.warehouse.dailyAttendance.list.useQuery(
     { cpId: objCpId, monthStart: objMonth },
@@ -2276,15 +2276,15 @@ export default function WarehouseClan() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { const d = new Date(ms); d.setMonth(d.getMonth() - 1); setObjMonth(new Date(d.getFullYear(), d.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronLeft className="h-4 w-4" /></button>
-                    <span className="text-xs font-bold px-3" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                    <button onClick={() => { const d = new Date(ms); d.setMonth(d.getMonth() - 1); setObjMonth(new Date(d.getFullYear(), d.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="p-2 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronLeft className="h-5 w-5" /></button>
+                    <span className="text-sm font-bold px-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                       {monthNames[month]} {year}
                     </span>
-                    <button onClick={() => { const d = new Date(ms); d.setMonth(d.getMonth() + 1); setObjMonth(new Date(d.getFullYear(), d.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronRight className="h-4 w-4" /></button>
-                    <button onClick={() => { const n = new Date(); setObjMonth(new Date(n.getFullYear(), n.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="text-[10px] px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}>Hoy</button>
+                    <button onClick={() => { const d = new Date(ms); d.setMonth(d.getMonth() + 1); setObjMonth(new Date(d.getFullYear(), d.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="p-2 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronRight className="h-5 w-5" /></button>
+                    <button onClick={() => { const n = new Date(); setObjMonth(new Date(n.getFullYear(), n.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold" style={{ background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.25)' }}><Calendar className="h-3.5 w-3.5" />Hoy</button>
                     {allObjs.length > 0 && (
-                      <button onClick={() => setShowObjReport(!showObjReport)} className="text-[10px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: showObjReport ? 'rgba(168,85,247,0.2)' : 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.25)' }}>
-                        <Flag className="h-3 w-3 inline mr-1" />Informe
+                      <button onClick={() => setShowObjReport(!showObjReport)} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-bold" style={{ background: showObjReport ? 'rgba(168,85,247,0.2)' : 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.25)' }}>
+                        <Flag className="h-3.5 w-3.5" />Informe
                       </button>
                     )}
                   </div>
@@ -2303,7 +2303,7 @@ export default function WarehouseClan() {
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                       <div className="grid grid-cols-7">
                         {dayHeaders.map(dh => (
-                          <div key={dh} className="text-center py-2 text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{dh}</div>
+                          <div key={dh} className="text-center py-2.5 text-xs font-bold" style={{ color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{dh}</div>
                         ))}
                       </div>
                       <div className="grid grid-cols-7">
@@ -2329,9 +2329,9 @@ export default function WarehouseClan() {
                               }}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold" style={{ color: isToday ? '#38bdf8' : isSelected ? '#38bdf8' : 'rgba(255,255,255,0.6)' }}>{cell.day}</span>
+                                <span className="text-sm font-bold" style={{ color: isToday ? '#38bdf8' : isSelected ? '#38bdf8' : 'rgba(255,255,255,0.7)' }}>{cell.day}</span>
                                 {attCount > 0 && (
-                                  <span className="text-[8px] font-semibold px-1 rounded" style={{ background: attCount === members.length ? 'rgba(34,197,94,0.2)' : 'rgba(251,191,36,0.15)', color: attCount === members.length ? '#22c55e' : '#fbbf24' }}>{attCount}/{members.length}</span>
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: attCount === members.length ? 'rgba(34,197,94,0.2)' : 'rgba(251,191,36,0.15)', color: attCount === members.length ? '#22c55e' : '#fbbf24' }}>{attCount}/{members.length}</span>
                                 )}
                               </div>
                               {total > 0 && (
@@ -2498,7 +2498,7 @@ export default function WarehouseClan() {
                                               {obj.materials.map((m: any, mi: number) => (
                                                 <th key={mi} className="text-center py-2 px-2 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>
                                                   <div className="flex flex-col items-center gap-1">
-                                                    {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="h-8 w-8 rounded object-cover transition-transform hover:scale-[2.5] hover:z-50 hover:relative cursor-zoom-in" />}
+                                                    {m.imageUrl && <ImageHoverPreview src={m.imageUrl} caption={m.name} size={70}><img src={m.imageUrl} alt={m.name} className="h-8 w-8 rounded object-cover cursor-zoom-in" /></ImageHoverPreview>}
                                                     <span className="truncate max-w-[90px] text-[11px]">{m.name}</span>
                                                     <span className="text-[10px]" style={{ color: '#e879f9' }}>c/u: {m.quantity.toLocaleString()}</span>
                                                   </div>
@@ -2595,9 +2595,9 @@ export default function WarehouseClan() {
                     {/* Create/Edit objective form modal */}
                     {showObjForm && (
                       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => resetObjForm()}>
-                        <div className="w-full max-w-md rounded-2xl p-5" style={{ background: '#1e1e2e', border: '1px solid rgba(56,189,248,0.2)' }} onClick={e => e.stopPropagation()}>
-                          <h3 className="text-base font-bold mb-4" style={{ color: '#38bdf8' }}>{editObjId ? 'Editar objetivo' : 'Nuevo objetivo'}</h3>
-                          <div className="space-y-3">
+                        <div className="w-full max-w-md rounded-2xl p-5 flex flex-col" style={{ background: '#1e1e2e', border: '1px solid rgba(56,189,248,0.2)', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+                          <h3 className="text-base font-bold mb-4 shrink-0" style={{ color: '#38bdf8' }}>{editObjId ? 'Editar objetivo' : 'Nuevo objetivo'}</h3>
+                          <div className="space-y-3 overflow-y-auto flex-1 pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
                             <div>
                               <label className="text-[10px] font-semibold block mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Fecha</label>
                               <input type="date" value={objFormDate} onChange={e => setObjFormDate(e.target.value)} className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
@@ -2690,28 +2690,45 @@ export default function WarehouseClan() {
                           </div>
                         </div>
 
-                        {/* Participation ranking (based on daily attendance) */}
+                        {/* Participation ranking (attendance + delivery combined) */}
                         <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación por miembro (asistencia diaria)</p>
-                          <div className="space-y-1.5">
+                          <p className="text-xs font-bold mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>Participación por miembro</p>
+                          <div className="space-y-2.5">
                             {(() => {
                               const daysWithAtt = Object.keys(dailyAttMap).length;
                               const totalDays = Math.max(daysWithAtt, allObjs.length > 0 ? [...new Set(allObjs.map((o: any) => (o.date || '').slice(0, 10)))].length : 0, 1);
+                              const totalMaterialSlots = allObjs.reduce((acc: number, obj: any) => acc + (obj.materials || []).length, 0);
                               const ranked = members.map((m: any) => {
                                 const attended = Object.values(dailyAttMap).filter((dayData: any) => dayData[m.userId] === true).length;
-                                const pct = totalDays > 0 ? Math.round((attended / totalDays) * 100) : 0;
-                                return { ...m, attended, pct, totalDays };
-                              }).sort((a: any, b: any) => b.pct - a.pct);
+                                const attPct = totalDays > 0 ? (attended / totalDays) * 100 : 0;
+                                let deliveredSlots = 0;
+                                allObjs.forEach((obj: any) => {
+                                  (obj.materials || []).forEach((_mat: any, mi: number) => {
+                                    const objDel = deliveryMap[obj.id] || {};
+                                    const del = (objDel[mi] || {})[m.userId];
+                                    if (del && del.quantity >= (_mat.quantity || 0)) deliveredSlots++;
+                                  });
+                                });
+                                const delPct = totalMaterialSlots > 0 ? (deliveredSlots / totalMaterialSlots) * 100 : 100;
+                                const combinedPct = totalMaterialSlots > 0 ? Math.round((attPct * 0.4) + (delPct * 0.6)) : Math.round(attPct);
+                                return { ...m, attended, totalDays, attPct: Math.round(attPct), deliveredSlots, totalMaterialSlots, delPct: Math.round(delPct), combinedPct };
+                              }).sort((a: any, b: any) => b.combinedPct - a.combinedPct);
                               return ranked.map((m: any, ri: number) => (
-                                <div key={m.userId} className="flex items-center gap-2">
-                                  <span className="text-[10px] font-bold w-5 text-center" style={{ color: ri === 0 ? '#fbbf24' : ri === 1 ? '#94a3b8' : ri === 2 ? '#cd7f32' : 'rgba(255,255,255,0.3)' }}>
-                                    {ri < 3 ? ['🥇','🥈','🥉'][ri] : `${ri+1}.`}
-                                  </span>
-                                  <span className="text-[11px] font-medium w-28 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{m.name}</span>
-                                  <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${m.pct}%`, background: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                <div key={m.userId} className="rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span className="text-xs font-bold w-6 text-center" style={{ color: ri === 0 ? '#fbbf24' : ri === 1 ? '#94a3b8' : ri === 2 ? '#cd7f32' : 'rgba(255,255,255,0.3)' }}>
+                                      {ri < 3 ? ['🥇','🥈','🥉'][ri] : `${ri+1}.`}
+                                    </span>
+                                    <span className="text-xs font-bold flex-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{m.name}</span>
+                                    <span className="text-sm font-bold" style={{ color: m.combinedPct >= 80 ? '#22c55e' : m.combinedPct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.combinedPct}%</span>
                                   </div>
-                                  <span className="text-[10px] font-bold w-20 text-right" style={{ color: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.attended}/{m.totalDays} días ({m.pct}%)</span>
+                                  <div className="flex-1 h-2.5 rounded-full overflow-hidden mb-1.5" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${m.combinedPct}%`, background: m.combinedPct >= 80 ? '#22c55e' : m.combinedPct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                  </div>
+                                  <div className="flex gap-3 text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                    <span>Asistencia: {m.attended}/{m.totalDays} días ({m.attPct}%)</span>
+                                    {m.totalMaterialSlots > 0 && <span>Entregas: {m.deliveredSlots}/{m.totalMaterialSlots} ({m.delPct}%)</span>}
+                                  </div>
                                 </div>
                               ));
                             })()}
@@ -2789,9 +2806,9 @@ export default function WarehouseClan() {
                             </div>
                           );
                           return (
-                            <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)' }}>
+                            <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)', overflow: 'hidden' }}>
                               <p className="text-sm font-bold mb-3" style={{ color: '#ef4444' }}>Deuda de materiales por miembro</p>
-                              <div className="overflow-x-auto">
+                              <div style={{ overflow: 'visible' }}>
                                 <table className="w-full text-sm" style={{ minWidth: 450 }}>
                                   <thead>
                                     <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.1)' }}>
@@ -2812,7 +2829,7 @@ export default function WarehouseClan() {
                                           )}
                                           <td className="py-3 px-3">
                                             <div className="flex items-center gap-2">
-                                              {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-7 w-7 rounded object-cover transition-transform hover:scale-[2.5] hover:z-50 hover:relative cursor-zoom-in" />}
+                                              {d.imageUrl && <ImageHoverPreview src={d.imageUrl} caption={d.matName} size={70}><img src={d.imageUrl} alt={d.matName} className="h-7 w-7 rounded object-cover cursor-zoom-in" /></ImageHoverPreview>}
                                               <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>{d.matName}</span>
                                             </div>
                                           </td>
