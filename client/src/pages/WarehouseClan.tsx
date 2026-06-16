@@ -2306,6 +2306,27 @@ export default function WarehouseClan() {
 
                 {effectiveCpId && (
                   <>
+                    {/* Color legend */}
+                    <div className="flex flex-wrap items-center gap-4 mb-3 px-1">
+                      <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Indicadores:</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#22c55e' }} />
+                        <span className="text-xs" style={{ color: '#22c55e' }}>Completado (todos los objetivos logrados)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#f59e0b' }} />
+                        <span className="text-xs" style={{ color: '#f59e0b' }}>Parcial (algunos logrados, otros pendientes)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#ef4444' }} />
+                        <span className="text-xs" style={{ color: '#ef4444' }}>Pendiente (ningún objetivo logrado)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.2)', color: '#22c55e' }}>6/6</span>
+                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Asistencia del día</span>
+                      </div>
+                    </div>
+
                     {/* Monthly calendar grid */}
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
                       <div className="grid grid-cols-7">
@@ -2348,9 +2369,9 @@ export default function WarehouseClan() {
                                     <span className="text-[9px] font-semibold" style={{ color: achieved === total ? '#22c55e' : achieved > 0 ? '#f59e0b' : '#ef4444' }}>{achieved}/{total}</span>
                                   </div>
                                   {dayObjs.slice(0, 2).map((o: any, oi: number) => (
-                                    <p key={oi} className="text-[10px] truncate mt-0.5 leading-tight" style={{ color: o.achieved ? 'rgba(34,197,94,0.6)' : 'rgba(255,255,255,0.4)' }} title={o.title}>{o.title}</p>
+                                    <p key={oi} className="text-xs truncate mt-0.5 leading-tight font-medium" style={{ color: o.achieved ? 'rgba(34,197,94,0.7)' : 'rgba(255,255,255,0.5)' }} title={o.title}>{o.title}</p>
                                   ))}
-                                  {dayObjs.length > 2 && <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>+{dayObjs.length - 2} más</p>}
+                                  {dayObjs.length > 2 && <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>+{dayObjs.length - 2} más</p>}
                                 </div>
                               )}
                             </button>
