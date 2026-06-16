@@ -417,7 +417,14 @@ export default function WarehouseClan() {
     { enabled: objCpId > 0 }
   );
   const setDeliveryQtyMut = trpc.warehouse.deliveries.setQuantity.useMutation({ onSuccess: () => { refetchDeliveries(); refetchObjectives(); } });
-  const payAllDebtMut = trpc.warehouse.deliveries.payAllDebt.useMutation({ onSettled: () => { refetchDeliveries(); refetchObjectives(); }, onSuccess: (d) => { toast.success(`Deuda saldada (${d.updated} registros actualizados)`); } });
+  const debtRefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const payAllDebtMut = trpc.warehouse.deliveries.payAllDebt.useMutation({
+    onSettled: () => {
+      if (debtRefetchTimer.current) clearTimeout(debtRefetchTimer.current);
+      debtRefetchTimer.current = setTimeout(() => { refetchDeliveries(); refetchObjectives(); }, 400);
+    },
+    onSuccess: (d) => { toast.success(`Deuda saldada (${d.updated} registros actualizados)`); }
+  });
   // Daily attendance (independent of objectives)
   const { data: dailyAtt = [], refetch: refetchDailyAtt } = trpc.warehouse.dailyAttendance.list.useQuery(
     { cpId: objCpId, monthStart: objMonth },
@@ -2341,9 +2348,9 @@ export default function WarehouseClan() {
                                     <span className="text-[9px] font-semibold" style={{ color: achieved === total ? '#22c55e' : achieved > 0 ? '#f59e0b' : '#ef4444' }}>{achieved}/{total}</span>
                                   </div>
                                   {dayObjs.slice(0, 2).map((o: any, oi: number) => (
-                                    <p key={oi} className="text-[8px] truncate mt-0.5 leading-tight" style={{ color: o.achieved ? 'rgba(34,197,94,0.6)' : 'rgba(255,255,255,0.35)' }}>{o.title}</p>
+                                    <p key={oi} className="text-[10px] truncate mt-0.5 leading-tight" style={{ color: o.achieved ? 'rgba(34,197,94,0.6)' : 'rgba(255,255,255,0.4)' }} title={o.title}>{o.title}</p>
                                   ))}
-                                  {dayObjs.length > 2 && <p className="text-[8px]" style={{ color: 'rgba(255,255,255,0.25)' }}>+{dayObjs.length - 2} más</p>}
+                                  {dayObjs.length > 2 && <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.3)' }}>+{dayObjs.length - 2} más</p>}
                                 </div>
                               )}
                             </button>
@@ -2456,7 +2463,7 @@ export default function WarehouseClan() {
                                       {obj.achieved && <Check className="h-3 w-3" style={{ color: '#22c55e' }} />}
                                     </button>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold" style={{ color: obj.achieved ? '#22c55e' : 'rgba(255,255,255,0.9)', textDecoration: obj.achieved ? 'line-through' : 'none' }}>{obj.title}</p>
+                                      <p className="text-sm font-bold truncate" style={{ color: obj.achieved ? '#22c55e' : 'rgba(255,255,255,0.9)', textDecoration: obj.achieved ? 'line-through' : 'none' }} title={obj.title}>{obj.title}</p>
                                       {obj.description && <p className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{obj.description}</p>}
                                     </div>
                                   </div>
@@ -2498,7 +2505,7 @@ export default function WarehouseClan() {
                                               {obj.materials.map((m: any, mi: number) => (
                                                 <th key={mi} className="text-center py-2 px-2 font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>
                                                   <div className="flex flex-col items-center gap-1">
-                                                    {m.imageUrl && <ImageHoverPreview src={m.imageUrl} caption={m.name} size={70}><img src={m.imageUrl} alt={m.name} className="h-8 w-8 rounded object-cover cursor-zoom-in" /></ImageHoverPreview>}
+                                                    {m.imageUrl && <ImageHoverPreview src={m.imageUrl} caption={m.name} size={100}><img src={m.imageUrl} alt={m.name} className="h-8 w-8 rounded object-cover cursor-zoom-in" /></ImageHoverPreview>}
                                                     <span className="truncate max-w-[90px] text-[11px]">{m.name}</span>
                                                     <span className="text-[10px]" style={{ color: '#e879f9' }}>c/u: {m.quantity.toLocaleString()}</span>
                                                   </div>
@@ -2829,7 +2836,7 @@ export default function WarehouseClan() {
                                           )}
                                           <td className="py-3 px-3">
                                             <div className="flex items-center gap-2">
-                                              {d.imageUrl && <ImageHoverPreview src={d.imageUrl} caption={d.matName} size={70}><img src={d.imageUrl} alt={d.matName} className="h-7 w-7 rounded object-cover cursor-zoom-in" /></ImageHoverPreview>}
+                                              {d.imageUrl && <ImageHoverPreview src={d.imageUrl} caption={d.matName} size={100}><img src={d.imageUrl} alt={d.matName} className="h-7 w-7 rounded object-cover cursor-zoom-in" /></ImageHoverPreview>}
                                               <span className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>{d.matName}</span>
                                             </div>
                                           </td>
