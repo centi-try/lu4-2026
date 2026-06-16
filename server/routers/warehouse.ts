@@ -1257,13 +1257,21 @@ export const warehouseRouter = router({
   // ═══════════════════════════════════════════════════════════════════════
 
   objectives: router({
-    // List objectives for a CP within a date range
+    // List objectives for a CP within a date range (supports month or week)
     list: protectedProcedure
-      .input(z.object({ cpId: z.number(), weekStart: z.string().optional() }))
+      .input(z.object({ cpId: z.number(), weekStart: z.string().optional(), monthStart: z.string().optional() }))
       .query(async ({ input, ctx }) => {
         const db = dbInstance;
         if (!db.warehouseObjectives) db.warehouseObjectives = [];
         const objs = (db.warehouseObjectives as any[]).filter((o: any) => Number(o.cpId) === input.cpId);
+        if (input.monthStart) {
+          const ms = new Date(input.monthStart);
+          const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 1);
+          return objs.filter((o: any) => {
+            const d = new Date(o.date);
+            return d >= ms && d < me;
+          });
+        }
         if (input.weekStart) {
           const ws = new Date(input.weekStart);
           const we = new Date(ws); we.setDate(we.getDate() + 7);
@@ -1449,12 +1457,13 @@ export const warehouseRouter = router({
         return (db.warehouseDeliveries as any[]).filter((d: any) => cpObjIds.has(d.objectiveId));
       }),
 
-    toggle: protectedProcedure
+    // Set delivered quantity for a user-material pair
+    setQuantity: protectedProcedure
       .input(z.object({
         objectiveId: z.number(),
         userId: z.number(),
         materialIndex: z.number(),
-        delivered: z.boolean(),
+        quantity: z.number().min(0),
       }))
       .mutation(async ({ input, ctx }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -1470,7 +1479,8 @@ export const warehouseRouter = router({
           (d: any) => d.objectiveId === input.objectiveId && Number(d.userId) === input.userId && d.materialIndex === input.materialIndex
         );
         if (existing) {
-          existing.delivered = input.delivered;
+          existing.quantity = input.quantity;
+          existing.delivered = input.quantity >= (obj.materials?.[input.materialIndex]?.quantity || 0);
           existing.updatedAt = nowIso();
         } else {
           (db.warehouseDeliveries as any[]).push({
@@ -1478,10 +1488,24 @@ export const warehouseRouter = router({
             objectiveId: input.objectiveId,
             userId: input.userId,
             materialIndex: input.materialIndex,
-            delivered: input.delivered,
+            quantity: input.quantity,
+            delivered: input.quantity >= (obj.materials?.[input.materialIndex]?.quantity || 0),
             createdAt: nowIso(),
             updatedAt: nowIso(),
           });
+        }
+        // Auto-mark objective as achieved if all members delivered all materials
+        const allMembers = await getRaidUsersByCp(obj.cpId);
+        const allDelivered = (obj.materials || []).every((_: any, mi: number) => {
+          return allMembers.every((m: any) => {
+            const del = (db.warehouseDeliveries as any[]).find(
+              (d: any) => d.objectiveId === input.objectiveId && Number(d.userId) === Number(m.id) && d.materialIndex === mi
+            );
+            return del && del.quantity >= (obj.materials[mi]?.quantity || 0);
+          });
+        });
+        if (allDelivered && !obj.achieved) {
+          obj.achieved = true;
         }
         saveDbToDisk();
         return { success: true };

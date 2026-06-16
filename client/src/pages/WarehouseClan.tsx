@@ -396,10 +396,10 @@ export default function WarehouseClan() {
 
   // ─── Objetivos tab ──────────────────────────────────────────
   const getMonday = (d: Date) => { const dt = new Date(d); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); dt.setDate(diff); dt.setHours(0, 0, 0, 0); return dt; };
-  const [objWeekStart, setObjWeekStart] = useState(() => getMonday(new Date()).toISOString());
+  const [objMonth, setObjMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1).toISOString(); });
   const objCpId = effectiveCpId || 0;
   const { data: objectives = [], refetch: refetchObjectives } = trpc.warehouse.objectives.list.useQuery(
-    { cpId: objCpId, weekStart: objWeekStart },
+    { cpId: objCpId, monthStart: objMonth },
     { enabled: objCpId > 0 }
   );
   const { data: attendance = [], refetch: refetchAttendance } = trpc.warehouse.attendance.list.useQuery(
@@ -415,7 +415,7 @@ export default function WarehouseClan() {
     { cpId: objCpId },
     { enabled: objCpId > 0 }
   );
-  const toggleDeliveryMut = trpc.warehouse.deliveries.toggle.useMutation({ onSuccess: () => { refetchDeliveries(); } });
+  const setDeliveryQtyMut = trpc.warehouse.deliveries.setQuantity.useMutation({ onSuccess: () => { refetchDeliveries(); refetchObjectives(); } });
 
   // Objectives settings
   const crossCpObjVisible = (whSettings as any)?.crossCpObjectivesVisibility === true;
@@ -429,6 +429,7 @@ export default function WarehouseClan() {
   const [editObjId, setEditObjId] = useState<number | null>(null);
   const [expandedObjDay, setExpandedObjDay] = useState<string | null>(null);
   const [expandedObjDelivery, setExpandedObjDelivery] = useState<number | null>(null);
+  const [showObjReport, setShowObjReport] = useState(false);
 
   const resetObjForm = () => { setShowObjForm(false); setObjFormDate(''); setObjFormTitle(''); setObjFormDesc(''); setObjFormMats([]); setEditObjId(null); };
 
@@ -2197,56 +2198,77 @@ export default function WarehouseClan() {
       {/* ═══ TAB: OBJETIVOS ═══ */}
       {tab === 'objetivos' && (
         <div className="space-y-5">
-          {/* Week navigator */}
           {(() => {
-            const ws = new Date(objWeekStart);
-            const we = new Date(ws); we.setDate(we.getDate() + 6);
-            const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-            const weekDays = Array.from({ length: 7 }, (_, i) => {
-              const d = new Date(ws); d.setDate(d.getDate() + i);
-              return { date: d, key: d.toISOString().slice(0, 10), label: dayNames[i], dayNum: d.getDate() };
-            });
+            const ms = new Date(objMonth);
+            const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const dayHeaders = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
             const cpName = (warehouseCps as any[]).find((cp: any) => Number(cp.id) === objCpId)?.name || '';
             const today = new Date().toISOString().slice(0, 10);
+
+            // Build calendar grid for the month
+            const year = ms.getFullYear();
+            const month = ms.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDow = (firstDay.getDay() + 6) % 7; // Mon=0
+            const totalDays = lastDay.getDate();
+            const calendarCells: ({ day: number; key: string } | null)[] = [];
+            for (let i = 0; i < startDow; i++) calendarCells.push(null);
+            for (let d = 1; d <= totalDays; d++) {
+              const dt = new Date(year, month, d);
+              calendarCells.push({ day: d, key: dt.toISOString().slice(0, 10) });
+            }
+            while (calendarCells.length % 7 !== 0) calendarCells.push(null);
+
+            // Map objectives by day
             const objsByDay: Record<string, any[]> = {};
-            weekDays.forEach(wd => { objsByDay[wd.key] = []; });
             (objectives as any[]).forEach((o: any) => {
               const dk = (o.date || '').slice(0, 10);
-              if (objsByDay[dk]) objsByDay[dk].push(o);
+              if (!objsByDay[dk]) objsByDay[dk] = [];
+              objsByDay[dk].push(o);
             });
+
+            // Build maps
             const attMap: Record<number, Record<number, boolean>> = {};
             (attendance as any[]).forEach((a: any) => {
               if (!attMap[a.objectiveId]) attMap[a.objectiveId] = {};
               attMap[a.objectiveId][Number(a.userId)] = a.present;
             });
-            // deliveryMap: objectiveId -> materialIndex -> userId -> boolean
-            const deliveryMap: Record<number, Record<number, Record<number, boolean>>> = {};
+            // deliveryMap: objectiveId -> materialIndex -> userId -> { quantity, delivered }
+            const deliveryMap: Record<number, Record<number, Record<number, { quantity: number; delivered: boolean }>>> = {};
             (deliveries as any[]).forEach((d: any) => {
               if (!deliveryMap[d.objectiveId]) deliveryMap[d.objectiveId] = {};
               if (!deliveryMap[d.objectiveId][d.materialIndex]) deliveryMap[d.objectiveId][d.materialIndex] = {};
-              deliveryMap[d.objectiveId][d.materialIndex][Number(d.userId)] = d.delivered;
+              deliveryMap[d.objectiveId][d.materialIndex][Number(d.userId)] = { quantity: d.quantity || 0, delivered: d.delivered };
             });
 
             const canCreateObj = isSA || ledCpIds.includes(objCpId);
+            const members = cpMembersChars as any[];
+            const allObjs = objectives as any[];
 
             return (
               <>
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-3">
                     <Target className="h-5 w-5" style={{ color: '#38bdf8' }} />
                     <div>
                       <h3 className="text-base font-bold" style={{ color: '#fff' }}>Objetivos {cpName && `— ${cpName}`}</h3>
-                      <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Calendario semanal de tareas y participación</p>
+                      <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Calendario mensual de tareas y participación</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { const d = new Date(objWeekStart); d.setDate(d.getDate() - 7); setObjWeekStart(d.toISOString()); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronLeft className="h-4 w-4" /></button>
-                    <span className="text-xs font-medium px-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                      {ws.getDate()}/{ws.getMonth()+1} — {we.getDate()}/{we.getMonth()+1}/{we.getFullYear()}
+                    <button onClick={() => { const d = new Date(ms); d.setMonth(d.getMonth() - 1); setObjMonth(new Date(d.getFullYear(), d.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronLeft className="h-4 w-4" /></button>
+                    <span className="text-xs font-bold px-3" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                      {monthNames[month]} {year}
                     </span>
-                    <button onClick={() => { const d = new Date(objWeekStart); d.setDate(d.getDate() + 7); setObjWeekStart(d.toISOString()); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronRight className="h-4 w-4" /></button>
-                    <button onClick={() => setObjWeekStart(getMonday(new Date()).toISOString())} className="text-[10px] px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}>Hoy</button>
+                    <button onClick={() => { const d = new Date(ms); d.setMonth(d.getMonth() + 1); setObjMonth(new Date(d.getFullYear(), d.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="p-1.5 rounded-lg hover:bg-white/5 transition" style={{ color: 'rgba(255,255,255,0.5)' }}><ChevronRight className="h-4 w-4" /></button>
+                    <button onClick={() => { const n = new Date(); setObjMonth(new Date(n.getFullYear(), n.getMonth(), 1).toISOString()); setExpandedObjDay(null); }} className="text-[10px] px-2 py-1 rounded-lg font-medium" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }}>Hoy</button>
+                    {allObjs.length > 0 && (
+                      <button onClick={() => setShowObjReport(!showObjReport)} className="text-[10px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: showObjReport ? 'rgba(168,85,247,0.2)' : 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.25)' }}>
+                        <Flag className="h-3 w-3 inline mr-1" />Informe
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2259,45 +2281,50 @@ export default function WarehouseClan() {
 
                 {effectiveCpId && (
                   <>
-                    {/* Weekly calendar grid */}
-                    <div className="grid grid-cols-7 gap-2">
-                      {weekDays.map(wd => {
-                        const dayObjs = objsByDay[wd.key] || [];
-                        const isToday = wd.key === today;
-                        const achieved = dayObjs.filter((o: any) => o.achieved).length;
-                        const total = dayObjs.length;
-                        return (
-                          <button
-                            key={wd.key}
-                            type="button"
-                            onClick={() => setExpandedObjDay(expandedObjDay === wd.key ? null : wd.key)}
-                            className="rounded-xl p-2.5 text-center transition-all hover:scale-[1.02]"
-                            style={{
-                              background: expandedObjDay === wd.key
-                                ? 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(34,211,238,0.15))'
-                                : isToday
-                                  ? 'rgba(56,189,248,0.08)'
-                                  : 'rgba(255,255,255,0.02)',
-                              border: expandedObjDay === wd.key
-                                ? '1px solid rgba(56,189,248,0.4)'
-                                : isToday
-                                  ? '1px solid rgba(56,189,248,0.2)'
-                                  : '1px solid rgba(255,255,255,0.06)',
-                            }}
-                          >
-                            <p className="text-[10px] font-bold mb-0.5" style={{ color: isToday ? '#38bdf8' : 'rgba(255,255,255,0.5)' }}>{wd.label}</p>
-                            <p className="text-lg font-bold" style={{ color: isToday ? '#38bdf8' : 'rgba(255,255,255,0.8)' }}>{wd.dayNum}</p>
-                            {total > 0 ? (
-                              <div className="flex items-center justify-center gap-1 mt-1">
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: achieved === total ? '#22c55e' : '#f59e0b' }} />
-                                <span className="text-[9px] font-medium" style={{ color: achieved === total ? '#22c55e' : '#f59e0b' }}>{achieved}/{total}</span>
-                              </div>
-                            ) : (
-                              <p className="text-[9px] mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>—</p>
-                            )}
-                          </button>
-                        );
-                      })}
+                    {/* Monthly calendar grid */}
+                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div className="grid grid-cols-7">
+                        {dayHeaders.map(dh => (
+                          <div key={dh} className="text-center py-2 text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{dh}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7">
+                        {calendarCells.map((cell, ci) => {
+                          if (!cell) return <div key={`empty-${ci}`} className="min-h-[72px]" style={{ background: 'rgba(0,0,0,0.15)', borderRight: ci % 7 !== 6 ? '1px solid rgba(255,255,255,0.04)' : 'none', borderBottom: '1px solid rgba(255,255,255,0.04)' }} />;
+                          const dayObjs = objsByDay[cell.key] || [];
+                          const isToday = cell.key === today;
+                          const isSelected = expandedObjDay === cell.key;
+                          const achieved = dayObjs.filter((o: any) => o.achieved).length;
+                          const total = dayObjs.length;
+                          return (
+                            <button
+                              key={cell.key}
+                              type="button"
+                              onClick={() => setExpandedObjDay(isSelected ? null : cell.key)}
+                              className="min-h-[72px] p-1.5 text-left transition-all hover:bg-white/[0.02] relative"
+                              style={{
+                                background: isSelected ? 'rgba(56,189,248,0.12)' : isToday ? 'rgba(56,189,248,0.05)' : 'transparent',
+                                borderRight: ci % 7 !== 6 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                              }}
+                            >
+                              <span className="text-xs font-bold" style={{ color: isToday ? '#38bdf8' : isSelected ? '#38bdf8' : 'rgba(255,255,255,0.6)' }}>{cell.day}</span>
+                              {total > 0 && (
+                                <div className="mt-0.5">
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: achieved === total ? '#22c55e' : achieved > 0 ? '#f59e0b' : '#ef4444' }} />
+                                    <span className="text-[9px] font-semibold" style={{ color: achieved === total ? '#22c55e' : achieved > 0 ? '#f59e0b' : '#ef4444' }}>{achieved}/{total}</span>
+                                  </div>
+                                  {dayObjs.slice(0, 2).map((o: any, oi: number) => (
+                                    <p key={oi} className="text-[8px] truncate mt-0.5 leading-tight" style={{ color: o.achieved ? 'rgba(34,197,94,0.6)' : 'rgba(255,255,255,0.35)' }}>{o.title}</p>
+                                  ))}
+                                  {dayObjs.length > 2 && <p className="text-[8px]" style={{ color: 'rgba(255,255,255,0.25)' }}>+{dayObjs.length - 2} más</p>}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Expanded day view */}
@@ -2333,7 +2360,6 @@ export default function WarehouseClan() {
 
                           {dayObjs.map((obj: any) => {
                             const objAtt = attMap[obj.id] || {};
-                            const members = cpMembersChars as any[];
                             const presentCount = members.filter((m: any) => objAtt[m.userId]).length;
 
                             return (
@@ -2370,77 +2396,95 @@ export default function WarehouseClan() {
                                     <div className="flex flex-wrap gap-1.5 mb-1">
                                       {obj.materials.map((m: any, mi: number) => (
                                         <span key={mi} className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9', border: '1px solid rgba(232,121,249,0.2)' }}>
-                                          {m.imageUrl && (
-                                            <img src={m.imageUrl} alt={m.name} className="h-4 w-4 rounded-sm object-cover" />
-                                          )}
+                                          {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="h-4 w-4 rounded-sm object-cover" />}
                                           {m.name} ×{m.quantity}
                                         </span>
                                       ))}
                                     </div>
                                     {/* Delivery tracking toggle */}
-                                    {canCreateObj && (
-                                      <button
-                                        onClick={() => setExpandedObjDelivery(expandedObjDelivery === obj.id ? null : obj.id)}
-                                        className="text-[10px] px-2 py-0.5 rounded font-medium transition-all"
-                                        style={{ background: expandedObjDelivery === obj.id ? 'rgba(232,121,249,0.15)' : 'rgba(255,255,255,0.03)', color: expandedObjDelivery === obj.id ? '#e879f9' : 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
-                                      >
-                                        <Package className="h-3 w-3 inline mr-1" />
-                                        {expandedObjDelivery === obj.id ? 'Ocultar entregas' : 'Ver entregas por miembro'}
-                                      </button>
-                                    )}
-                                    {/* Delivery tracking grid */}
+                                    <button
+                                      onClick={() => setExpandedObjDelivery(expandedObjDelivery === obj.id ? null : obj.id)}
+                                      className="text-[10px] px-2 py-0.5 rounded font-medium transition-all"
+                                      style={{ background: expandedObjDelivery === obj.id ? 'rgba(232,121,249,0.15)' : 'rgba(255,255,255,0.03)', color: expandedObjDelivery === obj.id ? '#e879f9' : 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}
+                                    >
+                                      <Package className="h-3 w-3 inline mr-1" />
+                                      {expandedObjDelivery === obj.id ? 'Ocultar entregas' : 'Ver entregas por miembro'}
+                                    </button>
+                                    {/* Delivery tracking grid with quantities */}
                                     {expandedObjDelivery === obj.id && (
                                       <div className="mt-2 rounded-lg p-2.5 overflow-x-auto" style={{ background: 'rgba(232,121,249,0.03)', border: '1px solid rgba(232,121,249,0.1)' }}>
-                                        <table className="w-full text-[10px]" style={{ minWidth: 300 }}>
+                                        <table className="w-full text-[10px]" style={{ minWidth: 350 }}>
                                           <thead>
                                             <tr>
-                                              <th className="text-left py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Miembro</th>
+                                              <th className="text-left py-1 px-1.5 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Miembro</th>
                                               {obj.materials.map((m: any, mi: number) => (
                                                 <th key={mi} className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>
                                                   <div className="flex flex-col items-center gap-0.5">
                                                     {m.imageUrl && <img src={m.imageUrl} alt={m.name} className="h-4 w-4 rounded-sm object-cover" />}
-                                                    <span className="truncate max-w-[60px]">{m.name}</span>
-                                                    <span style={{ color: 'rgba(255,255,255,0.3)' }}>×{m.quantity}</span>
+                                                    <span className="truncate max-w-[70px]">{m.name}</span>
+                                                    <span style={{ color: '#e879f9' }}>c/u: {m.quantity.toLocaleString()}</span>
                                                   </div>
                                                 </th>
                                               ))}
-                                              <th className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Deuda</th>
+                                              <th className="text-center py-1 px-1 font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Estado</th>
                                             </tr>
                                           </thead>
                                           <tbody>
                                             {members.map((mbr: any) => {
                                               const objDel = deliveryMap[obj.id] || {};
-                                              const totalMats = obj.materials.length;
-                                              const deliveredCount = obj.materials.filter((_: any, mi: number) => (objDel[mi] || {})[mbr.userId] === true).length;
-                                              const owedCount = totalMats - deliveredCount;
+                                              let totalOwed = 0;
+                                              const matDetails: { owed: number; delivered: number; required: number }[] = obj.materials.map((m: any, mi: number) => {
+                                                const del = (objDel[mi] || {})[mbr.userId];
+                                                const delivered = del ? del.quantity : 0;
+                                                const required = m.quantity;
+                                                const owed = Math.max(0, required - delivered);
+                                                totalOwed += owed;
+                                                return { owed, delivered, required };
+                                              });
                                               return (
                                                 <tr key={mbr.userId} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                                  <td className="py-1.5 px-1 font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{mbr.name}</td>
-                                                  {obj.materials.map((_: any, mi: number) => {
-                                                    const isDel = (objDel[mi] || {})[mbr.userId] === true;
+                                                  <td className="py-1.5 px-1.5 font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>{mbr.name}</td>
+                                                  {obj.materials.map((m: any, mi: number) => {
+                                                    const det = matDetails[mi];
+                                                    const isFull = det.delivered >= det.required;
                                                     return (
                                                       <td key={mi} className="text-center py-1.5 px-1">
-                                                        <button
-                                                          onClick={() => toggleDeliveryMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, delivered: !isDel })}
-                                                          className="w-5 h-5 rounded flex items-center justify-center mx-auto transition-all"
-                                                          style={{
-                                                            background: isDel ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)',
-                                                            border: `1px solid ${isDel ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.15)'}`,
-                                                          }}
-                                                        >
-                                                          {isDel && <Check className="h-3 w-3" style={{ color: '#22c55e' }} />}
-                                                        </button>
+                                                        {canCreateObj ? (
+                                                          <div className="flex flex-col items-center gap-0.5">
+                                                            <input
+                                                              type="number"
+                                                              min={0}
+                                                              max={det.required}
+                                                              value={det.delivered}
+                                                              onChange={e => {
+                                                                const val = Math.min(Math.max(0, Number(e.target.value) || 0), det.required);
+                                                                setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: val });
+                                                              }}
+                                                              className="w-14 rounded px-1 py-0.5 text-[10px] text-center"
+                                                              style={{
+                                                                background: isFull ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
+                                                                border: `1px solid ${isFull ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                                                color: isFull ? '#22c55e' : '#fff',
+                                                              }}
+                                                            />
+                                                            {det.owed > 0 && (
+                                                              <span className="text-[8px] font-medium" style={{ color: '#ef4444' }}>falta {det.owed.toLocaleString()}</span>
+                                                            )}
+                                                          </div>
+                                                        ) : (
+                                                          <span style={{ color: isFull ? '#22c55e' : '#ef4444' }}>{det.delivered.toLocaleString()}/{det.required.toLocaleString()}</span>
+                                                        )}
                                                       </td>
                                                     );
                                                   })}
                                                   <td className="text-center py-1.5 px-1">
-                                                    {owedCount > 0 ? (
+                                                    {totalOwed > 0 ? (
                                                       <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                                                        {owedCount} debe
+                                                        Debe
                                                       </span>
                                                     ) : (
                                                       <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
-                                                        ✓ Todo
+                                                        Completo
                                                       </span>
                                                     )}
                                                   </td>
@@ -2456,9 +2500,27 @@ export default function WarehouseClan() {
 
                                 {/* Attendance / Participation */}
                                 <div className="mt-2.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <div className="flex items-center gap-2 mb-1.5">
-                                    <UserCheck className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                                    <span className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación ({presentCount}/{members.length})</span>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <UserCheck className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                                      <span className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación ({presentCount}/{members.length})</span>
+                                    </div>
+                                    {canCreateObj && members.length > 0 && (
+                                      <button
+                                        onClick={() => {
+                                          const allPresent = members.every((m: any) => objAtt[m.userId] === true);
+                                          members.forEach((m: any) => {
+                                            if (allPresent || !objAtt[m.userId]) {
+                                              toggleAttMut.mutate({ objectiveId: obj.id, userId: m.userId, present: !allPresent });
+                                            }
+                                          });
+                                        }}
+                                        className="text-[9px] px-2 py-0.5 rounded font-medium"
+                                        style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}
+                                      >
+                                        {members.every((m: any) => objAtt[m.userId] === true) ? 'Desmarcar todos' : 'Marcar todos'}
+                                      </button>
+                                    )}
                                   </div>
                                   <div className="flex flex-wrap gap-1.5">
                                     {members.map((m: any) => {
@@ -2467,15 +2529,15 @@ export default function WarehouseClan() {
                                         <button
                                           key={m.userId}
                                           onClick={() => canCreateObj && toggleAttMut.mutate({ objectiveId: obj.id, userId: m.userId, present: !isPresent })}
-                                          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full font-medium transition-all"
+                                          className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg font-medium transition-all"
                                           style={{
-                                            background: isPresent ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.03)',
-                                            color: isPresent ? '#22c55e' : 'rgba(255,255,255,0.4)',
-                                            border: `1px solid ${isPresent ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                            background: isPresent ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.08)',
+                                            color: isPresent ? '#22c55e' : '#ef4444',
+                                            border: `1px solid ${isPresent ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.2)'}`,
                                             cursor: canCreateObj ? 'pointer' : 'default',
                                           }}
                                         >
-                                          {isPresent ? <Check className="h-2.5 w-2.5" /> : <User className="h-2.5 w-2.5" />}
+                                          {isPresent ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                                           {m.name}
                                         </button>
                                       );
@@ -2509,7 +2571,7 @@ export default function WarehouseClan() {
                             </div>
                             <div>
                               <div className="flex items-center justify-between mb-1">
-                                <label className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Materiales solicitados</label>
+                                <label className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Materiales solicitados (c/u por miembro)</label>
                                 <button onClick={() => setObjFormMats(prev => [...prev, { name: '', quantity: 1 }])} className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: 'rgba(232,121,249,0.1)', color: '#e879f9' }}>+ Material</button>
                               </div>
                               {objFormMats.map((m, mi) => (
@@ -2526,7 +2588,7 @@ export default function WarehouseClan() {
                                       placeholder="Buscar material del catálogo..."
                                     />
                                   </div>
-                                  <input type="number" min={1} value={m.quantity} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, quantity: Number(e.target.value) || 1 } : p))} className="w-16 rounded px-2 py-1 text-xs text-center shrink-0" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', height: 36 }} />
+                                  <input type="number" min={1} value={m.quantity} onChange={e => setObjFormMats(prev => prev.map((p, i) => i === mi ? { ...p, quantity: Number(e.target.value) || 1 } : p))} className="w-20 rounded px-2 py-1 text-xs text-center shrink-0" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', height: 36 }} />
                                   <button onClick={() => setObjFormMats(prev => prev.filter((_, i) => i !== mi))} className="p-1 rounded hover:bg-white/5 shrink-0 mt-1.5" style={{ color: '#ef4444' }}><X className="h-3 w-3" /></button>
                                 </div>
                               ))}
@@ -2555,31 +2617,155 @@ export default function WarehouseClan() {
                       </div>
                     )}
 
-                    {/* Participation summary */}
-                    {(objectives as any[]).length > 0 && (
-                      <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <h4 className="text-xs font-bold mb-3 flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                          <Users className="h-3.5 w-3.5" /> Resumen de participación semanal
+                    {/* Monthly Report */}
+                    {showObjReport && allObjs.length > 0 && (
+                      <div className="rounded-xl p-4 space-y-4" style={{ background: 'rgba(168,85,247,0.04)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                        <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: '#a855f7' }}>
+                          <Flag className="h-4 w-4" /> Informe mensual — {monthNames[month]} {year}
                         </h4>
-                        <div className="space-y-1.5">
-                          {(() => {
-                            const members = cpMembersChars as any[];
-                            const allObjs = objectives as any[];
-                            return members.map((m: any) => {
-                              const attended = allObjs.filter((o: any) => (attMap[o.id] || {})[m.userId]).length;
-                              const pct = allObjs.length > 0 ? Math.round((attended / allObjs.length) * 100) : 0;
-                              return (
-                                <div key={m.userId} className="flex items-center gap-2">
-                                  <span className="text-[11px] font-medium w-28 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{m.name}</span>
-                                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
-                                  </div>
-                                  <span className="text-[10px] font-bold w-14 text-right" style={{ color: pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }}>{attended}/{allObjs.length} ({pct}%)</span>
-                                </div>
-                              );
-                            });
-                          })()}
+
+                        {/* Objectives summary */}
+                        <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Objetivos del mes</p>
+                          <div className="flex gap-4">
+                            <div className="text-center">
+                              <p className="text-xl font-bold" style={{ color: '#38bdf8' }}>{allObjs.length}</p>
+                              <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xl font-bold" style={{ color: '#22c55e' }}>{allObjs.filter((o: any) => o.achieved).length}</p>
+                              <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Logrados</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xl font-bold" style={{ color: '#f59e0b' }}>{allObjs.filter((o: any) => !o.achieved).length}</p>
+                              <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Pendientes</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xl font-bold" style={{ color: allObjs.filter((o: any) => o.achieved).length === allObjs.length ? '#22c55e' : '#38bdf8' }}>
+                                {allObjs.length > 0 ? Math.round((allObjs.filter((o: any) => o.achieved).length / allObjs.length) * 100) : 0}%
+                              </p>
+                              <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Cumplimiento</p>
+                            </div>
+                          </div>
                         </div>
+
+                        {/* Participation ranking */}
+                        <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Participación por miembro</p>
+                          <div className="space-y-1.5">
+                            {(() => {
+                              const ranked = members.map((m: any) => {
+                                const attended = allObjs.filter((o: any) => (attMap[o.id] || {})[m.userId]).length;
+                                const pct = allObjs.length > 0 ? Math.round((attended / allObjs.length) * 100) : 0;
+                                return { ...m, attended, pct };
+                              }).sort((a: any, b: any) => b.pct - a.pct);
+                              return ranked.map((m: any, ri: number) => (
+                                <div key={m.userId} className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold w-5 text-center" style={{ color: ri === 0 ? '#fbbf24' : ri === 1 ? '#94a3b8' : ri === 2 ? '#cd7f32' : 'rgba(255,255,255,0.3)' }}>
+                                    {ri < 3 ? ['🥇','🥈','🥉'][ri] : `${ri+1}.`}
+                                  </span>
+                                  <span className="text-[11px] font-medium w-28 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{m.name}</span>
+                                  <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${m.pct}%`, background: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                  </div>
+                                  <span className="text-[10px] font-bold w-16 text-right" style={{ color: m.pct >= 80 ? '#22c55e' : m.pct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.attended}/{allObjs.length} ({m.pct}%)</span>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Materials summary */}
+                        {(() => {
+                          const matSummary: Record<string, { name: string; imageUrl?: string; required: number; delivered: number }> = {};
+                          allObjs.forEach((obj: any) => {
+                            (obj.materials || []).forEach((m: any, mi: number) => {
+                              const key = m.name;
+                              if (!matSummary[key]) matSummary[key] = { name: m.name, imageUrl: m.imageUrl, required: 0, delivered: 0 };
+                              matSummary[key].required += m.quantity * members.length;
+                              const objDel = deliveryMap[obj.id] || {};
+                              members.forEach((mbr: any) => {
+                                const del = (objDel[mi] || {})[mbr.userId];
+                                matSummary[key].delivered += del ? del.quantity : 0;
+                              });
+                            });
+                          });
+                          const matList = Object.values(matSummary);
+                          if (matList.length === 0) return null;
+                          return (
+                            <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              <p className="text-[10px] font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>Materiales del mes (todos los miembros)</p>
+                              <div className="space-y-2">
+                                {matList.map((mat, i) => {
+                                  const pct = mat.required > 0 ? Math.round((mat.delivered / mat.required) * 100) : 0;
+                                  const remaining = Math.max(0, mat.required - mat.delivered);
+                                  return (
+                                    <div key={i} className="flex items-center gap-2">
+                                      {mat.imageUrl && <img src={mat.imageUrl} alt={mat.name} className="h-5 w-5 rounded-sm object-cover shrink-0" />}
+                                      <span className="text-[11px] font-medium w-28 truncate" style={{ color: 'rgba(255,255,255,0.7)' }}>{mat.name}</span>
+                                      <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: pct >= 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="text-[10px] font-bold" style={{ color: pct >= 100 ? '#22c55e' : '#ef4444' }}>
+                                          {mat.delivered.toLocaleString()}/{mat.required.toLocaleString()}
+                                        </span>
+                                        {remaining > 0 && <p className="text-[8px]" style={{ color: '#ef4444' }}>faltan {remaining.toLocaleString()}</p>}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Per-member material debt breakdown */}
+                        {(() => {
+                          const memberDebts: { name: string; userId: number; debts: { matName: string; imageUrl?: string; owed: number }[] }[] = [];
+                          members.forEach((mbr: any) => {
+                            const debts: { matName: string; imageUrl?: string; owed: number }[] = [];
+                            allObjs.forEach((obj: any) => {
+                              (obj.materials || []).forEach((m: any, mi: number) => {
+                                const objDel = deliveryMap[obj.id] || {};
+                                const del = (objDel[mi] || {})[mbr.userId];
+                                const delivered = del ? del.quantity : 0;
+                                const owed = Math.max(0, m.quantity - delivered);
+                                if (owed > 0) {
+                                  const existing = debts.find(d => d.matName === m.name);
+                                  if (existing) existing.owed += owed;
+                                  else debts.push({ matName: m.name, imageUrl: m.imageUrl, owed });
+                                }
+                              });
+                            });
+                            if (debts.length > 0) memberDebts.push({ name: mbr.name, userId: mbr.userId, debts });
+                          });
+                          if (memberDebts.length === 0) return (
+                            <div className="rounded-lg p-3 text-center" style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)' }}>
+                              <p className="text-xs font-semibold" style={{ color: '#22c55e' }}>Todos los miembros han entregado sus materiales</p>
+                            </div>
+                          );
+                          return (
+                            <div className="rounded-lg p-3" style={{ background: 'rgba(239,68,68,0.03)', border: '1px solid rgba(239,68,68,0.1)' }}>
+                              <p className="text-[10px] font-semibold mb-2" style={{ color: '#ef4444' }}>Deuda de materiales por miembro</p>
+                              <div className="space-y-2">
+                                {memberDebts.map(md => (
+                                  <div key={md.userId} className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <p className="text-[11px] font-bold mb-1" style={{ color: 'rgba(255,255,255,0.8)' }}>{md.name}</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {md.debts.map((d, di) => (
+                                        <span key={di} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                          {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-3.5 w-3.5 rounded-sm object-cover" />}
+                                          {d.matName}: {d.owed.toLocaleString()}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
