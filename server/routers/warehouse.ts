@@ -1510,5 +1510,74 @@ export const warehouseRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
+
+    // Pay all debt for a user+material across all objectives in a CP for a given month
+    payAllDebt: protectedProcedure
+      .input(z.object({
+        cpId: z.number(),
+        userId: z.number(),
+        materialName: z.string(),
+        monthStart: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const allowed = await canWriteCp(role, callerId, input.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        if (!db.warehouseDeliveries) db.warehouseDeliveries = [];
+        const ms = new Date(input.monthStart);
+        const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 1);
+        const cpObjs = (db.warehouseObjectives as any[]).filter((o: any) => {
+          if (Number(o.cpId) !== input.cpId) return false;
+          const d = new Date(o.date);
+          return d >= ms && d < me;
+        });
+        let updated = 0;
+        for (const obj of cpObjs) {
+          (obj.materials || []).forEach((m: any, mi: number) => {
+            if (m.name !== input.materialName) return;
+            const existing = (db.warehouseDeliveries as any[]).find(
+              (d: any) => d.objectiveId === obj.id && Number(d.userId) === input.userId && d.materialIndex === mi
+            );
+            if (existing) {
+              if (existing.quantity < m.quantity) {
+                existing.quantity = m.quantity;
+                existing.delivered = true;
+                existing.updatedAt = nowIso();
+                updated++;
+              }
+            } else {
+              (db.warehouseDeliveries as any[]).push({
+                id: randId(),
+                objectiveId: obj.id,
+                userId: input.userId,
+                materialIndex: mi,
+                quantity: m.quantity,
+                delivered: true,
+                createdAt: nowIso(),
+                updatedAt: nowIso(),
+              });
+              updated++;
+            }
+          });
+          // Check if objective is now fully delivered
+          const allMembers = await getRaidUsersByCp(obj.cpId);
+          const allDelivered = (obj.materials || []).every((_: any, mi: number) => {
+            return allMembers.every((mem: any) => {
+              const del = (db.warehouseDeliveries as any[]).find(
+                (d: any) => d.objectiveId === obj.id && Number(d.userId) === Number(mem.id) && d.materialIndex === mi
+              );
+              return del && del.quantity >= (obj.materials[mi]?.quantity || 0);
+            });
+          });
+          if (allDelivered && !obj.achieved) {
+            obj.achieved = true;
+          }
+        }
+        saveDbToDisk();
+        return { success: true, updated };
+      }),
   }),
 });

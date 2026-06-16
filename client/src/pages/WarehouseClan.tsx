@@ -416,6 +416,7 @@ export default function WarehouseClan() {
     { enabled: objCpId > 0 }
   );
   const setDeliveryQtyMut = trpc.warehouse.deliveries.setQuantity.useMutation({ onSuccess: () => { refetchDeliveries(); refetchObjectives(); } });
+  const payAllDebtMut = trpc.warehouse.deliveries.payAllDebt.useMutation({ onSuccess: (d) => { refetchDeliveries(); refetchObjectives(); toast.success(`Deuda saldada (${d.updated} registros actualizados)`); } });
 
   // Objectives settings
   const crossCpObjVisible = (whSettings as any)?.crossCpObjectivesVisibility === true;
@@ -2450,25 +2451,33 @@ export default function WarehouseClan() {
                                                     return (
                                                       <td key={mi} className="text-center py-1.5 px-1">
                                                         {canCreateObj ? (
-                                                          <div className="flex flex-col items-center gap-0.5">
-                                                            <input
-                                                              type="number"
-                                                              min={0}
-                                                              max={det.required}
-                                                              value={det.delivered}
-                                                              onChange={e => {
-                                                                const val = Math.min(Math.max(0, Number(e.target.value) || 0), det.required);
-                                                                setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: val });
-                                                              }}
-                                                              className="w-14 rounded px-1 py-0.5 text-[10px] text-center"
-                                                              style={{
-                                                                background: isFull ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
-                                                                border: `1px solid ${isFull ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                                                                color: isFull ? '#22c55e' : '#fff',
-                                                              }}
-                                                            />
-                                                            {det.owed > 0 && (
-                                                              <span className="text-[8px] font-medium" style={{ color: '#ef4444' }}>falta {det.owed.toLocaleString()}</span>
+                                                          <div className="flex flex-col items-center gap-1">
+                                                            {isFull ? (
+                                                              <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>{det.delivered.toLocaleString()}</span>
+                                                            ) : (
+                                                              <>
+                                                                <button
+                                                                  onClick={() => setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: det.required })}
+                                                                  className="text-[9px] px-2 py-0.5 rounded font-semibold transition-all hover:scale-105"
+                                                                  style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                                                                >
+                                                                  Completo
+                                                                </button>
+                                                                <input
+                                                                  type="text"
+                                                                  inputMode="numeric"
+                                                                  defaultValue={det.delivered || ''}
+                                                                  placeholder="0"
+                                                                  onBlur={e => {
+                                                                    const val = Math.min(Math.max(0, Number(e.target.value) || 0), det.required);
+                                                                    if (val !== det.delivered) setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: val });
+                                                                  }}
+                                                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                                  className="w-16 rounded px-1.5 py-0.5 text-[10px] text-center"
+                                                                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                                                                />
+                                                                <span className="text-[8px] font-medium" style={{ color: '#ef4444' }}>falta {det.owed.toLocaleString()}</span>
+                                                              </>
                                                             )}
                                                           </div>
                                                         ) : (
@@ -2479,9 +2488,23 @@ export default function WarehouseClan() {
                                                   })}
                                                   <td className="text-center py-1.5 px-1">
                                                     {totalOwed > 0 ? (
-                                                      <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                                                        Debe
-                                                      </span>
+                                                      <div className="flex flex-col items-center gap-0.5">
+                                                        <span className="px-1.5 py-0.5 rounded-full font-bold text-[9px]" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+                                                          Debe
+                                                        </span>
+                                                        <button
+                                                          onClick={() => {
+                                                            obj.materials.forEach((_: any, mi: number) => {
+                                                              const det = matDetails[mi];
+                                                              if (det.owed > 0) setDeliveryQtyMut.mutate({ objectiveId: obj.id, userId: mbr.userId, materialIndex: mi, quantity: det.required });
+                                                            });
+                                                          }}
+                                                          className="text-[8px] px-1.5 py-0.5 rounded font-semibold"
+                                                          style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}
+                                                        >
+                                                          Todo OK
+                                                        </button>
+                                                      </div>
                                                     ) : (
                                                       <span className="px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
                                                         Completo
@@ -2751,13 +2774,43 @@ export default function WarehouseClan() {
                               <div className="space-y-2">
                                 {memberDebts.map(md => (
                                   <div key={md.userId} className="rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <p className="text-[11px] font-bold mb-1" style={{ color: 'rgba(255,255,255,0.8)' }}>{md.name}</p>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <p className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>{md.name}</p>
+                                      {canCreateObj && (
+                                        <button
+                                          onClick={() => {
+                                            if (!confirm(`¿Saldar TODA la deuda de ${md.name}? Esto marcará todos los materiales pendientes como entregados en todos los días del mes.`)) return;
+                                            md.debts.forEach(d => {
+                                              payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth });
+                                            });
+                                          }}
+                                          className="text-[9px] px-2.5 py-1 rounded-lg font-semibold transition-all hover:scale-105"
+                                          style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                                        >
+                                          Saldar todo
+                                        </button>
+                                      )}
+                                    </div>
                                     <div className="flex flex-wrap gap-1.5">
                                       {md.debts.map((d, di) => (
-                                        <span key={di} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                                          {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-3.5 w-3.5 rounded-sm object-cover" />}
-                                          {d.matName}: {d.owed.toLocaleString()}
-                                        </span>
+                                        <div key={di} className="inline-flex items-center gap-1.5">
+                                          <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                            {d.imageUrl && <img src={d.imageUrl} alt={d.matName} className="h-3.5 w-3.5 rounded-sm object-cover" />}
+                                            {d.matName}: {d.owed.toLocaleString()}
+                                          </span>
+                                          {canCreateObj && (
+                                            <button
+                                              onClick={() => {
+                                                if (!confirm(`¿Marcar ${d.matName} como entregado por ${md.name} en todos los días del mes?`)) return;
+                                                payAllDebtMut.mutate({ cpId: objCpId, userId: md.userId, materialName: d.matName, monthStart: objMonth });
+                                              }}
+                                              className="text-[8px] px-1.5 py-0.5 rounded font-semibold shrink-0"
+                                              style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}
+                                            >
+                                              Pagado
+                                            </button>
+                                          )}
+                                        </div>
                                       ))}
                                     </div>
                                   </div>
