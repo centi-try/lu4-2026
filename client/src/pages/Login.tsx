@@ -300,14 +300,19 @@ export default function Login() {
           {/* Presentation Tab */}
           {activeTab === 'presentation' && (
             <div className="rounded-2xl border p-6" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
-              {presQ.isLoading && <p className="text-center text-sm py-12" style={{ color: 'rgba(255,255,255,0.4)' }}>Cargando...</p>}
-              {presQ.data && presQ.data.items.length === 0 && (
+              {(presQ.isLoading || presQ.isFetching) && (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mb-3" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
+                  <p className="text-xs font-medium" style={{ color: 'rgba(123,241,214,0.6)' }}>Cargando contenido...</p>
+                </div>
+              )}
+              {!presQ.isFetching && presQ.data && presQ.data.items.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-lg font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Bienvenido a RaptorSquad</p>
                   <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
                 </div>
               )}
-              {presQ.data && presQ.data.items.length > 0 && (
+              {!presQ.isFetching && presQ.data && presQ.data.items.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {presQ.data.items.map((item: any) => (
                     <div

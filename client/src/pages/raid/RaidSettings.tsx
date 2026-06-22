@@ -1862,8 +1862,12 @@ function PresentationSection() {
       const validLinks = lines.filter(l => extractYoutubeId(l));
       if (validLinks.length === 0) { toast.error('No se detectaron links de YouTube válidos'); return; }
 
-      const duplicates = validLinks.filter(link => existingContents.includes(link));
-      const newLinks = validLinks.filter(link => !existingContents.includes(link));
+      // Deduplicate within the batch itself
+      const uniqueLinks = Array.from(new Set(validLinks));
+
+      // Check against existing items
+      const duplicates = uniqueLinks.filter(link => existingContents.includes(link));
+      const newLinks = uniqueLinks.filter(link => !existingContents.includes(link));
 
       if (duplicates.length > 0) {
         toast.error(`${duplicates.length} link(s) ya existe(n) y no se agregarán`);
@@ -2058,8 +2062,8 @@ function PresentationSection() {
         </div>
       )}
 
-      {/* Items Preview Grid (visual like login) */}
-      {items.length === 0 && !showForm && (
+      {/* Items Preview Grid — ALWAYS visible */}
+      {items.length === 0 && (
         <div className="text-center py-8">
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay contenido de presentación todavía.</p>
           <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Agrega imágenes, videos o textos para mostrar en el login.</p>

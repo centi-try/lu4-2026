@@ -19,7 +19,7 @@ const superAdminGuard = (role: string) => {
 export const presentationRouter = router({
   // Public: list all items (used by login page — no auth needed)
   list: publicProcedure
-    .input(z.object({ page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(50).default(12) }).optional())
+    .input(z.object({ page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(200).default(12) }).optional())
     .query(({ input }) => {
       const db = dbInstance;
       const items = (db.presentationItems || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));

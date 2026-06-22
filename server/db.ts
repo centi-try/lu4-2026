@@ -361,6 +361,19 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     warehouseClans: ensureArray(data?.warehouseClans),
     warehouseCPs: ensureArray(data?.warehouseCPs),
     warehouseCPMembers: ensureArray(data?.warehouseCPMembers),
+    // ============================================================
+    // Presentation & additional warehouse collections
+    // ============================================================
+    presentationItems: ensureArray(data?.presentationItems),
+    warehouseHistory: ensureArray(data?.warehouseHistory),
+    warehouseSettings: data?.warehouseSettings && typeof data.warehouseSettings === 'object'
+      ? data.warehouseSettings
+      : { crossCpVisibility: true, crossCpObjectivesVisibility: false },
+    warehouseLoans: ensureArray(data?.warehouseLoans),
+    warehouseObjectives: ensureArray(data?.warehouseObjectives),
+    warehouseAttendance: ensureArray(data?.warehouseAttendance),
+    warehouseDailyAttendance: ensureArray(data?.warehouseDailyAttendance),
+    warehouseDeliveries: ensureArray(data?.warehouseDeliveries),
   };
 }
 
