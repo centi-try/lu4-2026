@@ -1830,29 +1830,27 @@ function PresentationSection() {
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    if (files.length === 1) {
-      const file = files[0];
-      if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
-      const reader = new FileReader();
-      reader.onload = () => setFormContent(reader.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      // Multiple files: create each one sequentially
-      let added = 0;
-      for (const file of Array.from(files)) {
-        if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); continue; }
-        const data = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-        await createMut.mutateAsync({ type: 'image', title: file.name.replace(/\.[^.]+$/, ''), content: data });
-        added++;
-      }
-      if (added > 0) toast.success(`${added} imagen(es) agregada(s)`);
+    // Always handle all files (single or multiple) the same way — save directly
+    let added = 0;
+    for (const file of Array.from(files)) {
+      if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); continue; }
+      const data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const title = formTitle.trim() || file.name.replace(/\.[^.]+$/, '');
+      await createMut.mutateAsync({ type: 'image', title, content: data });
+      added++;
+    }
+    if (added > 0) {
+      toast.success(`${added} imagen(es) agregada(s)`);
+      setFormContent('');
+      setFormTitle('');
+      utils.presentation.list.invalidate();
     }
     e.target.value = '';
-  }, [createMut]);
+  }, [createMut, formTitle, utils]);
 
   const handleSubmit = async () => {
     setDuplicateError('');
