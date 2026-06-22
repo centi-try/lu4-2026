@@ -134,19 +134,45 @@ export default function Register() {
   const inputClass = 'input-dark';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative" style={{ background: '#060910' }}>
-      {/* Full-page background image */}
-      <div className="absolute inset-0" style={{ backgroundImage: 'url(/raptor-login-bg.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
-      {/* Dark overlay for readability */}
-      <div className="absolute inset-0" style={{ background: 'rgba(6,9,16,0.7)' }} />
+    <div className="min-h-screen flex" style={{ background: '#060910' }}>
+      {/* Left side: Raptor image (hidden on mobile) */}
+      <div
+        className="hidden lg:flex lg:w-1/2 relative items-center justify-center"
+        style={{ background: '#040608' }}
+      >
+        <img
+          src="/raptor-login-bg.png"
+          alt="RaptorSquad"
+          className="w-full h-full object-contain"
+          style={{ maxHeight: '100vh' }}
+        />
+      </div>
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Control Dashboard · Sistema de Gestión
-          </p>
-        </div>
+      {/* Right side: Register form */}
+      <div
+        className="w-full lg:w-1/2 flex items-center justify-center p-6 relative"
+        style={{
+          background: 'radial-gradient(circle at 50% 20%, rgba(123,241,214,0.04) 0%, transparent 50%), #060910',
+        }}
+      >
+        {/* Mobile background (visible only on small screens) */}
+        <div
+          className="absolute inset-0 lg:hidden"
+          style={{
+            backgroundImage: 'url(/raptor-login-bg.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: 0.15,
+          }}
+        />
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Control Dashboard · Sistema de Gestión
+            </p>
+          </div>
 
         <div className="card-glass p-8 rounded-lg">
           <h2 className="text-2xl font-bold text-white mb-6">Crear Cuenta</h2>
@@ -408,6 +434,7 @@ export default function Register() {
             </p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
