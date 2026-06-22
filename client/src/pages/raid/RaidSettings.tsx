@@ -2058,7 +2058,7 @@ function PresentationSection() {
         </div>
       )}
 
-      {/* Items List */}
+      {/* Items Preview Grid (visual like login) */}
       {items.length === 0 && !showForm && (
         <div className="text-center py-8">
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay contenido de presentación todavía.</p>
@@ -2066,45 +2066,50 @@ function PresentationSection() {
         </div>
       )}
 
-      <div className="grid gap-3">
-        {items.map((item: any) => {
-          const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
-          return (
-          <div key={item.id} className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <GripVertical className="h-4 w-4 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.2)' }} />
-            
-            {/* Preview */}
-            <div className="w-20 h-14 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
-              {item.type === 'image' && <img src={item.content} alt="" className="w-full h-full object-cover" />}
-              {item.type === 'video' && ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />}
-              {item.type === 'video' && !ytId && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
-              {item.type === 'text' && <div className="w-full h-full flex items-center justify-center"><Type className="h-5 w-5" style={{ color: '#60a5fa' }} /></div>}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{item.title || '(Sin título)'}</p>
-              <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {item.type === 'image' ? '🖼️ Imagen' : item.type === 'video' ? '🎬 Video YouTube' : '📝 Texto'}
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-1">
-              <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg transition-all hover:bg-white/5">
-                <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} />
-              </button>
-              <button
-                onClick={() => { if (confirm('¿Eliminar este item?')) deleteMut.mutate({ id: item.id }); }}
-                className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" style={{ color: '#ef4444' }} />
-              </button>
-            </div>
+      {items.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Vista previa ({items.length} item{items.length !== 1 ? 's' : ''}) — así se verá en el Login:
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {items.map((item: any) => {
+              const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
+              return (
+                <div key={item.id} className="rounded-lg overflow-hidden relative group" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {item.type === 'image' && (
+                    <img src={item.content} alt={item.title || ''} className="w-full h-24 object-cover" />
+                  )}
+                  {item.type === 'video' && ytId && (
+                    <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={item.title || ''} className="w-full h-24 object-cover" />
+                  )}
+                  {item.type === 'video' && !ytId && (
+                    <div className="w-full h-24 flex items-center justify-center"><Video className="h-6 w-6" style={{ color: '#ef4444' }} /></div>
+                  )}
+                  {item.type === 'text' && (
+                    <div className="w-full h-24 p-2 overflow-hidden">
+                      <div className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.6)' }} dangerouslySetInnerHTML={{ __html: item.content.slice(0, 120) }} />
+                    </div>
+                  )}
+                  {/* Title + actions overlay */}
+                  <div className="px-2 py-1.5 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                    <p className="text-[10px] font-medium truncate flex-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      {item.title || (item.type === 'video' ? '🎬' : item.type === 'image' ? '🖼️' : '📝')}
+                    </p>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => startEdit(item)} className="p-1 rounded hover:bg-white/10">
+                        <Pencil className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.5)' }} />
+                      </button>
+                      <button onClick={() => { if (confirm('¿Eliminar?')) deleteMut.mutate({ id: item.id }); }} className="p-1 rounded hover:bg-red-500/20">
+                        <Trash2 className="h-3 w-3" style={{ color: '#ef4444' }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          );
-        })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

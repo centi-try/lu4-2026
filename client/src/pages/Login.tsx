@@ -28,6 +28,16 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { login, verify2fa } = useAuth();
   const [activeTab, setActiveTab] = useState<'presentation' | 'login'>('presentation');
+  const [tabTransition, setTabTransition] = useState(false);
+
+  const switchTab = (tab: 'presentation' | 'login') => {
+    if (tab === activeTab) return;
+    setTabTransition(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setTabTransition(false);
+    }, 800);
+  };
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,7 +77,7 @@ export default function Login() {
 
   // Presentation content (public endpoint — no auth needed)
   const [presPage, setPresPage] = useState(1);
-  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 10 });
+  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 12 });
 
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
@@ -176,8 +186,8 @@ export default function Login() {
     background: 'rgba(239, 68, 68, 0.06)',
   } as const;
 
-  // Splash screen
-  if (showSplash) {
+  // Splash screen (initial load, tab switch, post-login)
+  if (showSplash || tabTransition || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#060910' }}>
         <div className="text-center animate-pulse">
@@ -264,7 +274,7 @@ export default function Login() {
           {/* Tab switcher */}
           <div className="flex items-center gap-1 mb-4 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <button
-              onClick={() => setActiveTab('presentation')}
+              onClick={() => switchTab('presentation')}
               className="flex-1 rounded-lg px-3 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
               style={{
                 background: activeTab === 'presentation' ? 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(167,139,250,0.1))' : 'transparent',
@@ -275,7 +285,7 @@ export default function Login() {
               <Play className="h-3.5 w-3.5" /> Presentación
             </button>
             <button
-              onClick={() => setActiveTab('login')}
+              onClick={() => switchTab('login')}
               className="flex-1 rounded-lg px-3 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
               style={{
                 background: activeTab === 'login' ? 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(123,241,214,0.1))' : 'transparent',
