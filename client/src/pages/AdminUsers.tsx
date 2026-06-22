@@ -147,6 +147,7 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [deleteModalUser, setDeleteModalUser] = useState<AdminUser | null>(null);
   const [toggleModalUser, setToggleModalUser] = useState<AdminUser | null>(null);
+  const [unlockModalUser, setUnlockModalUser] = useState<any | null>(null);
   const [editModalUser, setEditModalUser] = useState<AdminUser | null>(null);
   const [editForm, setEditForm] = useState({ email: '', characterName: '', raidClanId: '' as string, raidCpId: '' as string, classMain: '' as string });
 
@@ -479,7 +480,7 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_50px_50px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_50px_50px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
@@ -487,6 +488,7 @@ export default function AdminUsers() {
                 <span className="text-center">Último acceso</span>
                 <span className="text-center">Estado</span>
                 <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
+                <span className="text-center">Bloqueo</span>
                 <span className="text-center">Acciones</span>
                 <span className="text-center">Eliminar</span>
               </div>
@@ -504,7 +506,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_50px_50px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_50px_50px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -593,6 +595,21 @@ export default function AdminUsers() {
                         )}
                       </div>
 
+                      {/* Lock Status */}
+                      <div className="flex items-center justify-start md:justify-center">
+                        {isUserLocked(user) ? (
+                          <button
+                            onClick={() => setUnlockModalUser(user)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+                            style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                          >
+                            Desbloquear
+                          </button>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
+                        )}
+                      </div>
+
                       {/* Actions info */}
                       <div className="flex items-center justify-start md:justify-center gap-1">
                         <button
@@ -613,17 +630,6 @@ export default function AdminUsers() {
                         >
                           <Key className="h-4 w-4" />
                         </button>
-                        {isUserLocked(user) && (
-                          <button
-                            onClick={() => unlockUserMutation.mutate({ userId: user.id })}
-                            disabled={unlockUserMutation.isPending}
-                            title="Desbloquear usuario"
-                            className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
-                            style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
-                          >
-                            {unlockUserMutation.isPending ? '...' : 'Desbloquear'}
-                          </button>
-                        )}
                         {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
                       </div>
 
@@ -840,6 +846,56 @@ export default function AdminUsers() {
                 {toggleActiveMutation.isPending
                   ? 'Guardando…'
                   : toggleModalUser.isActive ? 'Sí, desactivar' : 'Sí, activar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock User Confirmation Modal */}
+      {unlockModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setUnlockModalUser(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(123,241,214,0.35)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Desbloquear usuario
+                </h3>
+              </div>
+              <button onClick={() => setUnlockModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará el bloqueo y reseteará los intentos fallidos. El usuario podrá iniciar sesión inmediatamente.
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {unlockModalUser.name || unlockModalUser.characterName}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {unlockModalUser.email} · Bloqueado
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setUnlockModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { unlockUserMutation.mutate({ userId: unlockModalUser.id }); setUnlockModalUser(null); }}
+                disabled={unlockUserMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+                style={{ background: '#7bf1d6', color: '#000' }}>
+                {unlockUserMutation.isPending ? 'Desbloqueando…' : 'Sí, desbloquear'}
               </button>
             </div>
           </div>
