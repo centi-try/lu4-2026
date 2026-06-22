@@ -31,7 +31,12 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
   const handleEnter = () => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      setPopupPos({ top: rect.bottom + 6, left: rect.left });
+      const popupHeight = overflow.length * 28 + 40;
+      const fitsBelow = rect.bottom + 6 + popupHeight < window.innerHeight;
+      setPopupPos({
+        top: fitsBelow ? rect.bottom + 6 : rect.top - popupHeight - 6,
+        left: Math.min(rect.left, window.innerWidth - 220),
+      });
     }
     setHover(true);
   };
@@ -68,9 +73,9 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
           >
             +{overflow.length} más
           </span>
-          {hover && (
+          {hover && createPortal(
             <div
-              className="fixed z-[9999] rounded-lg shadow-2xl"
+              className="fixed z-[9999] rounded-lg shadow-2xl pointer-events-none"
               style={{
                 top: popupPos.top,
                 left: popupPos.left,
@@ -102,7 +107,8 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </span>
       )}

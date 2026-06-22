@@ -449,6 +449,7 @@ export default function WarehouseClan() {
   const [expandedObjDay, setExpandedObjDay] = useState<string | null>(null);
   const [expandedObjDelivery, setExpandedObjDelivery] = useState<number | null>(null);
   const [showObjReport, setShowObjReport] = useState(false);
+  const [reportTab, setReportTab] = useState<'weekly' | 'monthly' | 'alltime'>('monthly');
   // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; description: string; onConfirm: () => void }>({ open: false, title: '', description: '', onConfirm: () => {} });
 
@@ -825,19 +826,36 @@ export default function WarehouseClan() {
             // Non-root compact row
             return (
               <div key={idx} className="rounded-lg" style={{ background: lv.bg, border: `1px solid ${lv.border}` }}>
-                <div className="flex items-center gap-2 px-2.5 py-2">
-                  {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-                  <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="flex-1 rounded px-2 py-1 text-[11px]" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} placeholder="Material..." />
-                  <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-14 rounded px-2 py-1 text-[11px] text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)' }} />
-                  <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, isCraftable: !n.isCraftable })))} className="text-[9px] px-1 py-0.5 rounded shrink-0 font-semibold" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'transparent', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.1)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.3)' }} title="Marcar como material padre crafteable">
-                    ⚒
-                  </button>
-                  <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
-                    {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
-                  </button>
-                  {nodes.length > 1 && (
-                    <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-3 w-3" /></button>
-                  )}
+                <div className="px-2.5 py-2 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    {imgSrc && <img src={imgSrc} alt="" className="h-5 w-5 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: lv.color }}>Sub-material #{idx + 1}{node.name ? ` — ${node.name}` : ''}</span>
+                    <div className="ml-auto flex items-center gap-1">
+                      <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, isCraftable: !n.isCraftable })))} className="text-[9px] px-1 py-0.5 rounded shrink-0 font-semibold" style={{ background: node.isCraftable ? 'rgba(96,165,250,0.15)' : 'transparent', border: `1px solid ${node.isCraftable ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.1)'}`, color: node.isCraftable ? '#60a5fa' : 'rgba(255,255,255,0.3)' }} title="Marcar como material padre crafteable">
+                        ⚒
+                      </button>
+                      <button type="button" onClick={() => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, expanded: !n.expanded, subMaterials: !n.expanded && n.subMaterials.length === 0 ? [emptyNode()] : n.subMaterials })))} className="text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0" style={{ background: node.expanded ? lv.light : 'transparent', color: lv.color }}>
+                        {node.expanded ? <ChevronUp className="h-3 w-3 inline" /> : <Plus className="h-3 w-3 inline" />}
+                      </button>
+                      {nodes.length > 1 && (
+                        <button type="button" onClick={() => setRecipeMaterials(prev => removeNodeAt(prev, currentPath))} className="shrink-0 rounded p-0.5" style={{ color: 'rgba(255,120,120,0.6)' }}><Trash2 className="h-3 w-3" /></button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-12 gap-2">
+                    <div className="col-span-8">
+                      <label className="mb-0.5 block text-[9px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>Nombre material</label>
+                      <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
+                        setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val })));
+                      }} onSelect={item => {
+                        setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: item.name, imageUrl: item.imageUrl || n.imageUrl })));
+                      }} />
+                    </div>
+                    <div className="col-span-4">
+                      <label className="mb-0.5 block text-[9px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>Cantidad</label>
+                      <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded px-2 py-1.5 text-xs text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', height: 32 }} />
+                    </div>
+                  </div>
                 </div>
                 {node.expanded && node.subMaterials.length > 0 && (
                   <div className="px-2.5 pb-2.5 relative" style={{ paddingLeft: 20 }}>
@@ -1549,7 +1567,7 @@ export default function WarehouseClan() {
                   <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
                     Nombre del ítem final <span style={{ color: '#f87171' }}>*</span>
                   </label>
-                  <input value={recipeName} onChange={e => setRecipeName(e.target.value)} className="w-full rounded-lg px-3 py-1.5 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="Lance, Majestic Plate Armor..." />
+                  <CatalogTypeahead catalog={catalog as any[]} value={recipeName} onChange={val => setRecipeName(val)} onSelect={item => { setRecipeName(item.name); if (item.imageUrl && !recipeImg) setRecipeImg(item.imageUrl); }} placeholder="Lance, Majestic Plate Armor..." />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Categoría</label>
@@ -2383,7 +2401,7 @@ export default function WarehouseClan() {
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-sm font-bold" style={{ color: isToday ? '#38bdf8' : isSelected ? '#38bdf8' : 'rgba(255,255,255,0.7)' }}>{cell.day}</span>
-                                {attCount > 0 && (
+                                {total > 0 && attCount > 0 && (
                                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: attCount === members.length ? 'rgba(34,197,94,0.2)' : 'rgba(251,191,36,0.15)', color: attCount === members.length ? '#22c55e' : '#fbbf24' }}>{attCount}/{members.length}</span>
                                 )}
                               </div>
@@ -2432,8 +2450,8 @@ export default function WarehouseClan() {
                             )}
                           </div>
 
-                          {/* Daily attendance (always visible) */}
-                          {(() => {
+                          {/* Daily attendance — only when day has objectives */}
+                          {dayObjs.length > 0 && (() => {
                             const dayAtt = dailyAttMap[expandedObjDay] || {};
                             const presentCount = uniqueMembers.filter((m: any) => dayAtt[m.userId] === true).length;
                             const allPresent = uniqueMembers.length > 0 && uniqueMembers.every((m: any) => dayAtt[m.userId] === true);
@@ -2743,19 +2761,61 @@ export default function WarehouseClan() {
                           </div>
                         </div>
 
-                        {/* Participation ranking (attendance + delivery combined) */}
+                        {/* Participation ranking — Tabs: Semanal / Mensual / Hasta la fecha */}
                         <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <p className="text-xs font-bold mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>Participación por miembro</p>
-                          <div className="space-y-2.5">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.6)' }}>Participación por miembro</p>
+                            <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                              {[{k: 'weekly' as const, l: 'Semanal'}, {k: 'monthly' as const, l: 'Mensual'}, {k: 'alltime' as const, l: 'Hasta la fecha'}].map(tab => (
+                                <button key={tab.k} onClick={() => setReportTab(tab.k)} className="text-[10px] px-3 py-1.5 font-semibold transition-all" style={{ background: reportTab === tab.k ? 'rgba(168,85,247,0.2)' : 'transparent', color: reportTab === tab.k ? '#a855f7' : 'rgba(255,255,255,0.4)' }}>
+                                  {tab.l}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {/* 40/60 Rule explanation */}
+                          <div className="rounded-lg px-3 py-2 mb-3 flex items-center gap-2" style={{ background: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>Regla de proporción:</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8' }}>📋 Asistencia 40%</span>
+                            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>+</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>📦 Entregas 60%</span>
+                            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>=</span>
+                            <span className="text-[10px] font-bold" style={{ color: '#a855f7' }}>Score Total</span>
+                          </div>
+                          <div className="space-y-3">
                             {(() => {
-                              const daysWithAtt = Object.keys(dailyAttMap).length;
-                              const totalDays = Math.max(daysWithAtt, allObjs.length > 0 ? [...new Set(allObjs.map((o: any) => (o.date || '').slice(0, 10)))].length : 0, 1);
-                              const totalMaterialSlots = allObjs.reduce((acc: number, obj: any) => acc + (obj.materials || []).length, 0);
+                              // Filter objectives by selected tab
+                              const now = new Date();
+                              const getWeekStart = () => {
+                                const d = new Date(year, month, 1);
+                                d.setDate(now.getDate() - now.getDay() + 1);
+                                return d.toISOString().slice(0, 10);
+                              };
+                              const weekStart = getWeekStart();
+                              const weekEnd = (() => { const d = new Date(weekStart); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
+                              const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+                              const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-31`;
+
+                              let filteredObjs = allObjs;
+                              let filteredAttMap = dailyAttMap;
+                              if (reportTab === 'weekly') {
+                                filteredObjs = allObjs.filter((o: any) => { const d = (o.date || '').slice(0, 10); return d >= weekStart && d <= weekEnd; });
+                                filteredAttMap = Object.fromEntries(Object.entries(dailyAttMap).filter(([k]) => k >= weekStart && k <= weekEnd));
+                              } else if (reportTab === 'monthly') {
+                                filteredObjs = allObjs.filter((o: any) => { const d = (o.date || '').slice(0, 10); return d >= monthStart && d <= monthEnd; });
+                                filteredAttMap = Object.fromEntries(Object.entries(dailyAttMap).filter(([k]) => k >= monthStart && k <= monthEnd));
+                              }
+                              // alltime = all data, no filter
+
+                              const daysWithObjs = [...new Set(filteredObjs.map((o: any) => (o.date || '').slice(0, 10)))].length;
+                              const totalDays = Math.max(daysWithObjs, 1);
+                              const totalMaterialSlots = filteredObjs.reduce((acc: number, obj: any) => acc + (obj.materials || []).length, 0);
+
                               const ranked = uniqueMembers.map((m: any) => {
-                                const attended = Object.values(dailyAttMap).filter((dayData: any) => dayData[m.userId] === true).length;
+                                const attended = Object.values(filteredAttMap).filter((dayData: any) => dayData[m.userId] === true).length;
                                 const attPct = totalDays > 0 ? (attended / totalDays) * 100 : 0;
                                 let deliveredSlots = 0;
-                                allObjs.forEach((obj: any) => {
+                                filteredObjs.forEach((obj: any) => {
                                   (obj.materials || []).forEach((_mat: any, mi: number) => {
                                     const objDel = deliveryMap[obj.id] || {};
                                     const del = (objDel[mi] || {})[m.userId];
@@ -2766,21 +2826,40 @@ export default function WarehouseClan() {
                                 const combinedPct = totalMaterialSlots > 0 ? Math.round((attPct * 0.4) + (delPct * 0.6)) : Math.round(attPct);
                                 return { ...m, attended, totalDays, attPct: Math.round(attPct), deliveredSlots, totalMaterialSlots, delPct: Math.round(delPct), combinedPct };
                               }).sort((a: any, b: any) => b.combinedPct - a.combinedPct);
+
+                              if (ranked.length === 0) return <p className="text-xs text-center py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin datos</p>;
                               return ranked.map((m: any, ri: number) => (
-                                <div key={m.userId} className="rounded-lg p-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                  <div className="flex items-center gap-2 mb-1.5">
+                                <div key={m.userId} className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                  <div className="flex items-center gap-2 mb-2">
                                     <span className="text-xs font-bold w-6 text-center" style={{ color: ri === 0 ? '#fbbf24' : ri === 1 ? '#94a3b8' : ri === 2 ? '#cd7f32' : 'rgba(255,255,255,0.3)' }}>
                                       {ri < 3 ? ['🥇','🥈','🥉'][ri] : `${ri+1}.`}
                                     </span>
-                                    <span className="text-xs font-bold flex-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{m.name}</span>
-                                    <span className="text-sm font-bold" style={{ color: m.combinedPct >= 80 ? '#22c55e' : m.combinedPct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.combinedPct}%</span>
+                                    <span className="text-sm font-bold flex-1" style={{ color: 'rgba(255,255,255,0.85)' }}>{m.name}</span>
+                                    <span className="text-base font-bold" style={{ color: m.combinedPct >= 80 ? '#22c55e' : m.combinedPct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.combinedPct}%</span>
                                   </div>
-                                  <div className="flex-1 h-2.5 rounded-full overflow-hidden mb-1.5" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${m.combinedPct}%`, background: m.combinedPct >= 80 ? '#22c55e' : m.combinedPct >= 50 ? '#f59e0b' : '#ef4444' }} />
+                                  {/* Bar 1: Asistencia (blue) */}
+                                  <div className="mb-1.5">
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <span className="text-[10px] font-semibold" style={{ color: '#38bdf8' }}>📋 Asistencia (40%)</span>
+                                      <span className="text-[10px] font-bold" style={{ color: '#38bdf8' }}>{m.attended}/{m.totalDays} días ({m.attPct}%)</span>
+                                    </div>
+                                    <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(56,189,248,0.1)' }}>
+                                      <div className="h-full rounded-full transition-all" style={{ width: `${m.attPct}%`, background: '#38bdf8' }} />
+                                    </div>
                                   </div>
-                                  <div className="flex gap-3 text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                                    <span>Asistencia: {m.attended}/{m.totalDays} días ({m.attPct}%)</span>
-                                    {m.totalMaterialSlots > 0 && <span>Entregas: {m.deliveredSlots}/{m.totalMaterialSlots} ({m.delPct}%)</span>}
+                                  {/* Bar 2: Entregas (green) */}
+                                  <div className="mb-1.5">
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <span className="text-[10px] font-semibold" style={{ color: '#22c55e' }}>📦 Entregas (60%)</span>
+                                      <span className="text-[10px] font-bold" style={{ color: '#22c55e' }}>{m.deliveredSlots}/{m.totalMaterialSlots} ({m.delPct}%)</span>
+                                    </div>
+                                    <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(34,197,94,0.1)' }}>
+                                      <div className="h-full rounded-full transition-all" style={{ width: `${m.delPct}%`, background: '#22c55e' }} />
+                                    </div>
+                                  </div>
+                                  {/* Score calculation */}
+                                  <div className="text-[9px] pt-1" style={{ color: 'rgba(255,255,255,0.35)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    Score: ({m.attPct}% × 0.4) + ({m.delPct}% × 0.6) = <span className="font-bold" style={{ color: m.combinedPct >= 80 ? '#22c55e' : m.combinedPct >= 50 ? '#f59e0b' : '#ef4444' }}>{m.combinedPct}%</span>
                                   </div>
                                 </div>
                               ));
