@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2, ChevronDown, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png', '/raptor-4.png', '/raptor-5.png'];
+const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

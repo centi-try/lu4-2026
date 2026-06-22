@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Eye, EyeOff, Loader2, Package, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png', '/raptor-4.png', '/raptor-5.png'];
+const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
 
 // Regex de validación mínima de formato de email. El backend ya re-valida.
