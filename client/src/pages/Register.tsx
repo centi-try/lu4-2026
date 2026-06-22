@@ -134,12 +134,17 @@ export default function Register() {
   const inputClass = 'input-dark';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gradient mb-2">Inventario</h1>
+    <div className="min-h-screen flex items-center justify-center p-4 relative" style={{ background: '#060910' }}>
+      {/* Full-page background image */}
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/raptor-login-bg.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0" style={{ background: 'rgba(6,9,16,0.7)' }} />
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Control Dashboard
+            Control Dashboard · Sistema de Gestión
           </p>
         </div>
 
