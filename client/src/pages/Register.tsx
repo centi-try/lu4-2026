@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ChevronDown, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
+const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png', '/raptor-4.png', '/raptor-5.png'];
+const CAROUSEL_INTERVAL = 8000;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LEN = 6;
@@ -32,6 +35,15 @@ export default function Register() {
     clan: boolean;
     cp: boolean;
   }>({ email: false, character: false, password: false, confirm: false, clan: false, cp: false });
+
+  // Carousel state
+  const [currentImg, setCurrentImg] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImg((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, CAROUSEL_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
 
   // Clan & CP & Class selection
   const [clans, setClans] = useState<PublicClan[]>([]);
@@ -135,17 +147,20 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex" style={{ background: '#060910' }}>
-      {/* Left side: Raptor image (hidden on mobile) */}
+      {/* Left side: Raptor carousel (hidden on mobile) */}
       <div
-        className="hidden lg:flex lg:w-1/2 relative items-center justify-center"
+        className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden"
         style={{ background: '#040608' }}
       >
-        <img
-          src="/raptor-login-bg.png"
-          alt="RaptorSquad"
-          className="w-full h-full object-contain"
-          style={{ maxHeight: '100vh' }}
-        />
+        {CAROUSEL_IMAGES.map((src, i) => (
+          <img
+            key={src}
+            src={src}
+            alt={`RaptorSquad ${i + 1}`}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            style={{ opacity: i === currentImg ? 1 : 0 }}
+          />
+        ))}
       </div>
 
       {/* Right side: Register form */}
@@ -168,6 +183,11 @@ export default function Register() {
 
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-6">
+            <div className="flex justify-center mb-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
+                <Package className="h-6 w-6" style={{ color: '#7bf1d6' }} />
+              </div>
+            </div>
             <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Control Dashboard · Sistema de Gestión
