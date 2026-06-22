@@ -140,18 +140,26 @@ export default function Login() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
-      style={{
-        background:
-          'radial-gradient(circle at 10% 10%, rgba(123,241,214,0.06) 0%, transparent 30%), radial-gradient(circle at 90% 20%, rgba(232,121,249,0.06) 0%, transparent 30%), linear-gradient(180deg, #060910 0%, #080c14 50%, #040608 100%)',
-      }}
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{ background: '#060910' }}
     >
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img src="/raptor-login-bg.png" alt="RaptorSquad" className="w-full max-w-md h-auto object-contain rounded-xl" style={{ filter: 'drop-shadow(0 0 20px rgba(123,241,214,0.3))' }} />
-          </div>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+      {/* Full-page background image */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: 'url(/raptor-login-bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0" style={{ background: 'rgba(6,9,16,0.65)' }} />
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
             Control Dashboard · Sistema de Gestión
           </p>
         </div>
