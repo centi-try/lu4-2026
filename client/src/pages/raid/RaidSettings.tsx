@@ -2002,7 +2002,7 @@ function PresentationSection() {
                 placeholder="https://..."
                 className="w-full rounded-lg px-3 py-2 text-sm mt-1"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
-                onPaste={(e) => {
+                onPaste={async (e) => {
                   const items = e.clipboardData?.items;
                   if (!items) return;
                   for (let i = 0; i < items.length; i++) {
@@ -2011,9 +2011,17 @@ function PresentationSection() {
                       const file = items[i].getAsFile();
                       if (!file) return;
                       if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
-                      const reader = new FileReader();
-                      reader.onload = () => setFormContent(reader.result as string);
-                      reader.readAsDataURL(file);
+                      const data = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.readAsDataURL(file);
+                      });
+                      const title = formTitle.trim() || 'Imagen pegada';
+                      await createMut.mutateAsync({ type: 'image', title, content: data });
+                      toast.success('Imagen pegada y guardada');
+                      setFormContent('');
+                      setFormTitle('');
+                      utils.presentation.list.invalidate();
                       return;
                     }
                   }
