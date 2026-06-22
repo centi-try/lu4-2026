@@ -77,7 +77,16 @@ export default function Login() {
 
   // Presentation content (public endpoint — no auth needed)
   const [presPage, setPresPage] = useState(1);
+  const [presTransition, setPresTransition] = useState(false);
   const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 12 });
+
+  // Preload carousel images during splash
+  useEffect(() => {
+    CAROUSEL_IMAGES.forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
 
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
@@ -300,67 +309,87 @@ export default function Login() {
           {/* Presentation Tab */}
           {activeTab === 'presentation' && (
             <div className="rounded-2xl border p-6" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
-              {(presQ.isLoading || presQ.isFetching) && (
-                <div className="flex flex-col items-center justify-center py-12">
+              {(presQ.isLoading || presTransition) && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="flex justify-center mb-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(232,121,249,0.1))' }}>
+                      <span className="text-lg font-black" style={{ color: '#7bf1d6' }}>L2</span>
+                    </div>
+                  </div>
                   <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mb-3" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
                   <p className="text-xs font-medium" style={{ color: 'rgba(123,241,214,0.6)' }}>Cargando contenido...</p>
                 </div>
               )}
-              {!presQ.isFetching && presQ.data && presQ.data.items.length === 0 && (
+              {!presTransition && !presQ.isFetching && presQ.data && presQ.data.items.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-lg font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Bienvenido a RaptorSquad</p>
                   <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
                 </div>
               )}
-              {!presQ.isFetching && presQ.data && presQ.data.items.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {presQ.data.items.map((item: any) => (
-                    <div
-                      key={item.id}
-                      className={`rounded-xl overflow-hidden ${item.type === 'text' ? 'md:col-span-2' : ''}`}
-                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                      {item.type === 'image' && (
-                        <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
-                      )}
-                      {item.type === 'video' && (() => {
-                        const vid = extractYoutubeId(item.content);
-                        if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
-                        return (
-                          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                            <iframe
-                              src={`https://www.youtube.com/embed/${vid}`}
-                              title={item.title || 'Video'}
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              className="absolute inset-0 w-full h-full rounded-t-xl"
-                            />
+              {!presTransition && !presQ.isFetching && presQ.data && presQ.data.items.length > 0 && (() => {
+                const textItems = presQ.data.items.filter((it: any) => it.type === 'text');
+                const mediaItems = presQ.data.items.filter((it: any) => it.type !== 'text');
+                return (
+                  <div>
+                    {/* Text items first — intro/presentation */}
+                    {textItems.length > 0 && (
+                      <div className="mb-6 space-y-3">
+                        {textItems.map((item: any) => (
+                          <div key={item.id} className="rounded-xl p-5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            {item.title && (
+                              <h3 className="text-base font-bold mb-2" style={{ color: '#7bf1d6' }}>{item.title}</h3>
+                            )}
+                            <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
                           </div>
-                        );
-                      })()}
-                      {item.type === 'text' && (
-                        <div className="p-4 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
-                      )}
-                      {item.title && (item.type === 'image' || item.type === 'video') && (
-                        <div className="p-3">
-                          <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
-                        </div>
-                      )}
-                      {item.type === 'text' && item.title && (
-                        <div className="px-4 pb-3 -mt-2">
-                          <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>{item.title}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Videos and images below */}
+                    {mediaItems.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {mediaItems.map((item: any) => (
+                          <div
+                            key={item.id}
+                            className="rounded-xl overflow-hidden"
+                            style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}
+                          >
+                            {item.type === 'image' && (
+                              <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
+                            )}
+                            {item.type === 'video' && (() => {
+                              const vid = extractYoutubeId(item.content);
+                              if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
+                              return (
+                                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                                  <iframe
+                                    src={`https://www.youtube.com/embed/${vid}`}
+                                    title={item.title || 'Video'}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    className="absolute inset-0 w-full h-full rounded-t-xl"
+                                  />
+                                </div>
+                              );
+                            })()}
+                            {item.title && (
+                              <div className="p-3">
+                                <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Paginator */}
-              {presQ.data && presQ.data.totalPages > 1 && (
+              {!presTransition && presQ.data && presQ.data.totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4 pt-5">
                   <button
-                    onClick={() => setPresPage(p => Math.max(1, p - 1))}
+                    onClick={() => { setPresTransition(true); setPresPage(p => Math.max(1, p - 1)); setTimeout(() => setPresTransition(false), 3500); }}
                     disabled={presPage <= 1}
                     className="px-3 py-1.5 rounded-lg text-sm transition-all"
                     style={{ color: presPage <= 1 ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
@@ -371,7 +400,7 @@ export default function Login() {
                     Página {presPage} de {presQ.data.totalPages}
                   </span>
                   <button
-                    onClick={() => setPresPage(p => Math.min(presQ.data!.totalPages, p + 1))}
+                    onClick={() => { setPresTransition(true); setPresPage(p => Math.min(presQ.data!.totalPages, p + 1)); setTimeout(() => setPresTransition(false), 3500); }}
                     disabled={presPage >= presQ.data.totalPages}
                     className="px-3 py-1.5 rounded-lg text-sm transition-all"
                     style={{ color: presPage >= presQ.data.totalPages ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
