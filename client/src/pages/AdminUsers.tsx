@@ -480,7 +480,7 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_50px_50px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
@@ -490,7 +490,6 @@ export default function AdminUsers() {
                 <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
                 <span className="text-center">Bloqueo</span>
                 <span className="text-center">Acciones</span>
-                <span className="text-center">Eliminar</span>
               </div>
 
             {/* Table Rows */}
@@ -506,7 +505,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_50px_50px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -630,14 +629,7 @@ export default function AdminUsers() {
                         >
                           <Key className="h-4 w-4" />
                         </button>
-                        {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
-                      </div>
-
-                      {/* Delete Button */}
-                      <div className="flex items-center justify-start md:justify-center">
-                        {isCurrentUserSuperAdmin ? (
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
-                        ) : (
+                        {!isCurrentUserSuperAdmin && (
                           <button
                             onClick={() => handleDeleteUser(user)}
                             disabled={isDeleting || isPending}
@@ -656,6 +648,7 @@ export default function AdminUsers() {
                             )}
                           </button>
                         )}
+                        {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
                       </div>
                     </div>
                   );
