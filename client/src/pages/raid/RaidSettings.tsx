@@ -1799,7 +1799,7 @@ function PresentationSection() {
   const utils = trpc.useUtils();
   const listQ = trpc.presentation.list.useQuery({ page: 1, limit: 100 });
   const createMut = trpc.presentation.create.useMutation({
-    onSuccess: () => { toast.success('Item agregado'); utils.presentation.list.invalidate(); setShowForm(false); },
+    onSuccess: () => { utils.presentation.list.invalidate(); },
     onError: (e) => toast.error(e.message),
   });
   const updateMut = trpc.presentation.update.useMutation({
@@ -1820,7 +1820,7 @@ function PresentationSection() {
 
   const items = listQ.data?.items || [];
 
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     if (files.length === 1) {
@@ -1830,34 +1830,61 @@ function PresentationSection() {
       reader.onload = () => setFormContent(reader.result as string);
       reader.readAsDataURL(file);
     } else {
-      // Multiple files: create each one directly
-      Array.from(files).forEach((file) => {
-        if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); return; }
-        const reader = new FileReader();
-        reader.onload = () => {
-          createMut.mutate({ type: 'image', title: file.name.replace(/\.[^.]+$/, ''), content: reader.result as string });
-        };
-        reader.readAsDataURL(file);
-      });
+      // Multiple files: create each one sequentially
+      let added = 0;
+      for (const file of Array.from(files)) {
+        if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); continue; }
+        const data = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        await createMut.mutateAsync({ type: 'image', title: file.name.replace(/\.[^.]+$/, ''), content: data });
+        added++;
+      }
+      if (added > 0) toast.success(`${added} imagen(es) agregada(s)`);
     }
     e.target.value = '';
   }, [createMut]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formContent.trim()) { toast.error('El contenido es obligatorio'); return; }
     if (editItem) {
       updateMut.mutate({ id: editItem.id, title: formTitle, content: formContent });
-    } else if (formType === 'video') {
-      // Support multiple YouTube links (one per line)
+      return;
+    }
+
+    // Duplicate validation: check if content already exists
+    const existingContents = items.map((it: any) => it.content);
+
+    if (formType === 'video') {
       const lines = formContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const validLinks = lines.filter(l => extractYoutubeId(l));
       if (validLinks.length === 0) { toast.error('No se detectaron links de YouTube válidos'); return; }
-      validLinks.forEach((link, idx) => {
-        createMut.mutate({ type: 'video', title: formTitle || (validLinks.length > 1 ? `Video ${idx + 1}` : ''), content: link });
-      });
-      if (validLinks.length > 1) toast.success(`${validLinks.length} videos agregados`);
+
+      const duplicates = validLinks.filter(link => existingContents.includes(link));
+      const newLinks = validLinks.filter(link => !existingContents.includes(link));
+
+      if (duplicates.length > 0) {
+        toast.error(`${duplicates.length} link(s) ya existe(n) y no se agregarán`);
+      }
+      if (newLinks.length === 0) return;
+
+      for (let i = 0; i < newLinks.length; i++) {
+        await createMut.mutateAsync({ type: 'video', title: formTitle || (newLinks.length > 1 ? `Video ${i + 1}` : ''), content: newLinks[i] });
+      }
+      toast.success(`${newLinks.length} video(s) agregado(s)`);
+      setFormContent('');
     } else {
-      createMut.mutate({ type: formType, title: formTitle, content: formContent });
+      // Image or text: check duplicate
+      if (existingContents.includes(formContent)) {
+        toast.error('Este contenido ya existe. No se puede duplicar.');
+        return;
+      }
+      await createMut.mutateAsync({ type: formType, title: formTitle, content: formContent });
+      toast.success('Item agregado');
+      setFormContent('');
+      setFormTitle('');
     }
   };
 
