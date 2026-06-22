@@ -1817,21 +1817,26 @@ function PresentationSection() {
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
   const [duplicateError, setDuplicateError] = useState('');
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const items = listQ.data?.items || [];
-  // Sort: text first, then videos/images in original order
+  // Sort: text first, then newest first (reverse order for videos/images)
   const sortedItems = [...items].sort((a: any, b: any) => {
     if (a.type === 'text' && b.type !== 'text') return -1;
     if (a.type !== 'text' && b.type === 'text') return 1;
     return 0;
-  });
+  }).reverse();
+  // But text still at top after reverse
+  const finalItems = [
+    ...sortedItems.filter((i: any) => i.type === 'text'),
+    ...sortedItems.filter((i: any) => i.type !== 'text'),
+  ];
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    // Always handle all files (single or multiple) the same way — save directly
-    let added = 0;
+    const newPreviews: string[] = [];
     for (const file of Array.from(files)) {
       if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); continue; }
       const data = await new Promise<string>((resolve) => {
@@ -1839,21 +1844,40 @@ function PresentationSection() {
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
-      const title = formTitle.trim() || file.name.replace(/\.[^.]+$/, '');
-      await createMut.mutateAsync({ type: 'image', title, content: data });
-      added++;
+      newPreviews.push(data);
     }
-    if (added > 0) {
-      toast.success(`${added} imagen(es) agregada(s)`);
-      setFormContent('');
-      setFormTitle('');
-      utils.presentation.list.invalidate();
-    }
+    setPendingImages(prev => [...prev, ...newPreviews]);
+    if (newPreviews.length === 1) setFormContent(newPreviews[0]);
     e.target.value = '';
-  }, [createMut, formTitle, utils]);
+  }, []);
 
   const handleSubmit = async () => {
     setDuplicateError('');
+
+    // Handle multiple pending images
+    if (formType === 'image' && pendingImages.length > 0) {
+      const existingContents = items.map((it: any) => it.content);
+      let added = 0;
+      for (let i = 0; i < pendingImages.length; i++) {
+        if (existingContents.includes(pendingImages[i])) continue;
+        const title = formTitle.trim() || `Imagen ${i + 1}`;
+        await createMut.mutateAsync({ type: 'image', title, content: pendingImages[i] });
+        added++;
+      }
+      if (added > 0) {
+        toast.success(`${added} imagen(es) agregada(s)`);
+      } else {
+        setDuplicateError('Todas las imágenes ya existen. No se puede duplicar.');
+        return;
+      }
+      setPendingImages([]);
+      setFormContent('');
+      setFormTitle('');
+      setDuplicateError('');
+      utils.presentation.list.invalidate();
+      return;
+    }
+
     if (!formContent.trim()) { setDuplicateError('El contenido es obligatorio'); return; }
     if (editItem) {
       updateMut.mutate({ id: editItem.id, title: formTitle, content: formContent });
@@ -1900,6 +1924,7 @@ function PresentationSection() {
       toast.success('Item agregado');
       setFormContent('');
       setFormTitle('');
+      setPendingImages([]);
       setDuplicateError('');
     }
   };
@@ -1991,8 +2016,20 @@ function PresentationSection() {
                 </button>
                 <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>o pega con Ctrl+V</span>
               </div>
-              {formContent && (
-                <img src={formContent} alt="preview" className="w-32 h-20 object-cover rounded-lg mb-2" />
+              {pendingImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {pendingImages.map((img, idx) => (
+                    <div key={idx} className="relative">
+                      <img src={img} alt={`preview ${idx + 1}`} className="w-20 h-14 object-cover rounded-lg" />
+                      <button
+                        onClick={() => setPendingImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                        style={{ background: '#ef4444', color: '#fff' }}
+                      >×</button>
+                    </div>
+                  ))}
+                  <p className="w-full text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{pendingImages.length} imagen(es) lista(s) — haz click en "Agregar" para guardar</p>
+                </div>
               )}
               <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>O pega una URL de imagen:</p>
               <input
@@ -2003,12 +2040,12 @@ function PresentationSection() {
                 className="w-full rounded-lg px-3 py-2 text-sm mt-1"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
                 onPaste={async (e) => {
-                  const items = e.clipboardData?.items;
-                  if (!items) return;
-                  for (let i = 0; i < items.length; i++) {
-                    if (items[i].type.startsWith('image/')) {
+                  const clipItems = e.clipboardData?.items;
+                  if (!clipItems) return;
+                  for (let i = 0; i < clipItems.length; i++) {
+                    if (clipItems[i].type.startsWith('image/')) {
                       e.preventDefault();
-                      const file = items[i].getAsFile();
+                      const file = clipItems[i].getAsFile();
                       if (!file) return;
                       if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
                       const data = await new Promise<string>((resolve) => {
@@ -2016,12 +2053,8 @@ function PresentationSection() {
                         reader.onload = () => resolve(reader.result as string);
                         reader.readAsDataURL(file);
                       });
-                      const title = formTitle.trim() || 'Imagen pegada';
-                      await createMut.mutateAsync({ type: 'image', title, content: data });
-                      toast.success('Imagen pegada y guardada');
-                      setFormContent('');
-                      setFormTitle('');
-                      utils.presentation.list.invalidate();
+                      setPendingImages(prev => [...prev, data]);
+                      toast.success('Imagen pegada — haz click en Agregar para guardar');
                       return;
                     }
                   }
@@ -2095,13 +2128,13 @@ function PresentationSection() {
         </div>
       )}
 
-      {sortedItems.length > 0 && (
+      {finalItems.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-medium mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Contenido cargado ({sortedItems.length} item{sortedItems.length !== 1 ? 's' : ''}) — orden: texto, videos, imágenes
+            Contenido cargado ({finalItems.length} item{finalItems.length !== 1 ? 's' : ''}) — texto primero, luego recientes
           </p>
           <div className="space-y-2">
-            {sortedItems.map((item: any) => {
+            {finalItems.map((item: any) => {
               const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
               return (
                 <div key={item.id} className="flex items-center gap-3 rounded-xl p-3 group" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>

@@ -22,7 +22,7 @@ export const presentationRouter = router({
     .input(z.object({ page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(200).default(12) }).optional())
     .query(({ input }) => {
       const db = dbInstance;
-      const items = (db.presentationItems || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+      const items = (db.presentationItems || []).slice().sort((a: any, b: any) => (b.order ?? 0) - (a.order ?? 0));
       const page = input?.page ?? 1;
       const limit = input?.limit ?? 12;
       const start = (page - 1) * limit;
