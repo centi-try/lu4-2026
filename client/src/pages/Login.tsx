@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
-import { ArrowLeft, Eye, EyeOff, Loader2, Package, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2, Package, ShieldCheck, Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { trpc } from '../lib/trpc';
 
 const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
@@ -10,9 +11,23 @@ const CAROUSEL_INTERVAL = 10000;
 // Regex de validación mínima de formato de email. El backend ya re-valida.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Helper: extract YouTube video ID from various URL formats
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 export default function Login() {
   const [, setLocation] = useLocation();
   const { login, verify2fa } = useAuth();
+  const [activeTab, setActiveTab] = useState<'presentation' | 'login'>('presentation');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +57,10 @@ export default function Login() {
     }, CAROUSEL_INTERVAL);
     return () => clearInterval(timer);
   }, []);
+
+  // Presentation content (public endpoint — no auth needed)
+  const [presPage, setPresPage] = useState(1);
+  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 10 });
 
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
@@ -168,9 +187,9 @@ export default function Login() {
         ))}
       </div>
 
-      {/* Right side: Login form */}
+      {/* Right side: Tabs (Presentación / Login) */}
       <div
-        className="w-full lg:w-1/2 flex items-center justify-center p-6 relative"
+        className="w-full lg:w-1/2 flex items-center justify-center p-6 relative overflow-y-auto"
         style={{
           background: 'radial-gradient(circle at 50% 20%, rgba(123,241,214,0.04) 0%, transparent 50%), #060910',
         }}
@@ -198,6 +217,116 @@ export default function Login() {
               Control Dashboard · Sistema de Gestión
             </p>
           </div>
+
+          {/* Tab switcher */}
+          <div className="flex items-center gap-1 mb-4 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <button
+              onClick={() => setActiveTab('presentation')}
+              className="flex-1 rounded-lg px-3 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
+              style={{
+                background: activeTab === 'presentation' ? 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(167,139,250,0.1))' : 'transparent',
+                color: activeTab === 'presentation' ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+                border: activeTab === 'presentation' ? '1px solid rgba(167,139,250,0.3)' : '1px solid transparent',
+              }}
+            >
+              <Play className="h-3.5 w-3.5" /> Presentación
+            </button>
+            <button
+              onClick={() => setActiveTab('login')}
+              className="flex-1 rounded-lg px-3 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
+              style={{
+                background: activeTab === 'login' ? 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(123,241,214,0.1))' : 'transparent',
+                color: activeTab === 'login' ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
+                border: activeTab === 'login' ? '1px solid rgba(123,241,214,0.3)' : '1px solid transparent',
+              }}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" /> Iniciar Sesión
+            </button>
+          </div>
+
+          {/* Presentation Tab */}
+          {activeTab === 'presentation' && (
+            <div className="rounded-2xl border p-5" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
+              {presQ.isLoading && <p className="text-center text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Cargando...</p>}
+              {presQ.data && presQ.data.items.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Bienvenido a RaptorSquad</p>
+                  <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
+                </div>
+              )}
+              {presQ.data && presQ.data.items.length > 0 && (
+                <div className="space-y-4">
+                  {presQ.data.items.map((item: any) => (
+                    <div key={item.id} className="rounded-xl overflow-hidden">
+                      {item.title && (
+                        <p className="text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
+                      )}
+                      {item.type === 'image' && (
+                        <img src={item.content} alt={item.title || ''} className="w-full rounded-lg object-cover max-h-64" />
+                      )}
+                      {item.type === 'video' && (() => {
+                        const vid = extractYoutubeId(item.content);
+                        if (!vid) return <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
+                        return (
+                          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                            <iframe
+                              src={`https://www.youtube.com/embed/${vid}`}
+                              title={item.title || 'Video'}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="absolute inset-0 w-full h-full rounded-lg"
+                            />
+                          </div>
+                        );
+                      })()}
+                      {item.type === 'text' && (
+                        <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Paginator */}
+                  {presQ.data.totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-3 pt-3">
+                      <button
+                        onClick={() => setPresPage(p => Math.max(1, p - 1))}
+                        disabled={presPage <= 1}
+                        className="p-1.5 rounded-lg transition-all"
+                        style={{ color: presPage <= 1 ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        {presPage} / {presQ.data.totalPages}
+                      </span>
+                      <button
+                        onClick={() => setPresPage(p => Math.min(presQ.data!.totalPages, p + 1))}
+                        disabled={presPage >= presQ.data.totalPages}
+                        className="p-1.5 rounded-lg transition-all"
+                        style={{ color: presPage >= presQ.data.totalPages ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-center mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                <button
+                  onClick={() => setActiveTab('login')}
+                  className="text-sm font-semibold transition hover:opacity-80"
+                  style={{ color: '#7bf1d6' }}
+                >
+                  Ir al Login →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Login Tab */}
+          {activeTab === 'login' && (<>
+
 
           <div
             className="rounded-2xl border p-8"
@@ -460,6 +589,7 @@ export default function Login() {
           </>
           )}
         </div>
+      </>)}
       </div>
       </div>
     </div>

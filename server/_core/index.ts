@@ -360,7 +360,7 @@ async function startServer() {
           });
         } catch { /* ignore */ }
         return res.status(423).json({
-          message: `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Probá de nuevo en ~${minutes} min.`,
+          message: `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo en ~${minutes} min.`,
         });
       }
 
@@ -380,12 +380,12 @@ async function startServer() {
           });
         } catch { /* ignore */ }
         if (attempts >= LOGIN_MAX_FAILED_ATTEMPTS) {
+          const lockMin = attempts >= 4 ? '24 horas' : attempts >= 3 ? '30 min' : '5 min';
           return res.status(423).json({
-            message: `Cuenta bloqueada ${LOGIN_LOCKOUT_MINUTES} min por demasiados intentos fallidos.`,
+            message: `Cuenta bloqueada ${lockMin} por demasiados intentos fallidos.`,
           });
         }
-        // No revelar en el mensaje cuántos intentos restan si es bajo — solo advertir en últimos 2.
-        const suffix = remaining <= 2 && remaining > 0 ? ` (te quedan ${remaining} intentos)` : '';
+        const suffix = remaining > 0 ? ` (te ${remaining === 1 ? 'queda 1 intento' : `quedan ${remaining} intentos`} antes del bloqueo)` : '';
         return res.status(401).json({ message: `${GENERIC_LOGIN_ERROR}${suffix}` });
       }
 

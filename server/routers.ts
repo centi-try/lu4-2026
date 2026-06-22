@@ -14,6 +14,7 @@ import { raidRouter } from "./routers/raid";
 import { backupsRouter } from "./routers/backups";
 import { clanFundRouter } from "./routers/clanFund";
 import { warehouseRouter } from "./routers/warehouse";
+import { presentationRouter } from "./routers/presentation";
 
 export const appRouter = router({
   system: systemRouter,
@@ -39,6 +40,7 @@ export const appRouter = router({
   backups: backupsRouter,
   clanFund: clanFundRouter,
   warehouse: warehouseRouter,
+  presentation: presentationRouter,
 });
 
 export type AppRouter = typeof appRouter;

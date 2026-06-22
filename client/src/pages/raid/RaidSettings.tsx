@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search } from 'lucide-react';
+import React, { useRef, useState, useCallback } from 'react';
+import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search, Video, Type, GripVertical, ExternalLink } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -218,14 +218,14 @@ export default function RaidSettings({ raidAccess }: Props) {
   const [clanToDelete, setClanToDelete] = useState<any | null>(null);
 
   // Tab state
-  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'icons' | 'access' | 'materials'>('access');
+  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'presentation' | 'access' | 'materials'>('access');
 
   const configTabs: { key: typeof configTab; label: string; icon: React.ReactNode; color: string }[] = [
     { key: 'access', label: 'Accesos', icon: <Flag className="h-4 w-4" />, color: '#60a5fa' },
     { key: 'materials', label: 'Catálogo', icon: <Package className="h-4 w-4" />, color: '#34d399' },
     { key: 'classes', label: 'Clases', icon: <Crown className="h-4 w-4" />, color: '#fbbf24' },
     { key: 'catalogs', label: 'Bosses & Clanes', icon: <Skull className="h-4 w-4" />, color: '#e879f9' },
-    { key: 'icons', label: 'Íconos', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
+    { key: 'presentation', label: 'Presentación', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
   ];
 
   return (
@@ -697,10 +697,10 @@ export default function RaidSettings({ raidAccess }: Props) {
         <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar clases.</p></div>
       )}
 
-      {/* Tab: Iconos por categoría */}
-      {configTab === 'icons' && raidAccess?.accessLevel === 'super_admin' && <CategoryIconsSection />}
-      {configTab === 'icons' && raidAccess?.accessLevel !== 'super_admin' && (
-        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar íconos.</p></div>
+      {/* Tab: Presentación del Login */}
+      {configTab === 'presentation' && raidAccess?.accessLevel === 'super_admin' && <PresentationSection />}
+      {configTab === 'presentation' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar la presentación.</p></div>
       )}
 
       {/* Tab: Gestión de Accesos */}
@@ -1788,5 +1788,238 @@ function CharacterClassesSection() {
         />
       )}
     </>
+  );
+}
+
+// ============================================================================
+// Sección: Presentación del Login
+// ============================================================================
+
+function PresentationSection() {
+  const utils = trpc.useUtils();
+  const listQ = trpc.presentation.list.useQuery({ page: 1, limit: 100 });
+  const createMut = trpc.presentation.create.useMutation({
+    onSuccess: () => { toast.success('Item agregado'); utils.presentation.list.invalidate(); setShowForm(false); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateMut = trpc.presentation.update.useMutation({
+    onSuccess: () => { toast.success('Item actualizado'); utils.presentation.list.invalidate(); setEditItem(null); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMut = trpc.presentation.delete.useMutation({
+    onSuccess: () => { toast.success('Item eliminado'); utils.presentation.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [formType, setFormType] = useState<'image' | 'video' | 'text'>('image');
+  const [formTitle, setFormTitle] = useState('');
+  const [formContent, setFormContent] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const items = listQ.data?.items || [];
+
+  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setFormContent(reader.result as string);
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleSubmit = () => {
+    if (!formContent.trim()) { toast.error('El contenido es obligatorio'); return; }
+    if (editItem) {
+      updateMut.mutate({ id: editItem.id, title: formTitle, content: formContent });
+    } else {
+      createMut.mutate({ type: formType, title: formTitle, content: formContent });
+    }
+  };
+
+  const startEdit = (item: any) => {
+    setEditItem(item);
+    setFormType(item.type);
+    setFormTitle(item.title || '');
+    setFormContent(item.content || '');
+    setShowForm(true);
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditItem(null);
+    setFormType('image');
+    setFormTitle('');
+    setFormContent('');
+  };
+
+  return (
+    <div className="card-glass rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-base font-bold" style={{ color: '#a78bfa' }}>Presentación del Login</h3>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Gestiona imágenes, videos de YouTube y textos que se mostrarán en la página de login.
+          </p>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Agregar
+          </button>
+        )}
+      </div>
+
+      {/* Add/Edit Form */}
+      {showForm && (
+        <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>Tipo:</span>
+            {(['image', 'video', 'text'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => { setFormType(t); setFormContent(''); }}
+                className="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1"
+                style={{
+                  background: formType === t ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.05)',
+                  color: formType === t ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+                  border: formType === t ? '1px solid rgba(167,139,250,0.3)' : '1px solid transparent',
+                }}
+              >
+                {t === 'image' && <ImageIcon className="h-3 w-3" />}
+                {t === 'video' && <Video className="h-3 w-3" />}
+                {t === 'text' && <Type className="h-3 w-3" />}
+                {t === 'image' ? 'Imagen' : t === 'video' ? 'Video' : 'Texto'}
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            value={formTitle}
+            onChange={e => setFormTitle(e.target.value)}
+            placeholder="Título (opcional)"
+            className="w-full rounded-lg px-3 py-2 text-sm mb-2"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+          />
+
+          {formType === 'image' && (
+            <div>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs mb-2"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+              >
+                <Upload className="h-3.5 w-3.5" /> Subir imagen (máx 5 MB)
+              </button>
+              {formContent && (
+                <img src={formContent} alt="preview" className="w-32 h-20 object-cover rounded-lg" />
+              )}
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>O pega una URL de imagen:</p>
+              <input
+                type="text"
+                value={formContent.startsWith('data:') ? '' : formContent}
+                onChange={e => setFormContent(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-lg px-3 py-2 text-sm mt-1"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+              />
+            </div>
+          )}
+
+          {formType === 'video' && (
+            <div>
+              <input
+                type="text"
+                value={formContent}
+                onChange={e => setFormContent(e.target.value)}
+                placeholder="Link de YouTube (ej: https://www.youtube.com/watch?v=XXXXX)"
+                className="w-full rounded-lg px-3 py-2 text-sm"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+              />
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega el link completo de YouTube. Se mostrará embebido en la presentación.</p>
+            </div>
+          )}
+
+          {formType === 'text' && (
+            <textarea
+              value={formContent}
+              onChange={e => setFormContent(e.target.value)}
+              placeholder="Escribe tu texto aquí... (HTML básico permitido: <b>, <i>, <br>)"
+              rows={4}
+              className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+            />
+          )}
+
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={handleSubmit}
+              disabled={createMut.isPending || updateMut.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+              style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}
+            >
+              <Save className="h-3 w-3" /> {editItem ? 'Guardar cambios' : 'Agregar'}
+            </button>
+            <button
+              onClick={resetForm}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs"
+              style={{ color: 'rgba(255,255,255,0.5)' }}
+            >
+              <X className="h-3 w-3" /> Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Items List */}
+      {items.length === 0 && !showForm && (
+        <div className="text-center py-8">
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay contenido de presentación todavía.</p>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Agrega imágenes, videos o textos para mostrar en el login.</p>
+        </div>
+      )}
+
+      <div className="grid gap-3">
+        {items.map((item: any) => (
+          <div key={item.id} className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <GripVertical className="h-4 w-4 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.2)' }} />
+            
+            {/* Preview */}
+            <div className="w-16 h-12 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
+              {item.type === 'image' && <img src={item.content} alt="" className="w-full h-full object-cover" />}
+              {item.type === 'video' && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
+              {item.type === 'text' && <div className="w-full h-full flex items-center justify-center"><Type className="h-5 w-5" style={{ color: '#60a5fa' }} /></div>}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{item.title || '(Sin título)'}</p>
+              <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {item.type === 'image' ? '🖼️ Imagen' : item.type === 'video' ? '🎬 Video YouTube' : '📝 Texto'}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg transition-all hover:bg-white/5">
+                <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} />
+              </button>
+              <button
+                onClick={() => { if (confirm('¿Eliminar este item?')) deleteMut.mutate({ id: item.id }); }}
+                className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" style={{ color: '#ef4444' }} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -103,6 +103,10 @@ interface DatabaseSchema {
   warehouseClans: any[];       // clanes del warehouse (id, name, createdAt)
   warehouseCPs: any[];         // command parties del warehouse (id, name, clanId, leaderId)
   warehouseCPMembers: any[];   // miembros de CP (id, cpId, userId, addedAt)
+  // ============================================================
+  // Presentación del login (contenido gestionado por Super Admin)
+  // ============================================================
+  presentationItems: any[];    // { id, type:'image'|'video'|'text', title, content, order, createdAt }
   warehouseHistory: any[];     // historial de retiros/eliminaciones
   warehouseSettings: any;      // configuración de visibilidad cross-CP
   warehouseLoans: any[];       // préstamos entre CPs
@@ -149,6 +153,7 @@ const initialSchema: DatabaseSchema = {
   warehouseClans: [],
   warehouseCPs: [],
   warehouseCPMembers: [],
+  presentationItems: [],
   warehouseHistory: [],
   warehouseSettings: { crossCpVisibility: true, crossCpObjectivesVisibility: false },
   warehouseLoans: [],
@@ -1957,8 +1962,15 @@ export const pruneExpiredAuthTokens = () => {
 //   - lockedUntil: timestamp ISO hasta el cual la cuenta queda bloqueada.
 // El backend los lee/escribe a través de estas helpers para evitar tocar
 // directamente dbInstance desde los endpoints.
-export const LOGIN_MAX_FAILED_ATTEMPTS = 5;
-export const LOGIN_LOCKOUT_MINUTES = 15;
+export const LOGIN_MAX_FAILED_ATTEMPTS = 2;
+export const LOGIN_LOCKOUT_MINUTES = 5;
+
+// Progressive lockout durations based on number of failed attempts
+function getLockoutMinutes(attempts: number): number {
+  if (attempts >= 4) return 60 * 24; // 24 hours
+  if (attempts >= 3) return 30;       // 30 minutes
+  return 5;                           // 5 minutes (2 attempts)
+}
 
 export interface LoginLockStatus {
   locked: boolean;
@@ -1984,11 +1996,10 @@ export const registerFailedLogin = async (userId: number) => {
   const current = dbInstance.users[idx];
   const attempts = Number(current.failedLoginAttempts || 0) + 1;
   let lockedUntil: string | null = current.lockedUntil || null;
-  // Si llegó al umbral, bloqueamos N minutos. Cada fallo adicional estando
-  // bloqueado refresca la ventana (mantiene al atacante fuera mientras sigue
-  // probando).
+  // Progressive lockout: 2 attempts → 5min, 3 → 30min, 4+ → 24h
   if (attempts >= LOGIN_MAX_FAILED_ATTEMPTS) {
-    lockedUntil = new Date(Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000).toISOString();
+    const lockMinutes = getLockoutMinutes(attempts);
+    lockedUntil = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
   }
   dbInstance.users[idx] = {
     ...current,
