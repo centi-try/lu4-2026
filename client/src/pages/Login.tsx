@@ -5,7 +5,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2, Package, ShieldCheck } from 'lucide-re
 import { useAuth } from '../contexts/AuthContext';
 
 const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png', '/raptor-4.png', '/raptor-5.png'];
-const CAROUSEL_INTERVAL = 8000;
+const CAROUSEL_INTERVAL = 10000;
 
 // Regex de validación mínima de formato de email. El backend ya re-valida.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -162,7 +162,7 @@ export default function Login() {
             key={src}
             src={src}
             alt={`RaptorSquad ${i + 1}`}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+            className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
             style={{ opacity: i === currentImg ? 1 : 0 }}
           />
         ))}
@@ -179,7 +179,7 @@ export default function Login() {
         <div
           className="absolute inset-0 lg:hidden"
           style={{
-            backgroundImage: 'url(/raptor-login-bg.png)',
+            backgroundImage: `url(${CAROUSEL_IMAGES[currentImg]})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             opacity: 0.15,
