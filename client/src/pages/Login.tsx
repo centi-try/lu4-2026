@@ -214,7 +214,7 @@ export default function Login() {
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
-                <Package className="h-6 w-6" style={{ color: '#7bf1d6' }} />
+                <span className="text-xl font-black" style={{ color: '#7bf1d6' }}>L2</span>
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
@@ -260,7 +260,7 @@ export default function Login() {
                 </div>
               )}
               {presQ.data && presQ.data.items.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {presQ.data.items.map((item: any) => (
                     <div
                       key={item.id}

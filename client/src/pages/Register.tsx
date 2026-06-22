@@ -185,7 +185,7 @@ export default function Register() {
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
-                <Package className="h-6 w-6" style={{ color: '#7bf1d6' }} />
+                <span className="text-xl font-black" style={{ color: '#7bf1d6' }}>L2</span>
               </div>
             </div>
             <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>

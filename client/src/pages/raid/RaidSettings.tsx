@@ -1813,7 +1813,7 @@ function PresentationSection() {
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
-  const [formType, setFormType] = useState<'image' | 'video' | 'text'>('image');
+  const [formType, setFormType] = useState<'image' | 'video' | 'text'>('video');
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1821,18 +1821,41 @@ function PresentationSection() {
   const items = listQ.data?.items || [];
 
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
-    const reader = new FileReader();
-    reader.onload = () => setFormContent(reader.result as string);
-    reader.readAsDataURL(file);
-  }, []);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (files.length === 1) {
+      const file = files[0];
+      if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
+      const reader = new FileReader();
+      reader.onload = () => setFormContent(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      // Multiple files: create each one directly
+      Array.from(files).forEach((file) => {
+        if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          createMut.mutate({ type: 'image', title: file.name.replace(/\.[^.]+$/, ''), content: reader.result as string });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    e.target.value = '';
+  }, [createMut]);
 
   const handleSubmit = () => {
     if (!formContent.trim()) { toast.error('El contenido es obligatorio'); return; }
     if (editItem) {
       updateMut.mutate({ id: editItem.id, title: formTitle, content: formContent });
+    } else if (formType === 'video') {
+      // Support multiple YouTube links (one per line)
+      const lines = formContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const validLinks = lines.filter(l => extractYoutubeId(l));
+      if (validLinks.length === 0) { toast.error('No se detectaron links de YouTube válidos'); return; }
+      validLinks.forEach((link, idx) => {
+        createMut.mutate({ type: 'video', title: formTitle || (validLinks.length > 1 ? `Video ${idx + 1}` : ''), content: link });
+      });
+      if (validLinks.length > 1) toast.success(`${validLinks.length} videos agregados`);
     } else {
       createMut.mutate({ type: formType, title: formTitle, content: formContent });
     }
@@ -1849,7 +1872,7 @@ function PresentationSection() {
   const resetForm = () => {
     setShowForm(false);
     setEditItem(null);
-    setFormType('image');
+    setFormType('video');
     setFormTitle('');
     setFormContent('');
   };
@@ -1879,7 +1902,7 @@ function PresentationSection() {
         <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>Tipo:</span>
-            {(['image', 'video', 'text'] as const).map(t => (
+            {(['video', 'image', 'text'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => { setFormType(t); setFormContent(''); }}
@@ -1893,7 +1916,7 @@ function PresentationSection() {
                 {t === 'image' && <ImageIcon className="h-3 w-3" />}
                 {t === 'video' && <Video className="h-3 w-3" />}
                 {t === 'text' && <Type className="h-3 w-3" />}
-                {t === 'image' ? 'Imagen' : t === 'video' ? 'Video' : 'Texto'}
+                {t === 'video' ? 'Video' : t === 'image' ? 'Imagen' : 'Texto'}
               </button>
             ))}
           </div>
@@ -1909,16 +1932,19 @@ function PresentationSection() {
 
           {formType === 'image' && (
             <div>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs mb-2"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
-              >
-                <Upload className="h-3.5 w-3.5" /> Subir imagen (máx 5 MB)
-              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  <Upload className="h-3.5 w-3.5" /> Subir imagen(es) (máx 5 MB c/u)
+                </button>
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>o pega con Ctrl+V</span>
+              </div>
               {formContent && (
-                <img src={formContent} alt="preview" className="w-32 h-20 object-cover rounded-lg" />
+                <img src={formContent} alt="preview" className="w-32 h-20 object-cover rounded-lg mb-2" />
               )}
               <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>O pega una URL de imagen:</p>
               <input
@@ -1928,29 +1954,47 @@ function PresentationSection() {
                 placeholder="https://..."
                 className="w-full rounded-lg px-3 py-2 text-sm mt-1"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.startsWith('image/')) {
+                      e.preventDefault();
+                      const file = items[i].getAsFile();
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
+                      const reader = new FileReader();
+                      reader.onload = () => setFormContent(reader.result as string);
+                      reader.readAsDataURL(file);
+                      return;
+                    }
+                  }
+                }}
               />
             </div>
           )}
 
           {formType === 'video' && (
             <div>
-              <input
-                type="text"
+              <textarea
                 value={formContent}
                 onChange={e => setFormContent(e.target.value)}
-                placeholder="Link de YouTube (ej: https://www.youtube.com/watch?v=XXXXX)"
-                className="w-full rounded-lg px-3 py-2 text-sm"
+                placeholder="Pega links de YouTube (uno por línea para subir múltiples)&#10;https://www.youtube.com/watch?v=XXXXX&#10;https://www.youtube.com/watch?v=YYYYY"
+                rows={3}
+                className="w-full rounded-lg px-3 py-2 text-sm resize-none"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega el link completo de YouTube. Se mostrará embebido en la presentación.</p>
-              {formContent && extractYoutubeId(formContent) && (
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega uno o varios links de YouTube (uno por línea). Se subirán todos al hacer clic en Agregar.</p>
+              {formContent && extractYoutubeId(formContent.split('\n')[0]) && (
                 <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
                   <img
-                    src={`https://img.youtube.com/vi/${extractYoutubeId(formContent)}/mqdefault.jpg`}
+                    src={`https://img.youtube.com/vi/${extractYoutubeId(formContent.split('\n')[0])}/mqdefault.jpg`}
                     alt="Preview"
-                    className="w-full h-32 object-cover"
+                    className="w-full h-28 object-cover"
                   />
-                  <p className="text-xs px-2 py-1" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.3)' }}>✓ Video detectado correctamente</p>
+                  <p className="text-xs px-2 py-1" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                    ✓ {formContent.split('\n').filter(l => extractYoutubeId(l.trim())).length} video(s) detectado(s)
+                  </p>
                 </div>
               )}
             </div>
