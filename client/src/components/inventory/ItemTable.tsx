@@ -20,11 +20,21 @@ const MAX_CHAR_AVATARS = 3;
 
 function AssocCharactersCell({ chars }: { chars: Character[] }) {
   const [hover, setHover] = useState(false);
+  const triggerRef = React.useRef<HTMLSpanElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   if (!chars || chars.length === 0) {
     return <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>;
   }
   const visible = chars.slice(0, MAX_CHAR_AVATARS);
   const overflow = chars.slice(MAX_CHAR_AVATARS);
+
+  const handleEnter = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPopupPos({ top: rect.bottom + 6, left: rect.left });
+    }
+    setHover(true);
+  };
 
   return (
     <div className="flex items-center gap-1">
@@ -42,8 +52,9 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
       </div>
       {overflow.length > 0 && (
         <span
+          ref={triggerRef}
           className="relative"
-          onMouseEnter={() => setHover(true)}
+          onMouseEnter={handleEnter}
           onMouseLeave={() => setHover(false)}
         >
           <span
@@ -59,24 +70,24 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
           </span>
           {hover && (
             <div
-              className="absolute z-50 rounded-lg shadow-2xl"
+              className="fixed z-[9999] rounded-lg shadow-2xl"
               style={{
-                top: 'calc(100% + 6px)',
-                left: 0,
-                minWidth: 180,
-                maxWidth: 260,
+                top: popupPos.top,
+                left: popupPos.left,
+                minWidth: 200,
+                maxWidth: 300,
                 background: '#0a0e16',
                 border: '1px solid rgba(232,121,249,0.35)',
-                padding: 8,
+                padding: 10,
               }}
             >
               <p
-                className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+                className="text-[11px] font-semibold uppercase tracking-wider mb-2"
                 style={{ color: 'rgba(232,121,249,0.7)' }}
               >
                 Otros personajes ({overflow.length})
               </p>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 {overflow.map(char => (
                   <div key={char.id} className="flex items-center gap-2">
                     <div
@@ -85,7 +96,7 @@ function AssocCharactersCell({ chars }: { chars: Character[] }) {
                     >
                       {char.name.slice(0, 1).toUpperCase()}
                     </div>
-                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
                       {char.name}
                     </span>
                   </div>

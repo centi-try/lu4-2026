@@ -774,10 +774,29 @@ export default function WarehouseClan() {
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3">
-                    <input value={node.name} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Nombre material..." />
-                    <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="Cant." />
-                    <input value={node.imageUrl} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, imageUrl: e.target.value })))} className="rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }} placeholder="URL imagen..." />
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3">
+                    <div className="sm:col-span-6">
+                      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Nombre material <span style={{ color: '#f87171' }}>*</span></label>
+                      <CatalogTypeahead catalog={catalog as any[]} value={node.name} onChange={val => {
+                        setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: val })));
+                      }} onSelect={item => {
+                        setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, name: item.name, imageUrl: item.imageUrl || n.imageUrl })));
+                      }} />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Cantidad <span style={{ color: '#f87171' }}>*</span></label>
+                      <input type="number" min="1" value={node.quantity} onChange={e => setRecipeMaterials(prev => updateNodeAt(prev, currentPath, n => ({ ...n, quantity: e.target.value })))} className="w-full rounded-lg px-2.5 py-1.5 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)', height: 36 }} placeholder="1" />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Imagen</label>
+                      <div className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}>
+                        {imgSrc ? (
+                          <><img src={imgSrc} alt="" className="h-7 w-7 rounded object-cover shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} /><span className="text-[10px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>Del catálogo</span></>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Escribe el nombre para cargar imagen</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   {node.subMaterials.length > 0 && (
                     <div className="px-3 pb-2">
@@ -2273,6 +2292,8 @@ export default function WarehouseClan() {
 
             const canCreateObj = isSA || ledCpIds.includes(objCpId);
             const members = cpMembersChars as any[];
+            // Deduplicate members by userId for delivery tracking (secondary chars share userId)
+            const uniqueMembers = members.filter((m: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.userId === m.userId) === i);
             const allObjs = objectives as any[];
 
             return (
@@ -2347,7 +2368,7 @@ export default function WarehouseClan() {
                           const achieved = dayObjs.filter((o: any) => o.achieved).length;
                           const total = dayObjs.length;
                           const dayAttData = dailyAttMap[cell.key] || {};
-                          const attCount = members.filter((m: any) => dayAttData[m.userId] === true).length;
+                          const attCount = uniqueMembers.filter((m: any) => dayAttData[m.userId] === true).length;
                           return (
                             <button
                               key={cell.key}
@@ -2414,19 +2435,19 @@ export default function WarehouseClan() {
                           {/* Daily attendance (always visible) */}
                           {(() => {
                             const dayAtt = dailyAttMap[expandedObjDay] || {};
-                            const presentCount = members.filter((m: any) => dayAtt[m.userId] === true).length;
-                            const allPresent = members.length > 0 && members.every((m: any) => dayAtt[m.userId] === true);
+                            const presentCount = uniqueMembers.filter((m: any) => dayAtt[m.userId] === true).length;
+                            const allPresent = uniqueMembers.length > 0 && uniqueMembers.every((m: any) => dayAtt[m.userId] === true);
                             return (
                               <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(34,197,94,0.03)', border: '1px solid rgba(34,197,94,0.1)' }}>
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <UserCheck className="h-3.5 w-3.5" style={{ color: '#22c55e' }} />
-                                    <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Asistencia del día ({presentCount}/{members.length})</span>
+                                    <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>Asistencia del día ({presentCount}/{uniqueMembers.length})</span>
                                   </div>
-                                  {canCreateObj && members.length > 0 && (
+                                  {canCreateObj && uniqueMembers.length > 0 && (
                                     <button
                                       onClick={() => {
-                                        members.forEach((m: any) => {
+                                        uniqueMembers.forEach((m: any) => {
                                           if (allPresent || !dayAtt[m.userId]) {
                                             toggleDailyAttMut.mutate({ cpId: objCpId, date: expandedObjDay, userId: m.userId, present: !allPresent });
                                           }
@@ -2440,7 +2461,7 @@ export default function WarehouseClan() {
                                   )}
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
-                                  {members.map((m: any) => {
+                                  {uniqueMembers.map((m: any) => {
                                     const isPresent = dayAtt[m.userId] === true;
                                     return (
                                       <button
@@ -2470,7 +2491,7 @@ export default function WarehouseClan() {
 
                           {dayObjs.map((obj: any) => {
                             const objAtt = attMap[obj.id] || {};
-                            const presentCount = members.filter((m: any) => objAtt[m.userId]).length;
+                            const presentCount = uniqueMembers.filter((m: any) => objAtt[m.userId]).length;
 
                             return (
                               <div key={obj.id} className="rounded-lg p-3 mb-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -2540,7 +2561,7 @@ export default function WarehouseClan() {
                                             </tr>
                                           </thead>
                                           <tbody>
-                                            {members.map((mbr: any) => {
+                                            {uniqueMembers.map((mbr: any) => {
                                               const objDel = deliveryMap[obj.id] || {};
                                               let totalOwed = 0;
                                               const matDetails: { owed: number; delivered: number; required: number }[] = obj.materials.map((m: any, mi: number) => {
@@ -2730,7 +2751,7 @@ export default function WarehouseClan() {
                               const daysWithAtt = Object.keys(dailyAttMap).length;
                               const totalDays = Math.max(daysWithAtt, allObjs.length > 0 ? [...new Set(allObjs.map((o: any) => (o.date || '').slice(0, 10)))].length : 0, 1);
                               const totalMaterialSlots = allObjs.reduce((acc: number, obj: any) => acc + (obj.materials || []).length, 0);
-                              const ranked = members.map((m: any) => {
+                              const ranked = uniqueMembers.map((m: any) => {
                                 const attended = Object.values(dailyAttMap).filter((dayData: any) => dayData[m.userId] === true).length;
                                 const attPct = totalDays > 0 ? (attended / totalDays) * 100 : 0;
                                 let deliveredSlots = 0;
@@ -2774,9 +2795,9 @@ export default function WarehouseClan() {
                             (obj.materials || []).forEach((m: any, mi: number) => {
                               const key = m.name;
                               if (!matSummary[key]) matSummary[key] = { name: m.name, imageUrl: m.imageUrl, required: 0, delivered: 0 };
-                              matSummary[key].required += m.quantity * members.length;
+                              matSummary[key].required += m.quantity * uniqueMembers.length;
                               const objDel = deliveryMap[obj.id] || {};
-                              members.forEach((mbr: any) => {
+                              uniqueMembers.forEach((mbr: any) => {
                                 const del = (objDel[mi] || {})[mbr.userId];
                                 matSummary[key].delivered += del ? del.quantity : 0;
                               });
@@ -2815,7 +2836,7 @@ export default function WarehouseClan() {
                         {/* Per-member material debt breakdown */}
                         {(() => {
                           const memberDebts: { name: string; userId: number; debts: { matName: string; imageUrl?: string; owed: number }[] }[] = [];
-                          members.forEach((mbr: any) => {
+                          uniqueMembers.forEach((mbr: any) => {
                             const debts: { matName: string; imageUrl?: string; owed: number }[] = [];
                             allObjs.forEach((obj: any) => {
                               (obj.materials || []).forEach((m: any, mi: number) => {
