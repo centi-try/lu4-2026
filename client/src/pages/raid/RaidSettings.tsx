@@ -1816,9 +1816,16 @@ function PresentationSection() {
   const [formType, setFormType] = useState<'image' | 'video' | 'text'>('video');
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
+  const [duplicateError, setDuplicateError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const items = listQ.data?.items || [];
+  // Sort: text first, then videos/images in original order
+  const sortedItems = [...items].sort((a: any, b: any) => {
+    if (a.type === 'text' && b.type !== 'text') return -1;
+    if (a.type !== 'text' && b.type === 'text') return 1;
+    return 0;
+  });
 
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1848,7 +1855,8 @@ function PresentationSection() {
   }, [createMut]);
 
   const handleSubmit = async () => {
-    if (!formContent.trim()) { toast.error('El contenido es obligatorio'); return; }
+    setDuplicateError('');
+    if (!formContent.trim()) { setDuplicateError('El contenido es obligatorio'); return; }
     if (editItem) {
       updateMut.mutate({ id: editItem.id, title: formTitle, content: formContent });
       return;
@@ -1860,7 +1868,7 @@ function PresentationSection() {
     if (formType === 'video') {
       const lines = formContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const validLinks = lines.filter(l => extractYoutubeId(l));
-      if (validLinks.length === 0) { toast.error('No se detectaron links de YouTube válidos'); return; }
+      if (validLinks.length === 0) { setDuplicateError('No se detectaron links de YouTube válidos'); return; }
 
       // Deduplicate within the batch itself
       const uniqueLinks = Array.from(new Set(validLinks));
@@ -1869,8 +1877,12 @@ function PresentationSection() {
       const duplicates = uniqueLinks.filter(link => existingContents.includes(link));
       const newLinks = uniqueLinks.filter(link => !existingContents.includes(link));
 
+      if (duplicates.length > 0 && newLinks.length === 0) {
+        setDuplicateError(`Todos los links ya existen. No se puede duplicar contenido.`);
+        return;
+      }
       if (duplicates.length > 0) {
-        toast.error(`${duplicates.length} link(s) ya existe(n) y no se agregarán`);
+        setDuplicateError(`${duplicates.length} link(s) ya existe(n) y no se agregarán. Se subirán ${newLinks.length} nuevo(s).`);
       }
       if (newLinks.length === 0) return;
 
@@ -1879,16 +1891,18 @@ function PresentationSection() {
       }
       toast.success(`${newLinks.length} video(s) agregado(s)`);
       setFormContent('');
+      setDuplicateError('');
     } else {
       // Image or text: check duplicate
       if (existingContents.includes(formContent)) {
-        toast.error('Este contenido ya existe. No se puede duplicar.');
+        setDuplicateError('Este contenido ya existe. No se puede duplicar.');
         return;
       }
       await createMut.mutateAsync({ type: formType, title: formTitle, content: formContent });
       toast.success('Item agregado');
       setFormContent('');
       setFormTitle('');
+      setDuplicateError('');
     }
   };
 
@@ -1930,7 +1944,12 @@ function PresentationSection() {
 
       {/* Add/Edit Form */}
       {showForm && (
-        <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="rounded-xl p-4 mb-4" style={{ background: duplicateError ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)', border: duplicateError ? '2px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.08)' }}>
+          {duplicateError && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {duplicateError}
+            </div>
+          )}
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>Tipo:</span>
             {(['video', 'image', 'text'] as const).map(t => (
@@ -2062,7 +2081,7 @@ function PresentationSection() {
         </div>
       )}
 
-      {/* Items Preview Grid — ALWAYS visible */}
+      {/* Items History — ALWAYS visible */}
       {items.length === 0 && (
         <div className="text-center py-8">
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay contenido de presentación todavía.</p>
@@ -2070,43 +2089,50 @@ function PresentationSection() {
         </div>
       )}
 
-      {items.length > 0 && (
+      {sortedItems.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-medium mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Vista previa ({items.length} item{items.length !== 1 ? 's' : ''}) — así se verá en el Login:
+            Contenido cargado ({sortedItems.length} item{sortedItems.length !== 1 ? 's' : ''}) — orden: texto, videos, imágenes
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {items.map((item: any) => {
+          <div className="space-y-2">
+            {sortedItems.map((item: any) => {
               const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
               return (
-                <div key={item.id} className="rounded-lg overflow-hidden relative group" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  {item.type === 'image' && (
-                    <img src={item.content} alt={item.title || ''} className="w-full h-24 object-cover" />
-                  )}
-                  {item.type === 'video' && ytId && (
-                    <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={item.title || ''} className="w-full h-24 object-cover" />
-                  )}
-                  {item.type === 'video' && !ytId && (
-                    <div className="w-full h-24 flex items-center justify-center"><Video className="h-6 w-6" style={{ color: '#ef4444' }} /></div>
-                  )}
-                  {item.type === 'text' && (
-                    <div className="w-full h-24 p-2 overflow-hidden">
-                      <div className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.6)' }} dangerouslySetInnerHTML={{ __html: item.content.slice(0, 120) }} />
-                    </div>
-                  )}
-                  {/* Title + actions overlay */}
-                  <div className="px-2 py-1.5 flex items-center justify-between" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                    <p className="text-[10px] font-medium truncate flex-1" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                      {item.title || (item.type === 'video' ? '🎬' : item.type === 'image' ? '🖼️' : '📝')}
+                <div key={item.id} className="flex items-center gap-3 rounded-xl p-3 group" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {/* Preview thumbnail */}
+                  <div className="w-20 h-14 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                    {item.type === 'image' && <img src={item.content} alt="" className="w-full h-full object-cover" />}
+                    {item.type === 'video' && ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />}
+                    {item.type === 'video' && !ytId && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
+                    {item.type === 'text' && <div className="w-full h-full flex items-center justify-center"><Type className="h-5 w-5" style={{ color: '#60a5fa' }} /></div>}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{item.title || '(Sin título)'}</p>
+                    <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      {item.type === 'video' ? `Video: ${item.content.slice(0, 50)}` : item.type === 'image' ? 'Imagen' : `Texto: ${item.content.replace(/<[^>]*>/g, '').slice(0, 50)}`}
                     </p>
-                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => startEdit(item)} className="p-1 rounded hover:bg-white/10">
-                        <Pencil className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.5)' }} />
-                      </button>
-                      <button onClick={() => { if (confirm('¿Eliminar?')) deleteMut.mutate({ id: item.id }); }} className="p-1 rounded hover:bg-red-500/20">
-                        <Trash2 className="h-3 w-3" style={{ color: '#ef4444' }} />
-                      </button>
-                    </div>
+                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-medium" style={{
+                      background: item.type === 'video' ? 'rgba(239,68,68,0.15)' : item.type === 'image' ? 'rgba(34,197,94,0.15)' : 'rgba(96,165,250,0.15)',
+                      color: item.type === 'video' ? '#f87171' : item.type === 'image' ? '#4ade80' : '#60a5fa',
+                    }}>
+                      {item.type === 'video' ? 'VIDEO' : item.type === 'image' ? 'IMAGEN' : 'TEXTO'}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Editar">
+                      <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                    </button>
+                    <button
+                      onClick={() => { if (confirm('¿Eliminar este item?')) deleteMut.mutate({ id: item.id }); }}
+                      className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" style={{ color: '#ef4444' }} />
+                    </button>
                   </div>
                 </div>
               );
