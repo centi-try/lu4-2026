@@ -78,6 +78,7 @@ export default function Login() {
   // Presentation content (public endpoint — no auth needed)
   const [presPage, setPresPage] = useState(1);
   const [presTransition, setPresTransition] = useState(false);
+  const [modalItem, setModalItem] = useState<{ type: string; content: string; title?: string } | null>(null);
   const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 8 });
   // Fetch ALL text items separately (not paginated — they stay fixed at top)
   const presAllQ = trpc.presentation.list.useQuery({ page: 1, limit: 200 });
@@ -349,8 +350,9 @@ export default function Login() {
                   {presQ.data.items.filter((it: any) => it.type !== 'text').map((item: any) => (
                     <div
                       key={item.id}
-                      className="rounded-xl overflow-hidden"
+                      className="rounded-xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
                       style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}
+                      onClick={() => setModalItem({ type: item.type, content: item.content, title: item.title })}
                     >
                       {item.type === 'image' && (
                         <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
@@ -360,13 +362,16 @@ export default function Login() {
                         if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
                         return (
                           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                            <iframe
-                              src={`https://www.youtube.com/embed/${vid}`}
-                              title={item.title || 'Video'}
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              className="absolute inset-0 w-full h-full rounded-t-xl"
+                            <img
+                              src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`}
+                              alt={item.title || 'Video'}
+                              className="absolute inset-0 w-full h-full object-cover rounded-t-xl"
                             />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,0,0,0.85)' }}>
+                                <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><polygon points="5,3 19,12 5,21" /></svg>
+                              </div>
+                            </div>
                           </div>
                         );
                       })()}
@@ -675,6 +680,51 @@ export default function Login() {
       </>)}
       </div>
       </div>
+
+      {/* Modal for video/image zoom */}
+      {modalItem && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setModalItem(null)}
+        >
+          <div
+            className="relative w-full max-w-4xl animate-in fade-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setModalItem(null)}
+              className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold transition-all hover:scale-110"
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
+            >×</button>
+            {modalItem.type === 'video' && (() => {
+              const vid = extractYoutubeId(modalItem.content);
+              if (!vid) return null;
+              return (
+                <div className="relative w-full rounded-2xl overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${vid}?autoplay=1`}
+                    title={modalItem.title || 'Video'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full"
+                  />
+                </div>
+              );
+            })()}
+            {modalItem.type === 'image' && (
+              <img
+                src={modalItem.content}
+                alt={modalItem.title || ''}
+                className="w-full max-h-[85vh] object-contain rounded-2xl"
+              />
+            )}
+            {modalItem.title && (
+              <p className="text-center mt-3 text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.8)' }}>{modalItem.title}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
