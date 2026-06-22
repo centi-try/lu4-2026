@@ -79,6 +79,8 @@ export default function Login() {
   const [presPage, setPresPage] = useState(1);
   const [presTransition, setPresTransition] = useState(false);
   const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 12 });
+  // Fetch ALL text items separately (not paginated — they stay fixed at top)
+  const presAllQ = trpc.presentation.list.useQuery({ page: 1, limit: 200 });
 
   // Preload carousel images during splash
   useEffect(() => {
@@ -311,12 +313,7 @@ export default function Login() {
             <div className="rounded-2xl border p-6" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
               {(presQ.isLoading || presTransition) && (
                 <div className="flex flex-col items-center justify-center py-16">
-                  <div className="flex justify-center mb-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(232,121,249,0.1))' }}>
-                      <span className="text-lg font-black" style={{ color: '#7bf1d6' }}>L2</span>
-                    </div>
-                  </div>
-                  <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mb-3" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
+                  <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin mb-3" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
                   <p className="text-xs font-medium" style={{ color: 'rgba(123,241,214,0.6)' }}>Cargando contenido...</p>
                 </div>
               )}
@@ -326,64 +323,60 @@ export default function Login() {
                   <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
                 </div>
               )}
-              {!presTransition && !presQ.isFetching && presQ.data && presQ.data.items.length > 0 && (() => {
-                const textItems = presQ.data.items.filter((it: any) => it.type === 'text');
-                const mediaItems = presQ.data.items.filter((it: any) => it.type !== 'text');
+              {/* Text items — FIXED at top, not paginated */}
+              {presAllQ.data && (() => {
+                const textItems = presAllQ.data.items.filter((it: any) => it.type === 'text');
+                if (textItems.length === 0) return null;
                 return (
-                  <div>
-                    {/* Text items first — intro/presentation */}
-                    {textItems.length > 0 && (
-                      <div className="mb-6 space-y-3">
-                        {textItems.map((item: any) => (
-                          <div key={item.id} className="rounded-xl p-5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                            {item.title && (
-                              <h3 className="text-base font-bold mb-2" style={{ color: '#7bf1d6' }}>{item.title}</h3>
-                            )}
-                            <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
-                          </div>
-                        ))}
+                  <div className="mb-6 space-y-3">
+                    {textItems.map((item: any) => (
+                      <div key={item.id} className="rounded-xl p-5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        {item.title && (
+                          <h3 className="text-base font-bold mb-2" style={{ color: '#7bf1d6' }}>{item.title}</h3>
+                        )}
+                        <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
                       </div>
-                    )}
-
-                    {/* Videos and images below */}
-                    {mediaItems.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {mediaItems.map((item: any) => (
-                          <div
-                            key={item.id}
-                            className="rounded-xl overflow-hidden"
-                            style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}
-                          >
-                            {item.type === 'image' && (
-                              <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
-                            )}
-                            {item.type === 'video' && (() => {
-                              const vid = extractYoutubeId(item.content);
-                              if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
-                              return (
-                                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                                  <iframe
-                                    src={`https://www.youtube.com/embed/${vid}`}
-                                    title={item.title || 'Video'}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    className="absolute inset-0 w-full h-full rounded-t-xl"
-                                  />
-                                </div>
-                              );
-                            })()}
-                            {item.title && (
-                              <div className="p-3">
-                                <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    ))}
                   </div>
                 );
               })()}
+
+              {/* Videos and images — paginated */}
+              {!presTransition && !presQ.isFetching && presQ.data && presQ.data.items.filter((it: any) => it.type !== 'text').length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {presQ.data.items.filter((it: any) => it.type !== 'text').map((item: any) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl overflow-hidden"
+                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}
+                    >
+                      {item.type === 'image' && (
+                        <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
+                      )}
+                      {item.type === 'video' && (() => {
+                        const vid = extractYoutubeId(item.content);
+                        if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
+                        return (
+                          <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                            <iframe
+                              src={`https://www.youtube.com/embed/${vid}`}
+                              title={item.title || 'Video'}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="absolute inset-0 w-full h-full rounded-t-xl"
+                            />
+                          </div>
+                        );
+                      })()}
+                      {item.title && (
+                        <div className="p-3">
+                          <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Paginator */}
               {!presTransition && presQ.data && presQ.data.totalPages > 1 && (
