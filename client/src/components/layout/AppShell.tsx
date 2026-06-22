@@ -119,8 +119,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r transition-transform duration-300 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ background: 'rgba(6,9,16,0.95)', borderColor: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
 
-        <div className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <img src="/raptor-logo.png" alt="RaptorSquad" className="h-10 w-auto object-contain" />
+        <div className="flex items-center gap-3 border-b px-5 py-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
+            <Package className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+          </div>
           <div>
             <p className="text-sm font-bold text-gradient">RaptorSquad</p>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Control Dashboard</p>
@@ -232,10 +234,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Menu className="h-5 w-5" style={{ color: 'rgba(255,255,255,0.6)' }} />
               )}
             </button>
-            <div className="hidden sm:flex items-center gap-2">
-              <img src="/raptor-logo.png" alt="RaptorSquad" className="h-8 w-auto object-contain" />
-              <h1 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>RaptorSquad Control Dashboard</h1>
-            </div>
+            <h1 className="text-lg font-bold hidden sm:block" style={{ color: 'rgba(255,255,255,0.9)' }}>
+              RaptorSquad Control Dashboard
+            </h1>
           </div>
 
           <div className="relative">

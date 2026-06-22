@@ -149,9 +149,8 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img src="/raptor-logo.png" alt="RaptorSquad" className="h-32 w-auto object-contain drop-shadow-2xl" />
+            <img src="/raptor-login-bg.png" alt="RaptorSquad" className="w-full max-w-md h-auto object-contain rounded-xl" style={{ filter: 'drop-shadow(0 0 20px rgba(123,241,214,0.3))' }} />
           </div>
-          <h1 className="text-3xl font-bold text-gradient mb-2">RaptorSquad</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
             Control Dashboard · Sistema de Gestión
           </p>
