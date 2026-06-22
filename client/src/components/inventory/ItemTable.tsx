@@ -203,28 +203,31 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
                 <div className="space-y-2">
                   {purchases.map((p, idx) => {
                     const isInternal = !!p.isInternalSale;
+                    const isExternal = !!(p as any).isExternalSale;
                     const date = new Date(p.createdAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const tagStyle = isExternal
+                      ? { background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }
+                      : isInternal
+                        ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }
+                        : { background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' };
+                    const tagLabel = isExternal ? 'Venta Externa (City)' : isInternal ? `Venta Interna (-${p.discountPct || 20}%)` : 'Venta Normal';
                     return (
                       <div
                         key={p.id || idx}
                         className="rounded-xl p-3"
                         style={{
-                          background: isInternal ? 'rgba(251,191,36,0.04)' : 'rgba(255,255,255,0.02)',
-                          border: `1px solid ${isInternal ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)'}`,
+                          background: isExternal ? 'rgba(56,189,248,0.04)' : isInternal ? 'rgba(251,191,36,0.04)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${isExternal ? 'rgba(56,189,248,0.15)' : isInternal ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)'}`,
                         }}
                       >
                         {/* Comprador + tipo de venta */}
                         <div className="flex items-center justify-between mb-2">
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Comprador</span>
-                            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{p.buyerName}</p>
+                            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>{isExternal ? 'Venta' : 'Comprador'}</span>
+                            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{isExternal ? 'Venta Externa (City)' : p.buyerName}</p>
                           </div>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                            style={isInternal
-                              ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }
-                              : { background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' }
-                            }>
-                            {isInternal ? `Venta Interna (-${p.discountPct || 20}%)` : 'Venta Normal'}
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={tagStyle}>
+                            {tagLabel}
                           </span>
                         </div>
                         {/* Detalle con etiquetas — 2 columnas alineadas */}
@@ -383,6 +386,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [sellQty, setSellQty] = useState('1');
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
   const [isInternalSale, setIsInternalSale] = useState(false);
+  const [isExternalSale, setIsExternalSale] = useState(false);
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
   const [sellReservsOpen, setSellReservsOpen] = useState(false);
@@ -513,6 +517,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setSellQty('1');
     setSelectedBuyerId('');
     setIsInternalSale(false);
+    setIsExternalSale(false);
     setSellReservsOpen(false);
     setSellDistribOpen(false);
   };
@@ -525,30 +530,46 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       toast.error(`Cantidad inválida. Máximo disponible: ${remaining}`);
       return;
     }
-    if (!selectedBuyerId) {
-      toast.error('Debes seleccionar un comprador');
-      return;
-    }
 
-    const buyer = legacyBuyers.find((u: any) => String(u.id) === String(selectedBuyerId));
-    if (!buyer) {
-      toast.error('Comprador no encontrado');
-      return;
-    }
-
-    sellItem({ 
-      itemId: sellModalItem.id, 
-      quantityToSell: qty,
-      buyerId: buyer.id,
-      buyerName: buyer.name,
-      isInternalSale,
-    });
-
-    const newRemaining = remaining - qty;
-    if (newRemaining === 0) {
-      toast.success(`"${sellModalItem.name}" completamente vendido a ${buyer.name}.`);
+    if (isExternalSale) {
+      sellItem({ 
+        itemId: sellModalItem.id, 
+        quantityToSell: qty,
+        buyerId: 'external-city',
+        buyerName: 'Venta Externa (City)',
+        isInternalSale: false,
+        isExternalSale: true,
+      });
+      const newRemaining = remaining - qty;
+      if (newRemaining === 0) {
+        toast.success(`"${sellModalItem.name}" vendido por fuera (City).`);
+      } else {
+        toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" por fuera (City). Quedan ${newRemaining}.`);
+      }
     } else {
-      toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" a ${buyer.name}. Quedan ${newRemaining}.`);
+      if (!selectedBuyerId) {
+        toast.error('Debes seleccionar un comprador');
+        return;
+      }
+      const buyer = legacyBuyers.find((u: any) => String(u.id) === String(selectedBuyerId));
+      if (!buyer) {
+        toast.error('Comprador no encontrado');
+        return;
+      }
+      sellItem({ 
+        itemId: sellModalItem.id, 
+        quantityToSell: qty,
+        buyerId: buyer.id,
+        buyerName: buyer.name,
+        isInternalSale,
+        isExternalSale: false,
+      });
+      const newRemaining = remaining - qty;
+      if (newRemaining === 0) {
+        toast.success(`"${sellModalItem.name}" completamente vendido a ${buyer.name}.`);
+      } else {
+        toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" a ${buyer.name}. Quedan ${newRemaining}.`);
+      }
     }
     setSellModalItem(null);
   };
@@ -1104,30 +1125,67 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               </div>
             )}
 
-            {/* Selector de Comprador */}
-            <div className="mb-3">
-              <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Asignar a Comprador/Cuenta
-              </label>
-              <FancySelect<string>
-                value={selectedBuyerId}
-                onChange={(v) => setSelectedBuyerId(String(v))}
-                accent="turquoise"
-                size="lg"
-                placeholder="Seleccionar cuenta..."
-                searchable
-                searchPlaceholder="Buscar personaje..."
-                options={legacyBuyers.map((u: any) => ({
-                  value: String(u.id),
-                  label: u.name,
-                  description: u.classMain || u.role,
-                  emoji: '👤',
-                } as FancyOption<string>))}
-              />
+            {/* Tipo de venta: toggle entre Interna y Externa (City) */}
+            <div className="mb-3 rounded-xl p-3" style={{ background: isExternalSale ? 'rgba(56,189,248,0.06)' : 'rgba(251,191,36,0.06)', border: `1px solid ${isExternalSale ? 'rgba(56,189,248,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalSale(false); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: !isExternalSale ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: !isExternalSale ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                    border: !isExternalSale ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  🏠 Venta Interna (Clan)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalSale(true); setIsInternalSale(false); setSelectedBuyerId(''); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: isExternalSale ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: isExternalSale ? '#38bdf8' : 'rgba(255,255,255,0.4)',
+                    border: isExternalSale ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  🏙️ Venta Externa (City)
+                </button>
+              </div>
+              {isExternalSale && (
+                <p className="text-xs mt-2" style={{ color: 'rgba(56,189,248,0.6)' }}>
+                  Venta a jugadores fuera del clan. Sin descuento interno. Solo aplica retención del clan.
+                </p>
+              )}
             </div>
 
-            {/* Venta Interna Clan toggle */}
-            {clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
+            {/* Selector de Comprador — solo para venta interna */}
+            {!isExternalSale && (
+              <div className="mb-3">
+                <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  Asignar a Comprador/Cuenta
+                </label>
+                <FancySelect<string>
+                  value={selectedBuyerId}
+                  onChange={(v) => setSelectedBuyerId(String(v))}
+                  accent="turquoise"
+                  size="lg"
+                  placeholder="Seleccionar cuenta..."
+                  searchable
+                  searchPlaceholder="Buscar personaje..."
+                  options={legacyBuyers.map((u: any) => ({
+                    value: String(u.id),
+                    label: u.name,
+                    description: u.classMain || u.role,
+                    emoji: '👤',
+                  } as FancyOption<string>))}
+                />
+              </div>
+            )}
+
+            {/* Descuento venta interna — solo si es venta interna y tiene descuento configurado */}
+            {!isExternalSale && clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
               <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
                 {Number(clanFundSettings.internalDiscountPercent) > 0 && (
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1147,6 +1205,15 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Retención del clan para venta externa */}
+            {isExternalSale && clanFundSettings && Number(clanFundSettings.clanTaxPercent) > 0 && (
+              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                <p className="text-xs" style={{ color: 'rgba(56,189,248,0.7)' }}>
+                  🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
+                </p>
               </div>
             )}
 
@@ -1178,8 +1245,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
                 return (
                   <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
-                    <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar {isExternalSale ? '(Venta Externa)' : ''}</p>
+                    <p className="text-xl font-bold font-mono" style={{ color: isExternalSale ? '#38bdf8' : '#a78bfa' }}>
                       ${totalAfterDiscount.toLocaleString()}
                     </p>
                     {discPct > 0 && (
@@ -1188,7 +1255,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       </p>
                     )}
                     {clanAmt > 0 && (
-                      <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                      <p className="text-xs mt-1" style={{ color: isExternalSale ? '#38bdf8' : '#fbbf24' }}>
                         🏰 Clan: ${clanAmt.toLocaleString()} ({clanPct}%) · Neto: ${netAmount.toLocaleString()}
                       </p>
                     )}

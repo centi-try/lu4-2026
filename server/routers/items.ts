@@ -41,6 +41,7 @@ const SellItemSchema = z.object({
   buyerId: z.string(),
   buyerName: z.string(),
   isInternalSale: z.boolean().optional(),
+  isExternalSale: z.boolean().optional(),
 });
 
 export const itemsRouter = router({
@@ -254,6 +255,7 @@ export const itemsRouter = router({
         originalPrice: item.price,
         total: totalRevenue,
         isInternalSale: input.isInternalSale || false,
+        isExternalSale: input.isExternalSale || false,
         discountPct: discountPct || 0,
         clanTax: clanTaxAmount,
       });
@@ -265,7 +267,7 @@ export const itemsRouter = router({
         actorName: ctx.user?.characterName || ctx.user?.name || "Sistema",
         actorRole: ctx.user?.role || "USER",
         action: "SOLD_ITEM",
-        detail: `Vendió ${input.quantity} unidad(es) de "${item.name}" a ${input.buyerName}. Total: $${totalRevenue.toLocaleString()}${clanTaxAmount > 0 ? ` (Clan: $${clanTaxAmount.toLocaleString()})` : ''}${input.isInternalSale ? ' [Venta Interna]' : ''}.`,
+        detail: `Vendió ${input.quantity} unidad(es) de "${item.name}"${input.isExternalSale ? ' [Venta Externa - City]' : ` a ${input.buyerName}`}. Total: $${totalRevenue.toLocaleString()}${clanTaxAmount > 0 ? ` (Clan: $${clanTaxAmount.toLocaleString()})` : ''}${input.isInternalSale ? ' [Venta Interna]' : ''}.`,
         details: {
           itemId: input.id,
           quantity: input.quantity,

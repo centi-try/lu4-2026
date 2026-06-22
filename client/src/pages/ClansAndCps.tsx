@@ -12,8 +12,13 @@ export default function ClansAndCps() {
   const { data: cpSelector = [] } = trpc.warehouse.commandParties.cpSelector.useQuery();
   const ledCpIds = useMemo(() => {
     if (isSA) return [];
+    const uid = Number(currentUser?.id);
     return (cpSelector as any[])
-      .filter((cp: any) => Number(cp.leaderId) === Number(currentUser?.id))
+      .filter((cp: any) => {
+        if (Number(cp.leaderId) === uid) return true;
+        if (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(uid)) return true;
+        return false;
+      })
       .map((cp: any) => Number(cp.id));
   }, [cpSelector, currentUser, isSA]);
 

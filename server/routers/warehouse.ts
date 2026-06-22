@@ -41,12 +41,19 @@ const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Resolve the raid CP(s) this user leads. Returns array of cpIds. */
+/** Resolve the CP(s) this user leads (checks both raid and warehouse CPs). Returns array of cpIds. */
 async function getCpIdsLedByUser(userId: number): Promise<number[]> {
-  const allCps = await getRaidCommandParties();
+  const [raidCps, warehouseCps] = await Promise.all([getRaidCommandParties(), getWarehouseCPs()]);
+  const allCps = [...raidCps, ...warehouseCps];
+  const seen = new Set<number>();
   return allCps
-    .filter((cp: any) => Number(cp.leaderId) === userId)
-    .map((cp: any) => Number(cp.id));
+    .filter((cp: any) => {
+      if (Number(cp.leaderId) === userId) return true;
+      if (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(userId)) return true;
+      return false;
+    })
+    .map((cp: any) => Number(cp.id))
+    .filter(id => { if (seen.has(id)) return false; seen.add(id); return true; });
 }
 
 /** Check if user can WRITE to a given CP's warehouse (SA or CP leader). */
@@ -67,12 +74,19 @@ export const warehouseRouter = router({
       const leader = cp.leaderId
         ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId))
         : null;
+      const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+      const names = ids.map((lid: number) => {
+        const u = allUsers.find((u: any) => Number(u.id) === lid);
+        return u?.characterName || u?.name || null;
+      }).filter(Boolean);
       return {
         id: Number(cp.id),
         name: cp.name,
         clanId: Number(cp.clanId),
         leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+        leaderIds: ids,
         leaderName: leader?.characterName || leader?.name || null,
+        leaderNames: names,
       };
     });
   }),
@@ -1095,14 +1109,33 @@ export const warehouseRouter = router({
             addedAt: m.addedAt,
           };
         });
+        const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+        const leaderNames = ids.map((lid: number) => {
+          const u = allUsers.find((u: any) => Number(u.id) === lid);
+          return u?.characterName || u?.name || null;
+        }).filter(Boolean);
         return {
           ...cp,
           clanName: clan?.name || 'Sin clan',
+          leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+          leaderIds: ids,
           leaderName: leader?.characterName || leader?.name || null,
+          leaderNames,
           members: membersWithInfo,
           memberCount: membersWithInfo.length,
         };
       });
+    }),
+
+    cpSelector: protectedProcedure.query(async () => {
+      const allCps = await getWarehouseCPs();
+      return allCps.map((cp: any) => ({
+        id: Number(cp.id),
+        name: cp.name,
+        clanId: Number(cp.clanId),
+        leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+        leaderIds: Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []),
+      }));
     }),
 
     create: protectedProcedure
@@ -1121,6 +1154,7 @@ export const warehouseRouter = router({
         id: z.number(),
         name: z.string().min(1).optional(),
         leaderId: z.number().nullable().optional(),
+        leaderIds: z.array(z.number()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -1128,6 +1162,7 @@ export const warehouseRouter = router({
         const data: any = {};
         if (input.name) data.name = input.name;
         if (input.leaderId !== undefined) data.leaderId = input.leaderId;
+        if (input.leaderIds !== undefined) data.leaderIds = input.leaderIds;
         const cp = await updateWarehouseCP(input.id, data);
         if (!cp) throw new TRPCError({ code: 'NOT_FOUND' });
         return { success: true, cp };
@@ -1197,7 +1232,7 @@ export const warehouseRouter = router({
             email: user.email || '',
             classMain: user.classMain || null,
             cpStatus: m.status || 'confirmed',
-            isLeader: Number(cp.leaderId) === Number(user.id),
+            isLeader: Number(cp.leaderId) === Number(user.id) || (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(Number(user.id))),
             secondaryCharacters: secondaries.filter((sc: any) => Number(sc.userId) === Number(user.id)),
             addedAt: m.addedAt,
           };

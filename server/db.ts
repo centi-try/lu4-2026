@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
 export const DEFAULT_SUPER_ADMIN_EMAIL = 'eclipce.callejero@gmail.com';
-export const DEFAULT_SUPER_ADMIN_PASSWORD = 'super#10601@';
+export const DEFAULT_SUPER_ADMIN_PASSWORD = '12345';
 export const DEFAULT_SUPER_ADMIN_NAME = 'Super Admin';
 
 // ============================================================================
@@ -2186,6 +2186,7 @@ export const updateCommandParty = async (id: number, data: Partial<{
   name: string;
   clanId: number;
   leaderId: number | null;
+  leaderIds: number[];
 }>) => {
   if (!dbInstance.raidCommandParties) dbInstance.raidCommandParties = [];
   const idx = dbInstance.raidCommandParties.findIndex((cp: any) => Number(cp.id) === Number(id));
@@ -3849,6 +3850,7 @@ export const createWarehouseCP = async (data: { name: string; clanId: number }) 
 export const updateWarehouseCP = async (id: number, data: Partial<{
   name: string;
   leaderId: number | null;
+  leaderIds: number[];
 }>) => {
   if (!dbInstance.warehouseCPs) dbInstance.warehouseCPs = [];
   const idx = dbInstance.warehouseCPs.findIndex((cp: any) => Number(cp.id) === Number(id));

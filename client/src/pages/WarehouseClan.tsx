@@ -257,7 +257,11 @@ export default function WarehouseClan() {
   const [selectedCpId, setSelectedCpId] = useState<number | null>(null);
   const { data: warehouseCps = [] } = trpc.warehouse.listCps.useQuery(undefined, { refetchInterval: 5000 });
   const ledCpIds = useMemo(() => {
-    return (warehouseCps as any[]).filter((cp: any) => Number(cp.leaderId) === currentUserId).map((cp: any) => Number(cp.id));
+    return (warehouseCps as any[]).filter((cp: any) => {
+      if (Number(cp.leaderId) === currentUserId) return true;
+      if (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(currentUserId)) return true;
+      return false;
+    }).map((cp: any) => Number(cp.id));
   }, [warehouseCps, currentUserId]);
   const isLeaderOfSelected = selectedCpId != null && ledCpIds.includes(selectedCpId);
   const canRegister = isSA || roleLc === 'admin' || roleLc === 'mapper' || isLeaderOfSelected;

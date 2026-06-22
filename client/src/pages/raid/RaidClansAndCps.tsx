@@ -84,6 +84,7 @@ export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryCh
   const [editingCp, setEditingCp] = useState<any | null>(null);
   const [editCpName, setEditCpName] = useState('');
   const [editCpLeaderId, setEditCpLeaderId] = useState<string>('');
+  const [editCpLeaderIds, setEditCpLeaderIds] = useState<number[]>([]);
   const [deleteConfirmCp, setDeleteConfirmCp] = useState<any | null>(null);
   const [reassignModal, setReassignModal] = useState<any | null>(null);
   const [reassignClanId, setReassignClanId] = useState('');
@@ -135,7 +136,8 @@ export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryCh
         updateCp.mutate({
           id: Number(editingCp.id),
           name: editCpName.trim(),
-          leaderId: editCpLeaderId ? Number(editCpLeaderId) : null,
+          leaderId: editCpLeaderIds.length > 0 ? editCpLeaderIds[0] : null,
+          leaderIds: editCpLeaderIds,
         });
         setEditingCp(null);
       },
@@ -300,6 +302,7 @@ export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryCh
                 setEditingCp(cp);
                 setEditCpName(cp.name);
                 setEditCpLeaderId(cp.leaderId ? String(cp.leaderId) : '');
+                setEditCpLeaderIds(Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []));
               }}
               onDelete={() => setDeleteConfirmCp(cp)}
               onSetMemberStatus={handleSetMemberStatus}
@@ -360,6 +363,8 @@ export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryCh
             setCpName={setEditCpName}
             leaderId={editCpLeaderId}
             setLeaderId={setEditCpLeaderId}
+            leaderIds={editCpLeaderIds}
+            setLeaderIds={setEditCpLeaderIds}
             onSave={handleEditCp}
             onCancel={() => setEditingCp(null)}
           />
@@ -503,13 +508,15 @@ export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryCh
 // ---------- Edit CP Modal with leader dropdown ----------
 
 function EditCpModal({
-  cp, cpName, setCpName, leaderId, setLeaderId, onSave, onCancel,
+  cp, cpName, setCpName, leaderId, setLeaderId, leaderIds, setLeaderIds, onSave, onCancel,
 }: {
   cp: any;
   cpName: string;
   setCpName: (v: string) => void;
   leaderId: string;
   setLeaderId: (v: string) => void;
+  leaderIds: number[];
+  setLeaderIds: (v: number[]) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
@@ -518,6 +525,14 @@ function EditCpModal({
     { enabled: !!cp.id },
   );
   const clanMembers = (cpMembersQ.data || []) as any[];
+
+  const toggleLeader = (uid: number) => {
+    if (leaderIds.includes(uid)) {
+      setLeaderIds(leaderIds.filter(id => id !== uid));
+    } else {
+      setLeaderIds([...leaderIds, uid]);
+    }
+  };
 
   return (
     <div className="w-full max-w-sm rounded-2xl p-6"
@@ -536,23 +551,38 @@ function EditCpModal({
             className="input-dark w-full" />
         </div>
         <div>
-          <label className="block text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Leader</label>
+          <label className="block text-xs mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Leaders <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>({leaderIds.length} seleccionado{leaderIds.length !== 1 ? 's' : ''})</span>
+          </label>
           {cpMembersQ.isLoading ? (
             <p className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Cargando miembros...</p>
+          ) : clanMembers.length === 0 ? (
+            <p className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay miembros en esta CP</p>
           ) : (
-            <select
-              value={leaderId}
-              onChange={e => setLeaderId(e.target.value)}
-              className="input-dark w-full"
-              style={{ appearance: 'none' }}
-            >
-              <option value="">Sin leader asignado</option>
-              {clanMembers.map((m: any) => (
-                <option key={m.id} value={String(m.id)}>
-                  {m.characterName || m.name}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {clanMembers.map((m: any) => {
+                const isSelected = leaderIds.includes(Number(m.id));
+                return (
+                  <label key={m.id} className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+                    style={{ background: isSelected ? 'rgba(232,121,249,0.08)' : 'transparent', border: `1px solid ${isSelected ? 'rgba(232,121,249,0.2)' : 'transparent'}` }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleLeader(Number(m.id))}
+                      className="accent-fuchsia-400 h-4 w-4"
+                    />
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0"
+                      style={{ background: isSelected ? 'rgba(232,121,249,0.25)' : 'rgba(167,139,250,0.2)' }}>
+                      {(m.characterName || m.name || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-sm" style={{ color: isSelected ? '#e879f9' : 'rgba(255,255,255,0.7)' }}>
+                      {m.characterName || m.name}
+                    </span>
+                    {isSelected && <Crown className="h-3.5 w-3.5 ml-auto" style={{ color: '#fbbf24' }} />}
+                  </label>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
