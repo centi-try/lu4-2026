@@ -189,7 +189,7 @@ export default function Login() {
             ))}
           </div>
           <div className="w-full text-center pb-6">
-            <p className="text-2xl font-black tracking-[0.3em] text-gradient" style={{ letterSpacing: '0.3em' }}>
+            <p className="text-2xl font-black tracking-[0.3em]" style={{ letterSpacing: '0.3em', color: '#7bf1d6' }}>
               LINEAGE II
             </p>
           </div>
