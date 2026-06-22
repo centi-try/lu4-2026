@@ -316,7 +316,7 @@ export default function Login() {
                 const textItems = presAllQ.data.items.filter((it: any) => it.type === 'text');
                 if (textItems.length === 0) return null;
                 return (
-                  <div className="mb-6 space-y-3 overflow-y-auto" style={{ maxHeight: '150px' }}>
+                  <div className="mb-6 space-y-3">
                     {textItems.map((item: any) => (
                       <div key={item.id} className="rounded-xl p-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.06), rgba(167,139,250,0.06))', border: '1px solid rgba(123,241,214,0.2)' }}>
                         {item.title && (
@@ -345,7 +345,7 @@ export default function Login() {
 
               {/* Videos and images — paginated */}
               {!presTransition && !presQ.isFetching && presQ.data && presQ.data.items.filter((it: any) => it.type !== 'text').length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {presQ.data.items.filter((it: any) => it.type !== 'text').map((item: any) => (
                     <div
                       key={item.id}
