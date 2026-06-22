@@ -78,7 +78,7 @@ export default function Login() {
   // Presentation content (public endpoint — no auth needed)
   const [presPage, setPresPage] = useState(1);
   const [presTransition, setPresTransition] = useState(false);
-  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 12 });
+  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 8 });
   // Fetch ALL text items separately (not paginated — they stay fixed at top)
   const presAllQ = trpc.presentation.list.useQuery({ page: 1, limit: 200 });
 
@@ -311,8 +311,27 @@ export default function Login() {
           {/* Presentation Tab */}
           {activeTab === 'presentation' && (
             <div className="rounded-2xl border p-6" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
+              {/* Text items — FIXED at top, not paginated, always visible */}
+              {presAllQ.data && (() => {
+                const textItems = presAllQ.data.items.filter((it: any) => it.type === 'text');
+                if (textItems.length === 0) return null;
+                return (
+                  <div className="mb-6 space-y-3">
+                    {textItems.map((item: any) => (
+                      <div key={item.id} className="rounded-xl p-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.06), rgba(167,139,250,0.06))', border: '1px solid rgba(123,241,214,0.2)' }}>
+                        {item.title && (
+                          <h3 className="text-lg font-black tracking-wide mb-2" style={{ color: '#7bf1d6' }}>{item.title}</h3>
+                        )}
+                        <div className="text-sm leading-relaxed font-medium" style={{ color: 'rgba(255,255,255,0.8)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Spinner — shows below text during pagination */}
               {(presQ.isLoading || presTransition) && (
-                <div className="flex flex-col items-center justify-center py-16">
+                <div className="flex flex-col items-center justify-center py-12">
                   <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin mb-3" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
                   <p className="text-xs font-medium" style={{ color: 'rgba(123,241,214,0.6)' }}>Cargando contenido...</p>
                 </div>
@@ -323,23 +342,6 @@ export default function Login() {
                   <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
                 </div>
               )}
-              {/* Text items — FIXED at top, not paginated */}
-              {presAllQ.data && (() => {
-                const textItems = presAllQ.data.items.filter((it: any) => it.type === 'text');
-                if (textItems.length === 0) return null;
-                return (
-                  <div className="mb-6 space-y-3">
-                    {textItems.map((item: any) => (
-                      <div key={item.id} className="rounded-xl p-5" style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        {item.title && (
-                          <h3 className="text-base font-bold mb-2" style={{ color: '#7bf1d6' }}>{item.title}</h3>
-                        )}
-                        <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
 
               {/* Videos and images — paginated */}
               {!presTransition && !presQ.isFetching && presQ.data && presQ.data.items.filter((it: any) => it.type !== 'text').length > 0 && (
