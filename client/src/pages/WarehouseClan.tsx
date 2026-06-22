@@ -2807,7 +2807,7 @@ export default function WarehouseClan() {
                               }
                               // alltime = all data, no filter
 
-                              const daysWithObjs = [...new Set(filteredObjs.map((o: any) => (o.date || '').slice(0, 10)))].length;
+                              const daysWithObjs = Array.from(new Set(filteredObjs.map((o: any) => (o.date || '').slice(0, 10)))).length;
                               const totalDays = Math.max(daysWithObjs, 1);
                               const totalMaterialSlots = filteredObjs.reduce((acc: number, obj: any) => acc + (obj.materials || []).length, 0);
 

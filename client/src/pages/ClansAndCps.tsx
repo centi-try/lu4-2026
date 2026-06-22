@@ -5,14 +5,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { trpc } from '../lib/trpc';
 
 export default function ClansAndCps() {
-  const { currentUser } = useAuth();
-  const roleLc = String(currentUser?.role || '').toLowerCase();
+  const { user } = useAuth();
+  const roleLc = String(user?.role || '').toLowerCase();
   const isSA = roleLc === 'super_admin';
 
   const { data: cpSelector = [] } = trpc.warehouse.commandParties.cpSelector.useQuery();
   const ledCpIds = useMemo(() => {
     if (isSA) return [];
-    const uid = Number(currentUser?.id);
+    const uid = Number(user?.id);
     return (cpSelector as any[])
       .filter((cp: any) => {
         if (Number(cp.leaderId) === uid) return true;
@@ -20,7 +20,7 @@ export default function ClansAndCps() {
         return false;
       })
       .map((cp: any) => Number(cp.id));
-  }, [cpSelector, currentUser, isSA]);
+  }, [cpSelector, user, isSA]);
 
   return (
     <AppShell>

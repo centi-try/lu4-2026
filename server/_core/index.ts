@@ -58,6 +58,17 @@ import {
 const users = { name: 'users' };
 const eq = (a: any, b: any) => ({ [a]: b });
 
+// ─── Production guards ───────────────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+    console.error('[SECURITY] JWT_SECRET must be set and at least 32 characters long in production.');
+    process.exit(1);
+  }
+}
+if (!process.env.JWT_SECRET) {
+  console.warn('[SECURITY] JWT_SECRET is not set. Using fallback. Do NOT deploy to production without it.');
+}
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
@@ -1068,7 +1079,7 @@ async function startServer() {
   );
 
   // Servir imágenes de evidencia del clan fund
-  const evidencePath = path.resolve(process.cwd(), "uploads", "clan-evidence");
+  const evidencePath = path.resolve(process.env.UPLOADS_DIR || path.join(process.cwd(), "uploads"), "clan-evidence");
   app.use("/api/clan-evidence", express.static(evidencePath));
 
   if (process.env.NODE_ENV === "development") {

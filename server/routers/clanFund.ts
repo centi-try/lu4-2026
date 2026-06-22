@@ -13,7 +13,7 @@ import {
 import fs from "fs";
 import path from "path";
 
-const EVIDENCE_DIR = path.resolve(process.cwd(), "uploads", "clan-evidence");
+const EVIDENCE_DIR = path.resolve(process.env.UPLOADS_DIR || path.join(process.cwd(), "uploads"), "clan-evidence");
 
 function ensureEvidenceDir() {
   if (!fs.existsSync(EVIDENCE_DIR)) {

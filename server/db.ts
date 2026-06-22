@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
 export const DEFAULT_SUPER_ADMIN_EMAIL = 'eclipce.callejero@gmail.com';
-export const DEFAULT_SUPER_ADMIN_PASSWORD = '12345';
+export const DEFAULT_SUPER_ADMIN_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || '@nicolas#2021';
 export const DEFAULT_SUPER_ADMIN_NAME = 'Super Admin';
 
 // ============================================================================
@@ -103,6 +103,13 @@ interface DatabaseSchema {
   warehouseClans: any[];       // clanes del warehouse (id, name, createdAt)
   warehouseCPs: any[];         // command parties del warehouse (id, name, clanId, leaderId)
   warehouseCPMembers: any[];   // miembros de CP (id, cpId, userId, addedAt)
+  warehouseHistory: any[];     // historial de retiros/eliminaciones
+  warehouseSettings: any;      // configuración de visibilidad cross-CP
+  warehouseLoans: any[];       // préstamos entre CPs
+  warehouseObjectives: any[];  // objetivos diarios por CP
+  warehouseAttendance: any[];  // asistencia por objetivo
+  warehouseDailyAttendance: any[]; // asistencia diaria por CP
+  warehouseDeliveries: any[];  // entregas de materiales por objetivo
 }
 
 const initialSchema: DatabaseSchema = {
@@ -142,6 +149,13 @@ const initialSchema: DatabaseSchema = {
   warehouseClans: [],
   warehouseCPs: [],
   warehouseCPMembers: [],
+  warehouseHistory: [],
+  warehouseSettings: { crossCpVisibility: true, crossCpObjectivesVisibility: false },
+  warehouseLoans: [],
+  warehouseObjectives: [],
+  warehouseAttendance: [],
+  warehouseDailyAttendance: [],
+  warehouseDeliveries: [],
 };
 
 // ============================================================================
@@ -2326,8 +2340,8 @@ export const updateAvailableClass = async (id: number, name: string) => {
   cls.name = trimmed;
   cls.updatedAt = nowIso();
   // Propagate rename to secondary characters that reference the old class name
-  if (oldName !== trimmed && dbInstance.raidSecondaryCharacters) {
-    for (const sc of dbInstance.raidSecondaryCharacters) {
+  if (oldName !== trimmed && dbInstance.secondaryCharacters) {
+    for (const sc of dbInstance.secondaryCharacters) {
       if (String(sc.className || '').toLowerCase() === String(oldName).toLowerCase()) {
         sc.className = trimmed;
       }
