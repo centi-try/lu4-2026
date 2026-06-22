@@ -1943,6 +1943,16 @@ function PresentationSection() {
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
               />
               <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega el link completo de YouTube. Se mostrará embebido en la presentación.</p>
+              {formContent && extractYoutubeId(formContent) && (
+                <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <img
+                    src={`https://img.youtube.com/vi/${extractYoutubeId(formContent)}/mqdefault.jpg`}
+                    alt="Preview"
+                    className="w-full h-32 object-cover"
+                  />
+                  <p className="text-xs px-2 py-1" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.3)' }}>✓ Video detectado correctamente</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1986,14 +1996,17 @@ function PresentationSection() {
       )}
 
       <div className="grid gap-3">
-        {items.map((item: any) => (
+        {items.map((item: any) => {
+          const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
+          return (
           <div key={item.id} className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <GripVertical className="h-4 w-4 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.2)' }} />
             
             {/* Preview */}
-            <div className="w-16 h-12 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
+            <div className="w-20 h-14 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
               {item.type === 'image' && <img src={item.content} alt="" className="w-full h-full object-cover" />}
-              {item.type === 'video' && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
+              {item.type === 'video' && ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />}
+              {item.type === 'video' && !ytId && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
               {item.type === 'text' && <div className="w-full h-full flex items-center justify-center"><Type className="h-5 w-5" style={{ color: '#60a5fa' }} /></div>}
             </div>
 
@@ -2018,8 +2031,21 @@ function PresentationSection() {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
+}
+
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
 }

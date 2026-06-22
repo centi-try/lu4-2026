@@ -171,41 +171,46 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex" style={{ background: '#060910' }}>
-      {/* Left side: Raptor carousel (hidden on mobile) */}
-      <div
-        className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden"
-        style={{ background: '#040608' }}
-      >
-        {CAROUSEL_IMAGES.map((src, i) => (
-          <img
-            key={src}
-            src={src}
-            alt={`RaptorSquad ${i + 1}`}
-            className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
-            style={{ opacity: i === currentImg ? 1 : 0 }}
-          />
-        ))}
-      </div>
+      {/* Left side: Raptor carousel (hidden on mobile and when presentation tab active) */}
+      {activeTab === 'login' && (
+        <div
+          className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden"
+          style={{ background: '#040608' }}
+        >
+          {CAROUSEL_IMAGES.map((src, i) => (
+            <img
+              key={src}
+              src={src}
+              alt={`RaptorSquad ${i + 1}`}
+              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
+              style={{ opacity: i === currentImg ? 1 : 0 }}
+            />
+          ))}
+        </div>
+      )}
 
-      {/* Right side: Tabs (Presentación / Login) */}
+      {/* Right side: Tabs (Presentación / Login) — full width when presentation active */}
       <div
-        className="w-full lg:w-1/2 flex items-center justify-center p-6 relative overflow-y-auto"
+        className={`${activeTab === 'presentation' ? 'w-full' : 'w-full lg:w-1/2'} flex items-center justify-center p-6 relative overflow-y-auto`}
         style={{
           background: 'radial-gradient(circle at 50% 20%, rgba(123,241,214,0.04) 0%, transparent 50%), #060910',
+          maxHeight: '100vh',
         }}
       >
-        {/* Mobile background (visible only on small screens) */}
-        <div
-          className="absolute inset-0 lg:hidden"
-          style={{
-            backgroundImage: `url(${CAROUSEL_IMAGES[currentImg]})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: 0.15,
-          }}
-        />
+        {/* Mobile background (visible only on small screens when login) */}
+        {activeTab === 'login' && (
+          <div
+            className="absolute inset-0 lg:hidden"
+            style={{
+              backgroundImage: `url(${CAROUSEL_IMAGES[currentImg]})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.15,
+            }}
+          />
+        )}
 
-        <div className="w-full max-w-md relative z-10">
+        <div className={`w-full ${activeTab === 'presentation' ? 'max-w-4xl' : 'max-w-md'} relative z-10`}>
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
@@ -246,27 +251,28 @@ export default function Login() {
 
           {/* Presentation Tab */}
           {activeTab === 'presentation' && (
-            <div className="rounded-2xl border p-5" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
-              {presQ.isLoading && <p className="text-center text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Cargando...</p>}
+            <div className="rounded-2xl border p-6" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
+              {presQ.isLoading && <p className="text-center text-sm py-12" style={{ color: 'rgba(255,255,255,0.4)' }}>Cargando...</p>}
               {presQ.data && presQ.data.items.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Bienvenido a RaptorSquad</p>
-                  <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
+                <div className="text-center py-12">
+                  <p className="text-lg font-semibold" style={{ color: 'rgba(255,255,255,0.5)' }}>Bienvenido a RaptorSquad</p>
+                  <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Haz clic en "Iniciar Sesión" para acceder al sistema.</p>
                 </div>
               )}
               {presQ.data && presQ.data.items.length > 0 && (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {presQ.data.items.map((item: any) => (
-                    <div key={item.id} className="rounded-xl overflow-hidden">
-                      {item.title && (
-                        <p className="text-sm font-semibold mb-2" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
-                      )}
+                    <div
+                      key={item.id}
+                      className={`rounded-xl overflow-hidden ${item.type === 'text' ? 'md:col-span-2' : ''}`}
+                      style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)' }}
+                    >
                       {item.type === 'image' && (
-                        <img src={item.content} alt={item.title || ''} className="w-full rounded-lg object-cover max-h-64" />
+                        <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
                       )}
                       {item.type === 'video' && (() => {
                         const vid = extractYoutubeId(item.content);
-                        if (!vid) return <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
+                        if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
                         return (
                           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                             <iframe
@@ -274,53 +280,53 @@ export default function Login() {
                               title={item.title || 'Video'}
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                               allowFullScreen
-                              className="absolute inset-0 w-full h-full rounded-lg"
+                              className="absolute inset-0 w-full h-full rounded-t-xl"
                             />
                           </div>
                         );
                       })()}
                       {item.type === 'text' && (
-                        <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
+                        <div className="p-4 text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }} dangerouslySetInnerHTML={{ __html: item.content }} />
+                      )}
+                      {item.title && (item.type === 'image' || item.type === 'video') && (
+                        <div className="p-3">
+                          <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{item.title}</p>
+                        </div>
+                      )}
+                      {item.type === 'text' && item.title && (
+                        <div className="px-4 pb-3 -mt-2">
+                          <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>{item.title}</p>
+                        </div>
                       )}
                     </div>
                   ))}
-
-                  {/* Paginator */}
-                  {presQ.data.totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-3 pt-3">
-                      <button
-                        onClick={() => setPresPage(p => Math.max(1, p - 1))}
-                        disabled={presPage <= 1}
-                        className="p-1.5 rounded-lg transition-all"
-                        style={{ color: presPage <= 1 ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                        {presPage} / {presQ.data.totalPages}
-                      </span>
-                      <button
-                        onClick={() => setPresPage(p => Math.min(presQ.data!.totalPages, p + 1))}
-                        disabled={presPage >= presQ.data.totalPages}
-                        className="p-1.5 rounded-lg transition-all"
-                        style={{ color: presPage >= presQ.data.totalPages ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 
-              <div className="text-center mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                <button
-                  onClick={() => setActiveTab('login')}
-                  className="text-sm font-semibold transition hover:opacity-80"
-                  style={{ color: '#7bf1d6' }}
-                >
-                  Ir al Login →
-                </button>
-              </div>
+              {/* Paginator */}
+              {presQ.data && presQ.data.totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 pt-5">
+                  <button
+                    onClick={() => setPresPage(p => Math.max(1, p - 1))}
+                    disabled={presPage <= 1}
+                    className="px-3 py-1.5 rounded-lg text-sm transition-all"
+                    style={{ color: presPage <= 1 ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
+                  >
+                    <ChevronLeft className="h-4 w-4 inline" /> Anterior
+                  </button>
+                  <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Página {presPage} de {presQ.data.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPresPage(p => Math.min(presQ.data!.totalPages, p + 1))}
+                    disabled={presPage >= presQ.data.totalPages}
+                    className="px-3 py-1.5 rounded-lg text-sm transition-all"
+                    style={{ color: presPage >= presQ.data.totalPages ? 'rgba(255,255,255,0.2)' : '#a78bfa', background: 'rgba(255,255,255,0.05)' }}
+                  >
+                    Siguiente <ChevronRight className="h-4 w-4 inline" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
