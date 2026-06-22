@@ -1087,7 +1087,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                     className="mt-1.5 text-xs"
                     style={{ color: 'rgba(251,191,36,0.8)' }}
                   >
-                    No hay usuarios elegibles. Pedile al super admin que asigne rol raid a alguien.
+                    No hay usuarios elegibles. Pídele al super admin que asigne rol raid a alguien.
                   </p>
                 )}
               </div>
@@ -1179,7 +1179,7 @@ export default function RaidDropsTable({ raidAccess }: Props) {
                       return;
                     }
                     if (!selectedBuyerId) {
-                      toast.error('Seleccioná un comprador/cuenta');
+                      toast.error('Selecciona un comprador/cuenta');
                       return;
                     }
                     const buyer = buyers.find(

@@ -1381,7 +1381,7 @@ function RaidAccessSection() {
 
   const applyBulk = () => {
     if (selectedIds.length === 0) {
-      toast.error('Seleccioná al menos un usuario');
+      toast.error('Selecciona al menos un usuario');
       return;
     }
     const level = bulkLevel === 'revoke' ? null : bulkLevel;

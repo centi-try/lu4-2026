@@ -141,7 +141,7 @@ export function CreateItemPanel() {
     const source = rows.find((r) => r.id === fromRowId);
     if (!source) return;
     if (copyTargets.size === 0) {
-      toast.error('Seleccioná al menos una fila destino');
+      toast.error('Selecciona al menos una fila destino');
       return;
     }
     const charIds = [...source.selectedCharIds];
@@ -271,7 +271,7 @@ export function CreateItemPanel() {
       window.setTimeout(() => setPulseRowId(null), 750);
       toast.error(
         invalidQtyRows.length === 1
-          ? `Ítem #${firstIdx + 1}: ingresá una cantidad mayor a 0.`
+          ? `Ítem #${firstIdx + 1}: ingresa una cantidad mayor a 0.`
           : `${invalidQtyRows.length} ítems necesitan una cantidad mayor a 0.`,
       );
       return;
@@ -352,9 +352,9 @@ export function CreateItemPanel() {
             Registro de Ítems
           </h3>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Registrá uno o varios ítems. El autocompletado busca ítems existentes y copia
+            Registra uno o varios ítems. El autocompletado busca ítems existentes y copia
             <strong style={{ color: 'rgba(255,255,255,0.7)' }}> nombre, categoría, precio e imagen</strong>
-            {' '}— la cantidad y los personajes siempre los ingresás vos.
+            {' '}— la cantidad y los personajes siempre los ingresas tú.
           </p>
         </div>
         <div
@@ -564,7 +564,7 @@ export function CreateItemPanel() {
                       title={
                         row.imageUrl
                           ? 'Asignada automáticamente por categoría'
-                          : 'Elegí una categoría para asignar el ícono'
+                          : 'Elige una categoría para asignar el ícono'
                       }
                     >
                       {row.imageUrl ? (
@@ -593,7 +593,7 @@ export function CreateItemPanel() {
                             className="text-[10px]"
                             style={{ color: 'rgba(255,255,255,0.3)' }}
                           >
-                            elegí categoría
+                            elige categoría
                           </span>
                         </>
                       )}
@@ -726,7 +726,7 @@ export function CreateItemPanel() {
                             className="text-[11px] mb-2"
                             style={{ color: 'rgba(255,255,255,0.6)' }}
                           >
-                            Marcá las filas a las que querés copiarle estos{' '}
+                            Marca las filas a las que quieres copiarle estos{' '}
                             <strong style={{ color: '#8bb7fa' }}>
                               {row.selectedCharIds.length} personaje
                               {row.selectedCharIds.length === 1 ? '' : 's'}

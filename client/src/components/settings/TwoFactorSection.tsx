@@ -99,11 +99,11 @@ export function TwoFactorSection() {
     setActivateError(null);
     const cleanCode = activateCode.replace(/\D/g, '');
     if (cleanCode.length !== 6) {
-      setActivateError('Ingresá el código de 6 dígitos.');
+      setActivateError('Ingresa el código de 6 dígitos.');
       return;
     }
     if (!activatePassword) {
-      setActivateError('Ingresá tu contraseña.');
+      setActivateError('Ingresa tu contraseña.');
       return;
     }
     setActivateLoading(true);
@@ -144,11 +144,11 @@ export function TwoFactorSection() {
     e.preventDefault();
     setDisableError(null);
     if (!disablePassword) {
-      setDisableError('Ingresá tu contraseña.');
+      setDisableError('Ingresa tu contraseña.');
       return;
     }
     if (!disableCode.trim()) {
-      setDisableError('Ingresá un código TOTP o de respaldo.');
+      setDisableError('Ingresa un código TOTP o de respaldo.');
       return;
     }
     setDisableLoading(true);
@@ -321,9 +321,9 @@ export function TwoFactorSection() {
                 ) : (
                   <>
                     <ol className="list-decimal list-inside text-xs space-y-1" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                      <li>Abrí tu app autenticadora y escaneá el QR (o ingresá el secret manual).</li>
+                      <li>Abre tu app autenticadora y escanea el QR (o ingresa el secret manual).</li>
                       <li>La app va a mostrar un código de 6 dígitos que cambia cada 30 segundos.</li>
-                      <li>Ingresá ese código + tu contraseña actual para confirmar.</li>
+                      <li>Ingresa ese código + tu contraseña actual para confirmar.</li>
                     </ol>
 
                     <div className="flex justify-center">
@@ -340,7 +340,7 @@ export function TwoFactorSection() {
 
                     <div>
                       <label className="block text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                        ¿No podés escanear? Ingresá manualmente este secret:
+                        ¿No puedes escanear? Ingresa manualmente este secret:
                       </label>
                       <div className="flex items-center gap-2">
                         <code
@@ -504,7 +504,7 @@ export function TwoFactorSection() {
               Desactivar 2FA
             </h3>
             <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Para confirmar, ingresá tu contraseña y un código válido (de la app o uno de respaldo).
+              Para confirmar, ingresa tu contraseña y un código válido (de la app o uno de respaldo).
             </p>
             <form onSubmit={confirmDisable} className="space-y-3">
               <div>

@@ -615,7 +615,7 @@ export default function WarehouseClan() {
       window.setTimeout(() => setPulseRowId(null), 750);
       toast.error(
         invalidQtyRows.length === 1
-          ? `Material #${firstIdx + 1}: ingresá una cantidad mayor a 0.`
+          ? `Material #${firstIdx + 1}: ingresa una cantidad mayor a 0.`
           : `${invalidQtyRows.length} materiales necesitan una cantidad mayor a 0.`
       );
       return;
@@ -624,7 +624,7 @@ export default function WarehouseClan() {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (!r.name.trim()) { toast.error(`Material #${i + 1}: Nombre es obligatorio`); return; }
-      if (!r.category || !CATEGORIES.includes(r.category as ItemCategory)) { toast.error(`Material #${i + 1}: Seleccioná una categoría`); return; }
+      if (!r.category || !CATEGORIES.includes(r.category as ItemCategory)) { toast.error(`Material #${i + 1}: Selecciona una categoría`); return; }
     }
 
     rows.forEach(r => {
@@ -1071,9 +1071,9 @@ export default function WarehouseClan() {
                     Registro de Materiales
                   </h3>
                   <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                    Registrá materiales para la bodega. El autocompletado busca en el catálogo y copia
+                    Registra materiales para la bodega. El autocompletado busca en el catálogo y copia
                     <strong style={{ color: 'rgba(255,255,255,0.7)' }}> nombre, categoría e imagen</strong>
-                    {' '}— la cantidad siempre la ingresás vos.
+                    {' '}— la cantidad siempre la ingresas tú.
                   </p>
                 </div>
               </div>
@@ -1202,7 +1202,7 @@ export default function WarehouseClan() {
                             <div
                               className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
                               style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 36 }}
-                              title={row.imageUrl ? 'Asignada desde catálogo' : 'Elegí del catálogo o una categoría'}
+                              title={row.imageUrl ? 'Asignada desde catálogo' : 'Elige del catálogo o una categoría'}
                             >
                               {row.imageUrl ? (
                                 <>
@@ -1215,7 +1215,7 @@ export default function WarehouseClan() {
                                 <>
                                   <ImageIcon className="h-4 w-4 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
                                   <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                    elegí categoría
+                                    elige categoría
                                   </span>
                                 </>
                               )}

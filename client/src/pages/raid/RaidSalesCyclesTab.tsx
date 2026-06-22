@@ -652,9 +652,9 @@ function ClosedSalesCycleCard({ cycle, canAdmin }: { cycle: any; canAdmin: boole
                       Marcar todos los clanes como pagados
                     </h3>
                     <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Registrá el pago de adena a los {clans.length - paidCount} clan(es)
+                      Registra el pago de adena a los {clans.length - paidCount} clan(es)
                       pendiente(s) de <strong>{cycle.label}</strong>. Es una marca manual
-                      reversible — podés desmarcar clanes individualmente después.
+                      reversible — puedes desmarcar clanes individualmente después.
                     </p>
                   </div>
                 </div>

@@ -88,7 +88,7 @@ export default function RaidProtectedRoute({
             Acceso restringido
           </h2>
           <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            No tenés acceso al módulo Raid Bosses. Pedile al Super Admin que te asigne un rol
+            No tienes acceso al módulo Raid Bosses. Pídele al Super Admin que te asigne un rol
             raid (<span style={{ color: '#e879f9' }}>raid_user</span>,{' '}
             <span style={{ color: '#7bf1d6' }}>raid_mapper</span> o{' '}
             <span style={{ color: '#fbbf24' }}>raid_admin</span>).
@@ -138,7 +138,7 @@ export default function RaidProtectedRoute({
               Sin acceso
             </h1>
             <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              Esta sección no está disponible para tu rol. Si necesitás acceder, pedile al super
+              Esta sección no está disponible para tu rol. Si necesitas acceder, pídele al super
               admin que ajuste tus permisos.
             </p>
           </div>

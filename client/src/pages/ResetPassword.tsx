@@ -103,7 +103,7 @@ export default function ResetPassword() {
           </div>
           <h1 className="text-3xl font-bold text-gradient mb-2">Nueva contraseña</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Elegí una contraseña nueva para tu cuenta.
+            Elige una contraseña nueva para tu cuenta.
           </p>
         </div>
 

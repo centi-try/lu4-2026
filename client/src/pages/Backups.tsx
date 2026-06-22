@@ -467,7 +467,7 @@ export function Backups() {
               </code>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 Antes de restaurar se crea automáticamente un snapshot <code>pre-restore</code> del estado
-                actual — si te equivocás, podés restaurar desde ese.
+                actual — si te equivocas, puedes restaurar desde ese.
               </p>
               <p className="text-xs pt-2" style={{ color: '#fbbf24' }}>
                 Escribí <strong>RESTAURAR</strong> para confirmar:

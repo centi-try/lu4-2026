@@ -85,7 +85,7 @@ export default function ForgotPassword() {
           </div>
           <h1 className="text-3xl font-bold text-gradient mb-2">Restablecer contraseña</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Ingresá tu email y te enviamos un enlace para crear una nueva.
+            Ingresa tu email y te enviamos un enlace para crear una nueva.
           </p>
         </div>
 

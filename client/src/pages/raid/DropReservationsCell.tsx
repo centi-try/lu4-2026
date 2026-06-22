@@ -103,7 +103,7 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
   const handleCreate = () => {
     const n = parseInt(qtyInput, 10);
     if (!isFinite(n) || n <= 0) {
-      toast.error('Ingresá una cantidad mayor a 0');
+      toast.error('Ingresa una cantidad mayor a 0');
       return;
     }
     if (n > remainingForReservations) {
@@ -226,7 +226,7 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
                             className="ml-1 text-[10px] font-mono"
                             style={{ color: 'rgba(251,191,36,0.7)' }}
                           >
-                            (vos)
+                            (tú)
                           </span>
                         )}
                       </p>
@@ -438,12 +438,12 @@ export function ReservationQuickButton({
   const handleCreate = () => {
     const n = parseInt(qtyInput, 10);
     if (!isFinite(n) || n <= 0) {
-      toast.error('Ingresá una cantidad mayor a 0');
+      toast.error('Ingresa una cantidad mayor a 0');
       return;
     }
     if (n > maxPerReservation) {
       toast.error(
-        `Este drop tiene ${maxPerReservation} unidad(es) — no podés reservar más que eso`
+        `Este drop tiene ${maxPerReservation} unidad(es) — no puedes reservar más que eso`
       );
       return;
     }
@@ -604,7 +604,7 @@ export function ReservationQuickButton({
                                   className="ml-1 text-[10px] font-mono"
                                   style={{ color: 'rgba(251,191,36,0.7)' }}
                                 >
-                                  (vos)
+                                  (tú)
                                 </span>
                               )}
                             </p>

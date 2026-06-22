@@ -98,7 +98,7 @@ export default function Login() {
       ? otpCode.trim()
       : otpCode.replace(/\D/g, '');
     if (!cleaned) {
-      setOtpError('Ingresá el código.');
+      setOtpError('Ingresa el código.');
       return;
     }
     if (!useBackupCode && cleaned.length !== 6) {
@@ -149,15 +149,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{
-                background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))',
-                border: '1px solid rgba(123,241,214,0.3)',
-              }}
-            >
-              <span className="text-2xl">📦</span>
-            </div>
+            <img src="/raptor-logo.png" alt="RaptorSquad" className="h-32 w-auto object-contain drop-shadow-2xl" />
           </div>
           <h1 className="text-3xl font-bold text-gradient mb-2">RaptorSquad</h1>
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -182,8 +174,8 @@ export default function Login() {
             <form onSubmit={handleOtpSubmit} className="space-y-4" noValidate>
               <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 {useBackupCode
-                  ? 'Ingresá uno de tus códigos de respaldo (formato XXXXX-XXXXX).'
-                  : 'Abrí tu app de autenticación (Google Authenticator, Authy, 1Password…) e ingresá el código de 6 dígitos que muestra para tu cuenta.'}
+                  ? 'Ingresa uno de tus códigos de respaldo (formato XXXXX-XXXXX).'
+                  : 'Abre tu app de autenticación (Google Authenticator, Authy, 1Password…) e ingresa el código de 6 dígitos que muestra para tu cuenta.'}
               </p>
 
               <div>
