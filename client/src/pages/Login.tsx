@@ -174,18 +174,25 @@ export default function Login() {
       {/* Left side: Raptor carousel (hidden on mobile and when presentation tab active) */}
       {activeTab === 'login' && (
         <div
-          className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden"
+          className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden flex-col"
           style={{ background: '#040608' }}
         >
-          {CAROUSEL_IMAGES.map((src, i) => (
-            <img
-              key={src}
-              src={src}
-              alt={`RaptorSquad ${i + 1}`}
-              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
-              style={{ opacity: i === currentImg ? 1 : 0 }}
-            />
-          ))}
+          <div className="relative flex-1 w-full flex items-center justify-center">
+            {CAROUSEL_IMAGES.map((src, i) => (
+              <img
+                key={src}
+                src={src}
+                alt={`RaptorSquad ${i + 1}`}
+                className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
+                style={{ opacity: i === currentImg ? 1 : 0 }}
+              />
+            ))}
+          </div>
+          <div className="w-full text-center pb-6">
+            <p className="text-2xl font-black tracking-[0.3em] text-gradient" style={{ letterSpacing: '0.3em' }}>
+              LINEAGE II
+            </p>
+          </div>
         </div>
       )}
 
