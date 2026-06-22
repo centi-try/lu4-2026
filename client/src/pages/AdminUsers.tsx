@@ -200,6 +200,16 @@ export default function AdminUsers() {
     },
   });
 
+  const unlockUserMutation = trpc.adminUsers.unlockUser.useMutation({
+    onSuccess: () => {
+      toast.success('Usuario desbloqueado correctamente.');
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al desbloquear el usuario.');
+    },
+  });
+
   const { data: clansAndCps } = trpc.adminUsers.clansAndCps.useQuery(undefined, { staleTime: 60_000 });
 
   const updateProfileMutation = trpc.adminUsers.updateProfile.useMutation({
@@ -288,12 +298,18 @@ export default function AdminUsers() {
     changePasswordMutation.mutate({ userId: passwordModal.userId, newPassword });
   };
 
+  const isUserLocked = (user: any) => {
+    if (!user.lockedUntil) return false;
+    return new Date(user.lockedUntil).getTime() > Date.now();
+  };
+
   const filteredUsers = (users || []).filter(user => {
     const matchesSearch =
       !search ||
       user.email?.toLowerCase().includes(search.toLowerCase()) ||
       user.name?.toLowerCase().includes(search.toLowerCase()) ||
       user.characterName?.toLowerCase().includes(search.toLowerCase());
+    if (roleFilter === 'locked') return matchesSearch && isUserLocked(user);
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -423,6 +439,17 @@ export default function AdminUsers() {
                 </button>
               );
             })}
+            <button
+              onClick={() => setRoleFilter('locked')}
+              className="rounded-xl border px-3 py-2 text-xs font-medium transition-all"
+              style={{
+                borderColor: roleFilter === 'locked' ? '#ef444444' : 'rgba(255,255,255,0.08)',
+                background: roleFilter === 'locked' ? '#ef444422' : 'rgba(255,255,255,0.03)',
+                color: roleFilter === 'locked' ? '#f87171' : 'rgba(255,255,255,0.5)',
+              }}
+            >
+              Bloqueados
+            </button>
           </div>
         </div>
 
@@ -586,6 +613,17 @@ export default function AdminUsers() {
                         >
                           <Key className="h-4 w-4" />
                         </button>
+                        {isUserLocked(user) && (
+                          <button
+                            onClick={() => unlockUserMutation.mutate({ userId: user.id })}
+                            disabled={unlockUserMutation.isPending}
+                            title="Desbloquear usuario"
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+                            style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                          >
+                            {unlockUserMutation.isPending ? '...' : 'Desbloquear'}
+                          </button>
+                        )}
                         {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
                       </div>
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -403,5 +403,20 @@ export const adminUsersRouter = router({
         }
         throw err;
       }
+    }),
+
+  // Desbloquear usuario (resetear intentos fallidos y lockout)
+  unlockUser: superAdminProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const user = await getUserById(input.userId);
+      if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+      await resetLoginAttempts(input.userId);
+      await createAuditLog({
+        userId: ctx.user!.id,
+        action: 'UNLOCK_USER',
+        details: `Desbloqueó al usuario ${user.name || user.email} (ID: ${input.userId})`,
+      });
+      return { success: true };
     }),
 });
