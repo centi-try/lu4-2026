@@ -685,18 +685,17 @@ export default function Login() {
       {modalItem && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
-          onClick={() => setModalItem(null)}
+          style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(10px)' }}
         >
           <div
-            className="relative w-full max-w-4xl animate-in fade-in zoom-in-95 duration-200"
-            onClick={e => e.stopPropagation()}
+            className="relative w-full max-w-4xl"
+            style={{ animation: 'modalIn 0.15s ease-out' }}
           >
             <button
               onClick={() => setModalItem(null)}
-              className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold transition-all hover:scale-110"
-              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}
-            >×</button>
+              className="absolute -top-4 -right-4 z-10 w-11 h-11 rounded-full flex items-center justify-center text-xl font-black transition-all hover:scale-110 shadow-lg"
+              style={{ background: '#ef4444', color: '#fff', border: '2px solid rgba(255,255,255,0.3)' }}
+            >✕</button>
             {modalItem.type === 'video' && (() => {
               const vid = extractYoutubeId(modalItem.content);
               if (!vid) return null;
