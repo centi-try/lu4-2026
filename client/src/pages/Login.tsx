@@ -310,7 +310,7 @@ export default function Login() {
 
           {/* Presentation Tab */}
           {activeTab === 'presentation' && (
-            <div className="rounded-2xl border p-6" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }}>
+            <div className="rounded-2xl border p-6 overflow-y-auto" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)', maxHeight: 'calc(100vh - 220px)' }}>
               {/* Text items — FIXED at top, not paginated, always visible */}
               {presAllQ.data && (() => {
                 const textItems = presAllQ.data.items.filter((it: any) => it.type === 'text');
