@@ -5,7 +5,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2, Package, ShieldCheck, Play, ChevronLef
 import { useAuth } from '../contexts/AuthContext';
 import { trpc } from '../lib/trpc';
 
-const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
+const DEFAULT_CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
 
 // Regex de validación mínima de formato de email. El backend ya re-valida.
@@ -66,14 +66,24 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Carousel state
+  // Carousel: fetch dynamic images, fall back to defaults
+  const carouselQ = trpc.carousel.list.useQuery();
+  const carouselImages = useMemo(() => {
+    if (carouselQ.data && carouselQ.data.length > 0) {
+      return carouselQ.data.map((img: any) => img.data as string);
+    }
+    return DEFAULT_CAROUSEL_IMAGES;
+  }, [carouselQ.data]);
+
   const [currentImg, setCurrentImg] = useState(0);
   useEffect(() => {
+    const total = carouselImages.length;
+    if (total <= 1) return;
     const timer = setInterval(() => {
-      setCurrentImg((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+      setCurrentImg((prev) => (prev + 1) % total);
     }, CAROUSEL_INTERVAL);
     return () => clearInterval(timer);
-  }, []);
+  }, [carouselImages.length]);
 
   // Presentation content (public endpoint — no auth needed)
   const [presPage, setPresPage] = useState(1);
@@ -85,11 +95,11 @@ export default function Login() {
 
   // Preload carousel images during splash
   useEffect(() => {
-    CAROUSEL_IMAGES.forEach(src => {
+    carouselImages.forEach(src => {
       const img = new Image();
       img.src = src;
     });
-  }, []);
+  }, [carouselImages]);
 
   const emailInputRef = useRef<HTMLInputElement | null>(null);
   const otpInputRef = useRef<HTMLInputElement | null>(null);
@@ -231,9 +241,9 @@ export default function Login() {
           style={{ background: '#040608' }}
         >
           <div className="relative flex-1 w-full flex items-center justify-center">
-            {CAROUSEL_IMAGES.map((src, i) => (
+            {carouselImages.map((src, i) => (
               <img
-                key={src}
+                key={`carousel-${i}`}
                 src={src}
                 alt={`RaptorSquad ${i + 1}`}
                 className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
@@ -262,7 +272,7 @@ export default function Login() {
           <div
             className="absolute inset-0 lg:hidden"
             style={{
-              backgroundImage: `url(${CAROUSEL_IMAGES[currentImg]})`,
+              backgroundImage: `url(${carouselImages[currentImg] || carouselImages[0]})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               opacity: 0.15,

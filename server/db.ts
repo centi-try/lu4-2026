@@ -107,6 +107,7 @@ interface DatabaseSchema {
   // Presentación del login (contenido gestionado por Super Admin)
   // ============================================================
   presentationItems: any[];    // { id, type:'image'|'video'|'text', title, content, order, createdAt }
+  carouselImages: any[];       // { id, label, data (base64), width, height, sizeBytes, createdAt, history[] }
   warehouseHistory: any[];     // historial de retiros/eliminaciones
   warehouseSettings: any;      // configuración de visibilidad cross-CP
   warehouseLoans: any[];       // préstamos entre CPs
@@ -154,6 +155,7 @@ const initialSchema: DatabaseSchema = {
   warehouseCPs: [],
   warehouseCPMembers: [],
   presentationItems: [],
+  carouselImages: [],
   warehouseHistory: [],
   warehouseSettings: { crossCpVisibility: true, crossCpObjectivesVisibility: false },
   warehouseLoans: [],

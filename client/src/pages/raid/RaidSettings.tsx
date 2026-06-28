@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search, Video, Type, GripVertical, ExternalLink } from 'lucide-react';
+import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search, Video, Type, GripVertical, ExternalLink, Download, RotateCcw, RefreshCw } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -218,7 +218,7 @@ export default function RaidSettings({ raidAccess }: Props) {
   const [clanToDelete, setClanToDelete] = useState<any | null>(null);
 
   // Tab state
-  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'presentation' | 'access' | 'materials'>('access');
+  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'presentation' | 'carousel' | 'access' | 'materials'>('access');
 
   const configTabs: { key: typeof configTab; label: string; icon: React.ReactNode; color: string }[] = [
     { key: 'access', label: 'Accesos', icon: <Flag className="h-4 w-4" />, color: '#60a5fa' },
@@ -226,6 +226,7 @@ export default function RaidSettings({ raidAccess }: Props) {
     { key: 'classes', label: 'Clases', icon: <Crown className="h-4 w-4" />, color: '#fbbf24' },
     { key: 'catalogs', label: 'Bosses & Clanes', icon: <Skull className="h-4 w-4" />, color: '#e879f9' },
     { key: 'presentation', label: 'Presentación', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
+    { key: 'carousel', label: 'Carrusel', icon: <ImageIcon className="h-4 w-4" />, color: '#f97316' },
   ];
 
   return (
@@ -896,6 +897,12 @@ export default function RaidSettings({ raidAccess }: Props) {
             { onSuccess: () => setCatMatToDelete(null) }
           )}
         />
+      )}
+
+      {/* Tab: Carrusel del Login */}
+      {configTab === 'carousel' && raidAccess?.accessLevel === 'super_admin' && <CarouselSection />}
+      {configTab === 'carousel' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar el carrusel.</p></div>
       )}
 
       {/* ===== Modales de confirmación de borrado ===== */}
@@ -1788,6 +1795,318 @@ function CharacterClassesSection() {
         />
       )}
     </>
+  );
+}
+
+// ============================================================================
+// Sección: Carrusel del Login
+// ============================================================================
+
+function CarouselSection() {
+  const utils = trpc.useUtils();
+  const listQ = trpc.carousel.list.useQuery();
+  const createMut = trpc.carousel.create.useMutation({
+    onSuccess: () => { toast.success('Imagen agregada al carrusel'); utils.carousel.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMut = trpc.carousel.delete.useMutation({
+    onSuccess: () => { toast.success('Imagen eliminada'); utils.carousel.list.invalidate(); setDeleteTarget(null); },
+    onError: (e) => toast.error(e.message),
+  });
+  const replaceMut = trpc.carousel.replace.useMutation({
+    onSuccess: () => { toast.success('Imagen reemplazada'); utils.carousel.list.invalidate(); setReplaceTarget(null); },
+    onError: (e) => toast.error(e.message),
+  });
+  const restoreMut = trpc.carousel.restoreFromHistory.useMutation({
+    onSuccess: () => { toast.success('Versión restaurada'); utils.carousel.list.invalidate(); utils.carousel.getWithHistory.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteAllMut = trpc.carousel.deleteAll.useMutation({
+    onSuccess: (d) => { toast.success(`${d.deleted} imágenes eliminadas`); utils.carousel.list.invalidate(); setShowDeleteAll(false); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [replaceTarget, setReplaceTarget] = useState<any | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<number | null>(null);
+  const [pendingLabel, setPendingLabel] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceFileRef = useRef<HTMLInputElement>(null);
+
+  const images = listQ.data || [];
+
+  const historyQ = trpc.carousel.getWithHistory.useQuery(
+    { id: historyTarget! },
+    { enabled: historyTarget !== null }
+  );
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) { toast.error('Solo imágenes'); return; }
+      if (file.size > 10 * 1024 * 1024) { toast.error('Máximo 10 MB por imagen'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const data = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          createMut.mutate({
+            label: pendingLabel || file.name.replace(/\.\w+$/, ''),
+            data,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            sizeBytes: file.size,
+          });
+          setPendingLabel('');
+        };
+        img.src = data;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleReplace = (targetId: number, file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Solo imágenes'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Máximo 10 MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        replaceMut.mutate({ id: targetId, data, width: img.naturalWidth, height: img.naturalHeight, sizeBytes: file.size });
+      };
+      img.src = data;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDownload = (img: any) => {
+    const link = document.createElement('a');
+    link.href = img.data;
+    link.download = `${img.label || 'carrusel'}-${img.id}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="card-glass rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <ImageIcon className="h-5 w-5" style={{ color: '#f97316' }} />
+        <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+          Carrusel del Login
+        </h3>
+      </div>
+      <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        Imágenes que rotan en el lado izquierdo del login. Dimensiones recomendadas: <strong style={{ color: '#f97316' }}>1536 x 1024 px</strong> (PNG o JPG, máximo 10 MB). Formato horizontal 3:2.
+      </p>
+
+      {/* Upload area */}
+      <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <input
+            type="text"
+            placeholder="Nombre / etiqueta (opcional)"
+            value={pendingLabel}
+            onChange={(e) => setPendingLabel(e.target.value)}
+            className="flex-1 rounded-lg px-3 py-2 text-xs"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={createMut.isPending}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
+            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', boxShadow: '0 2px 8px rgba(249,115,22,0.25)' }}
+          >
+            <Upload className="h-3.5 w-3.5" /> {createMut.isPending ? 'Subiendo...' : 'Subir imagen(es)'}
+          </button>
+        </div>
+        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Resolución actual del carrusel: 1536 x 1024 px | Formato: PNG o JPG | Relación: 3:2 horizontal | Máx: 10 MB
+        </p>
+      </div>
+
+      {/* Current images */}
+      {images.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay imágenes en el carrusel.</p>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Las imágenes por defecto (raptor-1, raptor-2, raptor-3) se usarán mientras no haya imágenes personalizadas.</p>
+        </div>
+      )}
+
+      {images.length > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Imágenes del carrusel ({images.length})
+            </p>
+            <button
+              onClick={() => setShowDeleteAll(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+            >
+              <Trash2 className="h-3 w-3" /> Eliminar todo
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {images.map((img: any) => (
+              <div key={img.id} className="rounded-xl overflow-hidden group" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="relative aspect-[3/2]">
+                  <img src={img.data} alt={img.label} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleDownload(img)} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Descargar">
+                        <Download className="h-4 w-4" style={{ color: '#4ade80' }} />
+                      </button>
+                      <button onClick={() => { setReplaceTarget(img); }} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Reemplazar">
+                        <RefreshCw className="h-4 w-4" style={{ color: '#60a5fa' }} />
+                      </button>
+                      <button onClick={() => setHistoryTarget(img.id)} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Historial">
+                        <RotateCcw className="h-4 w-4" style={{ color: '#fbbf24' }} />
+                      </button>
+                      <button onClick={() => setDeleteTarget(img)} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Eliminar">
+                        <Trash2 className="h-4 w-4" style={{ color: '#ef4444' }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-3 py-2">
+                  <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{img.label || '(Sin nombre)'}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {img.width} x {img.height} px · {(img.sizeBytes / 1024 / 1024).toFixed(1)} MB
+                    {img.historyCount > 0 && <span style={{ color: '#fbbf24' }}> · {img.historyCount} versión(es) anterior(es)</span>}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Delete single modal */}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title="Eliminar imagen del carrusel"
+          description="Esta imagen se eliminará permanentemente del carrusel. Si quieres conservarla, descárgala primero."
+          itemLabel={deleteTarget.label || '(Sin nombre)'}
+          itemDetail={`${deleteTarget.width} x ${deleteTarget.height} px`}
+          itemImage={deleteTarget.data}
+          isPending={deleteMut.isPending}
+          onCancel={() => { if (!deleteMut.isPending) setDeleteTarget(null); }}
+          onConfirm={() => deleteMut.mutate({ id: deleteTarget.id })}
+        />
+      )}
+
+      {/* Delete all modal */}
+      {showDeleteAll && (
+        <ConfirmDeleteModal
+          title="Eliminar todas las imágenes"
+          description={`¿Eliminar TODAS las ${images.length} imágenes del carrusel? Se usarán las imágenes por defecto.`}
+          itemLabel={`${images.length} imágenes`}
+          itemDetail="Todo el carrusel será eliminado"
+          itemImage={null}
+          isPending={deleteAllMut.isPending}
+          onCancel={() => { if (!deleteAllMut.isPending) setShowDeleteAll(false); }}
+          onConfirm={() => deleteAllMut.mutate()}
+        />
+      )}
+
+      {/* Replace modal */}
+      {replaceTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-lg rounded-2xl p-5" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))', border: '1px solid rgba(96,165,250,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" style={{ color: '#60a5fa' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Reemplazar imagen</h3>
+              </div>
+              <button onClick={() => setReplaceTarget(null)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.6)' }}><X className="h-4 w-4" /></button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>La imagen actual se guardará en el historial y podrás restaurarla después.</p>
+            <div className="rounded-xl overflow-hidden mb-3 aspect-[3/2]" style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <img src={replaceTarget.data} alt="" className="w-full h-full object-cover" />
+            </div>
+            <p className="text-[10px] mb-3 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Imagen actual: {replaceTarget.label} ({replaceTarget.width} x {replaceTarget.height} px)
+            </p>
+            <input ref={replaceFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleReplace(replaceTarget.id, e.target.files[0]); e.target.value = ''; }} />
+            <div className="flex gap-3">
+              <button onClick={() => setReplaceTarget(null)} className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5" style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>Cancelar</button>
+              <button onClick={() => replaceFileRef.current?.click()} disabled={replaceMut.isPending} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50" style={{ background: '#60a5fa', color: '#000' }}>
+                {replaceMut.isPending ? 'Reemplazando...' : 'Seleccionar nueva imagen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History modal */}
+      {historyTarget !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl p-5" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))', border: '1px solid rgba(251,191,36,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5" style={{ color: '#fbbf24' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Historial de versiones</h3>
+              </div>
+              <button onClick={() => setHistoryTarget(null)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.6)' }}><X className="h-4 w-4" /></button>
+            </div>
+
+            {historyQ.isLoading && <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Cargando historial...</p>}
+
+            {historyQ.data && (
+              <>
+                <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Versión actual: <strong>{historyQ.data.label}</strong> ({historyQ.data.width} x {historyQ.data.height} px)
+                </p>
+                <div className="rounded-xl overflow-hidden mb-4 aspect-[3/2]" style={{ background: 'rgba(0,0,0,0.3)', maxHeight: 200 }}>
+                  <img src={historyQ.data.data} alt="Actual" className="w-full h-full object-cover" />
+                </div>
+
+                {historyQ.data.history.length === 0 ? (
+                  <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay versiones anteriores. Reemplaza la imagen para crear historial.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      Versiones anteriores ({historyQ.data.history.length})
+                    </p>
+                    {historyQ.data.history.map((h: any) => (
+                      <div key={h.index} className="flex items-center gap-3 rounded-xl p-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="w-24 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                          <img src={h.data} alt={`v${h.index}`} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{h.width} x {h.height} px · {(h.sizeBytes / 1024 / 1024).toFixed(1)} MB</p>
+                          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Reemplazada: {new Date(h.replacedAt).toLocaleString()}</p>
+                        </div>
+                        <button
+                          onClick={() => restoreMut.mutate({ id: historyTarget, historyIndex: h.index })}
+                          disabled={restoreMut.isPending}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:bg-yellow-500/20"
+                          style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)' }}
+                        >
+                          {restoreMut.isPending ? '...' : 'Restaurar'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
