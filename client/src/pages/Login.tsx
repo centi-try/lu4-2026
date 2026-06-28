@@ -69,10 +69,16 @@ export default function Login() {
   // Carousel: fetch dynamic images, fall back to defaults
   const carouselQ = trpc.carousel.list.useQuery();
   const carouselImages = useMemo(() => {
-    if (carouselQ.data && carouselQ.data.length > 0) {
-      return carouselQ.data.map((img: any) => img.data as string);
+    const data = carouselQ.data;
+    if (data && data.images && data.images.length > 0) {
+      return data.images.map((img: any) => img.data as string);
     }
     return DEFAULT_CAROUSEL_IMAGES;
+  }, [carouselQ.data]);
+
+  const carouselInterval = useMemo(() => {
+    const secs = carouselQ.data?.intervalSeconds;
+    return (secs && secs > 0 ? secs : 10) * 1000;
   }, [carouselQ.data]);
 
   const [currentImg, setCurrentImg] = useState(0);
@@ -81,9 +87,9 @@ export default function Login() {
     if (total <= 1) return;
     const timer = setInterval(() => {
       setCurrentImg((prev) => (prev + 1) % total);
-    }, CAROUSEL_INTERVAL);
+    }, carouselInterval);
     return () => clearInterval(timer);
-  }, [carouselImages.length]);
+  }, [carouselImages.length, carouselInterval]);
 
   // Presentation content (public endpoint — no auth needed)
   const [presPage, setPresPage] = useState(1);

@@ -18,22 +18,40 @@ const superAdminGuard = (role: string) => {
 };
 
 export const carouselRouter = router({
-  // Public: list carousel images (used by login page)
+  // Public: list carousel images + settings (used by login page)
   list: publicProcedure.query(() => {
     const db = dbInstance;
     const images = (db.carouselImages || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-    return images.map((img: any) => ({
-      id: img.id,
-      label: img.label || '',
-      data: img.data,
-      width: img.width || 1536,
-      height: img.height || 1024,
-      sizeBytes: img.sizeBytes || 0,
-      order: img.order || 0,
-      createdAt: img.createdAt,
-      historyCount: (img.history || []).length,
-    }));
+    const settings = db.carouselSettings || { intervalSeconds: 10 };
+    return {
+      intervalSeconds: settings.intervalSeconds || 10,
+      images: images.map((img: any) => ({
+        id: img.id,
+        label: img.label || '',
+        data: img.data,
+        width: img.width || 1536,
+        height: img.height || 1024,
+        sizeBytes: img.sizeBytes || 0,
+        order: img.order || 0,
+        createdAt: img.createdAt,
+        historyCount: (img.history || []).length,
+      })),
+    };
   }),
+
+  // Admin: update carousel interval
+  updateSettings: protectedProcedure
+    .input(z.object({
+      intervalSeconds: z.number().int().min(1).max(120),
+    }))
+    .mutation(({ input, ctx }) => {
+      superAdminGuard(String(ctx.user?.role || '').toLowerCase());
+      const db = dbInstance;
+      if (!db.carouselSettings) db.carouselSettings = { intervalSeconds: 10 };
+      db.carouselSettings.intervalSeconds = input.intervalSeconds;
+      saveDbToDisk();
+      return { success: true, intervalSeconds: input.intervalSeconds };
+    }),
 
   // Admin: get single image with full history
   getWithHistory: protectedProcedure

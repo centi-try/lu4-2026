@@ -1826,15 +1826,22 @@ function CarouselSection() {
     onError: (e) => toast.error(e.message),
   });
 
+  const updateSettingsMut = trpc.carousel.updateSettings.useMutation({
+    onSuccess: (d) => { toast.success(`Intervalo actualizado: ${d.intervalSeconds}s`); utils.carousel.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<any | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<number | null>(null);
   const [pendingLabel, setPendingLabel] = useState('');
+  const [intervalInput, setIntervalInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceFileRef = useRef<HTMLInputElement>(null);
 
-  const images = listQ.data || [];
+  const images = listQ.data?.images || [];
+  const currentInterval = listQ.data?.intervalSeconds || 10;
 
   const historyQ = trpc.carousel.getWithHistory.useQuery(
     { id: historyTarget! },
@@ -1932,6 +1939,39 @@ function CarouselSection() {
         </div>
         <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
           Resolución actual del carrusel: 1536 x 1024 px | Formato: PNG o JPG | Relación: 3:2 horizontal | Máx: 10 MB
+        </p>
+      </div>
+
+      {/* Interval config */}
+      <div className="rounded-xl p-4 mb-4 flex items-center gap-4 flex-wrap" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Segundos por imagen:</span>
+          <span className="text-sm font-bold" style={{ color: '#f97316' }}>{currentInterval}s</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={120}
+            step={1}
+            placeholder={String(currentInterval)}
+            value={intervalInput}
+            onChange={(e) => setIntervalInput(e.target.value)}
+            className="w-20 rounded-lg px-3 py-1.5 text-xs text-center"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { const v = parseInt(intervalInput, 10); if (v >= 1 && v <= 120) { updateSettingsMut.mutate({ intervalSeconds: v }); setIntervalInput(''); } } }}
+          />
+          <button
+            onClick={() => { const v = parseInt(intervalInput, 10); if (v >= 1 && v <= 120) { updateSettingsMut.mutate({ intervalSeconds: v }); setIntervalInput(''); } else { toast.error('Ingresa un valor entre 1 y 120 segundos'); } }}
+            disabled={updateSettingsMut.isPending || !intervalInput}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-[1.02] disabled:opacity-40"
+            style={{ background: 'rgba(249,115,22,0.15)', color: '#f97316', border: '1px solid rgba(249,115,22,0.3)' }}
+          >
+            {updateSettingsMut.isPending ? '...' : 'Aplicar'}
+          </button>
+        </div>
+        <p className="text-[10px] w-full" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Cada imagen se muestra {currentInterval} segundo(s) antes de pasar a la siguiente. Rango: 1 - 120 segundos.
         </p>
       </div>
 

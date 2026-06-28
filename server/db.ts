@@ -108,6 +108,7 @@ interface DatabaseSchema {
   // ============================================================
   presentationItems: any[];    // { id, type:'image'|'video'|'text', title, content, order, createdAt }
   carouselImages: any[];       // { id, label, data (base64), width, height, sizeBytes, createdAt, history[] }
+  carouselSettings: any;       // { intervalSeconds: number }
   warehouseHistory: any[];     // historial de retiros/eliminaciones
   warehouseSettings: any;      // configuración de visibilidad cross-CP
   warehouseLoans: any[];       // préstamos entre CPs
@@ -156,6 +157,7 @@ const initialSchema: DatabaseSchema = {
   warehouseCPMembers: [],
   presentationItems: [],
   carouselImages: [],
+  carouselSettings: { intervalSeconds: 10 },
   warehouseHistory: [],
   warehouseSettings: { crossCpVisibility: true, crossCpObjectivesVisibility: false },
   warehouseLoans: [],
