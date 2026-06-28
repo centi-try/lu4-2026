@@ -10,6 +10,12 @@ import { dashboardRouter } from "./routers/dashboard";
 import { uploadsRouter } from "./routers/uploads";
 import { settingsRouter } from "./routers/settings";
 import { adminUsersRouter } from "./routers/adminUsers";
+import { raidRouter } from "./routers/raid";
+import { backupsRouter } from "./routers/backups";
+import { clanFundRouter } from "./routers/clanFund";
+import { warehouseRouter } from "./routers/warehouse";
+import { presentationRouter } from "./routers/presentation";
+import { carouselRouter } from "./routers/carousel";
 
 export const appRouter = router({
   system: systemRouter,
@@ -31,6 +37,12 @@ export const appRouter = router({
   uploads: uploadsRouter,
   settings: settingsRouter,
   adminUsers: adminUsersRouter,
+  raid: raidRouter,
+  backups: backupsRouter,
+  clanFund: clanFundRouter,
+  warehouse: warehouseRouter,
+  presentation: presentationRouter,
+  carousel: carouselRouter,
 });
 
 export type AppRouter = typeof appRouter;

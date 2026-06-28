@@ -1,4 +1,4 @@
-export type ItemCategory = 'ARMADURA' | 'ARMA' | 'KEY' | 'RECIPE' | 'MATERIALES' | 'QUEST' | 'ADENA';
+export type ItemCategory = 'ARMADURA' | 'ARMA' | 'KEY' | 'RECIPE' | 'MATERIALES' | 'QUEST' | 'ADENA' | 'JOYA';
 export type ItemStatus = 'EN_REGISTRO' | 'CONFIRMADO' | 'VENDIDO';
 export type UserRole = 'SUPER_ADMIN' | 'MAPPER' | 'USER';
 
@@ -72,6 +72,10 @@ export interface CycleCharacterEarning {
   characterId: string;
   characterName: string;
   earnings: number;
+  // Estado de pago manual (admin marca cuando ya le pagó la adena al personaje)
+  paidOut?: boolean;
+  paidAt?: string;
+  paidBy?: string;
 }
 
 // Resumen de un item vendido dentro de un ciclo

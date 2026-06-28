@@ -1,0 +1,366 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2b$10$rOzJqQZQZQZQZQZQZQZQZeKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+      "displayName": "Super Admin",
+      "role": "super_admin",
+      "characterId": null,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "email": "superadmin@inventory.com",
+      "openId": "local-superadmin@inventory.com",
+      "name": "Super Admin",
+      "characterName": "Super Admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
+      "updatedAt": "2026-04-17T21:38:29.589Z",
+      "lastSignedIn": "2026-04-17T21:38:29.589Z"
+    }
+  ],
+  "characters": [],
+  "items": [],
+  "salesCycles": [],
+  "purchases": [],
+  "auditLogs": [],
+  "images": [],
+  "rules": {
+    "allowMapperToCreateItems": true,
+    "allowMapperToEditPrice": false,
+    "requireImageForItems": false,
+    "maxItemsPerCycle": 100
+  },
+  "settings": [
+    {
+      "cycleCounter": 1
+    }
+  ],
+  "raidBosses": [
+    {
+      "id": 586552341,
+      "name": "Antharas",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+      "level": 85,
+      "notes": null,
+      "createdAt": "2026-04-17T11:43:47.717Z",
+      "updatedAt": "2026-04-17T11:43:47.717Z"
+    }
+  ],
+  "clans": [
+    {
+      "id": 680198214,
+      "name": "Valhalla",
+      "tag": "VLH",
+      "description": null,
+      "totalRaidEarnings": 4499,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T11:43:57.836Z",
+      "updatedAt": "2026-04-17T11:43:57.836Z"
+    }
+  ],
+  "raidCycles": [
+    {
+      "id": 378095518,
+      "label": "Ciclo de Raids #1",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T11:43:58.695Z",
+      "closedAt": "2026-04-17T11:44:05.785Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T11:43:58.695Z",
+      "updatedAt": "2026-04-17T11:44:05.785Z"
+    },
+    {
+      "id": 433986787,
+      "label": "Raids 17/04",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T11:44:19.448Z",
+      "closedAt": "2026-04-17T15:21:15.044Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 2,
+      "totalEvents": 2,
+      "totalRevenue": 1000,
+      "clansParticipated": [
+        {
+          "clanId": 680198214,
+          "clanName": "Valhalla",
+          "eventsParticipated": 2,
+          "revenueShare": 1000
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 586552341,
+          "bossName": "Antharas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+          "kills": 2
+        }
+      ],
+      "summary": {
+        "events": 2,
+        "drops": 3,
+        "bosses": 2,
+        "clans": 1,
+        "totalRevenue": 1000,
+        "totalPotentialValue": 4499
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T11:44:19.448Z",
+      "updatedAt": "2026-04-17T15:21:15.044Z"
+    },
+    {
+      "id": 101954364,
+      "label": "Ciclo de Raids #3",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T21:33:04.876Z",
+      "closedAt": "2026-04-17T21:33:07.282Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T21:33:04.876Z",
+      "updatedAt": "2026-04-17T21:33:07.282Z"
+    }
+  ],
+  "raidEvents": [],
+  "raidEventClans": [],
+  "raidDropItems": [],
+  "userRaidAccess": [],
+  "raidAuditLogs": [
+    {
+      "id": 164674250,
+      "userId": 1,
+      "action": "RAID_BOSS_CREATED",
+      "details": {
+        "bossId": 586552341,
+        "name": "Antharas"
+      },
+      "createdAt": "2026-04-17T11:43:47.717Z"
+    },
+    {
+      "id": 32312352,
+      "userId": 1,
+      "action": "CLAN_CREATED",
+      "details": {
+        "clanId": 680198214,
+        "name": "Valhalla"
+      },
+      "createdAt": "2026-04-17T11:43:57.836Z"
+    },
+    {
+      "id": 188815554,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 378095518,
+        "label": "Ciclo de Raids #1"
+      },
+      "createdAt": "2026-04-17T11:43:58.696Z"
+    },
+    {
+      "id": 994303760,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 378095518,
+        "label": "Ciclo de Raids #1",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T11:44:05.785Z"
+    },
+    {
+      "id": 629018616,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 433986787,
+        "label": "Raids 17/04"
+      },
+      "createdAt": "2026-04-17T11:44:19.448Z"
+    },
+    {
+      "id": 493717271,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 117590370,
+        "bossId": 586552341,
+        "bossName": "Antharas",
+        "clanIds": [
+          680198214
+        ],
+        "dropsCount": 2
+      },
+      "createdAt": "2026-04-17T11:45:16.227Z"
+    },
+    {
+      "id": 658131709,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 309130874,
+        "bossId": 586552341,
+        "bossName": "Antharas",
+        "clanIds": [
+          680198214
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-17T11:45:53.213Z"
+    },
+    {
+      "id": 559322499,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 491061685,
+        "itemName": "Espada +7",
+        "quantitySold": 1,
+        "revenue": 1000,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T11:45:54.737Z"
+    },
+    {
+      "id": 481762837,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 433986787,
+        "label": "Raids 17/04",
+        "events": 2,
+        "drops": 3,
+        "bosses": 2,
+        "clans": 1,
+        "totalRevenue": 1000,
+        "totalPotentialValue": 4499
+      },
+      "createdAt": "2026-04-17T15:21:15.044Z"
+    },
+    {
+      "id": 434104042,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 491061685,
+        "itemName": "Espada +7",
+        "quantitySold": 1,
+        "revenue": 1000,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T21:32:19.546Z"
+    },
+    {
+      "id": 277094456,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 338003639,
+        "itemName": "armadura draconic",
+        "quantitySold": 1,
+        "revenue": 1999,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T21:32:42.244Z"
+    },
+    {
+      "id": 722585560,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 940650982,
+        "itemName": "Escudo",
+        "quantitySold": 1,
+        "revenue": 500,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T21:32:45.463Z"
+    },
+    {
+      "id": 690199418,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 101954364,
+        "label": "Ciclo de Raids #3"
+      },
+      "createdAt": "2026-04-17T21:33:04.876Z"
+    },
+    {
+      "id": 251418875,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 101954364,
+        "label": "Ciclo de Raids #3",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T21:33:07.282Z"
+    },
+    {
+      "id": 349848089,
+      "userId": 1,
+      "action": "RAID_EVENT_DELETED",
+      "details": {
+        "eventId": 309130874
+      },
+      "createdAt": "2026-04-17T21:33:28.303Z"
+    },
+    {
+      "id": 655140183,
+      "userId": 1,
+      "action": "RAID_EVENT_DELETED",
+      "details": {
+        "eventId": 117590370
+      },
+      "createdAt": "2026-04-17T21:33:31.477Z"
+    }
+  ],
+  "raidSettings": []
+}

@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - VITE_APP_ID=lu4-2026
+      - PORT=3000
+      - DATA_FILE=/data/data_storage.json
+      - BACKUPS_DIR=/data/backups
+      - UPLOADS_DIR=/data/uploads
+    volumes:
+      - app_data:/data
+    restart: unless-stopped
+
+volumes:
+  app_data:

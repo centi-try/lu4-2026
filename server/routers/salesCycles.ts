@@ -1,6 +1,14 @@
-import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { router, protectedProcedure } from "../_core/trpc";
 import { z } from "zod";
-import { getSalesCycles, createSalesCycle, closeSalesCycle } from "../db";
+import {
+  getSalesCycles,
+  createSalesCycle,
+  closeSalesCycle,
+  createBackup,
+  setSalesCycleCharacterPaid,
+  setSalesCycleAllPaid,
+  setSalesCycleClanPaid,
+} from "../db";
 
 const CreateSalesCycleSchema = z.object({
   name: z.string(),
@@ -17,10 +25,13 @@ const CloseSalesCycleSchema = z.object({
   itemsSold: z.array(z.object({ itemId: z.number(), quantity: z.number() })).optional(),
   closedBy: z.string().optional(),
   startedAt: z.string().optional(),
+  clanFundAmount: z.number().optional(),
 });
 
 export const salesCyclesRouter = router({
-  list: publicProcedure.query(async () => {
+  // Requiere sesión. Los ciclos incluyen revenue/profit agregados que son
+  // datos financieros internos — antes eran públicos.
+  list: protectedProcedure.query(async () => {
     return await getSalesCycles();
   }),
 
@@ -40,6 +51,11 @@ export const salesCyclesRouter = router({
   close: protectedProcedure
     .input(CloseSalesCycleSchema)
     .mutation(async ({ ctx, input }) => {
+      // Snapshot automático antes de cerrar ciclo — operación irreversible
+      // que muta múltiples entidades (ciclo, personajes, historial).
+      try {
+        createBackup('pre-close-cycle');
+      } catch { /* best-effort */ }
       // FIX: Pasar todos los datos al closeSalesCycle para que genere el ciclo correcto
       await closeSalesCycle(input.id || 0, {
         type: input.type || "SEMANAL",
@@ -50,8 +66,39 @@ export const salesCyclesRouter = router({
         itemsSold: input.itemsSold || [],
         // FIX: Registrar quién cerró el ciclo usando el usuario autenticado
         closedBy: ctx.user?.characterName || ctx.user?.name || "Administrador",
+        closedByUserId: ctx.user?.id,
         startedAt: input.startedAt,
+        clanFundAmount: input.clanFundAmount,
       });
       return { success: true };
+    }),
+
+  // Marca (o desmarca) que ya se le pagó la adena de un ciclo a un personaje.
+  // Es un flag manual para control del admin — no mueve plata ni totales.
+  markCharacterPaid: protectedProcedure
+    .input(z.object({
+      cycleId: z.string(),
+      characterId: z.string(),
+      paidOut: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const actorName = ctx.user?.characterName || ctx.user?.name || "Administrador";
+      const cycle = await setSalesCycleCharacterPaid(
+        input.cycleId,
+        input.characterId,
+        input.paidOut,
+        actorName,
+        ctx.user?.id,
+      );
+      return { success: true, cycle };
+    }),
+
+  // Marca a todos los personajes del ciclo como pagados de una.
+  markAllPaid: protectedProcedure
+    .input(z.object({ cycleId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const actorName = ctx.user?.characterName || ctx.user?.name || "Administrador";
+      const cycle = await setSalesCycleAllPaid(input.cycleId, actorName, ctx.user?.id);
+      return { success: true, cycle };
     }),
 });

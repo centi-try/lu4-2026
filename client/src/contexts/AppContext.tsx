@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type {
   Item, Character, AuditLog, ItemCategory, ItemStatus, UserRole,
   SalesCycle, CycleCharacterEarning, CycleSoldItem, Purchase
@@ -12,11 +12,16 @@ interface SellItemOptions {
   quantityToSell: number;
   buyerId: string;
   buyerName: string;
+  isInternalSale?: boolean;
+  isExternalSale?: boolean;
 }
 
 interface AppContextType {
   currentUser: Character;
   setCurrentUser: (c: Character) => void;
+  isImpersonating: boolean;
+  effectiveRole: string;
+  effectiveIsSuperAdmin: boolean;
   items: Item[];
   characters: Character[];
   auditLogs: AuditLog[];
@@ -76,25 +81,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [authUser]);
 
   const [currentUser, setCurrentUserState] = useState<Character>(() => getAuthUserAsCharacter());
+  const isImpersonatingRef = useRef(false);
 
   useEffect(() => {
-    setCurrentUserState(getAuthUserAsCharacter());
+    if (!isImpersonatingRef.current) {
+      setCurrentUserState(getAuthUserAsCharacter());
+    }
   }, [getAuthUserAsCharacter]);
 
   const setCurrentUser = useCallback((nextUser: Character) => {
     const originalUser = getAuthUserAsCharacter();
-    const isOriginalAccount = nextUser.id === originalUser.id;
+    const isOriginalAccount = nextUser.id === originalUser.id || String(nextUser.id) === `auth-${authUser?.id}`;
 
     if (!authUser) {
+      isImpersonatingRef.current = false;
       setCurrentUserState(defaultEmptyCharacter);
       return;
     }
 
     if (!isAuthSuperAdmin && !isOriginalAccount) {
+      isImpersonatingRef.current = false;
       setCurrentUserState(originalUser);
       return;
     }
 
+    isImpersonatingRef.current = !isOriginalAccount;
     setCurrentUserState(nextUser);
   }, [authUser, getAuthUserAsCharacter, isAuthSuperAdmin]);
 
@@ -107,7 +118,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { data: serverItems, refetch: refetchItems } = trpc.items.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCharacters, refetch: refetchCharacters } = trpc.characters.list.useQuery(undefined, {
+  const { data: serverCharacters, refetch: refetchCharacters } = trpc.items.legacyBuyers.useQuery(undefined, {
     enabled: !!authUser,
   });
   const { data: serverPurchases, refetch: refetchPurchases } = trpc.items.listPurchases.useQuery(undefined, {
@@ -199,11 +210,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [serverAuditLogs]);
 
+  const trpcUtils = trpc.useUtils();
   const sellMutation = trpc.items.sell.useMutation({
     onSuccess: () => {
       refetchPurchases();
       refetchItems();
       refetchCharacters();
+      trpcUtils.items.reservations.list.invalidate();
     }
   });
 
@@ -261,14 +274,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((data: Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>) => {
     if (currentUser.role === 'USER') return;
 
+    // Enviamos imageUrl para que el backend persista el icono global de la
+    // categoría (seteado en /raids/settings) o la URL manual ingresada. Antes
+    // este campo no viajaba al server y el item quedaba con imageUrl=null.
+    const imageUrlToPersist = String(data.image?.publicUrl || '').trim() || null;
     createItemMutation.mutate({
       name: data.name,
       category: data.category,
       status: data.status,
       price: data.price || 0,
-      mapperId: parseInt(currentUser.id.replace('auth-', '')) || 0,
+      mapperId: parseInt(String(currentUser.id).replace('auth-', '')) || 0,
       associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
       quantity: data.quantity || 1,
+      imageUrl: imageUrlToPersist,
     });
 
     const now = new Date().toISOString();
@@ -301,11 +319,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (currentUser.role === 'USER') return;
 
     const updateNumericId = parseInt(String(id).replace('item-', ''));
+    // Propagar la URL de imagen al backend. Si no se propaga, el cambio solo
+    // vive en el estado local y se pierde al recargar (bug observado en
+    // /images del menú antiguo: la nueva URL no se persistía en DB).
+    const incomingImageUrl =
+      (updates as any).imageUrl ??
+      updates.image?.publicUrl ??
+      undefined;
     updateItemMutation.mutate({
       id: isNaN(updateNumericId) ? 0 : updateNumericId,
       name: updates.name,
       category: updates.category,
       price: updates.price || undefined,
+      imageUrl: incomingImageUrl,
     });
 
     setItems(prev => prev.map(item => {
@@ -355,7 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [currentUser, addLog, deleteItemMutation]);
 
-  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName }: SellItemOptions) => {
+  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale, isExternalSale }: SellItemOptions) => {
     if (currentUser.role === 'USER') return;
     if (currentUser.role !== 'SUPER_ADMIN') return;
 
@@ -364,7 +390,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: isNaN(numericId) ? 0 : numericId,
       quantity: quantityToSell,
       buyerId,
-      buyerName
+      buyerName,
+      isInternalSale: isInternalSale || false,
+      isExternalSale: isExternalSale || false,
     });
 
     setItems(prevItems => {
@@ -517,9 +545,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addLog('system', 'Sistema', 'CYCLE_CLOSED', `Cerró ${newCycleLabel} (${type}) con $${totalRevenue.toLocaleString()} recaudados.`);
   }, [currentUser, items, characters, salesCycles, currentCycleStartedAt, addLog, closeCycleMutation]);
 
+  const isImpersonating = !!(currentUser && !String(currentUser.id).startsWith('auth-') && String(currentUser.id) !== `auth-${authUser?.id}`);
+  const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
+  const effectiveIsSuperAdmin = effectiveRole === 'super_admin';
+
   return (
     <AppContext.Provider value={{
-      currentUser, setCurrentUser, items, characters, auditLogs, purchases, salesCycles,
+      currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
+      items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,
       addItem, updateItem, confirmItem, deleteItem, sellItem, searchItems,
       startCycle, closeCycle

@@ -1,9 +1,322 @@
-import React, { useState } from 'react';
-import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X, Bookmark, Clock } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, statusMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory, ItemStatus } from '../../lib/types';
 import { toast } from 'sonner';
+import { trpc } from '../../lib/trpc';
+import { useAuth } from '../../contexts/AuthContext';
+import { ItemReservationButton, type ItemReservationRecord } from './ItemReservationButton';
+import { FancySelect, type FancyOption } from '../ui/FancySelect';
+import { ImageHoverPreview } from '../ui/ImageHoverPreview';
+import type { Character } from '../../lib/types';
+
+// Lista compacta de personajes asociados a un ítem.
+// Muestra los primeros MAX_CHAR_AVATARS como avatars apilados y colapsa el
+// resto en un chip "+N" con popover al hover — mismo patrón que
+// ClansPillList en RaidDropsTable.tsx para "+N más".
+const MAX_CHAR_AVATARS = 3;
+
+function AssocCharactersCell({ chars }: { chars: Character[] }) {
+  const [hover, setHover] = useState(false);
+  const triggerRef = React.useRef<HTMLSpanElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  if (!chars || chars.length === 0) {
+    return <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>;
+  }
+  const visible = chars.slice(0, MAX_CHAR_AVATARS);
+  const overflow = chars.slice(MAX_CHAR_AVATARS);
+
+  const handleEnter = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const popupHeight = overflow.length * 28 + 40;
+      const fitsBelow = rect.bottom + 6 + popupHeight < window.innerHeight;
+      setPopupPos({
+        top: fitsBelow ? rect.bottom + 6 : rect.top - popupHeight - 6,
+        left: Math.min(rect.left, window.innerWidth - 220),
+      });
+    }
+    setHover(true);
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex -space-x-1">
+        {visible.map(char => (
+          <div
+            key={char.id}
+            title={char.name}
+            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white border`}
+            style={{ fontSize: '8px', fontWeight: 'bold', borderColor: 'rgba(10,14,22,0.8)' }}
+          >
+            {char.name.slice(0, 1).toUpperCase()}
+          </div>
+        ))}
+      </div>
+      {overflow.length > 0 && (
+        <span
+          ref={triggerRef}
+          className="relative"
+          onMouseEnter={handleEnter}
+          onMouseLeave={() => setHover(false)}
+        >
+          <span
+            className="rounded px-1.5 py-0.5 text-[10px] whitespace-nowrap cursor-default"
+            style={{
+              background: 'rgba(232,121,249,0.12)',
+              color: '#e879f9',
+              border: '1px solid rgba(232,121,249,0.3)',
+              fontWeight: 600,
+            }}
+          >
+            +{overflow.length} más
+          </span>
+          {hover && createPortal(
+            <div
+              className="fixed z-[9999] rounded-lg shadow-2xl pointer-events-none"
+              style={{
+                top: popupPos.top,
+                left: popupPos.left,
+                minWidth: 200,
+                maxWidth: 300,
+                background: '#0a0e16',
+                border: '1px solid rgba(232,121,249,0.35)',
+                padding: 10,
+              }}
+            >
+              <p
+                className="text-[11px] font-semibold uppercase tracking-wider mb-2"
+                style={{ color: 'rgba(232,121,249,0.7)' }}
+              >
+                Otros personajes ({overflow.length})
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {overflow.map(char => (
+                  <div key={char.id} className="flex items-center gap-2">
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                      style={{ fontSize: '8px', fontWeight: 'bold' }}
+                    >
+                      {char.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                      {char.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>,
+            document.body
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// H — Botón Historial de Ventas del Ítem
+// ============================================================================
+interface Purchase {
+  id: string;
+  itemId: string;
+  buyerName: string;
+  quantity: number;
+  price: number;
+  originalPrice?: number;
+  total: number;
+  isInternalSale?: boolean;
+  discountPct?: number;
+  clanTax?: number;
+  createdAt: string;
+}
+
+function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName: string }) {
+  const [open, setOpen] = useState(false);
+  const { data: purchasesData } = trpc.items.listPurchases.useQuery();
+  const purchases: Purchase[] = ((purchasesData as any[]) || []).filter(
+    (p: any) => String(p.itemId) === String(itemId)
+  ).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  const totalSold = purchases.reduce((s, p) => s + (p.quantity || 0), 0);
+  const totalRevenue = purchases.reduce((s, p) => s + (p.total || 0), 0);
+  const internalCount = purchases.filter(p => p.isInternalSale).length;
+  const normalCount = purchases.length - internalCount;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn-ghost p-2"
+        title={purchases.length > 0 ? `Historial de ventas (${purchases.length})` : 'Sin ventas registradas'}
+        style={{
+          color: purchases.length > 0 ? '#a78bfa' : 'rgba(255,255,255,0.2)',
+          borderColor: purchases.length > 0 ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.04)',
+          background: purchases.length > 0 ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <span className="inline-flex h-3.5 w-3.5 items-center justify-center text-[13px] font-black leading-none">H</span>
+      </button>
+
+      {open && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl"
+            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" style={{ color: '#a78bfa' }} />
+                <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Historial de Ventas</h3>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="rounded p-1 transition-colors hover:bg-white/5">
+                <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
+              </button>
+            </div>
+
+            {/* Item name */}
+            <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>{itemName}</p>
+            </div>
+
+            {/* Summary stats */}
+            {purchases.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#a78bfa' }}>{totalSold}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Vendidas</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#34d399' }}>${totalRevenue.toLocaleString()}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Recaudado</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#60a5fa' }}>{normalCount}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>Normal</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>{internalCount}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>V. Interna</p>
+                </div>
+              </div>
+            )}
+
+            {/* Sales list */}
+            <div className="overflow-y-auto px-5 py-3" style={{ maxHeight: 320 }}>
+              {purchases.length === 0 ? (
+                <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  Este ítem aún no tiene ventas registradas.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {purchases.map((p, idx) => {
+                    const isInternal = !!p.isInternalSale;
+                    const isExternal = !!(p as any).isExternalSale;
+                    const date = new Date(p.createdAt).toLocaleString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const tagStyle = isExternal
+                      ? { background: 'rgba(56,189,248,0.1)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.2)' }
+                      : isInternal
+                        ? { background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }
+                        : { background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.2)' };
+                    const tagLabel = isExternal ? 'Venta Externa (City)' : isInternal ? `Venta Interna (-${p.discountPct || 20}%)` : 'Venta Normal';
+                    return (
+                      <div
+                        key={p.id || idx}
+                        className="rounded-xl p-3"
+                        style={{
+                          background: isExternal ? 'rgba(56,189,248,0.04)' : isInternal ? 'rgba(251,191,36,0.04)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${isExternal ? 'rgba(56,189,248,0.15)' : isInternal ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)'}`,
+                        }}
+                      >
+                        {/* Comprador + tipo de venta */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>{isExternal ? 'Venta' : 'Comprador'}</span>
+                            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>{isExternal ? 'Venta Externa (City)' : p.buyerName}</p>
+                          </div>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={tagStyle}>
+                            {tagLabel}
+                          </span>
+                        </div>
+                        {/* Detalle con etiquetas — 2 columnas alineadas */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-1.5">
+                          {/* Fila 1: Cantidad | Precio original */}
+                          <div>
+                            <span style={{ color: 'rgba(255,255,255,0.35)' }}>Cantidad: </span>
+                            <span style={{ color: 'rgba(255,255,255,0.7)' }}>{p.quantity} ud</span>
+                          </div>
+                          <div>
+                            <span style={{ color: 'rgba(255,255,255,0.35)' }}>Precio original: </span>
+                            <span style={isInternal ? { textDecoration: 'line-through', color: 'rgba(255,255,255,0.3)' } : { color: 'rgba(255,255,255,0.7)' }}>
+                              ${(p.originalPrice || p.price).toLocaleString()}
+                            </span>
+                          </div>
+                          {/* Fila 2: Precio con dto (solo interna) | Total cobrado */}
+                          {isInternal ? (
+                            <div>
+                              <span style={{ color: 'rgba(255,255,255,0.35)' }}>Precio con dto: </span>
+                              <span style={{ color: '#fbbf24' }}>${p.price.toLocaleString()} c/u</span>
+                            </div>
+                          ) : (
+                            <div />
+                          )}
+                          <div>
+                            <span style={{ color: 'rgba(255,255,255,0.35)' }}>Total cobrado: </span>
+                            <span className="font-semibold" style={{ color: '#34d399' }}>${p.total.toLocaleString()}</span>
+                          </div>
+                          {/* Fila 3: Retención clan | Neto vendedor (solo si hay tax) */}
+                          {p.clanTax ? (
+                            <>
+                              <div>
+                                <span style={{ color: 'rgba(255,255,255,0.35)' }}>Retención clan: </span>
+                                <span style={{ color: '#f87171' }}>${p.clanTax.toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: 'rgba(255,255,255,0.35)' }}>Neto vendedor: </span>
+                                <span className="font-semibold" style={{ color: '#34d399' }}>${(p.total - (p.clanTax || 0)).toLocaleString()}</span>
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
+                        {/* Fecha */}
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Fecha:</span>
+                          <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.4)' }}>{date}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
 
 interface Props {
   items?: Item[];
@@ -12,11 +325,75 @@ interface Props {
 
 export function ItemTable({ items: propItems, compact = false }: Props) {
   const { items: allItems, currentUser, confirmItem, deleteItem, updateItem, sellItem, characters } = useApp();
+  const { user: authUser } = useAuth();
   const items = propItems ?? allItems;
+
+  // Reservas de items (waitlist). Compartidas con Dashboard porque ambos usan
+  // este componente. La query se re-valida automáticamente al crear/cancelar.
+  const { data: reservationsData } = trpc.items.reservations.list.useQuery(
+    undefined,
+    { enabled: !!authUser }
+  );
+  const reservations: ItemReservationRecord[] = (reservationsData as any[]) || [];
+
+  const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
+  const legacyBuyers = (legacyBuyersData as any[]) || [];
+
+  // Build combined character lookup: old characters + legacyBuyers (user accounts)
+  // Items may have associatedCharacterIds with old char IDs OR new user IDs
+  const allCharLookup = useMemo(() => {
+    const map = new Map<string, Character>();
+    // Old characters first
+    for (const c of characters) {
+      map.set(String(c.id), c);
+    }
+    // Legacy users (user accounts with legacyAccess) — overwrite if same ID
+    for (const u of legacyBuyers) {
+      const uid = String(u.id);
+      if (!map.has(uid)) {
+        const r = String(u.role || 'user').toLowerCase();
+        const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+        map.set(uid, {
+          id: uid,
+          name: u.name || 'Sin nombre',
+          role: (u.role || 'USER').toUpperCase(),
+          avatar: avatarGrad,
+          class: u.classMain || 'Sin clase',
+          level: 1,
+          itemIds: u.itemIds || [],
+          totalEarnings: u.totalEarnings || 0,
+          currentCycleEarnings: u.currentCycleEarnings || 0,
+        });
+      }
+    }
+    return map;
+  }, [characters, legacyBuyers]);
+
+  const utils = trpc.useUtils();
+  const markPreSoldMutation = trpc.items.reservations.markPreSold.useMutation({
+    onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Reserva marcada como pre-vendida.'); },
+    onError: (err) => toast.error(err.message || 'Error al marcar pre-venta.'),
+  });
+  const unmarkPreSoldMutation = trpc.items.reservations.unmarkPreSold.useMutation({
+    onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Pre-venta desmarcada.'); },
+    onError: (err) => toast.error(err.message || 'Error al desmarcar pre-venta.'),
+  });
+
+
+  // Map itemId -> reservas vivas del item, para pill y highlight.
+  const reservationsByItem = useMemo(() => {
+    const m = new Map<string, ItemReservationRecord[]>();
+    for (const r of reservations) {
+      const key = String(r.itemId);
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(r);
+    }
+    return m;
+  }, [reservations]);
 
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<ItemCategory | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D'>('ALL');
   const [sortKey, setSortKey] = useState<'name' | 'price' | 'createdAt'>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [editId, setEditId] = useState<string | null>(null);
@@ -25,22 +402,94 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [sellModalItem, setSellModalItem] = useState<Item | null>(null);
   const [sellQty, setSellQty] = useState('1');
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
+  const [isInternalSale, setIsInternalSale] = useState(false);
+  const [isExternalSale, setIsExternalSale] = useState(false);
+  // Confirmación de borrado
+  const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
+  const [sellReservsOpen, setSellReservsOpen] = useState(false);
+  const [sellDistribOpen, setSellDistribOpen] = useState(false);
 
+  const reservedTotals = useMemo(() => {
+    let drops = 0;
+    let units = 0;
+    reservationsByItem.forEach((rs) => {
+      drops += 1;
+      for (const r of rs) units += Number(r.quantity) || 0;
+    });
+    return { drops, units };
+  }, [reservationsByItem]);
+
+  // "WITH_RESERVATIONS" es un pseudo-filtro: no es un status real de ítem,
+  // sino un toggle que activa el filtrado por ítems con reservas vivas.
+  // Se maneja aparte de `statusFilter` para no ensuciar el tipo ItemStatus.
   const filtered = items
     .filter(i => {
       const q = search.toLowerCase();
-      return (
-        (!q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)) &&
-        (catFilter === 'ALL' || i.category === catFilter) &&
-        (statusFilter === 'ALL' || i.status === statusFilter)
-      );
+      const matchesSearch = !q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q);
+      const matchesCat = catFilter === 'ALL' || i.category === catFilter;
+      const statusStr = String(statusFilter);
+      let matchesStatus = true;
+      if (statusStr === 'WITH_RESERVATIONS') {
+        const rs = reservationsByItem.get(String(i.id));
+        matchesStatus = !!(rs && rs.length > 0);
+      } else if (statusStr === 'STALE_7D') {
+        const daysOld = Math.floor((Date.now() - new Date(i.createdAt).getTime()) / 86400000);
+        matchesStatus = daysOld >= 7 && i.status !== 'VENDIDO' && i.quantitySold < i.quantity;
+      } else if (statusStr !== 'ALL') {
+        matchesStatus = i.status === statusFilter;
+      }
+      return matchesSearch && matchesCat && matchesStatus;
     })
     .sort((a, b) => {
+      // Orden por defecto: ítems con stock arriba, agotados/vendidos al final.
+      // Dentro de cada grupo aplicamos el sortKey elegido por el usuario.
+      const remA = (Number(a.quantity) || 0) - (Number(a.quantitySold) || 0);
+      const remB = (Number(b.quantity) || 0) - (Number(b.quantitySold) || 0);
+      const outA = (a.status === 'VENDIDO' || remA <= 0) ? 1 : 0;
+      const outB = (b.status === 'VENDIDO' || remB <= 0) ? 1 : 0;
+      if (outA !== outB) return outA - outB;
       let va: string | number = a[sortKey] ?? '';
       let vb: string | number = b[sortKey] ?? '';
       if (sortKey === 'price') { va = a.price ?? 0; vb = b.price ?? 0; }
       return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
     });
+
+  // Totales agregados de los ítems filtrados. Mismo orden/semántica que la
+  // tabla de drops del menú raid: Unid (restante/total), Vendidas, Vendido
+  // (adena cobrada = price*sold), Restante (potencial = price*remaining),
+  // Total (sticker price del subset filtrado).
+  const totals = useMemo(() => {
+    const totalUnits = filtered.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const soldUnits = filtered.reduce((s, i) => s + (Number(i.quantitySold) || 0), 0);
+    const remainingUnits = totalUnits - soldUnits;
+    const soldRevenue = filtered.reduce(
+      (s, i) => s + (Number(i.price) || 0) * (Number(i.quantitySold) || 0),
+      0
+    );
+    const potentialRevenue = filtered.reduce(
+      (s, i) =>
+        s + (Number(i.price) || 0) * ((Number(i.quantity) || 0) - (Number(i.quantitySold) || 0)),
+      0
+    );
+    const totalRevenue = soldRevenue + potentialRevenue;
+    // Reservas: ítems distintos con al menos una reserva viva + total unidades
+    // reservadas (suma de quantity). Solo cuenta ítems dentro de `filtered`
+    // para que el contador respete los filtros actuales.
+    let itemsWithReservations = 0;
+    let reservedUnitsTotal = 0;
+    for (const it of filtered) {
+      const rs = reservationsByItem.get(String(it.id));
+      if (rs && rs.length > 0) {
+        itemsWithReservations += 1;
+        for (const r of rs) reservedUnitsTotal += Number(r.quantity) || 0;
+      }
+    }
+    return {
+      totalUnits, soldUnits, remainingUnits,
+      soldRevenue, potentialRevenue, totalRevenue,
+      itemsWithReservations, reservedUnitsTotal,
+    };
+  }, [filtered, reservationsByItem]);
 
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -55,10 +504,16 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     toast.success(`"${name}" confirmado. Imagen bloqueada para Mapper.`);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (!window.confirm(`¿Eliminar "${name}"?`)) return;
-    deleteItem(id);
+  const handleDelete = (item: Item) => {
+    setDeleteModalItem(item);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteModalItem) return;
+    const name = deleteModalItem.name;
+    deleteItem(deleteModalItem.id);
     toast.success(`"${name}" eliminado del inventario.`);
+    setDeleteModalItem(null);
   };
 
   const handleEditPrice = (item: Item) => {
@@ -72,10 +527,16 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setEditId(null);
   };
 
+  const { data: clanFundSettings } = trpc.clanFund.getSettings.useQuery(undefined, { staleTime: 30_000 });
+
   const openSellModal = (item: Item) => {
     setSellModalItem(item);
     setSellQty('1');
     setSelectedBuyerId('');
+    setIsInternalSale(false);
+    setIsExternalSale(false);
+    setSellReservsOpen(false);
+    setSellDistribOpen(false);
   };
 
   const handleSell = () => {
@@ -86,29 +547,46 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       toast.error(`Cantidad inválida. Máximo disponible: ${remaining}`);
       return;
     }
-    if (!selectedBuyerId) {
-      toast.error('Debes seleccionar un comprador');
-      return;
-    }
 
-    const buyer = characters.find(c => String(c.id) === String(selectedBuyerId));
-    if (!buyer) {
-      toast.error('Comprador no encontrado');
-      return;
-    }
-
-    sellItem({ 
-      itemId: sellModalItem.id, 
-      quantityToSell: qty,
-      buyerId: buyer.id,
-      buyerName: buyer.name
-    });
-
-    const newRemaining = remaining - qty;
-    if (newRemaining === 0) {
-      toast.success(`"${sellModalItem.name}" completamente vendido a ${buyer.name}.`);
+    if (isExternalSale) {
+      sellItem({ 
+        itemId: sellModalItem.id, 
+        quantityToSell: qty,
+        buyerId: 'external-city',
+        buyerName: 'Venta Externa (City)',
+        isInternalSale: false,
+        isExternalSale: true,
+      });
+      const newRemaining = remaining - qty;
+      if (newRemaining === 0) {
+        toast.success(`"${sellModalItem.name}" vendido por fuera (City).`);
+      } else {
+        toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" por fuera (City). Quedan ${newRemaining}.`);
+      }
     } else {
-      toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" a ${buyer.name}. Quedan ${newRemaining}.`);
+      if (!selectedBuyerId) {
+        toast.error('Debes seleccionar un comprador');
+        return;
+      }
+      const buyer = legacyBuyers.find((u: any) => String(u.id) === String(selectedBuyerId));
+      if (!buyer) {
+        toast.error('Comprador no encontrado');
+        return;
+      }
+      sellItem({ 
+        itemId: sellModalItem.id, 
+        quantityToSell: qty,
+        buyerId: buyer.id,
+        buyerName: buyer.name,
+        isInternalSale,
+        isExternalSale: false,
+      });
+      const newRemaining = remaining - qty;
+      if (newRemaining === 0) {
+        toast.success(`"${sellModalItem.name}" completamente vendido a ${buyer.name}.`);
+      } else {
+        toast.success(`Vendidas ${qty} unidad(es) de "${sellModalItem.name}" a ${buyer.name}. Quedan ${newRemaining}.`);
+      }
     }
     setSellModalItem(null);
   };
@@ -116,46 +594,122 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   return (
     <>
       <div className="card-glass rounded-2xl">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <div>
-            <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              Inventario de Ítems
-              <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-mono" style={{ background: 'rgba(123,241,214,0.12)', color: '#7bf1d6' }}>
-                {filtered.length}
+        {/* Header — mismo layout que RaidDropsTable:
+            fila 1: título + descripción a la izquierda, stats a la derecha.
+            fila 2: grilla de filtros expandida (Buscar · Categoría · Estado). */}
+        <div className="border-b p-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Inventario de Ítems
+                <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-mono" style={{ background: 'rgba(123,241,214,0.12)', color: '#7bf1d6' }}>
+                  {filtered.length}
+                </span>
+                <span className="ml-2 text-xs font-normal" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  · {filtered.length} de {items.length}
+                </span>
+              </h3>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
+              </p>
+            </div>
+            {/* Stats a la derecha — mismo orden/colores que la tabla de drops
+                del menú raid: Unid · Vendidas · Vendido · Restante · Total
+                + pill R clickeable que toggle-filtra a ítems con reservas. */}
+            <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              <span>
+                Unid: <span style={{ color: '#7bf1d6' }}>{totals.remainingUnits}</span>/
+                {totals.totalUnits}
               </span>
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              Gestión completa con imagen, categoría, precio, cantidad y personajes asociados.
-            </p>
+              <span>
+                Vendidas: <span style={{ color: '#fbbf24' }}>{totals.soldUnits}</span>
+              </span>
+              <span>
+                Vendido: <span style={{ color: '#fbbf24' }}>${totals.soldRevenue.toLocaleString()}</span>
+              </span>
+              <span>
+                Restante: <span style={{ color: '#a78bfa' }}>${totals.potentialRevenue.toLocaleString()}</span>
+              </span>
+              <span>
+                Total: <span style={{ color: 'rgba(255,255,255,0.85)' }}>${totals.totalRevenue.toLocaleString()}</span>
+              </span>
+              {totals.itemsWithReservations > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStatusFilter((s) => (s === 'WITH_RESERVATIONS' ? 'ALL' : 'WITH_RESERVATIONS'))
+                  }
+                  title={
+                    statusFilter === 'WITH_RESERVATIONS'
+                      ? 'Quitar filtro de reservas'
+                      : 'Filtrar: solo ítems con reservas'
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+                  style={{
+                    background: statusFilter === 'WITH_RESERVATIONS'
+                      ? 'rgba(251,191,36,0.22)'
+                      : 'rgba(251,191,36,0.12)',
+                    border: `1px solid ${statusFilter === 'WITH_RESERVATIONS' ? 'rgba(251,191,36,0.6)' : 'rgba(251,191,36,0.35)'}`,
+                    color: '#fbbf24',
+                  }}
+                >
+                  <span className="inline-flex h-3 w-3 items-center justify-center text-[11px] font-black leading-none">R</span>
+                  {totals.itemsWithReservations} {totals.itemsWithReservations === 1 ? 'item' : 'items'} · {totals.reservedUnitsTotal} uds
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* Filters — grilla en fila propia abajo del título, estilo raid. */}
           {!compact && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex h-9 items-center gap-2 rounded-xl border px-3"
-                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}>
-                <Search className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.35)' }} />
-                <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Buscar..." className="bg-transparent text-xs outline-none w-32"
-                  style={{ color: 'rgba(255,255,255,0.8)', caretColor: '#7bf1d6' }} />
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
+                />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar ítem por nombre…"
+                  className="w-full h-10 rounded-xl pl-9 pr-3 text-sm outline-none"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.85)',
+                  }}
+                />
               </div>
-              <select value={catFilter} onChange={e => setCatFilter(e.target.value as ItemCategory | 'ALL')}
-                className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
-                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
-                <option value="ALL" className="bg-[#0a0e16]">Todas las categorías</option>
-                {CATEGORIES.map(c => {
-                  const meta = categoryMeta[c] || { emoji: '📦', label: c };
-                  return <option key={c} value={c} className="bg-[#0a0e16]">{meta.emoji} {meta.label}</option>;
-                })}
-              </select>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ItemStatus | 'ALL')}
-                className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
-                style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
-                <option value="ALL" className="bg-[#0a0e16]">Todos los estados</option>
-                <option value="CONFIRMADO" className="bg-[#0a0e16]">✅ Confirmado</option>
-                <option value="EN_REGISTRO" className="bg-[#0a0e16]">🟡 En Registro</option>
-                <option value="VENDIDO" className="bg-[#0a0e16]">💰 Vendido</option>
-              </select>
+              <FancySelect<ItemCategory | 'ALL'>
+                value={catFilter}
+                onChange={(v) => setCatFilter(v as ItemCategory | 'ALL')}
+                accent="turquoise"
+                size="md"
+                placeholder="Todas las categorías"
+                options={[
+                  { value: 'ALL', label: 'Todas las categorías', emoji: '📂' },
+                  ...CATEGORIES.map<FancyOption<ItemCategory | 'ALL'>>(c => {
+                    const meta = categoryMeta[c] || { emoji: '📦', label: c };
+                    return { value: c, label: meta.label, emoji: meta.emoji };
+                  }),
+                ]}
+              />
+              <FancySelect<ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D'>
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D')}
+                accent="turquoise"
+                size="md"
+                placeholder="Todos los estados"
+                options={[
+                  { value: 'ALL', label: 'Todos los estados', emoji: '🧾' },
+                  { value: 'CONFIRMADO', label: 'Con stock', emoji: '✅' },
+                  { value: 'EN_REGISTRO', label: 'En Registro', emoji: '🟡' },
+                  { value: 'VENDIDO', label: 'Vendido', emoji: '💰' },
+                  { value: 'WITH_RESERVATIONS', label: 'Con reservas', emoji: '🔖' },
+                  { value: 'STALE_7D', label: 'Sin vender (+7 días)', emoji: '⏳' },
+                ]}
+              />
             </div>
           )}
         </div>
@@ -196,25 +750,71 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const canSell = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status !== 'VENDIDO' && item.status === 'CONFIRMADO';
                 const isEditing = editId === item.id;
                 const remaining = item.quantity - item.quantitySold;
-                const assocChars = characters.filter(c => item.associatedCharacterIds.includes(c.id));
+                const assocChars = item.associatedCharacterIds
+                  .map(cid => allCharLookup.get(String(cid)))
+                  .filter((c): c is Character => !!c);
+                const itemReservations = reservationsByItem.get(String(item.id)) || [];
+                const reservedCount = itemReservations.length;
+                const reservedUnits = itemReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+                const hasReservations = reservedCount > 0;
+                const daysUnsold = Math.floor((Date.now() - new Date(item.createdAt).getTime()) / 86400000);
+                const isStale = daysUnsold >= 7 && item.status !== 'VENDIDO' && item.quantitySold < item.quantity;
+                const staleColor = daysUnsold >= 30 ? '#ef4444' : daysUnsold >= 15 ? '#f97316' : '#fb923c';
+                const staleBg = daysUnsold >= 30 ? 'rgba(239,68,68,0.1)' : daysUnsold >= 15 ? 'rgba(249,115,22,0.1)' : 'rgba(251,146,60,0.08)';
+                const staleBorder = daysUnsold >= 30 ? 'rgba(239,68,68,0.3)' : daysUnsold >= 15 ? 'rgba(249,115,22,0.25)' : 'rgba(251,146,60,0.2)';
 
                 return (
-                  <tr key={item.id} className="table-row-hover border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                  <tr
+                    key={item.id}
+                    className="table-row-hover border-t"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.04)',
+                      background: hasReservations ? 'rgba(251,191,36,0.05)' : undefined,
+                      boxShadow: hasReservations ? 'inset 3px 0 0 0 #fbbf24' : undefined,
+                    }}
+                  >
                     {/* Image */}
                     <td className="px-4 py-3">
-                      <div className="h-[30px] w-[30px] overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-                        {item.image?.publicUrl ? (
-                          <img src={item.image.publicUrl} alt={item.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-white/5">
-                            <ShoppingCart className="h-4 w-4 text-white/20" />
-                          </div>
-                        )}
-                      </div>
+                      <ImageHoverPreview src={item.image?.publicUrl} caption={item.name} size={320}>
+                        <div className="h-[30px] w-[30px] overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                          {item.image?.publicUrl ? (
+                            <img src={item.image.publicUrl} alt={item.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-white/5">
+                              <ShoppingCart className="h-4 w-4 text-white/20" />
+                            </div>
+                          )}
+                        </div>
+                      </ImageHoverPreview>
                     </td>
                     {/* Name */}
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                        {hasReservations && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
+                            style={{
+                              background: 'rgba(251,191,36,0.12)',
+                              border: '1px solid rgba(251,191,36,0.35)',
+                              color: '#fbbf24',
+                            }}
+                            title={`${reservedCount} reserva(s) · ${reservedUnits} unidad(es)`}
+                          >
+                            <span className="inline-flex h-2.5 w-2.5 items-center justify-center text-[10px] font-black leading-none">R</span>
+                            {reservedUnits} uds
+                          </span>
+                        )}
+                        {isStale && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
+                            style={{ background: staleBg, border: `1px solid ${staleBorder}`, color: staleColor }}
+                            title={`Registrado hace ${daysUnsold} días sin vender todo el stock`}
+                          >
+                            ⏳ {daysUnsold}d
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>ID: {item.id}</p>
                     </td>
                     {/* Category */}
@@ -259,34 +859,26 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     </td>
                     {/* Associated Characters */}
                     <td className="px-4 py-3">
-                      {assocChars.length > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <div className="flex -space-x-1">
-                            {assocChars.slice(0, 3).map(char => (
-                              <div key={char.id} title={char.name}
-                                className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white border`}
-                                style={{ fontSize: '8px', fontWeight: 'bold', borderColor: 'rgba(10,14,22,0.8)' }}>
-                                {char.name.slice(0, 1).toUpperCase()}
-                              </div>
-                            ))}
-                          </div>
-                          {assocChars.length > 3 && (
-                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>+{assocChars.length - 3}</span>
-                          )}
-                          <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                            {assocChars.length}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
-                      )}
+                      <AssocCharactersCell chars={assocChars} />
                     </td>
-                    {/* Actions */}
+                    {/* Actions — reglas replicadas de RaidDropsTable:
+                        - ✏️ editar precio: deshabilitado si todo vendido (no tiene sentido cambiar el precio)
+                        - 🛒 vender: oculto si no hay stock restante
+                        - 🗑️ eliminar: deshabilitado si ya hubo ventas (preserva integridad histórica de purchases/character earnings) */}
                     {!compact && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           {canEdit && !isEditing && (
-                            <button onClick={() => handleEditPrice(item)} className="btn-ghost p-2" title="Editar precio">
+                            <button
+                              onClick={() => { if (remaining > 0) handleEditPrice(item); }}
+                              disabled={remaining === 0}
+                              className="btn-ghost p-2"
+                              title={remaining === 0 ? 'No se puede editar: ítem sin stock (todo vendido)' : 'Editar precio'}
+                              style={{
+                                opacity: remaining === 0 ? 0.35 : 1,
+                                cursor: remaining === 0 ? 'not-allowed' : 'pointer',
+                              }}
+                            >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                           )}
@@ -296,18 +888,44 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {canSell && (
+                          {canSell && remaining > 0 && (
                             <button onClick={() => openSellModal(item)} className="btn-ghost p-2" title="Vender unidades"
                               style={{ color: '#a78bfa', borderColor: 'rgba(167,139,250,0.25)', background: 'rgba(167,139,250,0.08)' }}>
                               <ShoppingCart className="h-3.5 w-3.5" />
                             </button>
                           )}
                           {canDelete && (
-                            <button onClick={() => handleDelete(item.id, item.name)} className="btn-danger p-2" title="Eliminar ítem">
+                            <button
+                              onClick={() => { if (item.quantitySold === 0) handleDelete(item); }}
+                              disabled={item.quantitySold > 0}
+                              className="rounded-lg p-2 transition-all"
+                              style={{
+                                background: item.quantitySold > 0 ? 'rgba(255,255,255,0.02)' : 'rgba(239,68,68,0.1)',
+                                border: item.quantitySold > 0 ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(239,68,68,0.2)',
+                                color: item.quantitySold > 0 ? 'rgba(255,255,255,0.2)' : '#f87171',
+                                cursor: item.quantitySold > 0 ? 'not-allowed' : 'pointer',
+                              }}
+                              title={item.quantitySold > 0 ? 'No se puede eliminar un ítem que ya tiene ventas' : 'Eliminar ítem'}
+                            >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          {!canEdit && !canConfirm && !canSell && !canDelete && (
+                          {/* Reservar (waitlist) — visible para todos los roles. */}
+                          {authUser && (
+                            <ItemReservationButton
+                              item={{
+                                id: item.id,
+                                name: item.name,
+                                quantity: item.quantity,
+                                quantitySold: item.quantitySold,
+                                status: item.status,
+                              }}
+                              reservations={reservations}
+                            />
+                          )}
+                          {/* Historial de ventas del ítem — visible para todos */}
+                          <ItemSaleHistoryButton itemId={String(item.id)} itemName={item.name} />
+                          {!canEdit && !canConfirm && !canSell && !canDelete && !authUser && (
                             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
                           )}
                         </div>
@@ -339,8 +957,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
           onClick={e => { if (e.target === e.currentTarget) setSellModalItem(null); }}>
-          <div className="w-full max-w-md rounded-2xl p-6"
-            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="w-full max-w-lg rounded-2xl p-6"
+            style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
@@ -358,99 +976,266 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               </button>
             </div>
 
-            {/* Item info */}
-            <div className="mb-5 rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+            {/* Item info — compact */}
+            <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                   {sellModalItem.image?.publicUrl ? (
                     <img src={sellModalItem.image.publicUrl} alt={sellModalItem.name}
                       className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-white/5">
-                      <ShoppingCart className="h-6 w-6 text-white/20" />
+                      <ShoppingCart className="h-5 w-5 text-white/20" />
                     </div>
                   )}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{sellModalItem.name}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>{sellModalItem.name}</p>
                   <p className="text-xs font-mono" style={{ color: '#a78bfa' }}>
-                    ${sellModalItem.price?.toLocaleString() ?? '—'} por unidad
+                    ${sellModalItem.price?.toLocaleString() ?? '—'} /ud
                   </p>
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(123,241,214,0.08)' }}>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
-                </div>
-                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(251,191,36,0.08)' }}>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vendidas</p>
-                </div>
-                <div className="rounded-lg p-2 text-center" style={{ background: 'rgba(167,139,250,0.08)' }}>
-                  <p className="text-lg font-bold font-mono" style={{ color: '#a78bfa' }}>
-                    {sellModalItem.quantity - sellModalItem.quantitySold}
-                  </p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Disponibles</p>
+                <div className="flex gap-2 text-center shrink-0">
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(123,241,214,0.08)' }}>
+                    <p className="text-base font-bold font-mono" style={{ color: '#7bf1d6' }}>{sellModalItem.quantity}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Total</p>
+                  </div>
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(251,191,36,0.08)' }}>
+                    <p className="text-base font-bold font-mono" style={{ color: '#fbbf24' }}>{sellModalItem.quantitySold}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Vendidas</p>
+                  </div>
+                  <div className="rounded-lg px-3 py-1.5" style={{ background: 'rgba(167,139,250,0.08)' }}>
+                    <p className="text-base font-bold font-mono" style={{ color: '#a78bfa' }}>{sellModalItem.quantity - sellModalItem.quantitySold}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Disponibles</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Personajes que recibirán ganancia */}
-            {sellModalItem.associatedCharacterIds.length > 0 && (
-              <div className="mb-5 rounded-xl p-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
-                <p className="text-xs font-semibold mb-2 flex items-center gap-1" style={{ color: '#7bf1d6' }}>
-                  <Users className="h-3.5 w-3.5" />
-                  Distribución de ganancias
-                </p>
-                <div className="space-y-1">
-                  {sellModalItem.associatedCharacterIds.map(cid => {
-                    const char = characters.find(c => c.id === cid);
-                    if (!char) return null;
-                    const qty = parseInt(sellQty) || 0;
-                    const totalRev = (sellModalItem.price ?? 0) * qty;
-                    const perChar = Math.floor(totalRev / sellModalItem.associatedCharacterIds.length);
-                    return (
-                      <div key={cid} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
-                            style={{ fontSize: '8px', fontWeight: 'bold' }}>
-                            {char.name.slice(0, 1).toUpperCase()}
+            {/* Reservas activas — collapsible */}
+            {(() => {
+              const itemReservs = reservationsByItem.get(String(sellModalItem.id)) || [];
+              if (itemReservs.length === 0) return null;
+              const totalUnits = itemReservs.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+              return (
+                <div className="mb-3 rounded-xl" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSellReservsOpen(v => !v)}
+                    className="w-full flex items-center justify-between p-2.5 text-left"
+                  >
+                    <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#fbbf24' }}>
+                      <Bookmark className="h-3.5 w-3.5" />
+                      Reservas activas ({itemReservs.length})
+                      <span className="font-mono" style={{ color: 'rgba(251,191,36,0.7)' }}>· {totalUnits} uds</span>
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#fbbf24', transform: sellReservsOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                  </button>
+                  {sellReservsOpen && (
+                    <div className="space-y-1.5 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 180 }}>
+                      {itemReservs.map(r => {
+                        const isPreSold = (r as any).status === 'pre_sold';
+                        const isSold = (r as any).status === 'sold';
+                        const rowBg = isSold ? 'rgba(34,197,94,0.1)' : isPreSold ? 'rgba(52,211,153,0.08)' : 'transparent';
+                        const rowBorder = isSold ? '1px solid rgba(34,197,94,0.25)' : isPreSold ? '1px solid rgba(52,211,153,0.2)' : '1px solid transparent';
+                        const avatarBg = isSold ? 'rgba(34,197,94,0.35)' : isPreSold ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)';
+                        const nameColor = isSold ? '#22c55e' : isPreSold ? '#34d399' : 'rgba(255,255,255,0.75)';
+                        const qtyColor = isSold ? '#22c55e' : isPreSold ? '#34d399' : '#fbbf24';
+                        return (
+                          <div key={r.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
+                            style={{ background: rowBg, border: rowBorder }}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full text-white"
+                                style={{ fontSize: '8px', fontWeight: 'bold', background: avatarBg }}>
+                                {(r.characterName || r.userName || '?').slice(0, 1).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="text-sm" style={{ color: nameColor }}>
+                                  {r.characterName || r.userName}
+                                </span>
+                                {isSold && (
+                                  <span className="ml-1.5 text-xs font-semibold" style={{ color: '#22c55e' }}>(Vendido)</span>
+                                )}
+                                {isPreSold && !isSold && (
+                                  <span className="ml-1.5 text-xs font-semibold" style={{ color: '#34d399' }}>(Pre-vendido)</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono" style={{ color: qtyColor }}>
+                                {r.quantity} ud{r.quantity !== 1 ? 's' : ''}
+                              </span>
+                              {isSold ? null : isPreSold ? (
+                                <button
+                                  onClick={() => unmarkPreSoldMutation.mutate({ id: r.id })}
+                                  disabled={unmarkPreSoldMutation.isPending}
+                                  className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-red-500/10"
+                                  style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                                  title="Desmarcar pre-venta"
+                                >
+                                  Desmarcar
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => markPreSoldMutation.mutate({ id: r.id })}
+                                  disabled={markPreSoldMutation.isPending}
+                                  className="rounded-lg px-2 py-1 text-xs font-semibold transition-all hover:bg-green-500/10"
+                                  style={{ color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}
+                                  title="Marcar como vendido a este personaje"
+                                >
+                                  Pre-vendido
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{char.name}</span>
-                        </div>
-                        <span className="text-xs font-mono" style={{ color: '#7bf1d6' }}>
-                          {qty > 0 ? `+$${perChar.toLocaleString()}` : '—'}
-                        </span>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
+              );
+            })()}
+
+            {/* Distribución de ganancias — collapsible */}
+            {sellModalItem.associatedCharacterIds.length > 0 && (
+              <div className="mb-3 rounded-xl" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+                <button
+                  type="button"
+                  onClick={() => setSellDistribOpen(v => !v)}
+                  className="w-full flex items-center justify-between p-2.5 text-left"
+                >
+                  <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#7bf1d6' }}>
+                    <Users className="h-3.5 w-3.5" />
+                    Distribución de ganancias ({sellModalItem.associatedCharacterIds.length})
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform" style={{ color: '#7bf1d6', transform: sellDistribOpen ? 'rotate(180deg)' : 'rotate(0)' }} />
+                </button>
+                {sellDistribOpen && (
+                  <div className="space-y-1 overflow-y-auto px-2.5 pb-2.5 pr-1" style={{ maxHeight: 120 }}>
+                    {sellModalItem.associatedCharacterIds.map(cid => {
+                      const char = allCharLookup.get(String(cid));
+                      if (!char) return null;
+                      const qty = parseInt(sellQty) || 0;
+                      const basePriceCalc = sellModalItem.price ?? 0;
+                      const discPctCalc = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+                      const effPriceCalc = Math.floor(basePriceCalc * (1 - discPctCalc / 100));
+                      const totalRev = effPriceCalc * qty;
+                      const clanTaxCalc = Math.floor(totalRev * (Number(clanFundSettings?.clanTaxPercent) || 0) / 100);
+                      const perChar = Math.floor((totalRev - clanTaxCalc) / sellModalItem.associatedCharacterIds.length);
+                      return (
+                        <div key={cid} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                              style={{ fontSize: '8px', fontWeight: 'bold' }}>
+                              {char.name.slice(0, 1).toUpperCase()}
+                            </div>
+                            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>{char.name}</span>
+                          </div>
+                          <span className="text-sm font-mono" style={{ color: '#7bf1d6' }}>
+                            {qty > 0 ? `+$${perChar.toLocaleString()}` : '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Selector de Comprador */}
-            <div className="mb-5">
-              <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                Asignar a Comprador/Cuenta
-              </label>
-              <select
-                value={selectedBuyerId}
-                onChange={e => setSelectedBuyerId(e.target.value)}
-                className="input-dark h-11 w-full text-sm px-3 select-dark"
-                style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}
-              >
-                <option value="" className="bg-[#0a0e16]">Seleccionar cuenta...</option>
-                {characters.map(char => (
-                  <option key={char.id} value={char.id} className="bg-[#0a0e16]">
-                    {char.name} ({char.class})
-                  </option>
-                ))}
-              </select>
+            {/* Tipo de venta: toggle entre Interna y Externa (City) */}
+            <div className="mb-3 rounded-xl p-3" style={{ background: isExternalSale ? 'rgba(56,189,248,0.06)' : 'rgba(251,191,36,0.06)', border: `1px solid ${isExternalSale ? 'rgba(56,189,248,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalSale(false); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: !isExternalSale ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: !isExternalSale ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                    border: !isExternalSale ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  🏠 Venta Interna (Clan)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalSale(true); setIsInternalSale(false); setSelectedBuyerId(''); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: isExternalSale ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: isExternalSale ? '#38bdf8' : 'rgba(255,255,255,0.4)',
+                    border: isExternalSale ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  🏙️ Venta Externa (City)
+                </button>
+              </div>
+              {isExternalSale && (
+                <p className="text-xs mt-2" style={{ color: 'rgba(56,189,248,0.6)' }}>
+                  Venta a jugadores fuera del clan. Sin descuento interno. Solo aplica retención del clan.
+                </p>
+              )}
             </div>
 
+            {/* Selector de Comprador — solo para venta interna */}
+            {!isExternalSale && (
+              <div className="mb-3">
+                <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  Asignar a Comprador/Cuenta
+                </label>
+                <FancySelect<string>
+                  value={selectedBuyerId}
+                  onChange={(v) => setSelectedBuyerId(String(v))}
+                  accent="turquoise"
+                  size="lg"
+                  placeholder="Seleccionar cuenta..."
+                  searchable
+                  searchPlaceholder="Buscar personaje..."
+                  options={legacyBuyers.map((u: any) => ({
+                    value: String(u.id),
+                    label: u.name,
+                    description: u.classMain || u.role,
+                    emoji: '👤',
+                  } as FancyOption<string>))}
+                />
+              </div>
+            )}
+
+            {/* Descuento venta interna — solo si es venta interna y tiene descuento configurado */}
+            {!isExternalSale && clanFundSettings && (Number(clanFundSettings.internalDiscountPercent) > 0 || Number(clanFundSettings.clanTaxPercent) > 0) && (
+              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                {Number(clanFundSettings.internalDiscountPercent) > 0 && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isInternalSale}
+                      onChange={e => setIsInternalSale(e.target.checked)}
+                      className="accent-yellow-400"
+                    />
+                    <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>
+                      Venta Interna Clan (−{clanFundSettings.internalDiscountPercent}% descuento)
+                    </span>
+                  </label>
+                )}
+                {Number(clanFundSettings.clanTaxPercent) > 0 && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Retención del clan para venta externa */}
+            {isExternalSale && clanFundSettings && Number(clanFundSettings.clanTaxPercent) > 0 && (
+              <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                <p className="text-xs" style={{ color: 'rgba(56,189,248,0.7)' }}>
+                  🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
+                </p>
+              </div>
+            )}
+
             {/* Input cantidad */}
-            <div className="mb-5">
+            <div className="mb-3">
               <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
                 ¿Cuántas unidades vender?
               </label>
@@ -465,19 +1250,40 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <p className="mt-1.5 text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
                 Máximo disponible: {sellModalItem.quantity - sellModalItem.quantitySold} unidad(es)
               </p>
-              {parseInt(sellQty) > 0 && sellModalItem.price && (
-                <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar</p>
-                  <p className="text-xl font-bold font-mono" style={{ color: '#a78bfa' }}>
-                    ${((sellModalItem.price ?? 0) * (parseInt(sellQty) || 0)).toLocaleString()}
-                  </p>
-                  {parseInt(sellQty) < sellModalItem.quantity - sellModalItem.quantitySold && (
-                    <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - parseInt(sellQty)} unidad(es) activas
+              {parseInt(sellQty) > 0 && sellModalItem.price && (() => {
+                const qty = parseInt(sellQty) || 0;
+                const baseTotal = (sellModalItem.price ?? 0) * qty;
+                const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+                const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+                const totalAfterDiscount = effPrice * qty;
+                const clanPct = Number(clanFundSettings?.clanTaxPercent) || 0;
+                const clanAmt = Math.floor(totalAfterDiscount * clanPct / 100);
+                const netAmount = totalAfterDiscount - clanAmt;
+
+                return (
+                  <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar {isExternalSale ? '(Venta Externa)' : ''}</p>
+                    <p className="text-xl font-bold font-mono" style={{ color: isExternalSale ? '#38bdf8' : '#a78bfa' }}>
+                      ${totalAfterDiscount.toLocaleString()}
                     </p>
-                  )}
-                </div>
-              )}
+                    {discPct > 0 && (
+                      <p className="text-xs mt-1" style={{ color: '#fbbf24' }}>
+                        Descuento interno: -${(baseTotal - totalAfterDiscount).toLocaleString()} ({discPct}%)
+                      </p>
+                    )}
+                    {clanAmt > 0 && (
+                      <p className="text-xs mt-1" style={{ color: isExternalSale ? '#38bdf8' : '#fbbf24' }}>
+                        🏰 Clan: ${clanAmt.toLocaleString()} ({clanPct}%) · Neto: ${netAmount.toLocaleString()}
+                      </p>
+                    )}
+                    {qty < sellModalItem.quantity - sellModalItem.quantitySold && (
+                      <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        Quedarán {sellModalItem.quantity - sellModalItem.quantitySold - qty} unidad(es) activas
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Buttons */}
@@ -488,6 +1294,63 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
                 <ShoppingCart className="h-4 w-4" />
                 Confirmar Venta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de borrado */}
+      {deleteModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setDeleteModalItem(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.3)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Eliminar ítem
+                </h3>
+              </div>
+              <button type="button" onClick={() => setDeleteModalItem(null)} className="btn-ghost p-1.5">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará el ítem del inventario de forma permanente. No se puede deshacer.
+            </p>
+            <div className="rounded-xl p-3 mb-4 flex items-center gap-3"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="h-10 w-10 shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {deleteModalItem.image?.publicUrl ? (
+                  <img src={deleteModalItem.image.publicUrl} alt={deleteModalItem.name} className="h-full w-full object-cover" />
+                ) : (
+                  <Trash2 className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  {deleteModalItem.name}
+                </p>
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {deleteModalItem.category} · Stock {deleteModalItem.quantity - deleteModalItem.quantitySold}/{deleteModalItem.quantity}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModalItem(null)} className="btn-ghost flex-1 py-2.5">
+                Cancelar
+              </button>
+              <button onClick={confirmDelete} className="btn-danger flex-1 py-2.5 flex items-center justify-center gap-2">
+                <Trash2 className="h-4 w-4" />
+                Sí, eliminar
               </button>
             </div>
           </div>

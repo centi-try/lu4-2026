@@ -106,8 +106,16 @@ temp/
 *.sqlite
 *.sqlite3
 
+# Persistencia — backups y snapshots locales (no deben commitearse)
+backups/
+data_storage.backup.*
+data_storage.json.backup-*
+data_storage.json.tmp
+data_storage.json
+
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
 
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
+data_storage_backup.json

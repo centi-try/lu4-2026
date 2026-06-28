@@ -3,14 +3,16 @@ import { Shield, User, Package, Search, Coins, TrendingUp, ShoppingCart, Users }
 import { AppShell } from '../components/layout/AppShell';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import { trpc } from '../lib/trpc';
 import { categoryMeta } from '../lib/category-meta';
 import { toast } from 'sonner';
 import type { Character } from '../lib/types';
+import { FancySelect } from '../components/ui/FancySelect';
 
 function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect: (c: Character) => void; isActive: boolean }) {
   const { items } = useApp();
-  // Usar associatedCharacterIds como fuente de verdad
-  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id));
+  const charItemIds = new Set((char as any).itemIds?.map(String) || []);
+  const charItems = items.filter(i => charItemIds.has(String(i.id)));
 
   return (
     <div
@@ -27,7 +29,7 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{char.name}</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{char.class} · Nv.{char.level}</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{char.class || 'Sin clase'}</p>
         </div>
         {(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') && (
           <Shield className="h-4 w-4 shrink-0 ml-auto" style={{ color: '#7bf1d6' }} />
@@ -36,14 +38,22 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
 
       {/* Role badge */}
       <div className="mb-3">
-        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-          style={{
-            background: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.1)' : 'rgba(251,191,36,0.1)',
-            color: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '#7bf1d6' : '#fbbf24',
-            border: `1px solid ${(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.25)' : 'rgba(251,191,36,0.25)'}`,
-          }}>
-          {(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '⚡ Super Admin' : (char.role?.toUpperCase() === 'MAPPER' || char.role?.toLowerCase() === 'mapper') ? '🗺️ Mapper' : '👤 Usuario'}
-        </span>
+        {(() => {
+          const r = String(char.role || '').toLowerCase();
+          const isSA = r === 'super_admin';
+          const isMapper = r === 'mapper';
+          const isAdmin = r === 'admin';
+          const bg = isSA ? 'rgba(123,241,214,0.1)' : isMapper ? 'rgba(251,191,36,0.1)' : isAdmin ? 'rgba(96,165,250,0.1)' : 'rgba(167,139,250,0.1)';
+          const color = isSA ? '#7bf1d6' : isMapper ? '#fbbf24' : isAdmin ? '#60a5fa' : '#a78bfa';
+          const border = isSA ? 'rgba(123,241,214,0.25)' : isMapper ? 'rgba(251,191,36,0.25)' : isAdmin ? 'rgba(96,165,250,0.25)' : 'rgba(167,139,250,0.25)';
+          const label = isSA ? 'Super Admin' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+              style={{ background: bg, color, border: `1px solid ${border}` }}>
+              {label}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Earnings */}
@@ -96,8 +106,8 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
 
 function CharacterDetail({ char }: { char: Character }) {
   const { items, currentUser, sellItem } = useApp();
-  // Usar associatedCharacterIds como fuente de verdad
-  const charItems = items.filter(i => i.associatedCharacterIds.includes(char.id));
+  const charItemIds = new Set((char as any).itemIds?.map(String) || []);
+  const charItems = items.filter(i => charItemIds.has(String(i.id)));
   const [sellModalItem, setSellModalItem] = useState<string | null>(null);
   const [sellQty, setSellQty] = useState('1');
 
@@ -139,15 +149,23 @@ function CharacterDetail({ char }: { char: Character }) {
         </div>
         <div>
           <h3 className="text-xl font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>{char.name}</h3>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{char.class} · Nivel {char.level}</p>
-          <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
-            style={{
-              background: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.1)' : 'rgba(251,191,36,0.1)',
-              color: (char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '#7bf1d6' : '#fbbf24',
-              border: `1px solid ${(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? 'rgba(123,241,214,0.25)' : 'rgba(251,191,36,0.25)'}`,
-            }}>
-            {(char.role?.toUpperCase() === 'SUPER_ADMIN' || char.role?.toLowerCase() === 'super_admin') ? '⚡ Super Admin' : (char.role?.toUpperCase() === 'MAPPER' || char.role?.toLowerCase() === 'mapper') ? '🗺️ Mapper' : '👤 Usuario'}
-          </span>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{char.class || 'Sin clase'}</p>
+          {(() => {
+            const r = String(char.role || '').toLowerCase();
+            const isSA = r === 'super_admin';
+            const isMapper = r === 'mapper';
+            const isAdmin = r === 'admin';
+            const bg = isSA ? 'rgba(123,241,214,0.1)' : isMapper ? 'rgba(251,191,36,0.1)' : isAdmin ? 'rgba(96,165,250,0.1)' : 'rgba(167,139,250,0.1)';
+            const color = isSA ? '#7bf1d6' : isMapper ? '#fbbf24' : isAdmin ? '#60a5fa' : '#a78bfa';
+            const border = isSA ? 'rgba(123,241,214,0.25)' : isMapper ? 'rgba(251,191,36,0.25)' : isAdmin ? 'rgba(96,165,250,0.25)' : 'rgba(167,139,250,0.25)';
+            const label = isSA ? 'Super Admin' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
+            return (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                style={{ background: bg, color, border: `1px solid ${border}` }}>
+                {label}
+              </span>
+            );
+          })()}
         </div>
       </div>
 
@@ -182,7 +200,13 @@ function CharacterDetail({ char }: { char: Character }) {
               const isVendido = item.status === 'VENDIDO';
               const remaining = item.quantity - item.quantitySold;
               const assocCount = item.associatedCharacterIds.length || 1;
-              const earningsShare = item.price ? Math.floor(item.price / assocCount) : 0;
+              // Ganancia por unidad para el personaje (label "c/u por venta").
+              const perUnitShare = item.price ? Math.floor(item.price / assocCount) : 0;
+              // Ganancia real acumulada para el personaje por este ítem
+              // (price * quantitySold / assocCount) — coherente con el backend.
+              const earnedFromItem = item.price
+                ? Math.floor((item.price * item.quantitySold) / assocCount)
+                : 0;
               const isSellingThis = sellModalItem === item.id;
 
               return (
@@ -206,7 +230,7 @@ function CharacterDetail({ char }: { char: Character }) {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs font-mono" style={{ color: '#a78bfa' }}>
-                        {isVendido ? `+$${(earningsShare ?? 0).toLocaleString()}` : `$${(item.price ?? 0).toLocaleString() || '—'}`}
+                        {isVendido ? `+$${(earnedFromItem ?? 0).toLocaleString()}` : `$${(item.price ?? 0).toLocaleString() || '—'}`}
                       </p>
                       <p className="text-xs" style={{
                         color: isVendido ? '#a78bfa' : (item.status === 'CONFIRMADO' ? '#34d399' : '#fbbf24')
@@ -220,48 +244,11 @@ function CharacterDetail({ char }: { char: Character }) {
                   <div className="mt-2 flex items-center gap-1">
                     <Users className="h-3 w-3 shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }} />
                     <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      {assocCount} personaje(s) · ${(earningsShare ?? 0).toLocaleString()} c/u por venta
+                      {assocCount} personaje(s) · ${(perUnitShare ?? 0).toLocaleString()} c/u por unidad
                     </span>
                   </div>
 
-                  {/* Venta parcial inline */}
-                  {!isVendido && currentUser?.role === 'SUPER_ADMIN' && item.status === 'CONFIRMADO' && (
-                    <div className="mt-2">
-                      {isSellingThis ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={sellQty}
-                            onChange={e => setSellQty(e.target.value)}
-                            min="1"
-                            max={remaining}
-                            className="input-dark h-8 w-20 text-xs text-center"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleSell(item.id, item.name)}
-                            className="px-2 py-1 rounded text-xs font-medium"
-                            style={{ background: '#a78bfa', color: '#000' }}>
-                            Vender
-                          </button>
-                          <button
-                            onClick={() => { setSellModalItem(null); setSellQty('1'); }}
-                            className="px-2 py-1 rounded text-xs font-medium"
-                            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { setSellModalItem(item.id); setSellQty('1'); }}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
-                          style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
-                          <ShoppingCart className="h-3 w-3" />
-                          Vender unidades
-                        </button>
-                      )}
-                    </div>
-                  )}
+
                 </div>
               );
             })}
@@ -281,34 +268,49 @@ function CharacterDetail({ char }: { char: Character }) {
 }
 
 export default function Characters() {
-  const { characters, currentUser, setCurrentUser } = useApp();
+  const { items } = useApp();
   const { user: authUser } = useAuth();
-  const isAuthSuperAdmin = authUser?.role === 'super_admin' || authUser?.role === 'SUPER_ADMIN';
+  const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'SUPER_ADMIN' | 'MAPPER' | 'USER'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'SUPER_ADMIN' | 'MAPPER' | 'ADMIN' | 'USER'>('ALL');
   const [selected, setSelected] = useState<Character | null>(null);
 
-  // Sincronizar selección inicial
-  useEffect(() => {
-    if (!selected && characters && characters.length > 0) {
-      setSelected(characters[0]);
-    }
-  }, [characters, selected]);
+  const legacyChars: Character[] = (legacyBuyersData as any[] || []).map((u: any) => {
+    const r = String(u.role || 'user').toLowerCase();
+    const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+    return {
+      id: u.id,
+      name: u.name,
+      role: u.role?.toUpperCase() || 'USER',
+      avatar: avatarGrad,
+      class: u.classMain || 'Sin clase',
+      level: 1,
+      itemIds: u.itemIds || [],
+      totalEarnings: u.totalEarnings || 0,
+      currentCycleEarnings: u.currentCycleEarnings || 0,
+    };
+  });
 
-  const filtered = characters?.filter(c => {
+  useEffect(() => {
+    if (!selected && legacyChars.length > 0) {
+      setSelected(legacyChars[0]);
+    }
+  }, [legacyBuyersData]);
+
+  const filtered = legacyChars.filter(c => {
     const q = search.toLowerCase();
-    // No mostrar el email en la búsqueda ni en la visualización
     const nameMatch = c.name.toLowerCase().includes(q);
     const classMatch = c.class.toLowerCase().includes(q);
     
+    const rl = String(c.role || '').toLowerCase();
     const roleMatch = roleFilter === 'ALL' || 
-       c.role?.toUpperCase() === roleFilter || 
-       (roleFilter === 'SUPER_ADMIN' && c.role?.toLowerCase() === 'super_admin') ||
-       (roleFilter === 'MAPPER' && c.role?.toLowerCase() === 'mapper') ||
-       (roleFilter === 'USER' && c.role?.toLowerCase() === 'user');
+       (roleFilter === 'SUPER_ADMIN' && rl === 'super_admin') ||
+       (roleFilter === 'MAPPER' && rl === 'mapper') ||
+       (roleFilter === 'ADMIN' && rl === 'admin') ||
+       (roleFilter === 'USER' && rl === 'user');
        
     return (!q || nameMatch || classMatch) && roleMatch;
-  }) || [];
+  });
 
   return (
     <AppShell>
@@ -332,14 +334,22 @@ export default function Characters() {
                 placeholder="Buscar personaje..." className="bg-transparent text-xs outline-none w-full"
                 style={{ color: 'rgba(255,255,255,0.8)' }} />
             </div>
-            <select value={roleFilter} onChange={e => setRoleFilter(e.target.value as typeof roleFilter)}
-              className="h-9 rounded-xl border px-3 text-xs outline-none select-dark"
-              style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}>
-              <option value="ALL" className="bg-[#0a0e16]">Todos los roles</option>
-              <option value="SUPER_ADMIN" className="bg-[#0a0e16]">⚡ Super Admin</option>
-              <option value="MAPPER" className="bg-[#0a0e16]">🗺️ Mapper</option>
-              <option value="USER" className="bg-[#0a0e16]">👤 Usuario</option>
-            </select>
+            <div className="min-w-[160px]">
+              <FancySelect<string>
+                value={roleFilter}
+                onChange={(v) => setRoleFilter(String(v) as typeof roleFilter)}
+                accent="turquoise"
+                size="sm"
+                placeholder="Todos los roles"
+                options={[
+                  { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
+                  { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                  { value: 'ADMIN', label: 'Admin', emoji: '🛡️' },
+                  { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
+                  { value: 'USER', label: 'Usuario', emoji: '👤' },
+                ]}
+              />
+            </div>
             <span className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)' }}>
               {filtered.length} personajes
             </span>
@@ -368,35 +378,7 @@ export default function Characters() {
         {/* Right: detail */}
         <div className="xl:sticky xl:top-6 xl:self-start">
           {selected ? (
-            <>
-              <CharacterDetail char={selected} />
-
-              {isAuthSuperAdmin && (
-                <div className="mt-4 card-glass rounded-2xl p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                    Simular sesión como
-                  </p>
-                  <button
-                    onClick={() => setCurrentUser(selected)}
-                    disabled={currentUser?.id === selected.id}
-                    className="w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all disabled:opacity-50"
-                    style={{
-                      background: currentUser?.id === selected.id ? 'rgba(123,241,214,0.06)' : 'rgba(255,255,255,0.03)',
-                      borderColor: currentUser?.id === selected.id ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)',
-                    }}>
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${selected.avatar} text-xs font-bold text-white`}>
-                      {selected.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{selected.name}</p>
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                        {currentUser?.id === selected.id ? '✓ Sesión activa' : 'Clic para activar'}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </>
+            <CharacterDetail char={selected} />
           ) : (
             <div className="card-glass rounded-2xl p-8 text-center border-dashed" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Selecciona un personaje para ver detalles</p>
