@@ -82,6 +82,8 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
     onError: (err) => toast.error(err.message || 'No se pudo borrar la reserva'),
   });
 
+  const [reservationToDelete, setReservationToDelete] = useState<{id: number; name: string; isOwner: boolean} | null>(null);
+
   // ── cerrar al clickear afuera / ESC ───────────────────────────────────────
   useEffect(() => {
     if (!open) return;
@@ -266,8 +268,7 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
                           const msg = isOwner
                             ? '¿Cancelar tu reserva?'
                             : `¿Borrar la reserva de ${r.characterName}?`;
-                          if (!confirm(msg)) return;
-                          deleteMut.mutate({ id: Number(r.id) });
+                          setReservationToDelete({ id: Number(r.id), name: r.characterName, isOwner });
                         }}
                         disabled={deleteMut.isPending}
                         className="rounded p-1 shrink-0"
@@ -376,6 +377,54 @@ export function DropReservationsCell({ drop, reservations, raidAccess }: Props) 
               Ya está todo reservado
             </div>
           ) : null}
+        </div>
+      )}
+
+      {/* Delete reservation confirmation modal */}
+      {reservationToDelete && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.3)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+              <h3 className="text-base font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                {reservationToDelete.isOwner ? '¿Cancelar tu reserva?' : `¿Borrar la reserva de ${reservationToDelete.name}?`}
+              </h3>
+            </div>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setReservationToDelete(null)}
+                disabled={deleteMut.isPending}
+                className="flex-1 rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  deleteMut.mutate({ id: reservationToDelete.id }, { onSuccess: () => setReservationToDelete(null) });
+                }}
+                disabled={deleteMut.isPending}
+                className="flex-1 rounded-xl px-4 py-2 text-sm font-bold transition-all disabled:opacity-50"
+                style={{ background: '#ef4444', color: '#fff' }}
+              >
+                {deleteMut.isPending ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
