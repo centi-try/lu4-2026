@@ -1967,7 +1967,29 @@ function PresentationSection() {
 
       {/* Add/Edit Form */}
       {showForm && (
-        <div className="rounded-xl p-4 mb-4" style={{ background: duplicateError ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)', border: duplicateError ? '2px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="rounded-xl p-4 mb-4" tabIndex={-1} style={{ background: duplicateError ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)', border: duplicateError ? '2px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.08)', outline: 'none' }}
+          onPaste={async (e) => {
+            if (formType !== 'image') return;
+            const clipItems = e.clipboardData?.items;
+            if (!clipItems) return;
+            for (let i = 0; i < clipItems.length; i++) {
+              if (clipItems[i].type.startsWith('image/')) {
+                e.preventDefault();
+                const file = clipItems[i].getAsFile();
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
+                const data = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.readAsDataURL(file);
+                });
+                setPendingImages(prev => [...prev, data]);
+                toast.success('Imagen pegada — haz click en Agregar para guardar');
+                return;
+              }
+            }
+          }}
+        >
           {duplicateError && (
             <div className="mb-3 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
               {duplicateError}
@@ -2100,21 +2122,21 @@ function PresentationSection() {
             />
           )}
 
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-3 mt-3">
             <button
               onClick={handleSubmit}
               disabled={createMut.isPending || updateMut.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
+              style={{ background: 'linear-gradient(135deg, #7bf1d6, #34d399)', color: '#000', boxShadow: '0 2px 8px rgba(123,241,214,0.25)' }}
             >
-              <Save className="h-3 w-3" /> {editItem ? 'Guardar cambios' : 'Agregar'}
+              <Save className="h-3.5 w-3.5" /> {editItem ? 'Guardar cambios' : 'Agregar'}
             </button>
             <button
               onClick={resetForm}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs"
-              style={{ color: 'rgba(255,255,255,0.5)' }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium transition-all hover:bg-white/5"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}
             >
-              <X className="h-3 w-3" /> Cancelar
+              <X className="h-3.5 w-3.5" /> Cancelar
             </button>
           </div>
         </div>

@@ -5,7 +5,7 @@ import * as bcrypt from 'bcryptjs';
 
 export const DEFAULT_SUPER_ADMIN_EMAIL = 'eclipce.callejero@gmail.com';
 export const DEFAULT_SUPER_ADMIN_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || '@nicolas#2021';
-export const DEFAULT_SUPER_ADMIN_NAME = 'Super Admin';
+export const DEFAULT_SUPER_ADMIN_NAME = 'lvlxuxetumareeee';
 
 // ============================================================================
 // Rutas de persistencia
@@ -307,6 +307,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
       loginMethod: 'local',
       isActive: true,
       legacyAccess: true,
+      classMain: 'warlock',
       passwordHash: hashLocalPassword(DEFAULT_SUPER_ADMIN_PASSWORD),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

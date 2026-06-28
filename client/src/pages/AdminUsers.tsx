@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
-import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil } from 'lucide-react';
+import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil, Lock } from 'lucide-react';
 
 type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
@@ -319,6 +319,7 @@ export default function AdminUsers() {
   const activeUsers = (users || []).filter(u => u.isActive !== false).length;
   const inactiveUsers = (users || []).filter(u => u.isActive === false).length;
   const adminCount = (users || []).filter(u => u.role === 'super_admin' || u.role === 'admin').length;
+  const lockedCount = (users || []).filter(u => isUserLocked(u)).length;
 
   if (error) {
     const isForbidden = error.message?.includes('Super Admin') || error.data?.code === 'FORBIDDEN';
@@ -382,12 +383,13 @@ export default function AdminUsers() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             { label: 'Total Usuarios', value: totalUsers, color: '#7bf1d6', icon: Users },
             { label: 'Cuentas Activas', value: activeUsers, color: '#4ade80', icon: UserCheck },
             { label: 'Desactivadas', value: inactiveUsers, color: '#f87171', icon: UserX },
             { label: 'Administradores', value: adminCount, color: '#a78bfa', icon: Shield },
+            { label: 'Bloqueados', value: lockedCount, color: '#fbbf24', icon: Lock },
           ].map(({ label, value, color, icon: Icon }) => (
             <div
               key={label}
