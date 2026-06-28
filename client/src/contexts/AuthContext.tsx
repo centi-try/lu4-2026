@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface User {
   id: number;
@@ -42,6 +43,7 @@ const LEGACY_STORAGE_KEY = 'user';
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // Un único GET /api/auth/me para validar sesión. El backend responde
   // 200 con { user } si la cookie es válida, 401 si no. Nunca leemos
@@ -169,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error al cerrar sesión en servidor:', error);
     } finally {
       setUser(null);
+      queryClient.clear();
     }
   };
 

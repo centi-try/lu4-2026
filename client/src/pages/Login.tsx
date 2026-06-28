@@ -59,15 +59,15 @@ export default function Login() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [useBackupCode, setUseBackupCode] = useState(false);
 
-  // Splash screen
-  const [showSplash, setShowSplash] = useState(true);
+  // Splash screen — show while data loads (min 1.5s for smooth UX)
+  const [splashMinDone, setSplashMinDone] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2500);
+    const timer = setTimeout(() => setSplashMinDone(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Carousel: fetch dynamic images, fall back to defaults
-  const carouselQ = trpc.carousel.list.useQuery();
+  // Carousel: fetch dynamic images, fall back to defaults (always refetch on mount for fresh data)
+  const carouselQ = trpc.carousel.list.useQuery(undefined, { refetchOnMount: 'always', staleTime: 0 });
   const carouselImages = useMemo(() => {
     const data = carouselQ.data;
     if (data && data.images && data.images.length > 0) {
@@ -95,9 +95,9 @@ export default function Login() {
   const [presPage, setPresPage] = useState(1);
   const [presTransition, setPresTransition] = useState(false);
   const [modalItem, setModalItem] = useState<{ type: string; content: string; title?: string } | null>(null);
-  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 8 });
+  const presQ = trpc.presentation.list.useQuery({ page: presPage, limit: 8 }, { refetchOnMount: 'always', staleTime: 0 });
   // Fetch ALL text items separately (not paginated — they stay fixed at top)
-  const presAllQ = trpc.presentation.list.useQuery({ page: 1, limit: 200 });
+  const presAllQ = trpc.presentation.list.useQuery({ page: 1, limit: 200 }, { refetchOnMount: 'always', staleTime: 0 });
 
   // Preload carousel images during splash
   useEffect(() => {
@@ -214,7 +214,9 @@ export default function Login() {
     background: 'rgba(239, 68, 68, 0.06)',
   } as const;
 
-  // Splash screen (initial load, tab switch, post-login)
+  // Show splash while: minimum time hasn't passed, data still loading, tab switching, or login in progress
+  const dataLoading = carouselQ.isLoading || presQ.isLoading;
+  const showSplash = !splashMinDone || dataLoading;
   if (showSplash || tabTransition || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#060910' }}>
