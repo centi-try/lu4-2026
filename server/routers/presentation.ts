@@ -94,6 +94,17 @@ export const presentationRouter = router({
       return { success: true };
     }),
 
+  // Admin: delete all items
+  deleteAll: protectedProcedure
+    .mutation(({ ctx }) => {
+      superAdminGuard(String(ctx.user?.role || '').toLowerCase());
+      const db = dbInstance;
+      const count = (db.presentationItems || []).length;
+      db.presentationItems = [];
+      saveDbToDisk();
+      return { success: true, deleted: count };
+    }),
+
   // Admin: reorder items
   reorder: protectedProcedure
     .input(z.object({ orderedIds: z.array(z.number()) }))

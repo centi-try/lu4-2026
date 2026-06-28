@@ -1810,6 +1810,10 @@ function PresentationSection() {
     onSuccess: () => { toast.success('Item eliminado'); utils.presentation.list.invalidate(); },
     onError: (e) => toast.error(e.message),
   });
+  const deleteAllMut = trpc.presentation.deleteAll.useMutation({
+    onSuccess: (data) => { toast.success(`${data.deleted} items eliminados`); utils.presentation.list.invalidate(); setShowDeleteAllModal(false); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
@@ -1818,6 +1822,8 @@ function PresentationSection() {
   const [formContent, setFormContent] = useState('');
   const [duplicateError, setDuplicateError] = useState('');
   const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [presItemToDelete, setPresItemToDelete] = useState<any | null>(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const items = listQ.data?.items || [];
@@ -2152,9 +2158,18 @@ function PresentationSection() {
 
       {finalItems.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-medium mb-3" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Contenido cargado ({finalItems.length} item{finalItems.length !== 1 ? 's' : ''}) — texto primero, luego recientes
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Contenido cargado ({finalItems.length} item{finalItems.length !== 1 ? 's' : ''}) — texto primero, luego recientes
+            </p>
+            <button
+              onClick={() => setShowDeleteAllModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+            >
+              <Trash2 className="h-3 w-3" /> Eliminar todo
+            </button>
+          </div>
           <div className="space-y-2">
             {finalItems.map((item: any) => {
               const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
@@ -2188,7 +2203,7 @@ function PresentationSection() {
                       <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} />
                     </button>
                     <button
-                      onClick={() => { if (confirm('¿Eliminar este item?')) deleteMut.mutate({ id: item.id }); }}
+                      onClick={() => setPresItemToDelete(item)}
                       className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
                       title="Eliminar"
                     >
@@ -2200,6 +2215,34 @@ function PresentationSection() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Delete single item modal */}
+      {presItemToDelete && (
+        <ConfirmDeleteModal
+          title="Eliminar item"
+          description="¿Estás seguro de eliminar este item de la presentación? Esta acción no se puede deshacer."
+          itemLabel={presItemToDelete.title || '(Sin título)'}
+          itemDetail={presItemToDelete.type === 'video' ? 'Video' : presItemToDelete.type === 'image' ? 'Imagen' : 'Texto'}
+          itemImage={presItemToDelete.type === 'image' ? presItemToDelete.content : presItemToDelete.type === 'video' ? `https://img.youtube.com/vi/${extractYoutubeId(presItemToDelete.content) || ''}/mqdefault.jpg` : null}
+          isPending={deleteMut.isPending}
+          onCancel={() => { if (!deleteMut.isPending) setPresItemToDelete(null); }}
+          onConfirm={() => deleteMut.mutate({ id: presItemToDelete.id }, { onSuccess: () => setPresItemToDelete(null) })}
+        />
+      )}
+
+      {/* Delete all items modal */}
+      {showDeleteAllModal && (
+        <ConfirmDeleteModal
+          title="Eliminar todo el contenido"
+          description={`¿Estás seguro de eliminar TODOS los ${finalItems.length} items de la presentación? Videos, imágenes y textos serán eliminados. Esta acción no se puede deshacer.`}
+          itemLabel={`${finalItems.length} items`}
+          itemDetail="Todo el contenido será eliminado"
+          itemImage={null}
+          isPending={deleteAllMut.isPending}
+          onCancel={() => { if (!deleteAllMut.isPending) setShowDeleteAllModal(false); }}
+          onConfirm={() => deleteAllMut.mutate()}
+        />
       )}
     </div>
   );
