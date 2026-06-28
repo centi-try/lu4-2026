@@ -30,7 +30,7 @@ export function BossSelect({
   bosses,
   value,
   onChange,
-  placeholder = '-- seleccioná un boss --',
+  placeholder = '-- selecciona un boss --',
   disabled = false,
 }: BossSelectProps) {
   const [open, setOpen] = useState(false);

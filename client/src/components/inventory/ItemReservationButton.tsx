@@ -120,12 +120,12 @@ export function ItemReservationButton({ item, reservations }: Props) {
   const handleCreate = () => {
     const n = parseInt(qtyInput, 10);
     if (!isFinite(n) || n <= 0) {
-      toast.error('Ingresá una cantidad mayor a 0');
+      toast.error('Ingresa una cantidad mayor a 0');
       return;
     }
     if (n > maxPerReservation) {
       toast.error(
-        `Este ítem solo tiene ${maxPerReservation} unidad(es) disponibles — no podés reservar más que eso.`
+        `Este ítem solo tiene ${maxPerReservation} unidad(es) disponibles — no puedes reservar más que eso.`
       );
       return;
     }
@@ -297,7 +297,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
                                 <span className="ml-1 text-[10px] font-semibold" style={{ color: '#34d399' }}>(Pre-vendido)</span>
                               )}
                               {isOwner && !isPreSold && !isSold && (
-                                <span className="ml-1 text-[10px] font-mono" style={{ color: 'rgba(251,191,36,0.7)' }}>(vos)</span>
+                                <span className="ml-1 text-[10px] font-mono" style={{ color: 'rgba(251,191,36,0.7)' }}>(tú)</span>
                               )}
                             </p>
                             <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>

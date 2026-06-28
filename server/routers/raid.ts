@@ -963,10 +963,14 @@ export const raidRouter = router({
           const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
           const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
           const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
+          const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+          const names = ids.map((lid: number) => { const u = allUsers.find((u: any) => Number(u.id) === lid); return u?.characterName || u?.name || null; }).filter(Boolean);
           return {
             ...cp,
             clanName: clan?.name || '—',
             leaderName: leader?.name || leader?.characterName || null,
+            leaderIds: ids,
+            leaderNames: names,
             memberCount: members.length,
             confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
             pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
@@ -981,10 +985,14 @@ export const raidRouter = router({
           const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
           const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
           const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
+          const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+          const names = ids.map((lid: number) => { const u = allUsers.find((u: any) => Number(u.id) === lid); return u?.characterName || u?.name || null; }).filter(Boolean);
           return {
             ...cp,
             clanName: clan?.name || '—',
             leaderName: leader?.name || leader?.characterName || null,
+            leaderIds: ids,
+            leaderNames: names,
             memberCount: members.length,
             confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
             pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
@@ -1000,10 +1008,14 @@ export const raidRouter = router({
         const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
         const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
         const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id) && u.cpStatus === 'confirmed');
+        const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+        const names = ids.map((lid: number) => { const u = allUsers.find((u: any) => Number(u.id) === lid); return u?.characterName || u?.name || null; }).filter(Boolean);
         return {
           ...cp,
           clanName: clan?.name || '—',
           leaderName: leader?.name || leader?.characterName || null,
+          leaderIds: ids,
+          leaderNames: names,
           memberCount: members.length,
           confirmedCount: members.length,
           pendingCount: 0,
@@ -1028,7 +1040,7 @@ export const raidRouter = router({
           email: u.email,
           classMain: u.classMain || null,
           cpStatus: u.cpStatus || 'pending',
-          isLeader: Number(cp.leaderId) === Number(u.id),
+          isLeader: Number(cp.leaderId) === Number(u.id) || (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(Number(u.id))),
           secondaryCharacters: secondaries.filter((sc: any) => Number(sc.userId) === Number(u.id)),
         });
         // Sort: leaders first, then confirmed, then pending
@@ -1080,6 +1092,18 @@ export const raidRouter = router({
         }));
       }),
 
+    // List members of a specific CP (for leader dropdown) — super admin only
+    cpMembersForLeader: raidSuperAdminProcedure
+      .input(z.object({ cpId: z.number().int() }))
+      .query(async ({ input }) => {
+        const members = await getUsersByCp(input.cpId);
+        return members.filter((u: any) => u.cpStatus === 'confirmed').map((u: any) => ({
+          id: Number(u.id),
+          name: u.name || u.characterName || u.email,
+          characterName: u.characterName,
+        }));
+      }),
+
     // Create CP (super admin only)
     create: raidSuperAdminProcedure
       .input(z.object({
@@ -1105,6 +1129,7 @@ export const raidRouter = router({
         name: z.string().min(1).max(100).optional(),
         clanId: z.number().int().optional(),
         leaderId: z.number().int().nullable().optional(),
+        leaderIds: z.array(z.number().int()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const { id, ...data } = input;

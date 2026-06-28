@@ -13,6 +13,7 @@ interface SellItemOptions {
   buyerId: string;
   buyerName: string;
   isInternalSale?: boolean;
+  isExternalSale?: boolean;
 }
 
 interface AppContextType {
@@ -117,7 +118,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { data: serverItems, refetch: refetchItems } = trpc.items.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCharacters, refetch: refetchCharacters } = trpc.characters.list.useQuery(undefined, {
+  const { data: serverCharacters, refetch: refetchCharacters } = trpc.items.legacyBuyers.useQuery(undefined, {
     enabled: !!authUser,
   });
   const { data: serverPurchases, refetch: refetchPurchases } = trpc.items.listPurchases.useQuery(undefined, {
@@ -380,7 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [currentUser, addLog, deleteItemMutation]);
 
-  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale }: SellItemOptions) => {
+  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale, isExternalSale }: SellItemOptions) => {
     if (currentUser.role === 'USER') return;
     if (currentUser.role !== 'SUPER_ADMIN') return;
 
@@ -391,6 +392,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       buyerId,
       buyerName,
       isInternalSale: isInternalSale || false,
+      isExternalSale: isExternalSale || false,
     });
 
     setItems(prevItems => {

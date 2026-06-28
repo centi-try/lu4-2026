@@ -27,6 +27,7 @@ const navItems: Array<{
   { href: '/purchases', label: 'Compras', icon: ShoppingBag, desc: 'Historial de adquisiciones' },
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
+  { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
@@ -120,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex items-center gap-3 border-b px-5 py-5" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
-            <Package className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+            <span className="text-base font-black" style={{ color: '#7bf1d6' }}>L2</span>
           </div>
           <div>
             <p className="text-sm font-bold text-gradient">RaptorSquad</p>
@@ -314,6 +315,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   currentCycleEarnings: 0,
                                   legacyAccess: !!u.legacyAccess,
                                   raidAccessLevel: u.raidAccessLevel || null,
+                                  raidCpId: u.raidCpId || null,
                                 } as any);
                                 setUserMenuOpen(false);
                               }}

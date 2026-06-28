@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search } from 'lucide-react';
+import React, { useRef, useState, useCallback } from 'react';
+import { Crown, Skull, Flag, Trash2, Pencil, Plus, X, Image as ImageIcon, Save, Upload, Palette, Package, Search, Video, Type, GripVertical, ExternalLink, Download, RotateCcw, RefreshCw } from 'lucide-react';
 import { AppShell } from '../../components/layout/AppShell';
 import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
@@ -218,14 +218,15 @@ export default function RaidSettings({ raidAccess }: Props) {
   const [clanToDelete, setClanToDelete] = useState<any | null>(null);
 
   // Tab state
-  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'icons' | 'access' | 'materials'>('access');
+  const [configTab, setConfigTab] = useState<'catalogs' | 'classes' | 'presentation' | 'carousel' | 'access' | 'materials'>('access');
 
   const configTabs: { key: typeof configTab; label: string; icon: React.ReactNode; color: string }[] = [
     { key: 'access', label: 'Accesos', icon: <Flag className="h-4 w-4" />, color: '#60a5fa' },
     { key: 'materials', label: 'Catálogo', icon: <Package className="h-4 w-4" />, color: '#34d399' },
     { key: 'classes', label: 'Clases', icon: <Crown className="h-4 w-4" />, color: '#fbbf24' },
     { key: 'catalogs', label: 'Bosses & Clanes', icon: <Skull className="h-4 w-4" />, color: '#e879f9' },
-    { key: 'icons', label: 'Íconos', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
+    { key: 'presentation', label: 'Presentación', icon: <Palette className="h-4 w-4" />, color: '#a78bfa' },
+    { key: 'carousel', label: 'Carrusel', icon: <ImageIcon className="h-4 w-4" />, color: '#f97316' },
   ];
 
   return (
@@ -697,10 +698,10 @@ export default function RaidSettings({ raidAccess }: Props) {
         <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar clases.</p></div>
       )}
 
-      {/* Tab: Iconos por categoría */}
-      {configTab === 'icons' && raidAccess?.accessLevel === 'super_admin' && <CategoryIconsSection />}
-      {configTab === 'icons' && raidAccess?.accessLevel !== 'super_admin' && (
-        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar íconos.</p></div>
+      {/* Tab: Presentación del Login */}
+      {configTab === 'presentation' && raidAccess?.accessLevel === 'super_admin' && <PresentationSection />}
+      {configTab === 'presentation' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar la presentación.</p></div>
       )}
 
       {/* Tab: Gestión de Accesos */}
@@ -896,6 +897,12 @@ export default function RaidSettings({ raidAccess }: Props) {
             { onSuccess: () => setCatMatToDelete(null) }
           )}
         />
+      )}
+
+      {/* Tab: Carrusel del Login */}
+      {configTab === 'carousel' && raidAccess?.accessLevel === 'super_admin' && <CarouselSection />}
+      {configTab === 'carousel' && raidAccess?.accessLevel !== 'super_admin' && (
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar el carrusel.</p></div>
       )}
 
       {/* ===== Modales de confirmación de borrado ===== */}
@@ -1381,7 +1388,7 @@ function RaidAccessSection() {
 
   const applyBulk = () => {
     if (selectedIds.length === 0) {
-      toast.error('Seleccioná al menos un usuario');
+      toast.error('Selecciona al menos un usuario');
       return;
     }
     const level = bulkLevel === 'revoke' ? null : bulkLevel;
@@ -1789,4 +1796,825 @@ function CharacterClassesSection() {
       )}
     </>
   );
+}
+
+// ============================================================================
+// Sección: Carrusel del Login
+// ============================================================================
+
+function CarouselSection() {
+  const utils = trpc.useUtils();
+  const listQ = trpc.carousel.list.useQuery();
+  const createMut = trpc.carousel.create.useMutation({
+    onSuccess: () => { toast.success('Imagen agregada al carrusel'); utils.carousel.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMut = trpc.carousel.delete.useMutation({
+    onSuccess: () => { toast.success('Imagen eliminada'); utils.carousel.list.invalidate(); setDeleteTarget(null); },
+    onError: (e) => toast.error(e.message),
+  });
+  const replaceMut = trpc.carousel.replace.useMutation({
+    onSuccess: () => { toast.success('Imagen reemplazada'); utils.carousel.list.invalidate(); setReplaceTarget(null); },
+    onError: (e) => toast.error(e.message),
+  });
+  const restoreMut = trpc.carousel.restoreFromHistory.useMutation({
+    onSuccess: () => { toast.success('Versión restaurada'); utils.carousel.list.invalidate(); utils.carousel.getWithHistory.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteAllMut = trpc.carousel.deleteAll.useMutation({
+    onSuccess: (d) => { toast.success(`${d.deleted} imágenes eliminadas`); utils.carousel.list.invalidate(); setShowDeleteAll(false); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateSettingsMut = trpc.carousel.updateSettings.useMutation({
+    onSuccess: (d) => { toast.success(`Intervalo actualizado: ${d.intervalSeconds}s`); utils.carousel.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [replaceTarget, setReplaceTarget] = useState<any | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<number | null>(null);
+  const [pendingLabel, setPendingLabel] = useState('');
+  const [intervalInput, setIntervalInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceFileRef = useRef<HTMLInputElement>(null);
+
+  const images = listQ.data?.images || [];
+  const currentInterval = listQ.data?.intervalSeconds || 10;
+
+  const historyQ = trpc.carousel.getWithHistory.useQuery(
+    { id: historyTarget! },
+    { enabled: historyTarget !== null }
+  );
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) { toast.error('Solo imágenes'); return; }
+      if (file.size > 10 * 1024 * 1024) { toast.error('Máximo 10 MB por imagen'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const data = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          createMut.mutate({
+            label: pendingLabel || file.name.replace(/\.\w+$/, ''),
+            data,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            sizeBytes: file.size,
+          });
+          setPendingLabel('');
+        };
+        img.src = data;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleReplace = (targetId: number, file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Solo imágenes'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Máximo 10 MB'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const data = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        replaceMut.mutate({ id: targetId, data, width: img.naturalWidth, height: img.naturalHeight, sizeBytes: file.size });
+      };
+      img.src = data;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDownload = (img: any) => {
+    const link = document.createElement('a');
+    link.href = img.data;
+    link.download = `${img.label || 'carrusel'}-${img.id}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="card-glass rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <ImageIcon className="h-5 w-5" style={{ color: '#f97316' }} />
+        <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+          Carrusel del Login
+        </h3>
+      </div>
+      <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        Imágenes que rotan en el lado izquierdo del login. Dimensiones recomendadas: <strong style={{ color: '#f97316' }}>1536 x 1024 px</strong> (PNG o JPG, máximo 10 MB). Formato horizontal 3:2.
+      </p>
+
+      {/* Upload area */}
+      <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <input
+            type="text"
+            placeholder="Nombre / etiqueta (opcional)"
+            value={pendingLabel}
+            onChange={(e) => setPendingLabel(e.target.value)}
+            className="flex-1 rounded-lg px-3 py-2 text-xs"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={createMut.isPending}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
+            style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#fff', boxShadow: '0 2px 8px rgba(249,115,22,0.25)' }}
+          >
+            <Upload className="h-3.5 w-3.5" /> {createMut.isPending ? 'Subiendo...' : 'Subir imagen(es)'}
+          </button>
+        </div>
+        <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Resolución actual del carrusel: 1536 x 1024 px | Formato: PNG o JPG | Relación: 3:2 horizontal | Máx: 10 MB
+        </p>
+      </div>
+
+      {/* Interval config */}
+      <div className="rounded-xl p-4 mb-4 flex items-center gap-4 flex-wrap" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Segundos por imagen:</span>
+          <span className="text-sm font-bold" style={{ color: '#f97316' }}>{currentInterval}s</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={120}
+            step={1}
+            placeholder={String(currentInterval)}
+            value={intervalInput}
+            onChange={(e) => setIntervalInput(e.target.value)}
+            className="w-20 rounded-lg px-3 py-1.5 text-xs text-center"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', outline: 'none' }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { const v = parseInt(intervalInput, 10); if (v >= 1 && v <= 120) { updateSettingsMut.mutate({ intervalSeconds: v }); setIntervalInput(''); } } }}
+          />
+          <button
+            onClick={() => { const v = parseInt(intervalInput, 10); if (v >= 1 && v <= 120) { updateSettingsMut.mutate({ intervalSeconds: v }); setIntervalInput(''); } else { toast.error('Ingresa un valor entre 1 y 120 segundos'); } }}
+            disabled={updateSettingsMut.isPending || !intervalInput}
+            className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-[1.02] disabled:opacity-40"
+            style={{ background: 'rgba(249,115,22,0.15)', color: '#f97316', border: '1px solid rgba(249,115,22,0.3)' }}
+          >
+            {updateSettingsMut.isPending ? '...' : 'Aplicar'}
+          </button>
+        </div>
+        <p className="text-[10px] w-full" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          Cada imagen se muestra {currentInterval} segundo(s) antes de pasar a la siguiente. Rango: 1 - 120 segundos.
+        </p>
+      </div>
+
+      {/* Current images */}
+      {images.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay imágenes en el carrusel.</p>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Las imágenes por defecto (raptor-1, raptor-2, raptor-3) se usarán mientras no haya imágenes personalizadas.</p>
+        </div>
+      )}
+
+      {images.length > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Imágenes del carrusel ({images.length})
+            </p>
+            <button
+              onClick={() => setShowDeleteAll(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+            >
+              <Trash2 className="h-3 w-3" /> Eliminar todo
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {images.map((img: any) => (
+              <div key={img.id} className="rounded-xl overflow-hidden group" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="relative aspect-[3/2]">
+                  <img src={img.data} alt={img.label} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleDownload(img)} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Descargar">
+                        <Download className="h-4 w-4" style={{ color: '#4ade80' }} />
+                      </button>
+                      <button onClick={() => { setReplaceTarget(img); }} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Reemplazar">
+                        <RefreshCw className="h-4 w-4" style={{ color: '#60a5fa' }} />
+                      </button>
+                      <button onClick={() => setHistoryTarget(img.id)} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Historial">
+                        <RotateCcw className="h-4 w-4" style={{ color: '#fbbf24' }} />
+                      </button>
+                      <button onClick={() => setDeleteTarget(img)} className="p-2 rounded-lg bg-black/60 hover:bg-black/80 transition-all" title="Eliminar">
+                        <Trash2 className="h-4 w-4" style={{ color: '#ef4444' }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-3 py-2">
+                  <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{img.label || '(Sin nombre)'}</p>
+                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {img.width} x {img.height} px · {(img.sizeBytes / 1024 / 1024).toFixed(1)} MB
+                    {img.historyCount > 0 && <span style={{ color: '#fbbf24' }}> · {img.historyCount} versión(es) anterior(es)</span>}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Delete single modal */}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title="Eliminar imagen del carrusel"
+          description="Esta imagen se eliminará permanentemente del carrusel. Si quieres conservarla, descárgala primero."
+          itemLabel={deleteTarget.label || '(Sin nombre)'}
+          itemDetail={`${deleteTarget.width} x ${deleteTarget.height} px`}
+          itemImage={deleteTarget.data}
+          isPending={deleteMut.isPending}
+          onCancel={() => { if (!deleteMut.isPending) setDeleteTarget(null); }}
+          onConfirm={() => deleteMut.mutate({ id: deleteTarget.id })}
+        />
+      )}
+
+      {/* Delete all modal */}
+      {showDeleteAll && (
+        <ConfirmDeleteModal
+          title="Eliminar todas las imágenes"
+          description={`¿Eliminar TODAS las ${images.length} imágenes del carrusel? Se usarán las imágenes por defecto.`}
+          itemLabel={`${images.length} imágenes`}
+          itemDetail="Todo el carrusel será eliminado"
+          itemImage={null}
+          isPending={deleteAllMut.isPending}
+          onCancel={() => { if (!deleteAllMut.isPending) setShowDeleteAll(false); }}
+          onConfirm={() => deleteAllMut.mutate()}
+        />
+      )}
+
+      {/* Replace modal */}
+      {replaceTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-lg rounded-2xl p-5" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))', border: '1px solid rgba(96,165,250,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" style={{ color: '#60a5fa' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Reemplazar imagen</h3>
+              </div>
+              <button onClick={() => setReplaceTarget(null)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.6)' }}><X className="h-4 w-4" /></button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>La imagen actual se guardará en el historial y podrás restaurarla después.</p>
+            <div className="rounded-xl overflow-hidden mb-3 aspect-[3/2]" style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <img src={replaceTarget.data} alt="" className="w-full h-full object-cover" />
+            </div>
+            <p className="text-[10px] mb-3 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              Imagen actual: {replaceTarget.label} ({replaceTarget.width} x {replaceTarget.height} px)
+            </p>
+            <input ref={replaceFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleReplace(replaceTarget.id, e.target.files[0]); e.target.value = ''; }} />
+            <div className="flex gap-3">
+              <button onClick={() => setReplaceTarget(null)} className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5" style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>Cancelar</button>
+              <button onClick={() => replaceFileRef.current?.click()} disabled={replaceMut.isPending} className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50" style={{ background: '#60a5fa', color: '#000' }}>
+                {replaceMut.isPending ? 'Reemplazando...' : 'Seleccionar nueva imagen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History modal */}
+      {historyTarget !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl p-5" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))', border: '1px solid rgba(251,191,36,0.3)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5" style={{ color: '#fbbf24' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Historial de versiones</h3>
+              </div>
+              <button onClick={() => setHistoryTarget(null)} className="p-1.5 rounded-lg hover:bg-white/5" style={{ color: 'rgba(255,255,255,0.6)' }}><X className="h-4 w-4" /></button>
+            </div>
+
+            {historyQ.isLoading && <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.4)' }}>Cargando historial...</p>}
+
+            {historyQ.data && (
+              <>
+                <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Versión actual: <strong>{historyQ.data.label}</strong> ({historyQ.data.width} x {historyQ.data.height} px)
+                </p>
+                <div className="rounded-xl overflow-hidden mb-4 aspect-[3/2]" style={{ background: 'rgba(0,0,0,0.3)', maxHeight: 200 }}>
+                  <img src={historyQ.data.data} alt="Actual" className="w-full h-full object-cover" />
+                </div>
+
+                {historyQ.data.history.length === 0 ? (
+                  <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay versiones anteriores. Reemplaza la imagen para crear historial.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      Versiones anteriores ({historyQ.data.history.length})
+                    </p>
+                    {historyQ.data.history.map((h: any) => (
+                      <div key={h.index} className="flex items-center gap-3 rounded-xl p-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="w-24 h-16 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                          <img src={h.data} alt={`v${h.index}`} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{h.width} x {h.height} px · {(h.sizeBytes / 1024 / 1024).toFixed(1)} MB</p>
+                          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Reemplazada: {new Date(h.replacedAt).toLocaleString()}</p>
+                        </div>
+                        <button
+                          onClick={() => restoreMut.mutate({ id: historyTarget, historyIndex: h.index })}
+                          disabled={restoreMut.isPending}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:bg-yellow-500/20"
+                          style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)' }}
+                        >
+                          {restoreMut.isPending ? '...' : 'Restaurar'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Sección: Presentación del Login
+// ============================================================================
+
+function PresentationSection() {
+  const utils = trpc.useUtils();
+  const listQ = trpc.presentation.list.useQuery({ page: 1, limit: 100 });
+  const createMut = trpc.presentation.create.useMutation({
+    onSuccess: () => { utils.presentation.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateMut = trpc.presentation.update.useMutation({
+    onSuccess: () => { toast.success('Item actualizado'); utils.presentation.list.invalidate(); setEditItem(null); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMut = trpc.presentation.delete.useMutation({
+    onSuccess: () => { toast.success('Item eliminado'); utils.presentation.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteAllMut = trpc.presentation.deleteAll.useMutation({
+    onSuccess: (data) => { toast.success(`${data.deleted} items eliminados`); utils.presentation.list.invalidate(); setShowDeleteAllModal(false); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [formType, setFormType] = useState<'image' | 'video' | 'text'>('video');
+  const [formTitle, setFormTitle] = useState('');
+  const [formContent, setFormContent] = useState('');
+  const [duplicateError, setDuplicateError] = useState('');
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [presItemToDelete, setPresItemToDelete] = useState<any | null>(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const items = listQ.data?.items || [];
+  // Sort: text first, then newest first (reverse order for videos/images)
+  const sortedItems = [...items].sort((a: any, b: any) => {
+    if (a.type === 'text' && b.type !== 'text') return -1;
+    if (a.type !== 'text' && b.type === 'text') return 1;
+    return 0;
+  }).reverse();
+  // But text still at top after reverse
+  const finalItems = [
+    ...sortedItems.filter((i: any) => i.type === 'text'),
+    ...sortedItems.filter((i: any) => i.type !== 'text'),
+  ];
+
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newPreviews: string[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name} excede 5 MB`); continue; }
+      const data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      newPreviews.push(data);
+    }
+    setPendingImages(prev => [...prev, ...newPreviews]);
+    if (newPreviews.length === 1) setFormContent(newPreviews[0]);
+    e.target.value = '';
+  }, []);
+
+  const handleSubmit = async () => {
+    setDuplicateError('');
+
+    // Handle multiple pending images
+    if (formType === 'image' && pendingImages.length > 0) {
+      const existingContents = items.map((it: any) => it.content);
+      let added = 0;
+      for (let i = 0; i < pendingImages.length; i++) {
+        if (existingContents.includes(pendingImages[i])) continue;
+        const title = formTitle.trim() || `Imagen ${i + 1}`;
+        await createMut.mutateAsync({ type: 'image', title, content: pendingImages[i] });
+        added++;
+      }
+      if (added > 0) {
+        toast.success(`${added} imagen(es) agregada(s)`);
+      } else {
+        setDuplicateError('Todas las imágenes ya existen. No se puede duplicar.');
+        return;
+      }
+      setPendingImages([]);
+      setFormContent('');
+      setFormTitle('');
+      setDuplicateError('');
+      utils.presentation.list.invalidate();
+      return;
+    }
+
+    if (!formContent.trim()) { setDuplicateError('El contenido es obligatorio'); return; }
+    if (editItem) {
+      updateMut.mutate({ id: editItem.id, title: formTitle, content: formContent });
+      return;
+    }
+
+    // Duplicate validation: check if content already exists
+    const existingContents = items.map((it: any) => it.content);
+
+    if (formType === 'video') {
+      const lines = formContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const validLinks = lines.filter(l => extractYoutubeId(l));
+      if (validLinks.length === 0) { setDuplicateError('No se detectaron links de YouTube válidos'); return; }
+
+      // Deduplicate within the batch itself
+      const uniqueLinks = Array.from(new Set(validLinks));
+
+      // Check against existing items
+      const duplicates = uniqueLinks.filter(link => existingContents.includes(link));
+      const newLinks = uniqueLinks.filter(link => !existingContents.includes(link));
+
+      if (duplicates.length > 0 && newLinks.length === 0) {
+        setDuplicateError(`Todos los links ya existen. No se puede duplicar contenido.`);
+        return;
+      }
+      if (duplicates.length > 0) {
+        setDuplicateError(`${duplicates.length} link(s) ya existe(n) y no se agregarán. Se subirán ${newLinks.length} nuevo(s).`);
+      }
+      if (newLinks.length === 0) return;
+
+      for (let i = 0; i < newLinks.length; i++) {
+        await createMut.mutateAsync({ type: 'video', title: formTitle || (newLinks.length > 1 ? `Video ${i + 1}` : ''), content: newLinks[i] });
+      }
+      toast.success(`${newLinks.length} video(s) agregado(s)`);
+      setFormContent('');
+      setDuplicateError('');
+    } else {
+      // Image or text: check duplicate
+      if (existingContents.includes(formContent)) {
+        setDuplicateError('Este contenido ya existe. No se puede duplicar.');
+        return;
+      }
+      await createMut.mutateAsync({ type: formType, title: formTitle, content: formContent });
+      toast.success('Item agregado');
+      setFormContent('');
+      setFormTitle('');
+      setPendingImages([]);
+      setDuplicateError('');
+    }
+  };
+
+  const startEdit = (item: any) => {
+    setEditItem(item);
+    setFormType(item.type);
+    setFormTitle(item.title || '');
+    setFormContent(item.content || '');
+    setShowForm(true);
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditItem(null);
+    setFormType('video');
+    setFormTitle('');
+    setFormContent('');
+  };
+
+  return (
+    <div className="card-glass rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-base font-bold" style={{ color: '#a78bfa' }}>Presentación del Login</h3>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Gestiona imágenes, videos de YouTube y textos que se mostrarán en la página de login.
+          </p>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Agregar
+          </button>
+        )}
+      </div>
+
+      {/* Add/Edit Form */}
+      {showForm && (
+        <div className="rounded-xl p-4 mb-4" tabIndex={-1} style={{ background: duplicateError ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)', border: duplicateError ? '2px solid rgba(239,68,68,0.5)' : '1px solid rgba(255,255,255,0.08)', outline: 'none' }}
+          onPaste={async (e) => {
+            if (formType !== 'image') return;
+            const clipItems = e.clipboardData?.items;
+            if (!clipItems) return;
+            for (let i = 0; i < clipItems.length; i++) {
+              if (clipItems[i].type.startsWith('image/')) {
+                e.preventDefault();
+                const file = clipItems[i].getAsFile();
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
+                const data = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.readAsDataURL(file);
+                });
+                setPendingImages(prev => [...prev, data]);
+                toast.success('Imagen pegada — haz click en Agregar para guardar');
+                return;
+              }
+            }
+          }}
+        >
+          {duplicateError && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {duplicateError}
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>Tipo:</span>
+            {(['video', 'image', 'text'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => { setFormType(t); setFormContent(''); }}
+                className="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1"
+                style={{
+                  background: formType === t ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.05)',
+                  color: formType === t ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+                  border: formType === t ? '1px solid rgba(167,139,250,0.3)' : '1px solid transparent',
+                }}
+              >
+                {t === 'image' && <ImageIcon className="h-3 w-3" />}
+                {t === 'video' && <Video className="h-3 w-3" />}
+                {t === 'text' && <Type className="h-3 w-3" />}
+                {t === 'video' ? 'Video' : t === 'image' ? 'Imagen' : 'Texto'}
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="text"
+            value={formTitle}
+            onChange={e => setFormTitle(e.target.value)}
+            placeholder="Título (opcional)"
+            className="w-full rounded-lg px-3 py-2 text-sm mb-2"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+          />
+
+          {formType === 'image' && (
+            <div>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  <Upload className="h-3.5 w-3.5" /> Subir imagen(es) (máx 5 MB c/u)
+                </button>
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>o pega con Ctrl+V</span>
+              </div>
+              {pendingImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {pendingImages.map((img, idx) => (
+                    <div key={idx} className="relative">
+                      <img src={img} alt={`preview ${idx + 1}`} className="w-20 h-14 object-cover rounded-lg" />
+                      <button
+                        onClick={() => setPendingImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px]"
+                        style={{ background: '#ef4444', color: '#fff' }}
+                      >×</button>
+                    </div>
+                  ))}
+                  <p className="w-full text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{pendingImages.length} imagen(es) lista(s) — haz click en "Agregar" para guardar</p>
+                </div>
+              )}
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>O pega una URL de imagen:</p>
+              <input
+                type="text"
+                value={formContent.startsWith('data:') ? '' : formContent}
+                onChange={e => setFormContent(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-lg px-3 py-2 text-sm mt-1"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+                onPaste={async (e) => {
+                  const clipItems = e.clipboardData?.items;
+                  if (!clipItems) return;
+                  for (let i = 0; i < clipItems.length; i++) {
+                    if (clipItems[i].type.startsWith('image/')) {
+                      e.preventDefault();
+                      const file = clipItems[i].getAsFile();
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { toast.error('Imagen máx 5 MB'); return; }
+                      const data = await new Promise<string>((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result as string);
+                        reader.readAsDataURL(file);
+                      });
+                      setPendingImages(prev => [...prev, data]);
+                      toast.success('Imagen pegada — haz click en Agregar para guardar');
+                      return;
+                    }
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {formType === 'video' && (
+            <div>
+              <textarea
+                value={formContent}
+                onChange={e => setFormContent(e.target.value)}
+                placeholder="Pega links de YouTube (uno por línea para subir múltiples)&#10;https://www.youtube.com/watch?v=XXXXX&#10;https://www.youtube.com/watch?v=YYYYY"
+                rows={3}
+                className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+              />
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega uno o varios links de YouTube (uno por línea). Se subirán todos al hacer clic en Agregar.</p>
+              {formContent && extractYoutubeId(formContent.split('\n')[0]) && (
+                <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <img
+                    src={`https://img.youtube.com/vi/${extractYoutubeId(formContent.split('\n')[0])}/mqdefault.jpg`}
+                    alt="Preview"
+                    className="w-full h-28 object-cover"
+                  />
+                  <p className="text-xs px-2 py-1" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                    ✓ {formContent.split('\n').filter(l => extractYoutubeId(l.trim())).length} video(s) detectado(s)
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {formType === 'text' && (
+            <textarea
+              value={formContent}
+              onChange={e => setFormContent(e.target.value)}
+              placeholder="Escribe tu texto aquí... (HTML básico permitido: <b>, <i>, <br>)"
+              rows={4}
+              className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
+            />
+          )}
+
+          <div className="flex items-center gap-3 mt-3">
+            <button
+              onClick={handleSubmit}
+              disabled={createMut.isPending || updateMut.isPending}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02]"
+              style={{ background: 'linear-gradient(135deg, #7bf1d6, #34d399)', color: '#000', boxShadow: '0 2px 8px rgba(123,241,214,0.25)' }}
+            >
+              <Save className="h-3.5 w-3.5" /> {editItem ? 'Guardar cambios' : 'Agregar'}
+            </button>
+            <button
+              onClick={resetForm}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium transition-all hover:bg-white/5"
+              style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <X className="h-3.5 w-3.5" /> Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Items History — ALWAYS visible */}
+      {items.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay contenido de presentación todavía.</p>
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Agrega imágenes, videos o textos para mostrar en el login.</p>
+        </div>
+      )}
+
+      {finalItems.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Contenido cargado ({finalItems.length} item{finalItems.length !== 1 ? 's' : ''}) — texto primero, luego recientes
+            </p>
+            <button
+              onClick={() => setShowDeleteAllModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}
+            >
+              <Trash2 className="h-3 w-3" /> Eliminar todo
+            </button>
+          </div>
+          <div className="space-y-2">
+            {finalItems.map((item: any) => {
+              const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
+              return (
+                <div key={item.id} className="flex items-center gap-3 rounded-xl p-3 group" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {/* Preview thumbnail */}
+                  <div className="w-20 h-14 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                    {item.type === 'image' && <img src={item.content} alt="" className="w-full h-full object-cover" />}
+                    {item.type === 'video' && ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />}
+                    {item.type === 'video' && !ytId && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
+                    {item.type === 'text' && <div className="w-full h-full flex items-center justify-center"><Type className="h-5 w-5" style={{ color: '#60a5fa' }} /></div>}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate" style={{ color: '#fff' }}>{item.title || '(Sin título)'}</p>
+                    <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      {item.type === 'video' ? `Video: ${item.content.slice(0, 50)}` : item.type === 'image' ? 'Imagen' : `Texto: ${item.content.replace(/<[^>]*>/g, '').slice(0, 50)}`}
+                    </p>
+                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9px] font-medium" style={{
+                      background: item.type === 'video' ? 'rgba(239,68,68,0.15)' : item.type === 'image' ? 'rgba(34,197,94,0.15)' : 'rgba(96,165,250,0.15)',
+                      color: item.type === 'video' ? '#f87171' : item.type === 'image' ? '#4ade80' : '#60a5fa',
+                    }}>
+                      {item.type === 'video' ? 'VIDEO' : item.type === 'image' ? 'IMAGEN' : 'TEXTO'}
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg transition-all hover:bg-white/5" title="Editar">
+                      <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                    </button>
+                    <button
+                      onClick={() => setPresItemToDelete(item)}
+                      className="p-1.5 rounded-lg transition-all hover:bg-red-500/10"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" style={{ color: '#ef4444' }} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Delete single item modal */}
+      {presItemToDelete && (
+        <ConfirmDeleteModal
+          title="Eliminar item"
+          description="¿Estás seguro de eliminar este item de la presentación? Esta acción no se puede deshacer."
+          itemLabel={presItemToDelete.title || '(Sin título)'}
+          itemDetail={presItemToDelete.type === 'video' ? 'Video' : presItemToDelete.type === 'image' ? 'Imagen' : 'Texto'}
+          itemImage={presItemToDelete.type === 'image' ? presItemToDelete.content : presItemToDelete.type === 'video' ? `https://img.youtube.com/vi/${extractYoutubeId(presItemToDelete.content) || ''}/mqdefault.jpg` : null}
+          isPending={deleteMut.isPending}
+          onCancel={() => { if (!deleteMut.isPending) setPresItemToDelete(null); }}
+          onConfirm={() => deleteMut.mutate({ id: presItemToDelete.id }, { onSuccess: () => setPresItemToDelete(null) })}
+        />
+      )}
+
+      {/* Delete all items modal */}
+      {showDeleteAllModal && (
+        <ConfirmDeleteModal
+          title="Eliminar todo el contenido"
+          description={`¿Estás seguro de eliminar TODOS los ${finalItems.length} items de la presentación? Videos, imágenes y textos serán eliminados. Esta acción no se puede deshacer.`}
+          itemLabel={`${finalItems.length} items`}
+          itemDetail="Todo el contenido será eliminado"
+          itemImage={null}
+          isPending={deleteAllMut.isPending}
+          onCancel={() => { if (!deleteAllMut.isPending) setShowDeleteAllModal(false); }}
+          onConfirm={() => deleteAllMut.mutate()}
+        />
+      )}
+    </div>
+  );
+}
+
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
 }

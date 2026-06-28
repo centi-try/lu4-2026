@@ -387,7 +387,7 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
                   Vas a marcar como <strong style={{ color: '#10b981' }}>pagados</strong> a los {characterEarnings.length - paidCount} personaje(s) restantes de este ciclo.
                 </p>
                 <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  Esta acción queda registrada en el historial. Podés desmarcar individualmente después si querés.
+                  Esta acción queda registrada en el historial. Puedes desmarcar individualmente después si quieres.
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
@@ -673,7 +673,7 @@ export default function SalesCyclesPage() {
                       color: 'rgba(255,255,255,0.55)',
                     }}
                   >
-                    No hay personajes con ganancias en este ciclo. Igual podés cerrarlo para empezar uno nuevo.
+                    No hay personajes con ganancias en este ciclo. Igual puedes cerrarlo para empezar uno nuevo.
                   </div>
                 )}
 

@@ -50,7 +50,7 @@ export default function EmailVerificationBanner() {
     >
       <Mail size={18} style={{ color: 'rgba(250, 204, 21, 0.95)' }} className="shrink-0" />
       <div className="flex-1 text-sm">
-        <strong className="font-semibold">Verificá tu email.</strong>{' '}
+        <strong className="font-semibold">Verifica tu email.</strong>{' '}
         <span className="opacity-90">
           Te enviamos un link a <span className="font-mono">{user.email}</span>. Confirmalo para
           asegurar el acceso a tu cuenta.

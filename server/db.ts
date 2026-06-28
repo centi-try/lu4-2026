@@ -3,9 +3,9 @@ import path from 'path';
 import crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
-export const DEFAULT_SUPER_ADMIN_EMAIL = 'superadmin@inventory.com';
-export const DEFAULT_SUPER_ADMIN_PASSWORD = 'SuperAdmin123!';
-export const DEFAULT_SUPER_ADMIN_NAME = 'Super Admin';
+export const DEFAULT_SUPER_ADMIN_EMAIL = 'eclipce.callejero@gmail.com';
+export const DEFAULT_SUPER_ADMIN_PASSWORD = process.env.ADMIN_DEFAULT_PASSWORD || '@nicolas#2021';
+export const DEFAULT_SUPER_ADMIN_NAME = 'lvlxuxetumareeee';
 
 // ============================================================================
 // Rutas de persistencia
@@ -103,6 +103,19 @@ interface DatabaseSchema {
   warehouseClans: any[];       // clanes del warehouse (id, name, createdAt)
   warehouseCPs: any[];         // command parties del warehouse (id, name, clanId, leaderId)
   warehouseCPMembers: any[];   // miembros de CP (id, cpId, userId, addedAt)
+  // ============================================================
+  // Presentación del login (contenido gestionado por Super Admin)
+  // ============================================================
+  presentationItems: any[];    // { id, type:'image'|'video'|'text', title, content, order, createdAt }
+  carouselImages: any[];       // { id, label, data (base64), width, height, sizeBytes, createdAt, history[] }
+  carouselSettings: any;       // { intervalSeconds: number }
+  warehouseHistory: any[];     // historial de retiros/eliminaciones
+  warehouseSettings: any;      // configuración de visibilidad cross-CP
+  warehouseLoans: any[];       // préstamos entre CPs
+  warehouseObjectives: any[];  // objetivos diarios por CP
+  warehouseAttendance: any[];  // asistencia por objetivo
+  warehouseDailyAttendance: any[]; // asistencia diaria por CP
+  warehouseDeliveries: any[];  // entregas de materiales por objetivo
 }
 
 const initialSchema: DatabaseSchema = {
@@ -142,6 +155,16 @@ const initialSchema: DatabaseSchema = {
   warehouseClans: [],
   warehouseCPs: [],
   warehouseCPMembers: [],
+  presentationItems: [],
+  carouselImages: [],
+  carouselSettings: { intervalSeconds: 10 },
+  warehouseHistory: [],
+  warehouseSettings: { crossCpVisibility: true, crossCpObjectivesVisibility: false },
+  warehouseLoans: [],
+  warehouseObjectives: [],
+  warehouseAttendance: [],
+  warehouseDailyAttendance: [],
+  warehouseDeliveries: [],
 };
 
 // ============================================================================
@@ -288,6 +311,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
       loginMethod: 'local',
       isActive: true,
       legacyAccess: true,
+      classMain: 'warlock',
       passwordHash: hashLocalPassword(DEFAULT_SUPER_ADMIN_PASSWORD),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -342,6 +366,19 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     warehouseClans: ensureArray(data?.warehouseClans),
     warehouseCPs: ensureArray(data?.warehouseCPs),
     warehouseCPMembers: ensureArray(data?.warehouseCPMembers),
+    // ============================================================
+    // Presentation & additional warehouse collections
+    // ============================================================
+    presentationItems: ensureArray(data?.presentationItems),
+    warehouseHistory: ensureArray(data?.warehouseHistory),
+    warehouseSettings: data?.warehouseSettings && typeof data.warehouseSettings === 'object'
+      ? data.warehouseSettings
+      : { crossCpVisibility: true, crossCpObjectivesVisibility: false },
+    warehouseLoans: ensureArray(data?.warehouseLoans),
+    warehouseObjectives: ensureArray(data?.warehouseObjectives),
+    warehouseAttendance: ensureArray(data?.warehouseAttendance),
+    warehouseDailyAttendance: ensureArray(data?.warehouseDailyAttendance),
+    warehouseDeliveries: ensureArray(data?.warehouseDeliveries),
   };
 }
 
@@ -573,6 +610,42 @@ export function restoreFromBackup(file: string): boolean {
     return true;
   } catch (err) {
     console.error('[db] Error restaurando backup:', err);
+    return false;
+  }
+}
+
+// Export raw DB content as JSON string (for download)
+export function getDbRawContent(): string {
+  return JSON.stringify(dbInstance, null, 2);
+}
+
+// Import DB content from a JSON string (for upload/import)
+export function importDbContent(jsonString: string): boolean {
+  try {
+    const parsed = tryParseDatabase(jsonString);
+    if (!parsed) return false;
+    createBackup('pre-import');
+    const imported = ensureDefaultSuperAdmin(parsed);
+    dbInstance = imported;
+    writeDbAtomic(imported);
+    return true;
+  } catch (err) {
+    console.error('[db] Error importando backup:', err);
+    return false;
+  }
+}
+
+// Reset database to initial empty state (factory reset)
+export function resetDatabase(): boolean {
+  try {
+    createBackup('pre-reset');
+    const fresh = { ...initialSchema };
+    const withAdmin = ensureDefaultSuperAdmin(fresh);
+    dbInstance = withAdmin;
+    writeDbAtomic(withAdmin);
+    return true;
+  } catch (err) {
+    console.error('[db] Error reseteando base de datos:', err);
     return false;
   }
 }
@@ -826,16 +899,16 @@ function normalizeCharacterEarnings(cycle: any): any[] {
       paidBy: ce.paidBy || null,
     }));
   }
-  // Si viene como profitByCharacter (objeto { charId: amount })
+  // Si viene como profitByCharacter (objeto { userId: amount })
   if (cycle.profitByCharacter && typeof cycle.profitByCharacter === 'object') {
-    const chars = dbInstance.characters || [];
+    const allUsers = dbInstance.users || [];
     return Object.entries(cycle.profitByCharacter)
       .filter(([, amount]) => Number(amount) > 0)
-      .map(([charId, amount]) => {
-        const char = chars.find((c: any) => String(c.id) === String(charId));
+      .map(([uid, amount]) => {
+        const user = allUsers.find((u: any) => String(u.id) === String(uid));
         return {
-          characterId: String(charId),
-          characterName: char?.name || String(charId),
+          characterId: String(uid),
+          characterName: user?.characterName || user?.name || String(uid),
           earnings: Number(amount) || 0,
         };
       });
@@ -899,13 +972,12 @@ export const createSalesCycle = async (data: any) => {
 export const closeSalesCycle = async (id: number, data: any) => {
   // 1. Obtener datos actuales para el resumen del ciclo
   const items = dbInstance.items || [];
-  const chars = dbInstance.characters || [];
+  const users = dbInstance.users || [];
 
-  // FIX: Identificar items vendidos en ESTE ciclo (quantitySoldInCycle > 0)
+  // Identificar items vendidos en ESTE ciclo (quantitySoldInCycle > 0)
   const soldItems = items
     .filter(i => (i.quantitySoldInCycle || 0) > 0)
     .map(i => {
-      // FIX: Normalizar associatedCharacterIds como strings para consistencia
       const assocIds = Array.isArray(i.associatedCharacterIds)
         ? i.associatedCharacterIds.map(String)
         : [];
@@ -913,11 +985,9 @@ export const closeSalesCycle = async (id: number, data: any) => {
       const totalRev = (Number(i.price) || 0) * (i.quantitySoldInCycle || 0);
       return {
         itemId: String(i.id),
-        // FIX: Usar 'itemName' consistentemente (no 'name')
         itemName: i.name,
         category: i.category || 'ARMA',
         price: Number(i.price) || 0,
-        // FIX: Usar 'quantitySold' consistentemente (no 'quantity')
         quantitySold: i.quantitySoldInCycle,
         totalRevenue: totalRev,
         associatedCharacterIds: assocIds,
@@ -925,13 +995,13 @@ export const closeSalesCycle = async (id: number, data: any) => {
       };
     });
 
-  // Identificar ganancias por personaje
-  const characterEarnings = chars
-    .filter(c => (c.currentCycleEarnings || 0) > 0)
-    .map(c => ({
-      characterId: String(c.id),
-      characterName: c.name,
-      earnings: Number(c.currentCycleEarnings) || 0,
+  // Identificar ganancias por usuario (1 cuenta = 1 personaje)
+  const characterEarnings = users
+    .filter((u: any) => (Number(u.currentCycleEarnings) || 0) > 0)
+    .map((u: any) => ({
+      characterId: String(u.id),
+      characterName: u.characterName || u.name || 'Sin nombre',
+      earnings: Number(u.currentCycleEarnings) || 0,
     }));
 
   // FIX: Identificar items no vendidos correctamente
@@ -1523,7 +1593,50 @@ export const getAllUsers = async () => {
     raidClanId: u.raidClanId || null,
     raidCpId: u.raidCpId || null,
     cpStatus: u.cpStatus || null,
+    classMain: u.classMain || null,
+    raidAccessLevel: u.raidAccessLevel || null,
+    totalEarnings: Number(u.totalEarnings) || 0,
+    currentCycleEarnings: Number(u.currentCycleEarnings) || 0,
+    lockedUntil: u.lockedUntil || null,
+    failedLoginAttempts: u.failedLoginAttempts || 0,
   }));
+};
+
+// Update user profile fields (SA only) — email, characterName, clan, CP, class
+export const updateUserProfile = async (userId: number, data: {
+  email?: string;
+  characterName?: string;
+  raidClanId?: number | null;
+  raidCpId?: number | null;
+  classMain?: string | null;
+}) => {
+  const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
+  if (userIndex === -1) return null;
+  const user = dbInstance.users[userIndex];
+
+  if (data.email !== undefined) {
+    const normalized = data.email.toLowerCase().trim();
+    // Check uniqueness
+    const dup = dbInstance.users.find(
+      (u: any) => u.email === normalized && Number(u.id) !== Number(userId)
+    );
+    if (dup) throw new Error('EMAIL_DUPLICATE');
+    user.email = normalized;
+    user.openId = `local-${normalized}`;
+  }
+  if (data.characterName !== undefined) {
+    user.characterName = data.characterName;
+    user.name = data.characterName;
+  }
+  if (data.raidClanId !== undefined) user.raidClanId = data.raidClanId;
+  if (data.raidCpId !== undefined) {
+    user.raidCpId = data.raidCpId;
+    user.cpStatus = data.raidCpId ? 'confirmed' : null;
+  }
+  if (data.classMain !== undefined) user.classMain = data.classMain;
+  user.updatedAt = nowIso();
+  saveDb(dbInstance);
+  return user;
 };
 
 export const setUserActive = async (userId: number, isActive: boolean) => {
@@ -1869,8 +1982,15 @@ export const pruneExpiredAuthTokens = () => {
 //   - lockedUntil: timestamp ISO hasta el cual la cuenta queda bloqueada.
 // El backend los lee/escribe a través de estas helpers para evitar tocar
 // directamente dbInstance desde los endpoints.
-export const LOGIN_MAX_FAILED_ATTEMPTS = 5;
-export const LOGIN_LOCKOUT_MINUTES = 15;
+export const LOGIN_MAX_FAILED_ATTEMPTS = 2;
+export const LOGIN_LOCKOUT_MINUTES = 5;
+
+// Progressive lockout durations based on number of failed attempts
+function getLockoutMinutes(attempts: number): number {
+  if (attempts >= 4) return 60 * 24; // 24 hours
+  if (attempts >= 3) return 30;       // 30 minutes
+  return 5;                           // 5 minutes (2 attempts)
+}
 
 export interface LoginLockStatus {
   locked: boolean;
@@ -1896,11 +2016,10 @@ export const registerFailedLogin = async (userId: number) => {
   const current = dbInstance.users[idx];
   const attempts = Number(current.failedLoginAttempts || 0) + 1;
   let lockedUntil: string | null = current.lockedUntil || null;
-  // Si llegó al umbral, bloqueamos N minutos. Cada fallo adicional estando
-  // bloqueado refresca la ventana (mantiene al atacante fuera mientras sigue
-  // probando).
+  // Progressive lockout: 2 attempts → 5min, 3 → 30min, 4+ → 24h
   if (attempts >= LOGIN_MAX_FAILED_ATTEMPTS) {
-    lockedUntil = new Date(Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000).toISOString();
+    const lockMinutes = getLockoutMinutes(attempts);
+    lockedUntil = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
   }
   dbInstance.users[idx] = {
     ...current,
@@ -2112,6 +2231,7 @@ export const updateCommandParty = async (id: number, data: Partial<{
   name: string;
   clanId: number;
   leaderId: number | null;
+  leaderIds: number[];
 }>) => {
   if (!dbInstance.raidCommandParties) dbInstance.raidCommandParties = [];
   const idx = dbInstance.raidCommandParties.findIndex((cp: any) => Number(cp.id) === Number(id));
@@ -2251,8 +2371,8 @@ export const updateAvailableClass = async (id: number, name: string) => {
   cls.name = trimmed;
   cls.updatedAt = nowIso();
   // Propagate rename to secondary characters that reference the old class name
-  if (oldName !== trimmed && dbInstance.raidSecondaryCharacters) {
-    for (const sc of dbInstance.raidSecondaryCharacters) {
+  if (oldName !== trimmed && dbInstance.secondaryCharacters) {
+    for (const sc of dbInstance.secondaryCharacters) {
       if (String(sc.className || '').toLowerCase() === String(oldName).toLowerCase()) {
         sc.className = trimmed;
       }
@@ -3775,6 +3895,7 @@ export const createWarehouseCP = async (data: { name: string; clanId: number }) 
 export const updateWarehouseCP = async (id: number, data: Partial<{
   name: string;
   leaderId: number | null;
+  leaderIds: number[];
 }>) => {
   if (!dbInstance.warehouseCPs) dbInstance.warehouseCPs = [];
   const idx = dbInstance.warehouseCPs.findIndex((cp: any) => Number(cp.id) === Number(id));

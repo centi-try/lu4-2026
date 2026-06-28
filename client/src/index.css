@@ -244,6 +244,15 @@
    * sin tener que tocar cada componente, se fuerzan las propiedades
    * específicas del chevron con !important. Los colores/bordes inline se
    * respetan porque no los tocamos. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
   select {
     appearance: none !important;
     -webkit-appearance: none !important;
@@ -347,7 +356,7 @@
   .table-scroll {
     overflow-x: auto;
     overflow-y: auto;
-    max-height: 520px;
+    max-height: 700px;
   }
 
   /* ----------------------------------------------------------------------
@@ -371,5 +380,10 @@
   .row-pulse-error {
     animation: pulse-error 700ms ease-out 1;
     border-radius: 0.75rem;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
   }
 }

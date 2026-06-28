@@ -13,6 +13,9 @@ import {
   restoreFromBackup,
   STORAGE_PATHS,
   createAuditLog,
+  getDbRawContent,
+  importDbContent,
+  resetDatabase,
 } from '../db';
 
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -124,6 +127,75 @@ export const backupsRouter = router({
         } as any);
       } catch {
         /* ignore */
+      }
+      return { success: true };
+    }),
+
+  // Download current database as JSON string
+  download: superAdminProcedure.query(async ({ ctx }) => {
+    try {
+      await createAuditLog({
+        userId: ctx.user.id,
+        userName: ctx.user.name || ctx.user.characterName || ctx.user.email,
+        action: 'BACKUP_DOWNLOADED',
+        details: 'Descarga del archivo de base de datos completo',
+      } as any);
+    } catch { /* best effort */ }
+    return { content: getDbRawContent() };
+  }),
+
+  // Import/upload a JSON backup file
+  importBackup: superAdminProcedure
+    .input(z.object({
+      content: z.string().min(2, 'El archivo está vacío o no es válido'),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const ok = importDbContent(input.content);
+      if (!ok) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'El archivo no es un backup válido. Verifica que sea un JSON con la estructura correcta.',
+        });
+      }
+      try {
+        await createAuditLog({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.characterName || ctx.user.email,
+          action: 'BACKUP_IMPORTED',
+          details: 'Base de datos importada desde archivo subido',
+        } as any);
+      } catch { /* best effort */ }
+      return { success: true };
+    }),
+
+  // Factory reset — wipe everything and start fresh
+  factoryReset: superAdminProcedure
+    .input(z.object({
+      confirmText: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.confirmText !== 'RESETEAR') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Texto de confirmación incorrecto. Escribe "RESETEAR" para confirmar.',
+        });
+      }
+      // Audit log BEFORE reset (since it will be wiped)
+      try {
+        await createAuditLog({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.characterName || ctx.user.email,
+          action: 'FACTORY_RESET',
+          details: 'Reset completo de la base de datos. Se creó backup pre-reset automáticamente.',
+        } as any);
+      } catch { /* best effort */ }
+
+      const ok = resetDatabase();
+      if (!ok) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Error al resetear la base de datos.',
+        });
       }
       return { success: true };
     }),

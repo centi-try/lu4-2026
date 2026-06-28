@@ -248,44 +248,7 @@ function CharacterDetail({ char }: { char: Character }) {
                     </span>
                   </div>
 
-                  {/* Venta parcial inline */}
-                  {!isVendido && currentUser?.role === 'SUPER_ADMIN' && item.status === 'CONFIRMADO' && (
-                    <div className="mt-2">
-                      {isSellingThis ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={sellQty}
-                            onChange={e => setSellQty(e.target.value)}
-                            min="1"
-                            max={remaining}
-                            className="input-dark h-8 w-20 text-xs text-center"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleSell(item.id, item.name)}
-                            className="px-2 py-1 rounded text-xs font-medium"
-                            style={{ background: '#a78bfa', color: '#000' }}>
-                            Vender
-                          </button>
-                          <button
-                            onClick={() => { setSellModalItem(null); setSellQty('1'); }}
-                            className="px-2 py-1 rounded text-xs font-medium"
-                            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => { setSellModalItem(item.id); setSellQty('1'); }}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
-                          style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
-                          <ShoppingCart className="h-3 w-3" />
-                          Vender unidades
-                        </button>
-                      )}
-                    </div>
-                  )}
+
                 </div>
               );
             })}

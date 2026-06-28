@@ -41,12 +41,19 @@ const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Resolve the warehouse CP(s) this user leads. Returns array of cpIds. */
+/** Resolve the CP(s) this user leads (checks both raid and warehouse CPs). Returns array of cpIds. */
 async function getCpIdsLedByUser(userId: number): Promise<number[]> {
-  const allCps = await getWarehouseCPs();
+  const [raidCps, warehouseCps] = await Promise.all([getRaidCommandParties(), getWarehouseCPs()]);
+  const allCps = [...raidCps, ...warehouseCps];
+  const seen = new Set<number>();
   return allCps
-    .filter((cp: any) => Number(cp.leaderId) === userId)
-    .map((cp: any) => Number(cp.id));
+    .filter((cp: any) => {
+      if (Number(cp.leaderId) === userId) return true;
+      if (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(userId)) return true;
+      return false;
+    })
+    .map((cp: any) => Number(cp.id))
+    .filter(id => { if (seen.has(id)) return false; seen.add(id); return true; });
 }
 
 /** Check if user can WRITE to a given CP's warehouse (SA or CP leader). */
@@ -59,20 +66,27 @@ async function canWriteCp(role: string, userId: number, cpId: number): Promise<b
 // ─── Warehouse Items ────────────────────────────────────────────────────────
 
 export const warehouseRouter = router({
-  // List warehouse CPs (all users can see)
+  // List raid CPs (unified — all users can see)
   listCps: protectedProcedure.query(async () => {
-    const allCps = await getWarehouseCPs();
+    const allCps = await getRaidCommandParties();
     const allUsers = await getAllUsers();
     return allCps.map((cp: any) => {
       const leader = cp.leaderId
         ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId))
         : null;
+      const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+      const names = ids.map((lid: number) => {
+        const u = allUsers.find((u: any) => Number(u.id) === lid);
+        return u?.characterName || u?.name || null;
+      }).filter(Boolean);
       return {
         id: Number(cp.id),
         name: cp.name,
         clanId: Number(cp.clanId),
         leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+        leaderIds: ids,
         leaderName: leader?.characterName || leader?.name || null,
+        leaderNames: names,
       };
     });
   }),
@@ -95,6 +109,88 @@ export const warehouseRouter = router({
     }
     return chars;
   }),
+
+  // List warehouse history (withdrawals, deletions) for an item or all
+  listHistory: protectedProcedure
+    .input(z.object({ itemId: z.number().optional(), cpId: z.number().optional() }).optional())
+    .query(({ input }) => {
+      const db = dbInstance;
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      let history = (db.warehouseHistory as any[]).slice();
+      if (input?.itemId) history = history.filter((h: any) => Number(h.itemId) === Number(input.itemId));
+      if (input?.cpId) history = history.filter((h: any) => Number(h.cpId) === Number(input.cpId));
+      return history.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }),
+
+  // Delete a history entry (SA only, permanent, no trace)
+  deleteHistory: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input, ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar historial.' });
+      const db = dbInstance;
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      const idx = db.warehouseHistory.findIndex((h: any) => Number(h.id) === Number(input.id));
+      if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entrada no encontrada.' });
+      db.warehouseHistory.splice(idx, 1);
+      saveDbToDisk();
+      return { success: true };
+    }),
+
+  // Get current user's CP memberships
+  myCps: protectedProcedure.query(async ({ ctx }) => {
+    const userId = Number(ctx.user?.id || 0);
+    const allCps = await getRaidCommandParties();
+    const allUsers = await getAllUsers();
+    const user = allUsers.find((u: any) => Number(u.id) === userId);
+    const myCpId = user?.raidCpId ? Number(user.raidCpId) : null;
+    const ledCps = allCps.filter((cp: any) => Number(cp.leaderId) === userId).map((cp: any) => Number(cp.id));
+    return { memberCpId: myCpId, leaderCpIds: ledCps };
+  }),
+
+  // Get warehouse settings
+  getSettings: protectedProcedure.query(() => {
+    const db = dbInstance;
+    if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true, crossCpObjectivesVisibility: false };
+    if ((db.warehouseSettings as any).crossCpObjectivesVisibility === undefined) (db.warehouseSettings as any).crossCpObjectivesVisibility = false;
+    return db.warehouseSettings as { crossCpVisibility: boolean; crossCpObjectivesVisibility: boolean };
+  }),
+
+  // Update warehouse settings (SA only)
+  updateSettings: protectedProcedure
+    .input(z.object({ crossCpVisibility: z.boolean().optional(), crossCpObjectivesVisibility: z.boolean().optional() }))
+    .mutation(({ input, ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin.' });
+      const db = dbInstance;
+      if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true, crossCpObjectivesVisibility: false };
+      if (input.crossCpVisibility !== undefined) (db.warehouseSettings as any).crossCpVisibility = input.crossCpVisibility;
+      if (input.crossCpObjectivesVisibility !== undefined) (db.warehouseSettings as any).crossCpObjectivesVisibility = input.crossCpObjectivesVisibility;
+      saveDbToDisk();
+      return db.warehouseSettings;
+    }),
+
+  // List members of a specific CP (for project assignment filtering)
+  listCpMembers: protectedProcedure
+    .input(z.object({ cpId: z.number() }))
+    .query(async ({ input }) => {
+      const members = await getRaidUsersByCp(input.cpId);
+      const chars: { name: string; userId: number; type: string }[] = [];
+      for (const u of members) {
+        if (u.characterName) {
+          chars.push({ name: u.characterName, userId: Number(u.id), type: 'principal' });
+        }
+      }
+      // Also get secondary characters for these users
+      const userIds = members.map((u: any) => Number(u.id));
+      const db = dbInstance;
+      for (const sc of (db.secondaryCharacters || [])) {
+        if (sc.name && userIds.includes(Number(sc.userId))) {
+          chars.push({ name: sc.name, userId: Number(sc.userId), type: 'secundario' });
+        }
+      }
+      return chars;
+    }),
 
   // List confirmed warehouse items (optionally filtered by cpId)
   list: protectedProcedure
@@ -284,6 +380,21 @@ export const warehouseRouter = router({
       }
       item.quantity = (Number(item.quantity) || 0) - input.quantity;
       item.updatedAt = nowIso();
+      // Log to history
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(item.id),
+        itemName: item.name,
+        cpId: item.cpId || null,
+        type: 'withdraw',
+        quantity: input.quantity,
+        reason: input.reason,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: Number(ctx.user?.id || 0),
+        date: nowIso(),
+        remainingStock: item.quantity,
+      });
       saveDbToDisk();
       await createAuditLog({
         userId: Number(ctx.user?.id || 0),
@@ -297,7 +408,7 @@ export const warehouseRouter = router({
 
   // Delete warehouse item (SA or CP leader)
   deleteItem: protectedProcedure
-    .input(z.object({ id: z.number() }))
+    .input(z.object({ id: z.number(), reason: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
       const userId = Number(ctx.user?.id || 0);
@@ -313,14 +424,172 @@ export const warehouseRouter = router({
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar.' });
       }
       const removed = db.warehouseItems.splice(idx, 1)[0];
+      // Log to history
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(removed.id),
+        itemName: removed.name,
+        cpId: removed.cpId || null,
+        type: 'delete',
+        quantity: Number(removed.quantity) || 0,
+        reason: input.reason,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: Number(ctx.user?.id || 0),
+        date: nowIso(),
+        remainingStock: 0,
+      });
       saveDbToDisk();
       await createAuditLog({
         userId: Number(ctx.user?.id || 0),
         action: 'WAREHOUSE_DELETE',
         actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
         actorRole: String(ctx.user?.role || 'USER'),
-        detail: `Eliminó ${removed.name} (${removed.quantity} uds) de la bodega.`,
+        detail: `Eliminó ${removed.name} (${removed.quantity} uds) de la bodega. Motivo: ${input.reason}.`,
       });
+      return { success: true };
+    }),
+
+  // Update item (category, quantity) — SA only
+  updateItem: protectedProcedure
+    .input(z.object({ id: z.number(), category: z.string().optional(), quantity: z.number().int().min(0).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede editar.' });
+      const db = dbInstance;
+      if (!db.warehouseItems) return { success: false };
+      const item = db.warehouseItems.find((w: any) => Number(w.id) === Number(input.id));
+      if (!item) throw new TRPCError({ code: 'NOT_FOUND' });
+      if (input.category !== undefined) item.category = input.category;
+      if (input.quantity !== undefined) item.quantity = input.quantity;
+      item.updatedAt = nowIso();
+      saveDbToDisk();
+      return { success: true };
+    }),
+
+  // ─── Material Loans between CPs ─────────────────────────────────────────
+
+  // Create a loan (lend materials from one CP to another)
+  createLoan: protectedProcedure
+    .input(z.object({
+      itemId: z.number(),
+      quantity: z.number().int().min(1),
+      toCpId: z.number(),
+      reason: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      const userId = Number(ctx.user?.id || 0);
+      const db = dbInstance;
+      if (!db.warehouseItems) db.warehouseItems = [];
+      const item = db.warehouseItems.find((w: any) => Number(w.id) === Number(input.itemId));
+      if (!item) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ítem no encontrado.' });
+      const fromCpId = Number(item.cpId);
+      if (!fromCpId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'El ítem no tiene CP asignada.' });
+      if (fromCpId === input.toCpId) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No puedes prestar a la misma CP.' });
+      // Permission check
+      const allowed = await canWriteCp(role, userId, fromCpId);
+      if (!allowed && role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para prestar desde esta CP.' });
+      if ((Number(item.quantity) || 0) < input.quantity) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `Stock insuficiente. Disponible: ${item.quantity}` });
+      }
+      // Deduct from source
+      item.quantity = (Number(item.quantity) || 0) - input.quantity;
+      item.updatedAt = nowIso();
+      // Create loan record
+      if (!db.warehouseLoans) db.warehouseLoans = [];
+      const allCps = await getRaidCommandParties();
+      const fromCp = allCps.find((cp: any) => Number(cp.id) === fromCpId);
+      const toCp = allCps.find((cp: any) => Number(cp.id) === input.toCpId);
+      const loanId = randId();
+      db.warehouseLoans.push({
+        id: loanId,
+        itemId: Number(item.id),
+        itemName: item.name,
+        itemImageUrl: item.imageUrl || '',
+        fromCpId,
+        fromCpName: fromCp?.name || `CP-${fromCpId}`,
+        toCpId: input.toCpId,
+        toCpName: toCp?.name || `CP-${input.toCpId}`,
+        quantity: input.quantity,
+        reason: input.reason || '',
+        lentBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        lentById: userId,
+        lentAt: nowIso(),
+        returned: false,
+        returnedAt: null,
+      });
+      // History log
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(item.id),
+        itemName: item.name,
+        cpId: fromCpId,
+        type: 'loan_out',
+        quantity: input.quantity,
+        reason: `Préstamo a ${toCp?.name || 'CP-' + input.toCpId}${input.reason ? ': ' + input.reason : ''}`,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: userId,
+        date: nowIso(),
+        remainingStock: item.quantity,
+      });
+      saveDbToDisk();
+      return { success: true, loanId, remaining: item.quantity };
+    }),
+
+  // List all loans (optionally filter by cpId — shows loans FROM or TO that CP)
+  listLoans: protectedProcedure
+    .input(z.object({ cpId: z.number().optional() }).optional())
+    .query(({ input }) => {
+      const db = dbInstance;
+      const loans = (db.warehouseLoans || []).slice();
+      if (input?.cpId) {
+        return loans.filter((l: any) => Number(l.fromCpId) === Number(input.cpId) || Number(l.toCpId) === Number(input.cpId));
+      }
+      return loans;
+    }),
+
+  // Mark a loan as returned (only source CP leader or SA)
+  returnLoan: protectedProcedure
+    .input(z.object({ loanId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      const userId = Number(ctx.user?.id || 0);
+      const db = dbInstance;
+      if (!db.warehouseLoans) db.warehouseLoans = [];
+      const loan = db.warehouseLoans.find((l: any) => Number(l.id) === Number(input.loanId));
+      if (!loan) throw new TRPCError({ code: 'NOT_FOUND', message: 'Préstamo no encontrado.' });
+      if (loan.returned) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Este préstamo ya fue devuelto.' });
+      // Only source CP leader or SA can confirm return
+      const allowed = await canWriteCp(role, userId, Number(loan.fromCpId));
+      if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el líder de la CP prestadora o SA puede confirmar devolución.' });
+      // Return materials to source CP
+      if (!db.warehouseItems) db.warehouseItems = [];
+      const sourceItem = db.warehouseItems.find((w: any) => Number(w.id) === Number(loan.itemId));
+      if (sourceItem) {
+        sourceItem.quantity = (Number(sourceItem.quantity) || 0) + loan.quantity;
+        sourceItem.updatedAt = nowIso();
+      }
+      loan.returned = true;
+      loan.returnedAt = nowIso();
+      loan.returnedBy = ctx.user?.characterName || ctx.user?.name || 'Sistema';
+      // History log
+      if (!db.warehouseHistory) db.warehouseHistory = [];
+      db.warehouseHistory.push({
+        id: randId(),
+        itemId: Number(loan.itemId),
+        itemName: loan.itemName,
+        cpId: Number(loan.fromCpId),
+        type: 'loan_return',
+        quantity: loan.quantity,
+        reason: `Devolución de préstamo desde ${loan.toCpName}`,
+        actor: ctx.user?.characterName || ctx.user?.name || 'Sistema',
+        actorId: userId,
+        date: nowIso(),
+        remainingStock: sourceItem ? sourceItem.quantity : 0,
+      });
+      saveDbToDisk();
       return { success: true };
     }),
 
@@ -341,18 +610,22 @@ export const warehouseRouter = router({
           name: z.string().min(1),
           quantity: z.number().int().min(1),
           imageUrl: z.string().optional(),
+          isCraftable: z.boolean().optional(),
           subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
             name: z.string().min(1),
             quantity: z.number().int().min(1),
             imageUrl: z.string().optional(),
+            isCraftable: z.boolean().optional(),
             subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
               name: z.string().min(1),
               quantity: z.number().int().min(1),
               imageUrl: z.string().optional(),
+              isCraftable: z.boolean().optional(),
               subMaterials: z.array(z.object({
                 name: z.string().min(1),
                 quantity: z.number().int().min(1),
                 imageUrl: z.string().optional(),
+                isCraftable: z.boolean().optional(),
               })).optional(),
             })).optional()),
           })).optional()),
@@ -370,6 +643,7 @@ export const warehouseRouter = router({
           nameLower: m.name.trim().toLowerCase(),
           quantity: m.quantity,
           imageUrl: m.imageUrl || null,
+          isCraftable: m.isCraftable || false,
           subMaterials: m.subMaterials?.length ? mapMats(m.subMaterials) : [],
         }));
         const recipe = {
@@ -416,6 +690,72 @@ export const warehouseRouter = router({
         });
         return { success: true };
       }),
+
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).optional(),
+        category: z.string().optional(),
+        imageUrl: z.string().optional().nullable(),
+        wikiUrl: z.string().optional().nullable(),
+        materials: z.array(z.object({
+          name: z.string().min(1),
+          quantity: z.number().int().min(1),
+          imageUrl: z.string().optional(),
+          isCraftable: z.boolean().optional(),
+          subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
+            name: z.string().min(1),
+            quantity: z.number().int().min(1),
+            imageUrl: z.string().optional(),
+            isCraftable: z.boolean().optional(),
+            subMaterials: z.lazy((): z.ZodType<any> => z.array(z.object({
+              name: z.string().min(1),
+              quantity: z.number().int().min(1),
+              imageUrl: z.string().optional(),
+              isCraftable: z.boolean().optional(),
+              subMaterials: z.array(z.object({
+                name: z.string().min(1),
+                quantity: z.number().int().min(1),
+                imageUrl: z.string().optional(),
+                isCraftable: z.boolean().optional(),
+              })).optional(),
+            })).optional()),
+          })).optional()),
+        })).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        if (role !== 'super_admin') {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede editar recetas.' });
+        }
+        const db = dbInstance;
+        const recipe = (db.craftRecipes || []).find((r: any) => Number(r.id) === Number(input.id));
+        if (!recipe) throw new TRPCError({ code: 'NOT_FOUND', message: 'Receta no encontrada.' });
+        if (input.name) recipe.name = input.name.trim();
+        if (input.category !== undefined) recipe.category = input.category || null;
+        if (input.imageUrl !== undefined) recipe.imageUrl = input.imageUrl || null;
+        if (input.wikiUrl !== undefined) recipe.wikiUrl = input.wikiUrl || null;
+        if (input.materials) {
+          const mapMats = (arr: any[]): any[] => arr.map((m: any) => ({
+            name: m.name.trim(),
+            nameLower: m.name.trim().toLowerCase(),
+            quantity: m.quantity,
+            imageUrl: m.imageUrl || null,
+            isCraftable: m.isCraftable || false,
+            subMaterials: m.subMaterials?.length ? mapMats(m.subMaterials) : [],
+          }));
+          recipe.materials = mapMats(input.materials);
+        }
+        saveDbToDisk();
+        await createAuditLog({
+          userId: Number(ctx.user?.id || 0),
+          action: 'CRAFT_RECIPE_UPDATE',
+          actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
+          actorRole: String(ctx.user?.role || 'USER'),
+          detail: `Editó receta de crafteo: "${recipe.name}".`,
+        });
+        return { success: true, recipe };
+      }),
   }),
 
   // ─── Craft Projects ─────────────────────────────────────────────────────
@@ -454,6 +794,8 @@ export const warehouseRouter = router({
           id: randId(),
           recipeId: input.recipeId,
           recipeName: recipe.name,
+          recipeImage: recipe.imageUrl || null,
+          recipeCategory: recipe.category || null,
           status: 'active',
           notes: input.notes || '',
           priority: input.priority || false,
@@ -767,14 +1109,33 @@ export const warehouseRouter = router({
             addedAt: m.addedAt,
           };
         });
+        const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
+        const leaderNames = ids.map((lid: number) => {
+          const u = allUsers.find((u: any) => Number(u.id) === lid);
+          return u?.characterName || u?.name || null;
+        }).filter(Boolean);
         return {
           ...cp,
           clanName: clan?.name || 'Sin clan',
+          leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+          leaderIds: ids,
           leaderName: leader?.characterName || leader?.name || null,
+          leaderNames,
           members: membersWithInfo,
           memberCount: membersWithInfo.length,
         };
       });
+    }),
+
+    cpSelector: protectedProcedure.query(async () => {
+      const allCps = await getWarehouseCPs();
+      return allCps.map((cp: any) => ({
+        id: Number(cp.id),
+        name: cp.name,
+        clanId: Number(cp.clanId),
+        leaderId: cp.leaderId ? Number(cp.leaderId) : null,
+        leaderIds: Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []),
+      }));
     }),
 
     create: protectedProcedure
@@ -793,6 +1154,7 @@ export const warehouseRouter = router({
         id: z.number(),
         name: z.string().min(1).optional(),
         leaderId: z.number().nullable().optional(),
+        leaderIds: z.array(z.number()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
@@ -800,6 +1162,7 @@ export const warehouseRouter = router({
         const data: any = {};
         if (input.name) data.name = input.name;
         if (input.leaderId !== undefined) data.leaderId = input.leaderId;
+        if (input.leaderIds !== undefined) data.leaderIds = input.leaderIds;
         const cp = await updateWarehouseCP(input.id, data);
         if (!cp) throw new TRPCError({ code: 'NOT_FOUND' });
         return { success: true, cp };
@@ -869,7 +1232,7 @@ export const warehouseRouter = router({
             email: user.email || '',
             classMain: user.classMain || null,
             cpStatus: m.status || 'confirmed',
-            isLeader: Number(cp.leaderId) === Number(user.id),
+            isLeader: Number(cp.leaderId) === Number(user.id) || (Array.isArray(cp.leaderIds) && cp.leaderIds.map(Number).includes(Number(user.id))),
             secondaryCharacters: secondaries.filter((sc: any) => Number(sc.userId) === Number(user.id)),
             addedAt: m.addedAt,
           };
@@ -921,6 +1284,388 @@ export const warehouseRouter = router({
           }
         }
         return { success: true, syncedCps, syncedMembers, raidClanName: matchingRaidClan.name };
+      }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // OBJETIVOS (Objectives) — weekly calendar with tasks & attendance
+  // ═══════════════════════════════════════════════════════════════════════
+
+  objectives: router({
+    // List objectives for a CP within a date range (supports month or week)
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number(), weekStart: z.string().optional(), monthStart: z.string().optional() }))
+      .query(async ({ input, ctx }) => {
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const objs = (db.warehouseObjectives as any[]).filter((o: any) => Number(o.cpId) === input.cpId);
+        if (input.monthStart) {
+          const ms = new Date(input.monthStart);
+          const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 1);
+          return objs.filter((o: any) => {
+            const d = new Date(o.date);
+            return d >= ms && d < me;
+          });
+        }
+        if (input.weekStart) {
+          const ws = new Date(input.weekStart);
+          const we = new Date(ws); we.setDate(we.getDate() + 7);
+          return objs.filter((o: any) => {
+            const d = new Date(o.date);
+            return d >= ws && d < we;
+          });
+        }
+        return objs;
+      }),
+
+    // Create objective (SA or CP leader)
+    create: protectedProcedure
+      .input(z.object({
+        cpId: z.number(),
+        date: z.string(),
+        title: z.string().min(1),
+        description: z.string().optional(),
+        materials: z.array(z.object({ name: z.string(), quantity: z.number(), imageUrl: z.string().optional(), catalogId: z.number().optional() })).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id || 0);
+        const allowed = await canWriteCp(role, userId, input.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo SA o líder de CP pueden crear objetivos.' });
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const obj = {
+          id: randId(),
+          cpId: input.cpId,
+          date: input.date,
+          title: input.title,
+          description: input.description || '',
+          materials: input.materials || [],
+          achieved: false,
+          createdBy: userId,
+          createdAt: nowIso(),
+        };
+        (db.warehouseObjectives as any[]).push(obj);
+        saveDbToDisk();
+        return obj;
+      }),
+
+    // Update objective
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        materials: z.array(z.object({ name: z.string(), quantity: z.number(), imageUrl: z.string().optional(), catalogId: z.number().optional() })).optional(),
+        achieved: z.boolean().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const obj = (db.warehouseObjectives as any[]).find((o: any) => o.id === input.id);
+        if (!obj) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const allowed = await canWriteCp(role, userId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        if (input.title !== undefined) obj.title = input.title;
+        if (input.description !== undefined) obj.description = input.description;
+        if (input.materials !== undefined) obj.materials = input.materials;
+        if (input.achieved !== undefined) obj.achieved = input.achieved;
+        saveDbToDisk();
+        return obj;
+      }),
+
+    // Delete objective
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const userId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const idx = (db.warehouseObjectives as any[]).findIndex((o: any) => o.id === input.id);
+        if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const obj = (db.warehouseObjectives as any[])[idx];
+        const allowed = await canWriteCp(role, userId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        (db.warehouseObjectives as any[]).splice(idx, 1);
+        // Also remove related attendance
+        if (!db.warehouseAttendance) db.warehouseAttendance = [];
+        db.warehouseAttendance = (db.warehouseAttendance as any[]).filter((a: any) => a.objectiveId !== input.id);
+        saveDbToDisk();
+        return { success: true };
+      }),
+
+    // Cleanup old objectives (> 2 months)
+    cleanup: protectedProcedure.mutation(async ({ ctx }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo SA.' });
+      const db = dbInstance;
+      if (!db.warehouseObjectives) db.warehouseObjectives = [];
+      if (!db.warehouseAttendance) db.warehouseAttendance = [];
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      const before = (db.warehouseObjectives as any[]).length;
+      const oldIds = new Set(
+        (db.warehouseObjectives as any[])
+          .filter((o: any) => new Date(o.date) < twoMonthsAgo)
+          .map((o: any) => o.id)
+      );
+      db.warehouseObjectives = (db.warehouseObjectives as any[]).filter((o: any) => !oldIds.has(o.id));
+      db.warehouseAttendance = (db.warehouseAttendance as any[]).filter((a: any) => !oldIds.has(a.objectiveId));
+      saveDbToDisk();
+      return { removed: before - (db.warehouseObjectives as any[]).length };
+    }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ATTENDANCE — per-user per-objective participation tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  attendance: router({
+    // List attendance for objectives in a CP
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number(), weekStart: z.string().optional() }))
+      .query(async ({ input }) => {
+        const db = dbInstance;
+        if (!db.warehouseAttendance) db.warehouseAttendance = [];
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const cpObjIds = new Set(
+          (db.warehouseObjectives as any[])
+            .filter((o: any) => Number(o.cpId) === input.cpId)
+            .map((o: any) => o.id)
+        );
+        return (db.warehouseAttendance as any[]).filter((a: any) => cpObjIds.has(a.objectiveId));
+      }),
+
+    // Toggle attendance for a user on an objective
+    toggle: protectedProcedure
+      .input(z.object({ objectiveId: z.number(), userId: z.number(), present: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        if (!db.warehouseAttendance) db.warehouseAttendance = [];
+        const obj = (db.warehouseObjectives as any[]).find((o: any) => o.id === input.objectiveId);
+        if (!obj) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const allowed = await canWriteCp(role, callerId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const existing = (db.warehouseAttendance as any[]).find(
+          (a: any) => a.objectiveId === input.objectiveId && Number(a.userId) === input.userId
+        );
+        if (existing) {
+          existing.present = input.present;
+          existing.updatedAt = nowIso();
+        } else {
+          (db.warehouseAttendance as any[]).push({
+            id: randId(),
+            objectiveId: input.objectiveId,
+            userId: input.userId,
+            present: input.present,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          });
+        }
+        saveDbToDisk();
+        return { success: true };
+      }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DAILY ATTENDANCE — independent of objectives, per-day per-CP
+  // ═══════════════════════════════════════════════════════════════════════
+
+  dailyAttendance: router({
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number(), monthStart: z.string().optional() }))
+      .query(async ({ input }) => {
+        const db = dbInstance;
+        if (!db.warehouseDailyAttendance) db.warehouseDailyAttendance = [];
+        let records = (db.warehouseDailyAttendance as any[]).filter((a: any) => Number(a.cpId) === input.cpId);
+        if (input.monthStart) {
+          const ms = new Date(input.monthStart);
+          const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 1);
+          records = records.filter((a: any) => {
+            const d = new Date(a.date);
+            return d >= ms && d < me;
+          });
+        }
+        return records;
+      }),
+    toggle: protectedProcedure
+      .input(z.object({ cpId: z.number(), date: z.string(), userId: z.number(), present: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const allowed = await canWriteCp(role, callerId, input.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const db = dbInstance;
+        if (!db.warehouseDailyAttendance) db.warehouseDailyAttendance = [];
+        const dateKey = input.date.slice(0, 10);
+        const existing = (db.warehouseDailyAttendance as any[]).find(
+          (a: any) => Number(a.cpId) === input.cpId && a.date === dateKey && Number(a.userId) === input.userId
+        );
+        if (existing) {
+          existing.present = input.present;
+          existing.updatedAt = nowIso();
+        } else {
+          (db.warehouseDailyAttendance as any[]).push({
+            id: randId(),
+            cpId: input.cpId,
+            date: dateKey,
+            userId: input.userId,
+            present: input.present,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          });
+        }
+        saveDbToDisk();
+        return { success: true };
+      }),
+  }),
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DELIVERIES — per-user per-material delivery tracking for objectives
+  // ═══════════════════════════════════════════════════════════════════════
+
+  deliveries: router({
+    list: protectedProcedure
+      .input(z.object({ cpId: z.number() }))
+      .query(async ({ input }) => {
+        const db = dbInstance;
+        if (!db.warehouseDeliveries) db.warehouseDeliveries = [];
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        const cpObjIds = new Set(
+          (db.warehouseObjectives as any[])
+            .filter((o: any) => Number(o.cpId) === input.cpId)
+            .map((o: any) => o.id)
+        );
+        return (db.warehouseDeliveries as any[]).filter((d: any) => cpObjIds.has(d.objectiveId));
+      }),
+
+    // Set delivered quantity for a user-material pair
+    setQuantity: protectedProcedure
+      .input(z.object({
+        objectiveId: z.number(),
+        userId: z.number(),
+        materialIndex: z.number(),
+        quantity: z.number().min(0),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        if (!db.warehouseDeliveries) db.warehouseDeliveries = [];
+        const obj = (db.warehouseObjectives as any[]).find((o: any) => o.id === input.objectiveId);
+        if (!obj) throw new TRPCError({ code: 'NOT_FOUND', message: 'Objetivo no encontrado.' });
+        const allowed = await canWriteCp(role, callerId, obj.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const existing = (db.warehouseDeliveries as any[]).find(
+          (d: any) => d.objectiveId === input.objectiveId && Number(d.userId) === input.userId && d.materialIndex === input.materialIndex
+        );
+        if (existing) {
+          existing.quantity = input.quantity;
+          existing.delivered = input.quantity >= (obj.materials?.[input.materialIndex]?.quantity || 0);
+          existing.updatedAt = nowIso();
+        } else {
+          (db.warehouseDeliveries as any[]).push({
+            id: randId(),
+            objectiveId: input.objectiveId,
+            userId: input.userId,
+            materialIndex: input.materialIndex,
+            quantity: input.quantity,
+            delivered: input.quantity >= (obj.materials?.[input.materialIndex]?.quantity || 0),
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          });
+        }
+        // Auto-mark objective as achieved if all members delivered all materials
+        const allMembers = await getRaidUsersByCp(obj.cpId);
+        const allDelivered = (obj.materials || []).every((_: any, mi: number) => {
+          return allMembers.every((m: any) => {
+            const del = (db.warehouseDeliveries as any[]).find(
+              (d: any) => d.objectiveId === input.objectiveId && Number(d.userId) === Number(m.id) && d.materialIndex === mi
+            );
+            return del && del.quantity >= (obj.materials[mi]?.quantity || 0);
+          });
+        });
+        if (allDelivered && !obj.achieved) {
+          obj.achieved = true;
+        }
+        saveDbToDisk();
+        return { success: true };
+      }),
+
+    // Pay all debt for a user+material across all objectives in a CP for a given month
+    payAllDebt: protectedProcedure
+      .input(z.object({
+        cpId: z.number(),
+        userId: z.number(),
+        materialName: z.string(),
+        monthStart: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const role = String(ctx.user?.role || '').toLowerCase();
+        const callerId = Number(ctx.user?.id || 0);
+        const allowed = await canWriteCp(role, callerId, input.cpId);
+        if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sin permisos.' });
+        const db = dbInstance;
+        if (!db.warehouseObjectives) db.warehouseObjectives = [];
+        if (!db.warehouseDeliveries) db.warehouseDeliveries = [];
+        const ms = new Date(input.monthStart);
+        const me = new Date(ms.getFullYear(), ms.getMonth() + 1, 1);
+        const cpObjs = (db.warehouseObjectives as any[]).filter((o: any) => {
+          if (Number(o.cpId) !== input.cpId) return false;
+          const d = new Date(o.date);
+          return d >= ms && d < me;
+        });
+        let updated = 0;
+        for (const obj of cpObjs) {
+          (obj.materials || []).forEach((m: any, mi: number) => {
+            if (m.name !== input.materialName) return;
+            const existing = (db.warehouseDeliveries as any[]).find(
+              (d: any) => d.objectiveId === obj.id && Number(d.userId) === input.userId && d.materialIndex === mi
+            );
+            if (existing) {
+              if (existing.quantity < m.quantity) {
+                existing.quantity = m.quantity;
+                existing.delivered = true;
+                existing.updatedAt = nowIso();
+                updated++;
+              }
+            } else {
+              (db.warehouseDeliveries as any[]).push({
+                id: randId(),
+                objectiveId: obj.id,
+                userId: input.userId,
+                materialIndex: mi,
+                quantity: m.quantity,
+                delivered: true,
+                createdAt: nowIso(),
+                updatedAt: nowIso(),
+              });
+              updated++;
+            }
+          });
+          // Check if objective is now fully delivered
+          const allMembers = await getRaidUsersByCp(obj.cpId);
+          const allDelivered = (obj.materials || []).every((_: any, mi: number) => {
+            return allMembers.every((mem: any) => {
+              const del = (db.warehouseDeliveries as any[]).find(
+                (d: any) => d.objectiveId === obj.id && Number(d.userId) === Number(mem.id) && d.materialIndex === mi
+              );
+              return del && del.quantity >= (obj.materials[mi]?.quantity || 0);
+            });
+          });
+          if (allDelivered && !obj.achieved) {
+            obj.achieved = true;
+          }
+        }
+        saveDbToDisk();
+        return { success: true, updated };
       }),
   }),
 });

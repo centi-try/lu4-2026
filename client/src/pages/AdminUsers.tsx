@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
-import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle } from 'lucide-react';
+import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil, Lock } from 'lucide-react';
 
 type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
@@ -18,6 +18,10 @@ interface AdminUser {
   createdAt?: string;
   lastSignedIn?: string;
   openId?: string;
+  raidClanId?: number | null;
+  raidCpId?: number | null;
+  cpStatus?: string | null;
+  classMain?: string | null;
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
@@ -143,6 +147,9 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState('');
   const [deleteModalUser, setDeleteModalUser] = useState<AdminUser | null>(null);
   const [toggleModalUser, setToggleModalUser] = useState<AdminUser | null>(null);
+  const [unlockModalUser, setUnlockModalUser] = useState<any | null>(null);
+  const [editModalUser, setEditModalUser] = useState<AdminUser | null>(null);
+  const [editForm, setEditForm] = useState({ email: '', characterName: '', raidClanId: '' as string, raidCpId: '' as string, classMain: '' as string });
 
   const { data: users, isLoading, error, refetch } = trpc.adminUsers.listUsers.useQuery(undefined, {
     retry: false,
@@ -194,6 +201,29 @@ export default function AdminUsers() {
     },
   });
 
+  const unlockUserMutation = trpc.adminUsers.unlockUser.useMutation({
+    onSuccess: () => {
+      toast.success('Usuario desbloqueado correctamente.');
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al desbloquear el usuario.');
+    },
+  });
+
+  const { data: clansAndCps } = trpc.adminUsers.clansAndCps.useQuery(undefined, { staleTime: 60_000 });
+
+  const updateProfileMutation = trpc.adminUsers.updateProfile.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Perfil de ${data.user.name} actualizado correctamente.`);
+      setEditModalUser(null);
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al actualizar el perfil.');
+    },
+  });
+
   const toggleLegacyMutation = trpc.adminUsers.toggleLegacyAccess.useMutation({
     onSuccess: (data) => {
       toast.success(
@@ -223,6 +253,32 @@ export default function AdminUsers() {
     updateRoleMutation.mutate({ userId, role });
   };
 
+  const handleEditUser = (user: AdminUser) => {
+    setEditForm({
+      email: user.email || '',
+      characterName: user.characterName || user.name || '',
+      raidClanId: user.raidClanId ? String(user.raidClanId) : '',
+      raidCpId: user.raidCpId ? String(user.raidCpId) : '',
+      classMain: user.classMain || '',
+    });
+    setEditModalUser(user);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editModalUser) return;
+    const payload: any = { userId: editModalUser.id };
+    if (editForm.email && editForm.email !== editModalUser.email) payload.email = editForm.email;
+    if (editForm.characterName && editForm.characterName !== (editModalUser.characterName || editModalUser.name)) payload.characterName = editForm.characterName;
+    payload.raidClanId = editForm.raidClanId ? Number(editForm.raidClanId) : null;
+    payload.raidCpId = editForm.raidCpId ? Number(editForm.raidCpId) : null;
+    payload.classMain = editForm.classMain || null;
+    updateProfileMutation.mutate(payload);
+  };
+
+  const editFilteredCps = (clansAndCps?.commandParties || []).filter(
+    (cp: any) => !editForm.raidClanId || Number(cp.clanId) === Number(editForm.raidClanId)
+  );
+
   const handleDeleteUser = (user: AdminUser) => {
     setDeleteModalUser(user);
   };
@@ -243,12 +299,18 @@ export default function AdminUsers() {
     changePasswordMutation.mutate({ userId: passwordModal.userId, newPassword });
   };
 
+  const isUserLocked = (user: any) => {
+    if (!user.lockedUntil) return false;
+    return new Date(user.lockedUntil).getTime() > Date.now();
+  };
+
   const filteredUsers = (users || []).filter(user => {
     const matchesSearch =
       !search ||
       user.email?.toLowerCase().includes(search.toLowerCase()) ||
       user.name?.toLowerCase().includes(search.toLowerCase()) ||
       user.characterName?.toLowerCase().includes(search.toLowerCase());
+    if (roleFilter === 'locked') return matchesSearch && isUserLocked(user);
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -257,6 +319,7 @@ export default function AdminUsers() {
   const activeUsers = (users || []).filter(u => u.isActive !== false).length;
   const inactiveUsers = (users || []).filter(u => u.isActive === false).length;
   const adminCount = (users || []).filter(u => u.role === 'super_admin' || u.role === 'admin').length;
+  const lockedCount = (users || []).filter(u => isUserLocked(u)).length;
 
   if (error) {
     const isForbidden = error.message?.includes('Super Admin') || error.data?.code === 'FORBIDDEN';
@@ -320,12 +383,13 @@ export default function AdminUsers() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             { label: 'Total Usuarios', value: totalUsers, color: '#7bf1d6', icon: Users },
             { label: 'Cuentas Activas', value: activeUsers, color: '#4ade80', icon: UserCheck },
             { label: 'Desactivadas', value: inactiveUsers, color: '#f87171', icon: UserX },
             { label: 'Administradores', value: adminCount, color: '#a78bfa', icon: Shield },
+            { label: 'Bloqueados', value: lockedCount, color: '#fbbf24', icon: Lock },
           ].map(({ label, value, color, icon: Icon }) => (
             <div
               key={label}
@@ -378,6 +442,17 @@ export default function AdminUsers() {
                 </button>
               );
             })}
+            <button
+              onClick={() => setRoleFilter('locked')}
+              className="rounded-xl border px-3 py-2 text-xs font-medium transition-all"
+              style={{
+                borderColor: roleFilter === 'locked' ? '#ef444444' : 'rgba(255,255,255,0.08)',
+                background: roleFilter === 'locked' ? '#ef444422' : 'rgba(255,255,255,0.03)',
+                color: roleFilter === 'locked' ? '#f87171' : 'rgba(255,255,255,0.5)',
+              }}
+            >
+              Bloqueados
+            </button>
           </div>
         </div>
 
@@ -407,7 +482,7 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_50px_50px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
@@ -415,8 +490,8 @@ export default function AdminUsers() {
                 <span className="text-center">Último acceso</span>
                 <span className="text-center">Estado</span>
                 <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
+                <span className="text-center">Bloqueo</span>
                 <span className="text-center">Acciones</span>
-                <span className="text-center">Eliminar</span>
               </div>
 
             {/* Table Rows */}
@@ -432,7 +507,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_50px_50px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -521,8 +596,32 @@ export default function AdminUsers() {
                         )}
                       </div>
 
+                      {/* Lock Status */}
+                      <div className="flex items-center justify-start md:justify-center">
+                        {isUserLocked(user) ? (
+                          <button
+                            onClick={() => setUnlockModalUser(user)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+                            style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                          >
+                            Desbloquear
+                          </button>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
+                        )}
+                      </div>
+
                       {/* Actions info */}
-                      <div className="flex items-center justify-start md:justify-center gap-2">
+                      <div className="flex items-center justify-start md:justify-center gap-1">
+                        <button
+                          onClick={() => handleEditUser(user)}
+                          disabled={isPending || isDeleting}
+                          title="Editar perfil"
+                          className="p-2 rounded-lg transition-all hover:bg-blue-500/10"
+                          style={{ color: '#3b82f6' }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => setPasswordModal({ userId: user.id, email: user.email })}
                           disabled={isPending || isDeleting}
@@ -532,14 +631,7 @@ export default function AdminUsers() {
                         >
                           <Key className="h-4 w-4" />
                         </button>
-                        {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
-                      </div>
-
-                      {/* Delete Button */}
-                      <div className="flex items-center justify-start md:justify-center">
-                        {isCurrentUserSuperAdmin ? (
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
-                        ) : (
+                        {!isCurrentUserSuperAdmin && (
                           <button
                             onClick={() => handleDeleteUser(user)}
                             disabled={isDeleting || isPending}
@@ -558,6 +650,7 @@ export default function AdminUsers() {
                             )}
                           </button>
                         )}
+                        {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
                       </div>
                     </div>
                   );
@@ -749,6 +842,198 @@ export default function AdminUsers() {
                   ? 'Guardando…'
                   : toggleModalUser.isActive ? 'Sí, desactivar' : 'Sí, activar'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock User Confirmation Modal */}
+      {unlockModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setUnlockModalUser(null); }}>
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(123,241,214,0.35)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Desbloquear usuario
+                </h3>
+              </div>
+              <button onClick={() => setUnlockModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará el bloqueo y reseteará los intentos fallidos. El usuario podrá iniciar sesión inmediatamente.
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {unlockModalUser.name || unlockModalUser.characterName}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {unlockModalUser.email} · Bloqueado
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setUnlockModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { unlockUserMutation.mutate({ userId: unlockModalUser.id }); setUnlockModalUser(null); }}
+                disabled={unlockUserMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+                style={{ background: '#7bf1d6', color: '#000' }}>
+                {unlockUserMutation.isPending ? 'Desbloqueando…' : 'Sí, desbloquear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {editModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditModalUser(null); }}>
+          <div
+            className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl"
+            style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(59,130,246,0.3)' }}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                <Pencil className="h-5 w-5" style={{ color: '#3b82f6' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Editar Perfil</h3>
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {editModalUser.characterName || editModalUser.name} · {editModalUser.email}
+                </p>
+              </div>
+              <button onClick={() => setEditModalUser(null)} className="ml-auto p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+                />
+              </div>
+
+              {/* Character Name */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Nombre del personaje
+                </label>
+                <input
+                  type="text"
+                  value={editForm.characterName}
+                  onChange={e => setEditForm(f => ({ ...f, characterName: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+                />
+              </div>
+
+              {/* Clan + CP row */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Clan */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Clan
+                  </label>
+                  <select
+                    value={editForm.raidClanId}
+                    onChange={e => {
+                      setEditForm(f => ({ ...f, raidClanId: e.target.value, raidCpId: '' }));
+                    }}
+                    className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                  >
+                    <option value="">Sin clan</option>
+                    {(clansAndCps?.clans || []).map((c: any) => (
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Command Party */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Command Party (CP)
+                  </label>
+                  <select
+                    value={editForm.raidCpId}
+                    onChange={e => setEditForm(f => ({ ...f, raidCpId: e.target.value }))}
+                    disabled={!editForm.raidClanId}
+                    className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none disabled:opacity-40"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                  >
+                    <option value="">Sin CP</option>
+                    {editFilteredCps.map((cp: any) => (
+                      <option key={cp.id} value={String(cp.id)}>{cp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Class */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Clase principal
+                </label>
+                <select
+                  value={editForm.classMain}
+                  onChange={e => setEditForm(f => ({ ...f, classMain: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                >
+                  <option value="">Sin clase</option>
+                  {(clansAndCps?.availableClasses || []).map((c: any) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalUser(null)}
+                  className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  disabled={updateProfileMutation.isPending || !editForm.email || !editForm.characterName}
+                  className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: '#3b82f6', color: '#fff' }}
+                >
+                  {updateProfileMutation.isPending ? (
+                    <><RefreshCw className="h-4 w-4 animate-spin" /> Guardando...</>
+                  ) : (
+                    'Guardar cambios'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

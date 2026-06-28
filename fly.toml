@@ -1,0 +1,23 @@
+app = "raptorsquad"
+primary_region = "mia"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  VITE_APP_ID = "lu4-2026"
+  DATA_FILE = "/data/data_storage.json"
+  BACKUPS_DIR = "/data/backups"
+  UPLOADS_DIR = "/data/uploads"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[mounts]]
+  source = "raptorsquad_data"
+  destination = "/data"

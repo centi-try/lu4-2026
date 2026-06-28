@@ -271,20 +271,20 @@ export default function RaidInventory({ raidAccess }: Props) {
   // faltan datos (y ya mostró el toast correspondiente).
   const validateForm = (): DropItemInput[] | null => {
     if (!currentCycle) {
-      toast.error('No hay ciclo de raid abierto. Abrí uno arriba para continuar.');
+      toast.error('No hay ciclo de raid abierto. Abre uno arriba para continuar.');
       return null;
     }
     if (!raidBossId) {
-      toast.error('Seleccioná el Raid Boss eliminado');
+      toast.error('Selecciona el Raid Boss eliminado');
       return null;
     }
     if (selectedClanIds.length === 0) {
-      toast.error('Seleccioná al menos un clan asociado');
+      toast.error('Selecciona al menos un clan asociado');
       return null;
     }
     const validDrops = drops.filter((d) => d.name.trim());
     if (validDrops.length === 0) {
-      toast.error('Registrá al menos un item dropeado');
+      toast.error('Registra al menos un item dropeado');
       return null;
     }
     for (const d of validDrops) {
@@ -320,7 +320,7 @@ export default function RaidInventory({ raidAccess }: Props) {
       window.setTimeout(() => setPulseDropIdx(null), 750);
       toast.error(
         invalidQtyIdx.length === 1
-          ? `Drop #${firstIdx + 1}: ingresá una cantidad mayor a 0.`
+          ? `Drop #${firstIdx + 1}: ingresa una cantidad mayor a 0.`
           : `${invalidQtyIdx.length} drops necesitan una cantidad mayor a 0.`,
       );
       return;
@@ -366,7 +366,7 @@ export default function RaidInventory({ raidAccess }: Props) {
           <h2 className="text-2xl font-bold text-gradient">Raid Inventario</h2>
         </div>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Registrá los raid bosses eliminados, la evidencia, los clanes participantes y los
+          Registra los raid bosses eliminados, la evidencia, los clanes participantes y los
           items que dropearon (1 o varios). Todo queda asociado al ciclo de raid activo.
         </p>
       </div>
@@ -470,7 +470,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                   No hay ciclo abierto
                 </p>
                 <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Sin ciclo abierto no podés registrar raid bosses. Abrí uno para comenzar.
+                  Sin ciclo abierto no puedes registrar raid bosses. Abre uno para comenzar.
                 </p>
               </div>
             </div>
@@ -561,7 +561,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                   bosses={bosses as any}
                   value={raidBossId}
                   onChange={(id) => setRaidBossId(id)}
-                  placeholder="-- seleccioná un boss --"
+                  placeholder="-- selecciona un boss --"
                 />
                 {bosses.length === 0 && (
                   <p
@@ -918,7 +918,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                             title={
                               d.imageUrl
                                 ? 'Asignada automáticamente por categoría'
-                                : 'Elegí una categoría para asignar el icono'
+                                : 'Elige una categoría para asignar el icono'
                             }
                           >
                             {d.imageUrl ? (
@@ -941,7 +941,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                                   style={{ color: 'rgba(255,255,255,0.25)' }}
                                 />
                                 <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                  elegí categoría
+                                  elige categoría
                                 </span>
                               </>
                             )}
@@ -993,7 +993,7 @@ export default function RaidInventory({ raidAccess }: Props) {
             className="text-xs text-center py-6"
             style={{ color: 'rgba(255,255,255,0.3)' }}
           >
-            Aún no hay eventos registrados. Registrá el primero arriba.
+            Aún no hay eventos registrados. Registra el primero arriba.
           </p>
         ) : (
           <EventsGroupedByCycle
@@ -1886,7 +1886,7 @@ function SellDropControl({
             return;
           }
           if (!buyerId) {
-            toast.error('Seleccioná un comprador/cuenta');
+            toast.error('Selecciona un comprador/cuenta');
             return;
           }
           const b = buyers.find((x: any) => String(x.id) === String(buyerId));

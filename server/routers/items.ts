@@ -2,8 +2,7 @@ import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
-  getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, getCharacters, saveDbToDisk, dbInstance, getAllUsers,
-  getSalesCycles,
+  getItems, createItem, updateItem, deleteItem, createAuditLog, createPurchase, getPurchases, saveDbToDisk, dbInstance, getAllUsers,
   // reservations (waitlist sobre items del inventario legacy)
   getItemReservations, createItemReservation, deleteItemReservation,
   markReservationPreSold, unmarkReservationPreSold,
@@ -42,6 +41,7 @@ const SellItemSchema = z.object({
   buyerId: z.string(),
   buyerName: z.string(),
   isInternalSale: z.boolean().optional(),
+  isExternalSale: z.boolean().optional(),
 });
 
 export const itemsRouter = router({
@@ -50,64 +50,32 @@ export const itemsRouter = router({
   }),
 
   legacyBuyers: protectedProcedure.query(async () => {
-    const [users, allItems, allChars, allCycles] = await Promise.all([
-      getAllUsers(), getItems(), getCharacters(), getSalesCycles(),
+    const [users, allItems] = await Promise.all([
+      getAllUsers(), getItems(),
     ]);
-
-    // Build user→character mapping by first name match
-    const charByFirstName = new Map<string, any>();
-    for (const c of allChars as any[]) {
-      const firstName = String(c.name || '').split(/\s+/)[0].toLowerCase();
-      if (firstName) charByFirstName.set(firstName, c);
-    }
-
-    // Aggregate total earnings per character ID across all closed cycles
-    const totalEarningsByCharId = new Map<string, number>();
-    const currentCycle = (allCycles as any[]).find((c: any) => c.status === 'OPEN');
-    const currentEarningsByCharId = new Map<string, number>();
-    for (const cycle of allCycles as any[]) {
-      const earnings = cycle.characterEarnings || [];
-      if (!Array.isArray(earnings)) continue;
-      for (const e of earnings) {
-        const cid = String(e.characterId);
-        const amt = Number(e.earnings || 0);
-        totalEarningsByCharId.set(cid, (totalEarningsByCharId.get(cid) || 0) + amt);
-        if (currentCycle && String(cycle.id) === String(currentCycle.id)) {
-          currentEarningsByCharId.set(cid, (currentEarningsByCharId.get(cid) || 0) + amt);
-        }
-      }
-    }
 
     return users
       .filter((u: any) => u.legacyAccess && u.isActive !== false)
       .map((u: any) => {
         const userId = Number(u.id);
         const userName = String(u.characterName || u.name || '');
-        const firstName = userName.split(/\s+/)[0].toLowerCase();
 
-        // Find matching character by first name
-        const matchedChar = charByFirstName.get(firstName);
-        const charId = matchedChar ? String(matchedChar.id) : null;
-
-        // Items associated with this user's character ID or user ID
+        // Items associated with this user's ID
         const associatedItems = allItems.filter((i: any) => {
           const assocIds = (i.associatedCharacterIds || []).map((id: any) => String(id));
-          return assocIds.includes(String(userId)) || (charId && assocIds.includes(charId));
+          return assocIds.includes(String(userId));
         });
-
-        const totalEarnings = charId ? (totalEarningsByCharId.get(charId) || 0) : 0;
-        const cycleEarnings = charId ? (currentEarningsByCharId.get(charId) || 0) : 0;
 
         return {
           id: String(u.id),
           name: userName || 'Sin nombre',
           classMain: u.classMain || '',
           role: u.role || 'user',
-          totalEarnings,
-          currentCycleEarnings: cycleEarnings,
+          totalEarnings: Number(u.totalEarnings) || 0,
+          currentCycleEarnings: Number(u.currentCycleEarnings) || 0,
           itemCount: associatedItems.length,
           itemIds: associatedItems.map((i: any) => i.id),
-          characterId: charId,
+          characterId: String(u.id),
         };
       });
   }),
@@ -252,22 +220,20 @@ export const itemsRouter = router({
       const revenueAfterTax = totalRevenue - clanTaxAmount;
       const earningsPerChar = Math.floor(revenueAfterTax / associatedCount);
 
-      // FIX: Actualizar ganancias de los personajes en la base de datos
-      // Comparar IDs como números para evitar problemas de tipo
-      if (dbInstance.characters && associatedCharacterIds.length > 0) {
-        dbInstance.characters = dbInstance.characters.map(char => {
-          const charIdNum = Number(char.id);
-          const matches = associatedCharacterIds.includes(charIdNum);
-
-          if (matches) {
+      // Actualizar ganancias directamente en los USUARIOS asociados
+      // (associatedCharacterIds contiene IDs de usuario)
+      if (dbInstance.users && associatedCharacterIds.length > 0) {
+        dbInstance.users = dbInstance.users.map((u: any) => {
+          const uid = Number(u.id);
+          if (associatedCharacterIds.includes(uid)) {
             return {
-              ...char,
-              totalEarnings: (Number(char.totalEarnings) || 0) + earningsPerChar,
-              currentCycleEarnings: (Number(char.currentCycleEarnings) || 0) + earningsPerChar,
-              updatedAt: new Date(),
+              ...u,
+              totalEarnings: (Number(u.totalEarnings) || 0) + earningsPerChar,
+              currentCycleEarnings: (Number(u.currentCycleEarnings) || 0) + earningsPerChar,
+              updatedAt: new Date().toISOString(),
             };
           }
-          return char;
+          return u;
         });
         saveDbToDisk();
       }
@@ -289,6 +255,7 @@ export const itemsRouter = router({
         originalPrice: item.price,
         total: totalRevenue,
         isInternalSale: input.isInternalSale || false,
+        isExternalSale: input.isExternalSale || false,
         discountPct: discountPct || 0,
         clanTax: clanTaxAmount,
       });
@@ -300,7 +267,7 @@ export const itemsRouter = router({
         actorName: ctx.user?.characterName || ctx.user?.name || "Sistema",
         actorRole: ctx.user?.role || "USER",
         action: "SOLD_ITEM",
-        detail: `Vendió ${input.quantity} unidad(es) de "${item.name}" a ${input.buyerName}. Total: $${totalRevenue.toLocaleString()}${clanTaxAmount > 0 ? ` (Clan: $${clanTaxAmount.toLocaleString()})` : ''}${input.isInternalSale ? ' [Venta Interna]' : ''}.`,
+        detail: `Vendió ${input.quantity} unidad(es) de "${item.name}"${input.isExternalSale ? ' [Venta Externa - City]' : ` a ${input.buyerName}`}. Total: $${totalRevenue.toLocaleString()}${clanTaxAmount > 0 ? ` (Clan: $${clanTaxAmount.toLocaleString()})` : ''}${input.isInternalSale ? ' [Venta Interna]' : ''}.`,
         details: {
           itemId: input.id,
           quantity: input.quantity,

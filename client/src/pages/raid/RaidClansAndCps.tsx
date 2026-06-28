@@ -23,14 +23,17 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 
 interface Props {
   raidAccess?: RaidAccessInfo;
+  readOnly?: boolean;
+  allowSecondaryChars?: boolean;
 }
 
-export default function RaidClansAndCps({ raidAccess }: Props) {
+export default function RaidClansAndCps({ raidAccess, readOnly, allowSecondaryChars }: Props) {
   const { user } = useAuth();
   const utils = trpc.useUtils();
   const role = String(user?.role || '').toLowerCase();
-  const isSuperAdmin = role === 'super_admin';
-  const isAdmin = isSuperAdmin || raidAccess?.accessLevel === 'raid_admin';
+  const isSuperAdmin = readOnly ? false : role === 'super_admin';
+  const isAdmin = readOnly ? false : (isSuperAdmin || raidAccess?.accessLevel === 'raid_admin');
+  const canManageAltsOverride = allowSecondaryChars && (role === 'super_admin' || role === 'admin');
 
   // Data queries
   const clansQ = trpc.raid.clans.list.useQuery();
@@ -81,6 +84,7 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
   const [editingCp, setEditingCp] = useState<any | null>(null);
   const [editCpName, setEditCpName] = useState('');
   const [editCpLeaderId, setEditCpLeaderId] = useState<string>('');
+  const [editCpLeaderIds, setEditCpLeaderIds] = useState<number[]>([]);
   const [deleteConfirmCp, setDeleteConfirmCp] = useState<any | null>(null);
   const [reassignModal, setReassignModal] = useState<any | null>(null);
   const [reassignClanId, setReassignClanId] = useState('');
@@ -132,7 +136,8 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
         updateCp.mutate({
           id: Number(editingCp.id),
           name: editCpName.trim(),
-          leaderId: editCpLeaderId ? Number(editCpLeaderId) : null,
+          leaderId: editCpLeaderIds.length > 0 ? editCpLeaderIds[0] : null,
+          leaderIds: editCpLeaderIds,
         });
         setEditingCp(null);
       },
@@ -297,9 +302,12 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
                 setEditingCp(cp);
                 setEditCpName(cp.name);
                 setEditCpLeaderId(cp.leaderId ? String(cp.leaderId) : '');
+                setEditCpLeaderIds(Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []));
               }}
               onDelete={() => setDeleteConfirmCp(cp)}
               onSetMemberStatus={handleSetMemberStatus}
+              canManageAltsOverride={canManageAltsOverride}
+              readOnly={readOnly}
             />
           ))}
         </div>
@@ -355,6 +363,8 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
             setCpName={setEditCpName}
             leaderId={editCpLeaderId}
             setLeaderId={setEditCpLeaderId}
+            leaderIds={editCpLeaderIds}
+            setLeaderIds={setEditCpLeaderIds}
             onSave={handleEditCp}
             onCancel={() => setEditingCp(null)}
           />
@@ -498,21 +508,31 @@ export default function RaidClansAndCps({ raidAccess }: Props) {
 // ---------- Edit CP Modal with leader dropdown ----------
 
 function EditCpModal({
-  cp, cpName, setCpName, leaderId, setLeaderId, onSave, onCancel,
+  cp, cpName, setCpName, leaderId, setLeaderId, leaderIds, setLeaderIds, onSave, onCancel,
 }: {
   cp: any;
   cpName: string;
   setCpName: (v: string) => void;
   leaderId: string;
   setLeaderId: (v: string) => void;
+  leaderIds: number[];
+  setLeaderIds: (v: number[]) => void;
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const clanMembersQ = trpc.raid.commandParties.clanMembers.useQuery(
-    { clanId: Number(cp.clanId) },
-    { enabled: !!cp.clanId },
+  const cpMembersQ = trpc.raid.commandParties.cpMembersForLeader.useQuery(
+    { cpId: Number(cp.id) },
+    { enabled: !!cp.id },
   );
-  const clanMembers = (clanMembersQ.data || []) as any[];
+  const clanMembers = (cpMembersQ.data || []) as any[];
+
+  const toggleLeader = (uid: number) => {
+    if (leaderIds.includes(uid)) {
+      setLeaderIds(leaderIds.filter(id => id !== uid));
+    } else {
+      setLeaderIds([...leaderIds, uid]);
+    }
+  };
 
   return (
     <div className="w-full max-w-sm rounded-2xl p-6"
@@ -531,23 +551,38 @@ function EditCpModal({
             className="input-dark w-full" />
         </div>
         <div>
-          <label className="block text-xs mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>Leader</label>
-          {clanMembersQ.isLoading ? (
+          <label className="block text-xs mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Leaders <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>({leaderIds.length} seleccionado{leaderIds.length !== 1 ? 's' : ''})</span>
+          </label>
+          {cpMembersQ.isLoading ? (
             <p className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>Cargando miembros...</p>
+          ) : clanMembers.length === 0 ? (
+            <p className="text-xs py-2" style={{ color: 'rgba(255,255,255,0.3)' }}>No hay miembros en esta CP</p>
           ) : (
-            <select
-              value={leaderId}
-              onChange={e => setLeaderId(e.target.value)}
-              className="input-dark w-full"
-              style={{ appearance: 'none' }}
-            >
-              <option value="">Sin leader asignado</option>
-              {clanMembers.map((m: any) => (
-                <option key={m.id} value={String(m.id)}>
-                  {m.characterName || m.name}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1 max-h-48 overflow-y-auto rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {clanMembers.map((m: any) => {
+                const isSelected = leaderIds.includes(Number(m.id));
+                return (
+                  <label key={m.id} className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+                    style={{ background: isSelected ? 'rgba(232,121,249,0.08)' : 'transparent', border: `1px solid ${isSelected ? 'rgba(232,121,249,0.2)' : 'transparent'}` }}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleLeader(Number(m.id))}
+                      className="accent-fuchsia-400 h-4 w-4"
+                    />
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0"
+                      style={{ background: isSelected ? 'rgba(232,121,249,0.25)' : 'rgba(167,139,250,0.2)' }}>
+                      {(m.characterName || m.name || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-sm" style={{ color: isSelected ? '#e879f9' : 'rgba(255,255,255,0.7)' }}>
+                      {m.characterName || m.name}
+                    </span>
+                    {isSelected && <Crown className="h-3.5 w-3.5 ml-auto" style={{ color: '#fbbf24' }} />}
+                  </label>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -571,7 +606,7 @@ function EditCpModal({
 
 function CpRow({
   cp, expanded, onToggle, isSuperAdmin, isAdmin, currentUserId,
-  onEdit, onDelete, onSetMemberStatus,
+  onEdit, onDelete, onSetMemberStatus, canManageAltsOverride, readOnly: cpReadOnly,
 }: {
   cp: any;
   expanded: boolean;
@@ -582,6 +617,8 @@ function CpRow({
   onEdit: () => void;
   onDelete: () => void;
   onSetMemberStatus: (userId: number, memberName: string, status: 'confirmed' | 'removed') => void;
+  canManageAltsOverride?: boolean;
+  readOnly?: boolean;
 }) {
   const membersQ = trpc.raid.commandParties.members.useQuery(
     { cpId: Number(cp.id) },
@@ -589,7 +626,7 @@ function CpRow({
   );
   const members = (membersQ.data || []) as any[];
   const isLeader = Number(cp.leaderId) === currentUserId;
-  const canManageMembers = isSuperAdmin || isAdmin || isLeader;
+  const canManageMembers = cpReadOnly ? false : (isSuperAdmin || isAdmin || isLeader);
 
   return (
     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -645,7 +682,7 @@ function CpRow({
                 member={m}
                 isFirst={idx === 0}
                 canManageMembers={canManageMembers}
-                canManageAlts={isSuperAdmin || isAdmin}
+                canManageAlts={isSuperAdmin || isAdmin || isLeader || !!canManageAltsOverride}
                 onSetMemberStatus={onSetMemberStatus}
                 currentUserId={currentUserId}
               />

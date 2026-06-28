@@ -55,7 +55,7 @@ export default function ProtectedRoute({ component: Component, allowedRoles }: P
                 Sin acceso
               </h1>
               <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Esta sección no está disponible para tu rol. Si necesitás acceder, pedile al super admin que ajuste tus permisos.
+                Esta sección no está disponible para tu rol. Si necesitas acceder, pídele al super admin que ajuste tus permisos.
               </p>
             </div>
             <button

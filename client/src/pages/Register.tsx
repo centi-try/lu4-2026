@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, ChevronDown } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ChevronDown, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
+const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
+const CAROUSEL_INTERVAL = 10000;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LEN = 6;
@@ -32,6 +35,15 @@ export default function Register() {
     clan: boolean;
     cp: boolean;
   }>({ email: false, character: false, password: false, confirm: false, clan: false, cp: false });
+
+  // Carousel state
+  const [currentImg, setCurrentImg] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImg((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
+    }, CAROUSEL_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
 
   // Clan & CP & Class selection
   const [clans, setClans] = useState<PublicClan[]>([]);
@@ -134,14 +146,53 @@ export default function Register() {
   const inputClass = 'input-dark';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gradient mb-2">Inventario</h1>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Control Dashboard
-          </p>
-        </div>
+    <div className="min-h-screen flex" style={{ background: '#060910' }}>
+      {/* Left side: Raptor carousel (hidden on mobile) */}
+      <div
+        className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden"
+        style={{ background: '#040608' }}
+      >
+        {CAROUSEL_IMAGES.map((src, i) => (
+          <img
+            key={src}
+            src={src}
+            alt={`RaptorSquad ${i + 1}`}
+            className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
+            style={{ opacity: i === currentImg ? 1 : 0 }}
+          />
+        ))}
+      </div>
+
+      {/* Right side: Register form */}
+      <div
+        className="w-full lg:w-1/2 flex items-center justify-center p-6 relative"
+        style={{
+          background: 'radial-gradient(circle at 50% 20%, rgba(123,241,214,0.04) 0%, transparent 50%), #060910',
+        }}
+      >
+        {/* Mobile background (visible only on small screens) */}
+        <div
+          className="absolute inset-0 lg:hidden"
+          style={{
+            backgroundImage: `url(${CAROUSEL_IMAGES[currentImg]})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: 0.15,
+          }}
+        />
+
+        <div className="w-full max-w-md relative z-10">
+          <div className="text-center mb-6">
+            <div className="flex justify-center mb-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl shadow-neon-cyan" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
+                <span className="text-xl font-black" style={{ color: '#7bf1d6' }}>L2</span>
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gradient mb-1">RaptorSquad</h1>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Control Dashboard · Sistema de Gestión
+            </p>
+          </div>
 
         <div className="card-glass p-8 rounded-lg">
           <h2 className="text-2xl font-bold text-white mb-6">Crear Cuenta</h2>
@@ -403,6 +454,7 @@ export default function Register() {
             </p>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

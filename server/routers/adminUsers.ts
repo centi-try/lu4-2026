@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -277,5 +277,146 @@ export const adminUsersRouter = router({
           legacyAccess: updatedUser.legacyAccess,
         },
       };
+    }),
+
+  // Fetch clans, CPs and classes for edit modal dropdowns
+  clansAndCps: superAdminProcedure.query(async () => {
+    const [clans, cps, classes] = await Promise.all([
+      getClans(),
+      getCommandParties(),
+      getAvailableClasses(),
+    ]);
+    return {
+      clans: clans.map((c: any) => ({ id: Number(c.id), name: c.name })),
+      commandParties: cps.map((cp: any) => ({
+        id: Number(cp.id),
+        name: cp.name,
+        clanId: Number(cp.clanId),
+      })),
+      availableClasses: classes.map((c: any) => ({ id: Number(c.id), name: c.name })),
+    };
+  }),
+
+  // Update user profile (email, characterName, clan, CP, class)
+  updateProfile: superAdminProcedure
+    .input(z.object({
+      userId: z.number(),
+      email: z.string().email().optional(),
+      characterName: z.string().min(2).optional(),
+      raidClanId: z.number().nullable().optional(),
+      raidCpId: z.number().nullable().optional(),
+      classMain: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const targetUser = await getUserById(input.userId);
+      if (!targetUser) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+      }
+
+      const oldCpId = targetUser.raidCpId || null;
+      const newCpId = input.raidCpId !== undefined ? input.raidCpId : oldCpId;
+
+      try {
+        const updated = await updateUserProfile(input.userId, {
+          email: input.email,
+          characterName: input.characterName,
+          raidClanId: input.raidClanId,
+          raidCpId: input.raidCpId,
+          classMain: input.classMain,
+        });
+
+        if (!updated) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+        }
+
+        // Sync warehouse CP membership when CP changes
+        if (input.raidCpId !== undefined && Number(oldCpId) !== Number(newCpId)) {
+          // Remove from old warehouse CP (find the warehouse CP that matches the raid CP)
+          if (oldCpId) {
+            try {
+              const allWMembers = await getWarehouseCPMembers();
+              const oldMembership = allWMembers.find(
+                (m: any) => Number(m.userId) === Number(input.userId)
+              );
+              if (oldMembership) {
+                await removeWarehouseCPMember(Number(oldMembership.cpId), input.userId);
+              }
+            } catch { /* best effort */ }
+          }
+          // Add to new warehouse CP (find warehouse CP matching new raid CP name)
+          if (newCpId) {
+            try {
+              const raidCps = await getCommandParties();
+              const raidCp = raidCps.find((cp: any) => Number(cp.id) === Number(newCpId));
+              if (raidCp) {
+                const { getWarehouseCPs } = await import('../db');
+                const warehouseCps = await getWarehouseCPs();
+                const matchingWCp = warehouseCps.find(
+                  (wcp: any) => String(wcp.name).toLowerCase() === String(raidCp.name).toLowerCase()
+                );
+                if (matchingWCp) {
+                  await addWarehouseCPMember(Number(matchingWCp.id), input.userId);
+                }
+              }
+            } catch { /* best effort */ }
+          }
+        }
+
+        // Audit log
+        const changes: string[] = [];
+        if (input.email && input.email !== targetUser.email) changes.push(`email: ${targetUser.email} → ${input.email}`);
+        if (input.characterName && input.characterName !== targetUser.characterName) changes.push(`nombre: ${targetUser.characterName} → ${input.characterName}`);
+        if (input.raidClanId !== undefined) changes.push(`clan: ${targetUser.raidClanId || 'ninguno'} → ${input.raidClanId || 'ninguno'}`);
+        if (input.raidCpId !== undefined) changes.push(`CP: ${oldCpId || 'ninguna'} → ${newCpId || 'ninguna'}`);
+        if (input.classMain !== undefined) changes.push(`clase: ${targetUser.classMain || 'ninguna'} → ${input.classMain || 'ninguna'}`);
+
+        const targetLabel = targetUser.characterName || targetUser.name || targetUser.email;
+        await createAuditLog({
+          userId: ctx.user.id,
+          action: 'USER_PROFILE_UPDATED',
+          detail: `Editó el perfil de ${targetLabel}: ${changes.join(', ')}`,
+          details: {
+            targetUserId: input.userId,
+            targetEmail: targetUser.email,
+            changes,
+            performedBy: ctx.user.email || ctx.user.openId,
+          },
+        });
+
+        return {
+          success: true,
+          user: {
+            id: updated.id,
+            email: updated.email,
+            name: updated.characterName || updated.name || 'Usuario',
+            characterName: updated.characterName,
+            role: updated.role,
+            isActive: updated.isActive,
+            raidClanId: updated.raidClanId || null,
+            raidCpId: updated.raidCpId || null,
+            classMain: updated.classMain || null,
+          },
+        };
+      } catch (err: any) {
+        if (err.message === 'EMAIL_DUPLICATE') {
+          throw new TRPCError({ code: 'CONFLICT', message: 'El correo electrónico ya está en uso por otro usuario.' });
+        }
+        throw err;
+      }
+    }),
+
+  // Desbloquear usuario (resetear intentos fallidos y lockout)
+  unlockUser: superAdminProcedure
+    .input(z.object({ userId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const user = await getUserById(input.userId);
+      if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+      await resetLoginAttempts(input.userId);
+      await createAuditLog({
+        userId: ctx.user!.id,
+        action: 'UNLOCK_USER',
+        details: `Desbloqueó al usuario ${user.name || user.email} (ID: ${input.userId})`,
+      });
+      return { success: true };
     }),
 });
