@@ -568,7 +568,7 @@ export default function RaidInventory({ raidAccess }: Props) {
                     className="text-xs mt-1"
                     style={{ color: 'rgba(251,191,36,0.8)' }}
                   >
-                    No hay bosses cargados. Super Admin debe crearlos en Config. Raids.
+                    No hay bosses cargados. El Administrador del Sistema debe crearlos en Config. Raids.
                   </p>
                 )}
                 {raidBossId && (

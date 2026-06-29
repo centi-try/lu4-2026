@@ -254,7 +254,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     currentUser && ((currentUser.role as string) === 'MAPPER' || (currentUser.role as string) === 'mapper') ? '#fbbf24' :
                   '#8b5cf6'
                 }}>
-                  {isCurrentSuperAdmin ? 'Super Admin' :
+                  {isCurrentSuperAdmin ? 'Administrador del Sistema' :
                    (currentUser && ((currentUser.role as string) === 'MAPPER' || (currentUser.role as string) === 'mapper')) ? 'Mapper' :
                    'Usuario'}
                 </p>
@@ -294,7 +294,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           const isSA = roleLc === 'super_admin';
                           const isMapper = roleLc === 'mapper';
                           const avatarGrad = isSA ? 'from-cyan-400 to-blue-600' : isMapper ? 'from-amber-400 to-orange-600' : 'from-fuchsia-400 to-purple-600';
-                          const roleLabel = isSA ? 'Super Admin' : isMapper ? 'Mapper' : roleLc === 'admin' ? 'Admin' : 'Usuario';
+                          const roleLabel = isSA ? 'Administrador del Sistema' : isMapper ? 'Mapper' : roleLc === 'admin' ? 'Admin' : 'Usuario';
                           const hasLegacy = u.legacyAccess;
                           const accessDesc = [
                             hasLegacy ? 'Menú Antiguo' : null,
@@ -376,7 +376,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   Tu cuenta fue creada exitosamente. Actualmente no tienes acceso a ningún módulo del sistema.
                 </p>
                 <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  El <span style={{ color: '#7bf1d6', fontWeight: 600 }}>Super Admin</span> debe asignarte los permisos correspondientes para que puedas interactuar con la plataforma. Mientras tanto, aguarda a que se te habilite el acceso.
+                  El <span style={{ color: '#7bf1d6', fontWeight: 600 }}>Administrador del Sistema</span> debe asignarte los permisos correspondientes para que puedas interactuar con la plataforma. Mientras tanto, aguarda a que se te habilite el acceso.
                 </p>
                 <div className="mt-6 inline-block px-4 py-2 rounded-xl text-xs font-semibold"
                   style={{ background: 'rgba(123,241,214,0.08)', border: '1px solid rgba(123,241,214,0.2)', color: '#7bf1d6' }}>

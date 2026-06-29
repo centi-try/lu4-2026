@@ -28,7 +28,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
   { value: 'user', label: 'Usuario', color: '#8b5cf6' },
   { value: 'mapper', label: 'Mapper', color: '#fbbf24' },
   { value: 'admin', label: 'Admin', color: '#3b82f6' },
-  { value: 'super_admin', label: 'Super Admin', color: '#7bf1d6' },
+  { value: 'super_admin', label: 'Administrador del Sistema', color: '#7bf1d6' },
 ];
 
 function getRoleStyle(role: string) {
@@ -240,14 +240,14 @@ function InvitationCodePanel() {
             {/* Age indicator */}
             {ageInfo && (
               <div
-                className="flex items-center gap-2 rounded-lg px-3 py-1.5 border"
+                className="flex items-center gap-2 rounded-xl px-4 py-2 border"
                 style={{ background: ageInfo.bgColor, borderColor: ageInfo.borderColor }}
               >
                 <div
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: ageInfo.color, boxShadow: `0 0 6px ${ageInfo.color}88` }}
+                  className="h-3.5 w-3.5 rounded-full"
+                  style={{ background: ageInfo.color, boxShadow: `0 0 8px ${ageInfo.color}88` }}
                 />
-                <span className="text-xs font-medium" style={{ color: ageInfo.color }}>
+                <span className="text-sm font-semibold" style={{ color: ageInfo.color }}>
                   {ageInfo.label}
                 </span>
               </div>
@@ -255,17 +255,17 @@ function InvitationCodePanel() {
 
             {/* Status messages */}
             {ageInfo && ageInfo.level === 'green' && (
-              <span className="text-xs" style={{ color: 'rgba(74,222,128,0.7)' }}>
+              <span className="text-sm font-semibold" style={{ color: 'rgba(74,222,128,0.8)' }}>
                 Seguro
               </span>
             )}
             {ageInfo && ageInfo.level === 'yellow' && (
-              <span className="text-xs" style={{ color: 'rgba(251,191,36,0.8)' }}>
+              <span className="text-sm font-semibold" style={{ color: 'rgba(251,191,36,0.9)' }}>
                 Se recomienda cambiar el código
               </span>
             )}
             {ageInfo && ageInfo.level === 'red' && (
-              <span className="text-xs font-semibold" style={{ color: 'rgba(248,113,113,0.9)' }}>
+              <span className="text-sm font-bold" style={{ color: 'rgba(248,113,113,0.95)' }}>
                 Expirado — cámbialo ahora
               </span>
             )}
@@ -300,18 +300,18 @@ function InvitationCodePanel() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full" style={{ background: '#4ade80' }} />
-          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>0-12h: Seguro</span>
+      <div className="flex items-center gap-5 mt-3 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: '#4ade80' }} />
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>0-12h: Seguro</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full" style={{ background: '#fbbf24' }} />
-          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>12-24h: Cambiar recomendado</span>
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: '#fbbf24' }} />
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>12-24h: Cambiar recomendado</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full" style={{ background: '#f87171' }} />
-          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>+24h: Expirado</span>
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: '#f87171' }} />
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>+24h: Expirado</span>
         </div>
       </div>
     </div>
@@ -515,7 +515,7 @@ export default function AdminUsers() {
           </h2>
           <p className="text-sm text-center max-w-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
             {isForbidden
-              ? 'Solo el Super Admin puede acceder al panel de gestión de usuarios.'
+              ? 'Solo el Administrador del Sistema puede acceder al panel de gestión de usuarios.'
               : error.message}
           </p>
         </div>
@@ -543,7 +543,7 @@ export default function AdminUsers() {
                 className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
                 style={{ background: 'rgba(123,241,214,0.15)', color: '#7bf1d6', border: '1px solid rgba(123,241,214,0.3)' }}
               >
-                Super Admin
+                Administrador del Sistema
               </span>
             </div>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -856,7 +856,7 @@ export default function AdminUsers() {
               <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 Los usuarios desactivados no pueden iniciar sesión ni realizar acciones, incluso si tienen una sesión activa. 
                 El bloqueo es inmediato y se aplica en cada solicitud al servidor. 
-                Las cuentas con rol <strong style={{ color: '#7bf1d6' }}>Super Admin</strong> están protegidas y no pueden ser modificadas desde este panel.
+                Las cuentas con rol <strong style={{ color: '#7bf1d6' }}>Administrador del Sistema</strong> están protegidas y no pueden ser modificadas desde este panel.
               </p>
             </div>
           </div>

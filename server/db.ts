@@ -2015,15 +2015,17 @@ export const getLoginLockStatus = (user: any): LoginLockStatus => {
   return { locked: false, remainingMs: 0, until: null };
 };
 
+export const SUPER_ADMIN_LOCKOUT_MINUTES = 5;
+
 export const registerFailedLogin = async (userId: number) => {
   const idx = dbInstance.users.findIndex(u => u.id === userId);
   if (idx === -1) return null;
   const current = dbInstance.users[idx];
   const attempts = Number(current.failedLoginAttempts || 0) + 1;
   let lockedUntil: string | null = current.lockedUntil || null;
-  // Progressive lockout: 2 attempts → 5min, 3 → 30min, 4+ → 24h
+  const isSuperAdmin = String(current.role || '').toLowerCase() === 'super_admin';
   if (attempts >= LOGIN_MAX_FAILED_ATTEMPTS) {
-    const lockMinutes = getLockoutMinutes(attempts);
+    const lockMinutes = isSuperAdmin ? SUPER_ADMIN_LOCKOUT_MINUTES : getLockoutMinutes(attempts);
     lockedUntil = new Date(Date.now() + lockMinutes * 60 * 1000).toISOString();
   }
   dbInstance.users[idx] = {
@@ -2649,7 +2651,7 @@ export const closeRaidCycle = async (cycleId: number, closedByUser: any) => {
     ...cycle,
     status: 'CLOSED',
     closedAt: nowIso(),
-    closedBy: closedByUser?.characterName || closedByUser?.name || closedByUser?.email || 'Super Admin',
+    closedBy: closedByUser?.characterName || closedByUser?.name || closedByUser?.email || 'Administrador del Sistema',
     totalBosses: summary.bosses,
     totalEvents: summary.events,
     totalRevenue,
@@ -3747,7 +3749,7 @@ export const closeRaidSalesCycle = async (closedByUser: any) => {
       closedByUser?.characterName ||
       closedByUser?.name ||
       closedByUser?.email ||
-      'Super Admin',
+      'Administrador del Sistema',
     createdBy: closedByUser?.id || null,
     summary: snapshot,
     createdAt: nowIso(),

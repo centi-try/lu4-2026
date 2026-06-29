@@ -565,7 +565,7 @@ export function Backups() {
               </ul>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 Se creará automáticamente un backup <code>pre-reset</code> antes de eliminar.
-                Solo quedará la cuenta Super Admin por defecto.
+                Solo quedará la cuenta de Administrador del Sistema por defecto.
               </p>
               <p className="text-xs pt-2 font-semibold" style={{ color: '#ef4444' }}>
                 Escribí <strong>RESETEAR</strong> para confirmar:

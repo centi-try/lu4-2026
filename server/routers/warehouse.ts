@@ -127,7 +127,7 @@ export const warehouseRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(({ input, ctx }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar historial.' });
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede eliminar historial.' });
       const db = dbInstance;
       if (!db.warehouseHistory) db.warehouseHistory = [];
       const idx = db.warehouseHistory.findIndex((h: any) => Number(h.id) === Number(input.id));
@@ -161,7 +161,7 @@ export const warehouseRouter = router({
     .input(z.object({ crossCpVisibility: z.boolean().optional(), crossCpObjectivesVisibility: z.boolean().optional() }))
     .mutation(({ input, ctx }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin.' });
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema.' });
       const db = dbInstance;
       if (!db.warehouseSettings) db.warehouseSettings = { crossCpVisibility: true, crossCpObjectivesVisibility: false };
       if (input.crossCpVisibility !== undefined) (db.warehouseSettings as any).crossCpVisibility = input.crossCpVisibility;
@@ -278,7 +278,7 @@ export const warehouseRouter = router({
         const allowed = await canWriteCp(role, userId, Number(incoming.cpId));
         if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para confirmar en esta CP.' });
       } else if (role !== 'super_admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede confirmar.' });
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede confirmar.' });
       }
 
       // Find existing warehouse item with same name AND same cpId (case-insensitive)
@@ -336,7 +336,7 @@ export const warehouseRouter = router({
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
       if (role !== 'super_admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar.' });
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede eliminar.' });
       }
       const db = dbInstance;
       if (!db.warehouseIncoming) return { success: true };
@@ -373,7 +373,7 @@ export const warehouseRouter = router({
         const allowed = await canWriteCp(role, userId, Number(item.cpId));
         if (!allowed && role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para descontar en esta CP.' });
       } else if (role !== 'super_admin' && role !== 'admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Admin o Super Admin pueden descontar.' });
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Admin o Administrador del Sistema pueden descontar.' });
       }
       if ((Number(item.quantity) || 0) < input.quantity) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: `Stock insuficiente. Disponible: ${item.quantity}` });
@@ -421,7 +421,7 @@ export const warehouseRouter = router({
         const allowed = await canWriteCp(role, userId, Number(target.cpId));
         if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para eliminar en esta CP.' });
       } else if (role !== 'super_admin') {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar.' });
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede eliminar.' });
       }
       const removed = db.warehouseItems.splice(idx, 1)[0];
       // Log to history
@@ -455,7 +455,7 @@ export const warehouseRouter = router({
     .input(z.object({ id: z.number(), category: z.string().optional(), quantity: z.number().int().min(0).optional() }))
     .mutation(async ({ ctx, input }) => {
       const role = String(ctx.user?.role || '').toLowerCase();
-      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede editar.' });
+      if (role !== 'super_admin') throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede editar.' });
       const db = dbInstance;
       if (!db.warehouseItems) return { success: false };
       const item = db.warehouseItems.find((w: any) => Number(w.id) === Number(input.id));
@@ -634,7 +634,7 @@ export const warehouseRouter = router({
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
         if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede crear recetas.' });
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede crear recetas.' });
         }
         const db = dbInstance;
         if (!db.craftRecipes) db.craftRecipes = [];
@@ -673,7 +673,7 @@ export const warehouseRouter = router({
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
         if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede eliminar recetas.' });
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede eliminar recetas.' });
         }
         const db = dbInstance;
         if (!db.craftRecipes) return { success: true };
@@ -726,7 +726,7 @@ export const warehouseRouter = router({
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
         if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede editar recetas.' });
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede editar recetas.' });
         }
         const db = dbInstance;
         const recipe = (db.craftRecipes || []).find((r: any) => Number(r.id) === Number(input.id));
@@ -784,7 +784,7 @@ export const warehouseRouter = router({
           const allowed = await canWriteCp(role, userId, input.cpId);
           if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'No tienes permisos para crear proyectos en esta CP.' });
         } else if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede crear proyectos.' });
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede crear proyectos.' });
         }
         const db = dbInstance;
         if (!db.craftProjects) db.craftProjects = [];
@@ -955,7 +955,7 @@ export const warehouseRouter = router({
       .mutation(async ({ ctx, input }) => {
         const role = String(ctx.user?.role || '').toLowerCase();
         if (role !== 'super_admin') {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede gestionar el catálogo.' });
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede gestionar el catálogo.' });
         }
         const db = dbInstance;
         if (!db.materialCatalog) db.materialCatalog = [];

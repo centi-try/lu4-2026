@@ -198,7 +198,7 @@ function LogRow({ log }: { log: AuditLog }) {
           </span>
           {(() => {
             const roleBadges: Record<string, { bg: string; color: string; border: string; label: string }> = {
-              SUPER_ADMIN: { bg: 'rgba(123,241,214,0.1)', color: '#7bf1d6', border: 'rgba(123,241,214,0.2)', label: 'Super Admin' },
+              SUPER_ADMIN: { bg: 'rgba(123,241,214,0.1)', color: '#7bf1d6', border: 'rgba(123,241,214,0.2)', label: 'Administrador del Sistema' },
               ADMIN: { bg: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: 'rgba(96,165,250,0.2)', label: 'Admin' },
               MAPPER: { bg: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: 'rgba(251,191,36,0.2)', label: 'Mapper' },
             };
@@ -376,7 +376,7 @@ export default function History() {
               placeholder="Todos los roles"
               options={[
                 { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
-                { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                { value: 'SUPER_ADMIN', label: 'Administrador del Sistema', emoji: '⚡' },
                 { value: 'ADMIN', label: 'Admin', emoji: '🛡️' },
                 { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
                 { value: 'USER', label: 'Usuario', emoji: '👤' },

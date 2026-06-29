@@ -9,7 +9,7 @@ const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (!ctx.user || ctx.user.role !== 'super_admin') {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Acceso denegado. Solo el Super Admin puede realizar esta acción.',
+      message: 'Acceso denegado. Solo el Administrador del Sistema puede realizar esta acción.',
     });
   }
   return next({ ctx });
@@ -52,7 +52,7 @@ export const adminUsersRouter = router({
       if (targetUser.role === 'super_admin') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'No puedes desactivar la cuenta de otro Super Admin.',
+          message: 'No puedes desactivar la cuenta de otro Administrador del Sistema.',
         });
       }
 
@@ -158,7 +158,7 @@ export const adminUsersRouter = router({
       if (targetUser.role === 'super_admin') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'No puedes eliminar la cuenta de otro Super Admin.',
+          message: 'No puedes eliminar la cuenta de otro Administrador del Sistema.',
         });
       }
 
@@ -206,7 +206,7 @@ export const adminUsersRouter = router({
       if (targetUser.role === 'super_admin' && targetUser.id !== ctx.user.id) {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: 'No puedes cambiar la contraseña de otro Super Admin.',
+          message: 'No puedes cambiar la contraseña de otro Administrador del Sistema.',
         });
       }
 
@@ -246,7 +246,7 @@ export const adminUsersRouter = router({
       if (targetUser.role === 'super_admin') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'El Super Admin siempre tiene acceso al menú antiguo.',
+          message: 'El Administrador del Sistema siempre tiene acceso al menú antiguo.',
         });
       }
 

@@ -12,7 +12,7 @@ const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
 
 const superAdminGuard = (role: string) => {
   if (role !== 'super_admin') {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo Super Admin puede gestionar la presentación.' });
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Solo el Administrador del Sistema puede gestionar la presentación.' });
   }
 };
 

@@ -33,7 +33,7 @@ export const clanFundRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user?.role !== 'super_admin') {
-        throw new Error('Solo el Super Admin puede modificar la configuración del clan.');
+        throw new Error('Solo el Administrador del Sistema puede modificar la configuración del clan.');
       }
       return await updateClanFundSettings(input, ctx.user?.id);
     }),
@@ -49,7 +49,7 @@ export const clanFundRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user?.role !== 'super_admin') {
-        throw new Error('Solo el Super Admin puede subir evidencia.');
+        throw new Error('Solo el Administrador del Sistema puede subir evidencia.');
       }
       ensureEvidenceDir();
       const ext = path.extname(input.fileName) || '.png';
@@ -68,7 +68,7 @@ export const clanFundRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user?.role !== 'super_admin') {
-        throw new Error('Solo el Super Admin puede registrar gastos del clan.');
+        throw new Error('Solo el Administrador del Sistema puede registrar gastos del clan.');
       }
       return await addClanFundTransaction({
         type: 'expense',
@@ -108,7 +108,7 @@ export const clanFundRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user?.role !== 'super_admin') {
-        throw new Error('Solo el Super Admin puede editar gastos del clan.');
+        throw new Error('Solo el Administrador del Sistema puede editar gastos del clan.');
       }
       const { txId, ...updates } = input;
       return await updateClanFundTransaction(txId, updates, ctx.user?.id);
@@ -118,7 +118,7 @@ export const clanFundRouter = router({
     .input(z.object({ txId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.user?.role !== 'super_admin') {
-        throw new Error('Solo el Super Admin puede eliminar gastos del clan.');
+        throw new Error('Solo el Administrador del Sistema puede eliminar gastos del clan.');
       }
       return await deleteClanFundTransaction(input.txId, ctx.user?.id);
     }),

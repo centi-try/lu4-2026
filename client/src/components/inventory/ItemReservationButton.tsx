@@ -94,7 +94,7 @@ export function ItemReservationButton({ item, reservations }: Props) {
 
   const markPreSoldMut = trpc.items.reservations.markPreSold.useMutation({
     onSuccess: () => {
-      toast.success('Reserva marcada como pre-vendida. Esperando confirmación del Super Admin.');
+      toast.success('Reserva marcada como pre-vendida. Esperando confirmación del Administrador del Sistema.');
       utils.items.reservations.list.invalidate();
     },
     onError: (err) => toast.error(err.message || 'Error al marcar pre-venta.'),

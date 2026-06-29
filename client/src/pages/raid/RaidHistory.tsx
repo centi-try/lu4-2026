@@ -284,7 +284,7 @@ function LogRow({ log }: { log: RaidLog }) {
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
               style={{ background: 'rgba(123,241,214,0.1)', color: '#7bf1d6', border: '1px solid rgba(123,241,214,0.2)' }}
             >
-              <Shield className="h-2.5 w-2.5" /> Super Admin
+              <Shield className="h-2.5 w-2.5" /> Administrador del Sistema
             </span>
           )}
           <span
@@ -424,7 +424,7 @@ export default function RaidHistory() {
               placeholder="Todos los roles"
               options={[
                 { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
-                { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                { value: 'SUPER_ADMIN', label: 'Administrador del Sistema', emoji: '⚡' },
                 { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
                 { value: 'USER', label: 'Usuario', emoji: '👤' },
               ]}

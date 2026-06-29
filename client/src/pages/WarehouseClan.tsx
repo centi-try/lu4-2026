@@ -1515,7 +1515,7 @@ export default function WarehouseClan() {
                               <button
                                 onClick={() => { setEditingItem(item); setEditCategory(item.category || ''); setEditQuantity(String(Number(item.quantity) || 0)); }}
                                 className="btn-ghost p-2"
-                                title="Editar (Super Admin)"
+                                title="Editar (Administrador del Sistema)"
                                 style={{ color: '#60a5fa', borderColor: 'rgba(96,165,250,0.25)', background: 'rgba(96,165,250,0.08)' }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />

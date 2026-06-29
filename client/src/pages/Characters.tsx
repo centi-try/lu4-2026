@@ -46,7 +46,7 @@ function CharacterCard({ char, onSelect, isActive }: { char: Character; onSelect
           const bg = isSA ? 'rgba(123,241,214,0.1)' : isMapper ? 'rgba(251,191,36,0.1)' : isAdmin ? 'rgba(96,165,250,0.1)' : 'rgba(167,139,250,0.1)';
           const color = isSA ? '#7bf1d6' : isMapper ? '#fbbf24' : isAdmin ? '#60a5fa' : '#a78bfa';
           const border = isSA ? 'rgba(123,241,214,0.25)' : isMapper ? 'rgba(251,191,36,0.25)' : isAdmin ? 'rgba(96,165,250,0.25)' : 'rgba(167,139,250,0.25)';
-          const label = isSA ? 'Super Admin' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
+          const label = isSA ? 'Administrador del Sistema' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
           return (
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
               style={{ background: bg, color, border: `1px solid ${border}` }}>
@@ -113,7 +113,7 @@ function CharacterDetail({ char }: { char: Character }) {
 
   const handleSell = (itemId: string, itemName: string) => {
     if (currentUser && currentUser.role !== 'SUPER_ADMIN') {
-      toast.error('Solo Super Admin puede vender ítems');
+      toast.error('Solo Administrador del Sistema puede vender ítems');
       return;
     }
     const item = items.find(i => i.id === itemId);
@@ -158,7 +158,7 @@ function CharacterDetail({ char }: { char: Character }) {
             const bg = isSA ? 'rgba(123,241,214,0.1)' : isMapper ? 'rgba(251,191,36,0.1)' : isAdmin ? 'rgba(96,165,250,0.1)' : 'rgba(167,139,250,0.1)';
             const color = isSA ? '#7bf1d6' : isMapper ? '#fbbf24' : isAdmin ? '#60a5fa' : '#a78bfa';
             const border = isSA ? 'rgba(123,241,214,0.25)' : isMapper ? 'rgba(251,191,36,0.25)' : isAdmin ? 'rgba(96,165,250,0.25)' : 'rgba(167,139,250,0.25)';
-            const label = isSA ? 'Super Admin' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
+            const label = isSA ? 'Administrador del Sistema' : isMapper ? 'Mapper' : isAdmin ? 'Admin' : 'Usuario';
             return (
               <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
                 style={{ background: bg, color, border: `1px solid ${border}` }}>
@@ -260,7 +260,7 @@ function CharacterDetail({ char }: { char: Character }) {
         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
           {char.role === 'SUPER_ADMIN'
             ? 'Este personaje puede vender ítems. La ganancia se divide equitativamente entre todos los personajes asociados al ítem.'
-            : 'Este personaje no puede vender ítems. Solo Super Admin tiene permiso para realizar ventas.'}
+            : 'Este personaje no puede vender ítems. Solo Administrador del Sistema tiene permiso para realizar ventas.'}
         </p>
       </div>
     </div>
@@ -343,7 +343,7 @@ export default function Characters() {
                 placeholder="Todos los roles"
                 options={[
                   { value: 'ALL', label: 'Todos los roles', emoji: '👥' },
-                  { value: 'SUPER_ADMIN', label: 'Super Admin', emoji: '⚡' },
+                  { value: 'SUPER_ADMIN', label: 'Administrador del Sistema', emoji: '⚡' },
                   { value: 'ADMIN', label: 'Admin', emoji: '🛡️' },
                   { value: 'MAPPER', label: 'Mapper', emoji: '🗺️' },
                   { value: 'USER', label: 'Usuario', emoji: '👤' },

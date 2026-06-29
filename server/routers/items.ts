@@ -422,7 +422,7 @@ export const itemsRouter = router({
         if (role !== 'super_admin' && role !== 'mapper' && role !== 'admin') {
           throw new TRPCError({
             code: 'FORBIDDEN',
-            message: 'Solo Mapper, Admin o Super Admin pueden marcar como pre-vendido.',
+            message: 'Solo Mapper, Admin o Administrador del Sistema pueden marcar como pre-vendido.',
           });
         }
         const all = await getItemReservations();
@@ -449,7 +449,7 @@ export const itemsRouter = router({
         if (role !== 'super_admin' && role !== 'mapper' && role !== 'admin') {
           throw new TRPCError({
             code: 'FORBIDDEN',
-            message: 'Solo Mapper, Admin o Super Admin pueden desmarcar pre-vendido.',
+            message: 'Solo Mapper, Admin o Administrador del Sistema pueden desmarcar pre-vendido.',
           });
         }
         const all = await getItemReservations();

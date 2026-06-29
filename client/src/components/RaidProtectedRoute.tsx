@@ -88,7 +88,7 @@ export default function RaidProtectedRoute({
             Acceso restringido
           </h2>
           <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            No tienes acceso al módulo Raid Bosses. Pídele al Super Admin que te asigne un rol
+            No tienes acceso al módulo Raid Bosses. Pídele al Administrador del Sistema que te asigne un rol
             raid (<span style={{ color: '#e879f9' }}>raid_user</span>,{' '}
             <span style={{ color: '#7bf1d6' }}>raid_mapper</span> o{' '}
             <span style={{ color: '#fbbf24' }}>raid_admin</span>).
@@ -180,7 +180,7 @@ export default function RaidProtectedRoute({
             Se requiere rol administrador
           </h2>
           <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            Solo raid_admin o Super Admin pueden acceder a esta sección.
+            Solo raid_admin o Administrador del Sistema pueden acceder a esta sección.
           </p>
           <button
             onClick={() => setLocation('/raids')}
@@ -217,10 +217,10 @@ export default function RaidProtectedRoute({
         >
           <div className="text-5xl mb-4">👑</div>
           <h2 className="text-xl font-bold mb-2" style={{ color: '#fbbf24' }}>
-            Solo Super Admin
+            Solo Administrador del Sistema
           </h2>
           <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            La configuración del módulo Raid está reservada al Super Admin del sistema.
+            La configuración del módulo Raid está reservada al Administrador del Sistema del sistema.
           </p>
           <button
             onClick={() => setLocation('/raids')}

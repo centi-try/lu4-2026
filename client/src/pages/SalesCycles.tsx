@@ -723,7 +723,7 @@ export default function SalesCyclesPage() {
         {!isAdmin && (
           <div className="mt-4 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
             <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              Solo el Super Admin puede cerrar ciclos de ventas.
+              Solo el Administrador del Sistema puede cerrar ciclos de ventas.
             </p>
           </div>
         )}

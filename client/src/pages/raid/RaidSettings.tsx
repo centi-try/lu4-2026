@@ -237,7 +237,7 @@ export default function RaidSettings({ raidAccess }: Props) {
           <h2 className="text-2xl font-bold text-gradient">Configuración</h2>
         </div>
         <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Catálogos del sistema: Bosses, Clanes, Clases, Íconos, Accesos y Materiales. Solo Super Admin puede gestionar.
+          Catálogos del sistema: Bosses, Clanes, Clases, Íconos, Accesos y Materiales. Solo el Administrador del Sistema puede gestionar.
         </p>
       </div>
 
@@ -597,7 +597,7 @@ export default function RaidSettings({ raidAccess }: Props) {
               className="text-xs text-center py-3 mb-3"
               style={{ color: 'rgba(255,255,255,0.4)' }}
             >
-              Solo raid_admin o Super Admin pueden crear/editar clanes.
+              Solo raid_admin o Administrador del Sistema pueden crear/editar clanes.
             </p>
           )}
 
@@ -695,19 +695,19 @@ export default function RaidSettings({ raidAccess }: Props) {
       {/* Tab: Clases de Personaje */}
       {configTab === 'classes' && raidAccess?.accessLevel === 'super_admin' && <CharacterClassesSection />}
       {configTab === 'classes' && raidAccess?.accessLevel !== 'super_admin' && (
-        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar clases.</p></div>
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo el Administrador del Sistema puede gestionar clases.</p></div>
       )}
 
       {/* Tab: Presentación del Login */}
       {configTab === 'presentation' && raidAccess?.accessLevel === 'super_admin' && <PresentationSection />}
       {configTab === 'presentation' && raidAccess?.accessLevel !== 'super_admin' && (
-        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar la presentación.</p></div>
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo el Administrador del Sistema puede gestionar la presentación.</p></div>
       )}
 
       {/* Tab: Gestión de Accesos */}
       {configTab === 'access' && raidAccess?.accessLevel === 'super_admin' && <RaidAccessSection />}
       {configTab === 'access' && raidAccess?.accessLevel !== 'super_admin' && (
-        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar accesos.</p></div>
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo el Administrador del Sistema puede gestionar accesos.</p></div>
       )}
 
       {/* Tab: Catálogo de Materiales */}
@@ -902,7 +902,7 @@ export default function RaidSettings({ raidAccess }: Props) {
       {/* Tab: Carrusel del Login */}
       {configTab === 'carousel' && raidAccess?.accessLevel === 'super_admin' && <CarouselSection />}
       {configTab === 'carousel' && raidAccess?.accessLevel !== 'super_admin' && (
-        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo Super Admin puede gestionar el carrusel.</p></div>
+        <div className="card-glass rounded-2xl p-8 text-center"><p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Solo el Administrador del Sistema puede gestionar el carrusel.</p></div>
       )}
 
       {/* ===== Modales de confirmación de borrado ===== */}

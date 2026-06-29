@@ -13,13 +13,13 @@ const rules = [
     icon: Shield,
     color: '#7bf1d6',
     title: 'Control de Roles',
-    desc: 'El sistema implementa dos roles con permisos diferenciados: Mapper y Super Admin. Las reglas se aplican en todas las vistas y operaciones del sistema.',
+    desc: 'El sistema implementa dos roles con permisos diferenciados: Mapper y Administrador del Sistema. Las reglas se aplican en todas las vistas y operaciones del sistema.',
     items: [
       'Mapper: puede crear y editar ítems en estado EN_REGISTRO',
       'Mapper: no puede modificar imágenes de ítems confirmados',
-      'Super Admin: acceso total a todas las operaciones',
-      'Super Admin: puede corregir imágenes en cualquier estado',
-      'Super Admin: puede confirmar y eliminar ítems',
+      'Administrador del Sistema: acceso total a todas las operaciones',
+      'Administrador del Sistema: puede corregir imágenes en cualquier estado',
+      'Administrador del Sistema: puede confirmar y eliminar ítems',
     ],
   },
   {
@@ -32,7 +32,7 @@ const rules = [
       'Relación 1:1 permanente entre ítem e imagen',
       'Asignación automática por categoría si no se especifica',
       'Imagen bloqueada para Mapper una vez confirmado el ítem',
-      'Super Admin puede corregir imágenes incorrectas en cualquier momento',
+      'El Administrador del Sistema puede corregir imágenes incorrectas en cualquier momento',
       'Imágenes mostradas en 30×30px en tablas sin deformación',
     ],
   },
@@ -42,9 +42,9 @@ const rules = [
     title: 'Estados del Ítem',
     desc: 'Los ítems transicionan entre estados con restricciones específicas que protegen la integridad del inventario.',
     items: [
-      'EN_REGISTRO: ítem totalmente editable por Mapper y Super Admin',
+      'EN_REGISTRO: ítem totalmente editable por Mapper y Administrador del Sistema',
       'CONFIRMADO: imagen bloqueada para Mapper, datos parcialmente editables',
-      'Solo Super Admin puede cambiar el estado a CONFIRMADO',
+      'Solo el Administrador del Sistema puede cambiar el estado a CONFIRMADO',
       'Una vez confirmado, el ítem no puede volver a EN_REGISTRO',
     ],
   },
@@ -293,7 +293,7 @@ function ClanFundSettingsCard({ canEdit }: { canEdit: boolean }) {
         <div>
           <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Fondo del Clan</h3>
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            {canEdit ? 'Retención y descuento interno' : 'Solo lectura — solo el Super Admin puede modificar'}
+            {canEdit ? 'Retención y descuento interno' : 'Solo lectura — solo el Administrador del Sistema puede modificar'}
           </p>
         </div>
       </div>

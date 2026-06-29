@@ -34,7 +34,7 @@ export default function RaidClans({ raidAccess: _raidAccess }: Props) {
         <div className="card-glass rounded-2xl p-8 text-center">
           <Flag className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(123,241,214,0.3)' }} />
           <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            No hay clanes cargados aún. El Super Admin o Raid Admin debe crearlos en{' '}
+            No hay clanes cargados aún. El Administrador del Sistema o Raid Admin debe crearlos en{' '}
             <span style={{ color: '#e879f9' }}>Config. Raids</span>.
           </p>
         </div>

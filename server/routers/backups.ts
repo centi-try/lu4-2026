@@ -22,7 +22,7 @@ const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (!ctx.user || ctx.user.role !== 'super_admin') {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Solo el Super Admin puede gestionar backups.',
+      message: 'Solo el Administrador del Sistema puede gestionar backups.',
     });
   }
   return next({ ctx });

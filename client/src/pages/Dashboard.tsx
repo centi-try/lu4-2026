@@ -597,7 +597,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <p className="text-lg font-bold font-mono" style={{ color: '#7bf1d6' }}>{saCount}</p>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Super Admin</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Administrador del Sistema</p>
                   </div>
                   <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <p className="text-lg font-bold font-mono" style={{ color: '#fbbf24' }}>{mapperCount}</p>

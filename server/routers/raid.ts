@@ -56,7 +56,7 @@ const raidSuperAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => 
   if (role !== 'super_admin') {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Solo el Super Admin puede administrar catálogos y accesos del módulo Raid.',
+      message: 'Solo el Administrador del Sistema puede administrar catálogos y accesos del módulo Raid.',
     });
   }
   return next({ ctx });
@@ -68,7 +68,7 @@ const raidAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (!access.canAdmin) {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Se requiere rol raid_admin o Super Admin para esta acción.',
+      message: 'Se requiere rol raid_admin o Administrador del Sistema para esta acción.',
     });
   }
   return next({ ctx });
@@ -80,7 +80,7 @@ const raidMapperProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (!access.canInteract) {
     throw new TRPCError({
       code: 'FORBIDDEN',
-      message: 'Se requiere rol raid_mapper, raid_admin o Super Admin para esta acción.',
+      message: 'Se requiere rol raid_mapper, raid_admin o Administrador del Sistema para esta acción.',
     });
   }
   return next({ ctx });
