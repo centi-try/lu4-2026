@@ -64,23 +64,19 @@ export default function Register() {
 
   // Whether invitation code is required
   const [invitationCodeRequired, setInvitationCodeRequired] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/public/clans-and-cps')
-      .then(r => r.json())
-      .then(data => {
+    Promise.all([
+      fetch('/api/public/clans-and-cps').then(r => r.json()).then(data => {
         setClans(data.clans || []);
         setCommandParties(data.commandParties || []);
         setAvailableClasses(data.availableClasses || []);
-      })
-      .catch(() => {});
-
-    fetch('/api/public/registration-info')
-      .then(r => r.json())
-      .then(data => {
+      }).catch(() => {}),
+      fetch('/api/public/registration-info').then(r => r.json()).then(data => {
         setInvitationCodeRequired(!!data.invitationCodeRequired);
-      })
-      .catch(() => {});
+      }).catch(() => {}),
+    ]).finally(() => setInitialLoading(false));
   }, []);
 
   const filteredCps = useMemo(() => {
@@ -221,11 +217,27 @@ export default function Register() {
             </p>
           </div>
 
-        <div className="card-glass p-8 rounded-lg">
+        <div className="card-glass p-8 rounded-lg relative">
+          {/* Overlay spinner during registration */}
+          {loading && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg" style={{ background: 'rgba(6,9,16,0.85)', backdropFilter: 'blur(4px)' }}>
+              <Loader2 size={36} className="animate-spin mb-3" style={{ color: '#7bf1d6' }} />
+              <p className="text-sm font-semibold" style={{ color: '#7bf1d6' }}>Creando tu cuenta...</p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Esto puede tomar unos segundos</p>
+            </div>
+          )}
           <h2 className="text-2xl font-bold text-white mb-6">Crear Cuenta</h2>
 
+          {/* Initial loading spinner */}
+          {initialLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={28} className="animate-spin" style={{ color: '#7bf1d6' }} />
+              <span className="ml-3 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Cargando formulario...</span>
+            </div>
+          )}
+
           {/* Invitation code warning */}
-          {invitationCodeRequired && (
+          {!initialLoading && invitationCodeRequired && (
             <div
               className="mb-5 rounded-lg border px-3 py-2.5 text-xs flex items-start gap-2"
               style={{
@@ -242,7 +254,7 @@ export default function Register() {
             </div>
           )}
 
-          {submitError && (
+          {!initialLoading && submitError && (
             <div
               className="mb-4 rounded-lg border px-3 py-2 text-sm"
               style={{
@@ -256,7 +268,7 @@ export default function Register() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {!initialLoading && <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
               <label htmlFor="register-email" className="block text-sm font-medium text-white mb-2">
                 Correo Electrónico
@@ -570,7 +582,7 @@ export default function Register() {
               {loading && <Loader2 size={16} className="animate-spin" />}
               {loading ? 'Registrando...' : 'Crear Cuenta'}
             </button>
-          </form>
+          </form>}
 
           <div
             className="text-center mt-6 pt-6 border-t"
