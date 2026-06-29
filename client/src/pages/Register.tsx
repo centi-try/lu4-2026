@@ -160,7 +160,7 @@ export default function Register() {
         invitationCode.trim() || null,
       );
       toast.success('¡Registro exitoso! Iniciando sesión...');
-      setLocation('/');
+      setTimeout(() => setLocation('/'), 150);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error de conexión';
       setSubmitError(msg);
