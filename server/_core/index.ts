@@ -91,6 +91,9 @@ async function findAvailablePort(startPort: number): Promise<number> {
 }
 
 const app = express();
+// Allow large payloads (carousel images as base64, up to ~10MB)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const server = http.createServer(app);
 
 export async function hashPassword(password: string): Promise<string> {
@@ -99,7 +102,7 @@ export async function hashPassword(password: string): Promise<string> {
 
 async function startServer() {
   // Rutas de autenticación personalizadas
-  app.post('/api/auth/register', express.json(), async (req, res) => {
+  app.post('/api/auth/register', express.json({ limit: '10mb' }), async (req, res) => {
     try {
       const email = String(req.body?.email || '').trim().toLowerCase();
       const characterName = String(req.body?.characterName || '').trim();
