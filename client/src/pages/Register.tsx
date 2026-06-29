@@ -220,19 +220,39 @@ export default function Register() {
         <div className="card-glass p-8 rounded-lg relative">
           {/* Overlay spinner during registration */}
           {loading && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg" style={{ background: 'rgba(6,9,16,0.85)', backdropFilter: 'blur(4px)' }}>
-              <Loader2 size={36} className="animate-spin mb-3" style={{ color: '#7bf1d6' }} />
-              <p className="text-sm font-semibold" style={{ color: '#7bf1d6' }}>Creando tu cuenta...</p>
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Esto puede tomar unos segundos</p>
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg" style={{ background: 'rgba(6,9,16,0.92)', backdropFilter: 'blur(6px)' }}>
+              <div className="text-center animate-pulse">
+                <div className="flex justify-center mb-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
+                    <span className="text-2xl font-black" style={{ color: '#7bf1d6' }}>L2</span>
+                  </div>
+                </div>
+                <h1 className="text-2xl font-black tracking-[0.25em] mb-2" style={{ color: '#7bf1d6', letterSpacing: '0.25em' }}>LINEAGE II</h1>
+                <p className="text-xs font-medium tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>RaptorSquad</p>
+                <p className="text-xs font-semibold" style={{ color: 'rgba(123,241,214,0.7)' }}>Creando tu cuenta...</p>
+                <div className="mt-5 flex justify-center">
+                  <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
+                </div>
+              </div>
             </div>
           )}
           <h2 className="text-2xl font-bold text-white mb-6">Crear Cuenta</h2>
 
-          {/* Initial loading spinner */}
+          {/* Initial loading spinner — same L2 splash as Login */}
           {initialLoading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={28} className="animate-spin" style={{ color: '#7bf1d6' }} />
-              <span className="ml-3 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Cargando formulario...</span>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="text-center animate-pulse">
+                <div className="flex justify-center mb-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,214,0.2))' }}>
+                    <span className="text-2xl font-black" style={{ color: '#7bf1d6' }}>L2</span>
+                  </div>
+                </div>
+                <h1 className="text-2xl font-black tracking-[0.25em] mb-2" style={{ color: '#7bf1d6', letterSpacing: '0.25em' }}>LINEAGE II</h1>
+                <p className="text-xs font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>RaptorSquad</p>
+                <div className="mt-6 flex justify-center">
+                  <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
+                </div>
+              </div>
             </div>
           )}
 
