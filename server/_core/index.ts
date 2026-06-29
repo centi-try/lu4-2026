@@ -40,6 +40,7 @@ import {
   getClans,
   getCommandParties,
   getAvailableClasses,
+  getInvitationCode,
 } from "../db";
 import { sendPasswordResetEmail, sendEmailVerificationEmail, isEmailEnabled } from "./email";
 import {
@@ -106,9 +107,18 @@ async function startServer() {
       const raidClanId = req.body?.raidClanId ? Number(req.body.raidClanId) : null;
       const raidCpId = req.body?.raidCpId ? Number(req.body.raidCpId) : null;
       const classMain = req.body?.classMain ? String(req.body.classMain).trim() : null;
+      const invitationCode = req.body?.invitationCode ? String(req.body.invitationCode).trim() : '';
 
       if (!email || !characterName || password.length < 6) {
         return res.status(400).json({ message: 'Datos de registro inválidos' });
+      }
+
+      // Validate invitation code if one is configured
+      const currentCode = await getInvitationCode();
+      if (currentCode) {
+        if (!invitationCode || invitationCode !== currentCode.code) {
+          return res.status(403).json({ message: 'Código de invitación inválido. Solicítalo al administrador del sistema.' });
+        }
       }
 
       const existingUser = await getUserByEmail(email);
@@ -206,6 +216,16 @@ async function startServer() {
     } catch (error) {
       console.error('Error fetching clans and CPs:', error);
       res.status(500).json({ clans: [], commandParties: [] });
+    }
+  });
+
+  // Public endpoint: check if invitation code is required for registration
+  app.get('/api/public/registration-info', async (_req, res) => {
+    try {
+      const code = await getInvitationCode();
+      res.json({ invitationCodeRequired: !!code });
+    } catch {
+      res.json({ invitationCodeRequired: false });
     }
   });
 

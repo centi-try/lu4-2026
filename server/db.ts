@@ -116,6 +116,7 @@ interface DatabaseSchema {
   warehouseAttendance: any[];  // asistencia por objetivo
   warehouseDailyAttendance: any[]; // asistencia diaria por CP
   warehouseDeliveries: any[];  // entregas de materiales por objetivo
+  invitationCode: { code: string; createdAt: string } | null;
 }
 
 const initialSchema: DatabaseSchema = {
@@ -165,6 +166,7 @@ const initialSchema: DatabaseSchema = {
   warehouseAttendance: [],
   warehouseDailyAttendance: [],
   warehouseDeliveries: [],
+  invitationCode: null,
 };
 
 // ============================================================================
@@ -379,6 +381,9 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     warehouseAttendance: ensureArray(data?.warehouseAttendance),
     warehouseDailyAttendance: ensureArray(data?.warehouseDailyAttendance),
     warehouseDeliveries: ensureArray(data?.warehouseDeliveries),
+    invitationCode: data?.invitationCode && typeof data.invitationCode === 'object'
+      ? data.invitationCode
+      : null,
   };
 }
 
@@ -3961,4 +3966,23 @@ export const removeWarehouseCPMember = async (cpId: number, userId: number) => {
   const removed = dbInstance.warehouseCPMembers.splice(idx, 1)[0];
   saveDb(dbInstance);
   return removed;
+};
+
+// ============================================================================
+// Invitation Code (for registration gate)
+// ============================================================================
+
+export const getInvitationCode = async (): Promise<{ code: string; createdAt: string } | null> => {
+  return dbInstance.invitationCode || null;
+};
+
+export const setInvitationCode = async (code: string): Promise<{ code: string; createdAt: string }> => {
+  const entry = { code, createdAt: new Date().toISOString() };
+  dbInstance.invitationCode = entry;
+  saveDb(dbInstance);
+  return entry;
+};
+
+export const generateRandomInvitationCode = (): string => {
+  return String(Math.floor(1000 + Math.random() * 9000));
 };

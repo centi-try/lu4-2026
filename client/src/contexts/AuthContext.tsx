@@ -142,12 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null, classMain?: string | null) => {
+  const register = async (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null, classMain?: string | null, invitationCode?: string | null) => {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email, password, characterName, raidClanId: raidClanId || null, raidCpId: raidCpId || null, classMain: classMain || null }),
+      body: JSON.stringify({ email, password, characterName, raidClanId: raidClanId || null, raidCpId: raidCpId || null, classMain: classMain || null, invitationCode: invitationCode || null }),
     });
     const data = await response.json();
     if (!response.ok) {

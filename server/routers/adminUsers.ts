@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts, getInvitationCode, setInvitationCode, generateRandomInvitationCode } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -419,4 +419,25 @@ export const adminUsersRouter = router({
       });
       return { success: true };
     }),
+
+  // Get current invitation code
+  getInvitationCode: superAdminProcedure.query(async () => {
+    const code = await getInvitationCode();
+    return code;
+  }),
+
+  // Generate a new random invitation code
+  generateInvitationCode: superAdminProcedure.mutation(async ({ ctx }) => {
+    const newCode = generateRandomInvitationCode();
+    const result = await setInvitationCode(newCode);
+    await createAuditLog({
+      userId: ctx.user.id,
+      action: 'INVITATION_CODE_GENERATED',
+      detail: `Generó nuevo código de invitación.`,
+      details: {
+        performedBy: ctx.user.email || ctx.user.openId,
+      },
+    });
+    return result;
+  }),
 });

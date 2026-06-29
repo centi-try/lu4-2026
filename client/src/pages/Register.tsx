@@ -1,8 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, ChevronDown, Package } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
@@ -23,6 +30,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [characterName, setCharacterName] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,7 +42,8 @@ export default function Register() {
     confirm: boolean;
     clan: boolean;
     cp: boolean;
-  }>({ email: false, character: false, password: false, confirm: false, clan: false, cp: false });
+    invitationCode: boolean;
+  }>({ email: false, character: false, password: false, confirm: false, clan: false, cp: false, invitationCode: false });
 
   // Carousel state
   const [currentImg, setCurrentImg] = useState(0);
@@ -53,6 +62,9 @@ export default function Register() {
   const [selectedCpId, setSelectedCpId] = useState<string>('');
   const [selectedClassMain, setSelectedClassMain] = useState<string>('');
 
+  // Whether invitation code is required
+  const [invitationCodeRequired, setInvitationCodeRequired] = useState(false);
+
   useEffect(() => {
     fetch('/api/public/clans-and-cps')
       .then(r => r.json())
@@ -60,6 +72,13 @@ export default function Register() {
         setClans(data.clans || []);
         setCommandParties(data.commandParties || []);
         setAvailableClasses(data.availableClasses || []);
+      })
+      .catch(() => {});
+
+    fetch('/api/public/registration-info')
+      .then(r => r.json())
+      .then(data => {
+        setInvitationCodeRequired(!!data.invitationCodeRequired);
       })
       .catch(() => {});
   }, []);
@@ -101,7 +120,7 @@ export default function Register() {
   }, [confirmPassword, password]);
 
   const clanError = useMemo(() => {
-    if (clans.length === 0) return null; // no clans created yet, skip validation
+    if (clans.length === 0) return null;
     if (!selectedClanId) return 'Selecciona un clan';
     return null;
   }, [selectedClanId, clans]);
@@ -109,17 +128,24 @@ export default function Register() {
   const cpError = useMemo(() => {
     if (clans.length === 0) return null;
     if (!selectedClanId) return null;
-    if (filteredCps.length === 0) return null; // no CPs for this clan, skip
+    if (filteredCps.length === 0) return null;
     if (!selectedCpId) return 'Selecciona un CP';
     return null;
   }, [selectedCpId, selectedClanId, filteredCps, clans]);
 
-  const formValid = !emailError && !characterError && !passwordError && !confirmError && !clanError && !cpError;
+  const invitationCodeError = useMemo(() => {
+    if (!invitationCodeRequired) return null;
+    if (!invitationCode.trim()) return 'El código de invitación es requerido';
+    if (!/^\d{4}$/.test(invitationCode.trim())) return 'El código debe ser de 4 dígitos';
+    return null;
+  }, [invitationCode, invitationCodeRequired]);
+
+  const formValid = !emailError && !characterError && !passwordError && !confirmError && !clanError && !cpError && !invitationCodeError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
-    setTouched({ email: true, character: true, password: true, confirm: true, clan: true, cp: true });
+    setTouched({ email: true, character: true, password: true, confirm: true, clan: true, cp: true, invitationCode: true });
     if (!formValid) return;
 
     setLoading(true);
@@ -131,6 +157,7 @@ export default function Register() {
         selectedClanId ? Number(selectedClanId) : null,
         selectedCpId ? Number(selectedCpId) : null,
         selectedClassMain || null,
+        invitationCode.trim() || null,
       );
       toast.success('¡Registro exitoso! Iniciando sesión...');
       setLocation('/');
@@ -196,6 +223,24 @@ export default function Register() {
 
         <div className="card-glass p-8 rounded-lg">
           <h2 className="text-2xl font-bold text-white mb-6">Crear Cuenta</h2>
+
+          {/* Invitation code warning */}
+          {invitationCodeRequired && (
+            <div
+              className="mb-5 rounded-lg border px-3 py-2.5 text-xs flex items-start gap-2"
+              style={{
+                borderColor: 'rgba(251,191,36,0.3)',
+                background: 'rgba(251,191,36,0.06)',
+                color: 'rgba(253,224,71,0.9)',
+              }}
+            >
+              <ShieldAlert size={16} className="shrink-0 mt-0.5" style={{ color: '#fbbf24' }} />
+              <span>
+                Para registrarte necesitas un <strong>código de invitación de 4 dígitos</strong>. 
+                Solicítalo al administrador del sistema. Sin este código no podrás crear tu cuenta.
+              </span>
+            </div>
+          )}
 
           {submitError && (
             <div
@@ -265,32 +310,50 @@ export default function Register() {
               )}
             </div>
 
-            {/* Clan dropdown — only shown if clans exist */}
+            {/* Clan dropdown — Radix UI */}
             {clans.length > 0 && (
               <div>
-                <label htmlFor="register-clan" className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Clan
                 </label>
-                <div className="relative">
-                  <select
-                    id="register-clan"
-                    value={selectedClanId}
-                    onChange={(e) => {
-                      setSelectedClanId(e.target.value);
-                      setSelectedCpId('');
+                <Select
+                  value={selectedClanId}
+                  onValueChange={(val) => {
+                    setSelectedClanId(val);
+                    setSelectedCpId('');
+                  }}
+                  disabled={loading}
+                >
+                  <SelectTrigger
+                    className="w-full h-11 rounded-xl border text-sm"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      color: selectedClanId ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
                     }}
                     onBlur={() => setTouched((t) => ({ ...t, clan: true }))}
-                    className={inputClass}
-                    disabled={loading}
-                    style={{ appearance: 'none', paddingRight: '2.5rem' }}
                   >
-                    <option value="">Seleccionar clan...</option>
+                    <SelectValue placeholder="Seleccionar clan..." />
+                  </SelectTrigger>
+                  <SelectContent
+                    style={{
+                      background: 'rgba(10,14,22,0.98)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      backdropFilter: 'blur(20px)',
+                    }}
+                  >
                     {clans.map(c => (
-                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                      <SelectItem
+                        key={c.id}
+                        value={String(c.id)}
+                        className="text-sm cursor-pointer hover:bg-white/5"
+                        style={{ color: 'rgba(255,255,255,0.85)' }}
+                      >
+                        {c.name}
+                      </SelectItem>
                     ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                </div>
+                  </SelectContent>
+                </Select>
                 {touched.clan && clanError && (
                   <p className="text-xs mt-1.5" style={{ color: 'rgba(252, 165, 165, 0.9)' }}>
                     {clanError}
@@ -299,29 +362,47 @@ export default function Register() {
               </div>
             )}
 
-            {/* CP dropdown — only shown if clan selected and CPs exist for that clan */}
+            {/* CP dropdown — Radix UI */}
             {selectedClanId && filteredCps.length > 0 && (
               <div>
-                <label htmlFor="register-cp" className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Command Party (CP)
                 </label>
-                <div className="relative">
-                  <select
-                    id="register-cp"
-                    value={selectedCpId}
-                    onChange={(e) => setSelectedCpId(e.target.value)}
+                <Select
+                  value={selectedCpId}
+                  onValueChange={setSelectedCpId}
+                  disabled={loading}
+                >
+                  <SelectTrigger
+                    className="w-full h-11 rounded-xl border text-sm"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      color: selectedCpId ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
+                    }}
                     onBlur={() => setTouched((t) => ({ ...t, cp: true }))}
-                    className={inputClass}
-                    disabled={loading}
-                    style={{ appearance: 'none', paddingRight: '2.5rem' }}
                   >
-                    <option value="">Seleccionar CP...</option>
+                    <SelectValue placeholder="Seleccionar CP..." />
+                  </SelectTrigger>
+                  <SelectContent
+                    style={{
+                      background: 'rgba(10,14,22,0.98)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      backdropFilter: 'blur(20px)',
+                    }}
+                  >
                     {filteredCps.map(cp => (
-                      <option key={cp.id} value={String(cp.id)}>{cp.name}</option>
+                      <SelectItem
+                        key={cp.id}
+                        value={String(cp.id)}
+                        className="text-sm cursor-pointer hover:bg-white/5"
+                        style={{ color: 'rgba(255,255,255,0.85)' }}
+                      >
+                        {cp.name}
+                      </SelectItem>
                     ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                </div>
+                  </SelectContent>
+                </Select>
                 {touched.cp && cpError && (
                   <p className="text-xs mt-1.5" style={{ color: 'rgba(252, 165, 165, 0.9)' }}>
                     {cpError}
@@ -330,28 +411,46 @@ export default function Register() {
               </div>
             )}
 
-            {/* Class Main dropdown — only shown if classes exist */}
+            {/* Class Main dropdown — Radix UI */}
             {availableClasses.length > 0 && (
               <div>
-                <label htmlFor="register-class" className="block text-sm font-medium text-white mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Clase Principal
                 </label>
-                <div className="relative">
-                  <select
-                    id="register-class"
-                    value={selectedClassMain}
-                    onChange={(e) => setSelectedClassMain(e.target.value)}
-                    className={inputClass}
-                    disabled={loading}
-                    style={{ appearance: 'none', paddingRight: '2.5rem' }}
+                <Select
+                  value={selectedClassMain}
+                  onValueChange={setSelectedClassMain}
+                  disabled={loading}
+                >
+                  <SelectTrigger
+                    className="w-full h-11 rounded-xl border text-sm"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      color: selectedClassMain ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)',
+                    }}
                   >
-                    <option value="">Seleccionar clase...</option>
+                    <SelectValue placeholder="Seleccionar clase..." />
+                  </SelectTrigger>
+                  <SelectContent
+                    style={{
+                      background: 'rgba(10,14,22,0.98)',
+                      borderColor: 'rgba(255,255,255,0.12)',
+                      backdropFilter: 'blur(20px)',
+                    }}
+                  >
                     {availableClasses.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <SelectItem
+                        key={c.id}
+                        value={c.name}
+                        className="text-sm cursor-pointer hover:bg-white/5"
+                        style={{ color: 'rgba(255,255,255,0.85)' }}
+                      >
+                        {c.name}
+                      </SelectItem>
                     ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'rgba(255,255,255,0.4)' }} />
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -428,6 +527,43 @@ export default function Register() {
                 </p>
               )}
             </div>
+
+            {/* Invitation Code */}
+            {invitationCodeRequired && (
+              <div>
+                <label htmlFor="register-invitation" className="block text-sm font-medium text-white mb-2">
+                  Código de Invitación
+                </label>
+                <input
+                  id="register-invitation"
+                  name="invitation-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  maxLength={4}
+                  autoComplete="off"
+                  value={invitationCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setInvitationCode(val);
+                  }}
+                  onBlur={() => setTouched((t) => ({ ...t, invitationCode: true }))}
+                  placeholder="0000"
+                  className={inputClass}
+                  disabled={loading}
+                  aria-invalid={touched.invitationCode && !!invitationCodeError}
+                  style={{ letterSpacing: '0.5em', textAlign: 'center', fontSize: '1.1rem', fontWeight: 600 }}
+                />
+                <p className="text-xs mt-1.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  Código de 4 dígitos proporcionado por el administrador
+                </p>
+                {touched.invitationCode && invitationCodeError && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(252, 165, 165, 0.9)' }}>
+                    {invitationCodeError}
+                  </p>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
-import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil, Lock } from 'lucide-react';
+import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil, Lock, Ticket, Copy, RotateCw, Clock } from 'lucide-react';
 
 type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
@@ -137,6 +137,184 @@ function ActiveToggle({ userId, isActive, onToggle, disabled }: {
         }}
       />
     </button>
+  );
+}
+
+function getCodeAgeInfo(createdAt: string): { label: string; color: string; bgColor: string; borderColor: string; level: 'green' | 'yellow' | 'red' } {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const hours = diffMs / (1000 * 60 * 60);
+  if (hours < 12) {
+    return {
+      label: `Creado hace ${hours < 1 ? `${Math.floor(hours * 60)} min` : `${Math.floor(hours)}h ${Math.floor((hours % 1) * 60)}m`}`,
+      color: '#4ade80',
+      bgColor: 'rgba(74,222,128,0.08)',
+      borderColor: 'rgba(74,222,128,0.25)',
+      level: 'green',
+    };
+  } else if (hours < 24) {
+    return {
+      label: `Creado hace ${Math.floor(hours)}h`,
+      color: '#fbbf24',
+      bgColor: 'rgba(251,191,36,0.08)',
+      borderColor: 'rgba(251,191,36,0.25)',
+      level: 'yellow',
+    };
+  } else {
+    const days = Math.floor(hours / 24);
+    return {
+      label: `Creado hace ${days}d ${Math.floor(hours % 24)}h`,
+      color: '#f87171',
+      bgColor: 'rgba(248,113,113,0.08)',
+      borderColor: 'rgba(248,113,113,0.25)',
+      level: 'red',
+    };
+  }
+}
+
+function InvitationCodePanel() {
+  const { data: codeData, refetch } = trpc.adminUsers.getInvitationCode.useQuery(undefined, { staleTime: 5000 });
+  const generateMutation = trpc.adminUsers.generateInvitationCode.useMutation({
+    onSuccess: () => {
+      toast.success('Nuevo código de invitación generado.');
+      refetch();
+    },
+    onError: (err) => toast.error(err.message || 'Error al generar código.'),
+  });
+  const [copied, setCopied] = useState(false);
+
+  const ageInfo = codeData ? getCodeAgeInfo(codeData.createdAt) : null;
+
+  const handleCopy = () => {
+    if (!codeData) return;
+    navigator.clipboard.writeText(codeData.code).then(() => {
+      setCopied(true);
+      toast.success('Código copiado al portapapeles.');
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div
+      className="rounded-2xl border p-4"
+      style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}
+    >
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: 'rgba(232,121,249,0.15)', border: '1px solid rgba(232,121,249,0.3)' }}
+          >
+            <Ticket className="h-4 w-4" style={{ color: '#e879f9' }} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Código de Invitación
+            </p>
+          </div>
+        </div>
+
+        {codeData ? (
+          <div className="flex items-center gap-3 flex-wrap flex-1">
+            {/* Code display */}
+            <div className="flex items-center gap-2">
+              <span
+                className="font-mono text-2xl font-black tracking-[0.3em] px-4 py-1.5 rounded-xl border"
+                style={{
+                  color: '#e879f9',
+                  background: 'rgba(232,121,249,0.08)',
+                  borderColor: 'rgba(232,121,249,0.25)',
+                }}
+              >
+                {codeData.code}
+              </span>
+              <button
+                onClick={handleCopy}
+                className="p-2 rounded-lg transition-all hover:bg-white/5"
+                title="Copiar código"
+                style={{ color: copied ? '#4ade80' : 'rgba(255,255,255,0.4)' }}
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Age indicator */}
+            {ageInfo && (
+              <div
+                className="flex items-center gap-2 rounded-lg px-3 py-1.5 border"
+                style={{ background: ageInfo.bgColor, borderColor: ageInfo.borderColor }}
+              >
+                <div
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: ageInfo.color, boxShadow: `0 0 6px ${ageInfo.color}88` }}
+                />
+                <span className="text-xs font-medium" style={{ color: ageInfo.color }}>
+                  {ageInfo.label}
+                </span>
+              </div>
+            )}
+
+            {/* Status messages */}
+            {ageInfo && ageInfo.level === 'green' && (
+              <span className="text-xs" style={{ color: 'rgba(74,222,128,0.7)' }}>
+                Seguro
+              </span>
+            )}
+            {ageInfo && ageInfo.level === 'yellow' && (
+              <span className="text-xs" style={{ color: 'rgba(251,191,36,0.8)' }}>
+                Se recomienda cambiar el código
+              </span>
+            )}
+            {ageInfo && ageInfo.level === 'red' && (
+              <span className="text-xs font-semibold" style={{ color: 'rgba(248,113,113,0.9)' }}>
+                Expirado — cámbialo ahora
+              </span>
+            )}
+
+            {/* Generate button */}
+            <button
+              onClick={() => generateMutation.mutate()}
+              disabled={generateMutation.isPending}
+              className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-all hover:bg-white/5 ml-auto"
+              style={{ borderColor: 'rgba(232,121,249,0.25)', color: '#e879f9' }}
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${generateMutation.isPending ? 'animate-spin' : ''}`} />
+              Generar nuevo
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Sin código configurado — cualquiera puede registrarse
+            </span>
+            <button
+              onClick={() => generateMutation.mutate()}
+              disabled={generateMutation.isPending}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ml-auto"
+              style={{ background: '#e879f9', color: '#000' }}
+            >
+              <Ticket className="h-3.5 w-3.5" />
+              {generateMutation.isPending ? 'Generando...' : 'Activar código de invitación'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full" style={{ background: '#4ade80' }} />
+          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>0-12h: Seguro</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full" style={{ background: '#fbbf24' }} />
+          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>12-24h: Cambiar recomendado</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full" style={{ background: '#f87171' }} />
+          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>+24h: Expirado</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -404,6 +582,9 @@ export default function AdminUsers() {
             </div>
           ))}
         </div>
+
+        {/* Invitation Code Panel */}
+        <InvitationCodePanel />
 
         {/* Filters */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
