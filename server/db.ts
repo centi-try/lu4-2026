@@ -372,6 +372,10 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     // Presentation & additional warehouse collections
     // ============================================================
     presentationItems: ensureArray(data?.presentationItems),
+    carouselImages: ensureArray(data?.carouselImages),
+    carouselSettings: data?.carouselSettings && typeof data.carouselSettings === 'object'
+      ? data.carouselSettings
+      : { intervalSeconds: 10 },
     warehouseHistory: ensureArray(data?.warehouseHistory),
     warehouseSettings: data?.warehouseSettings && typeof data.warehouseSettings === 'object'
       ? data.warehouseSettings
