@@ -346,8 +346,7 @@ export default function Register() {
                       <SelectItem
                         key={c.id}
                         value={String(c.id)}
-                        className="text-sm cursor-pointer hover:bg-white/5"
-                        style={{ color: 'rgba(255,255,255,0.85)' }}
+                        className="text-sm cursor-pointer"
                       >
                         {c.name}
                       </SelectItem>
@@ -395,8 +394,7 @@ export default function Register() {
                       <SelectItem
                         key={cp.id}
                         value={String(cp.id)}
-                        className="text-sm cursor-pointer hover:bg-white/5"
-                        style={{ color: 'rgba(255,255,255,0.85)' }}
+                        className="text-sm cursor-pointer"
                       >
                         {cp.name}
                       </SelectItem>
@@ -443,8 +441,7 @@ export default function Register() {
                       <SelectItem
                         key={c.id}
                         value={c.name}
-                        className="text-sm cursor-pointer hover:bg-white/5"
-                        style={{ color: 'rgba(255,255,255,0.85)' }}
+                        className="text-sm cursor-pointer"
                       >
                         {c.name}
                       </SelectItem>
