@@ -1,12 +1,18 @@
 /**
  * Carrusel del Login — imágenes gestionadas por Super Admin.
- * Cada imagen se almacena como base64 en data_storage.json con historial
- * de versiones anteriores para reemplazo rápido.
+ * Las imágenes se almacenan como archivos en disco (/data/uploads/carousel/)
+ * y se referencian por nombre de archivo en data_storage.json.
  */
 import { z } from 'zod';
 import { router, protectedProcedure, publicProcedure } from '../_core/trpc';
 import { TRPCError } from '@trpc/server';
-import { dbInstance, saveDbToDisk } from '../db';
+import {
+  dbInstance,
+  saveDbToDisk,
+  saveCarouselFile,
+  deleteCarouselFile,
+  readCarouselFileAsDataUri,
+} from '../db';
 
 const nowIso = () => new Date().toISOString();
 const randId = () => Math.floor(Math.random() * 900_000_000) + 100_000_000;
@@ -25,17 +31,25 @@ export const carouselRouter = router({
     const settings = db.carouselSettings || { intervalSeconds: 10 };
     return {
       intervalSeconds: settings.intervalSeconds || 10,
-      images: images.map((img: any) => ({
-        id: img.id,
-        label: img.label || '',
-        data: img.data,
-        width: img.width || 1536,
-        height: img.height || 1024,
-        sizeBytes: img.sizeBytes || 0,
-        order: img.order || 0,
-        createdAt: img.createdAt,
-        historyCount: (img.history || []).length,
-      })),
+      images: images.map((img: any) => {
+        let data = '';
+        if (img.filePath) {
+          data = readCarouselFileAsDataUri(img.filePath) || '';
+        } else if (img.data) {
+          data = img.data;
+        }
+        return {
+          id: img.id,
+          label: img.label || '',
+          data,
+          width: img.width || 1536,
+          height: img.height || 1024,
+          sizeBytes: img.sizeBytes || 0,
+          order: img.order || 0,
+          createdAt: img.createdAt,
+          historyCount: (img.history || []).length,
+        };
+      }),
     };
   }),
 
@@ -61,23 +75,39 @@ export const carouselRouter = router({
       const db = dbInstance;
       const img = (db.carouselImages || []).find((i: any) => i.id === input.id);
       if (!img) throw new TRPCError({ code: 'NOT_FOUND', message: 'Imagen no encontrada.' });
+
+      let data = '';
+      if (img.filePath) {
+        data = readCarouselFileAsDataUri(img.filePath) || '';
+      } else if (img.data) {
+        data = img.data;
+      }
+
       return {
         id: img.id,
         label: img.label || '',
-        data: img.data,
+        data,
         width: img.width || 1536,
         height: img.height || 1024,
         sizeBytes: img.sizeBytes || 0,
         order: img.order || 0,
         createdAt: img.createdAt,
-        history: (img.history || []).map((h: any, idx: number) => ({
-          index: idx,
-          data: h.data,
-          width: h.width || 1536,
-          height: h.height || 1024,
-          sizeBytes: h.sizeBytes || 0,
-          replacedAt: h.replacedAt,
-        })),
+        history: (img.history || []).map((h: any, idx: number) => {
+          let hData = '';
+          if (h.filePath) {
+            hData = readCarouselFileAsDataUri(h.filePath) || '';
+          } else if (h.data) {
+            hData = h.data;
+          }
+          return {
+            index: idx,
+            data: hData,
+            width: h.width || 1536,
+            height: h.height || 1024,
+            sizeBytes: h.sizeBytes || 0,
+            replacedAt: h.replacedAt,
+          };
+        }),
       };
     }),
 
@@ -95,10 +125,12 @@ export const carouselRouter = router({
       const db = dbInstance;
       if (!db.carouselImages) db.carouselImages = [];
       const maxOrder = db.carouselImages.reduce((m: number, i: any) => Math.max(m, i.order ?? 0), 0);
+      const id = randId();
+      const fileName = saveCarouselFile(id, input.data);
       const item = {
-        id: randId(),
+        id,
         label: input.label,
-        data: input.data,
+        filePath: fileName,
         width: input.width || 1536,
         height: input.height || 1024,
         sizeBytes: input.sizeBytes || 0,
@@ -127,14 +159,34 @@ export const carouselRouter = router({
       const img = (db.carouselImages || []).find((i: any) => i.id === input.id);
       if (!img) throw new TRPCError({ code: 'NOT_FOUND', message: 'Imagen no encontrada.' });
       if (!img.history) img.history = [];
-      img.history.unshift({
-        data: img.data,
-        width: img.width,
-        height: img.height,
-        sizeBytes: img.sizeBytes,
-        replacedAt: nowIso(),
-      });
-      img.data = input.data;
+      const histIdx = img.history.length;
+      // Move current to history: rename file with history suffix
+      if (img.filePath) {
+        const oldFilePath = img.filePath;
+        const hFileName = saveCarouselFile(img.id, readCarouselFileAsDataUri(oldFilePath) || '', `_h${histIdx}`);
+        img.history.unshift({
+          filePath: hFileName,
+          width: img.width,
+          height: img.height,
+          sizeBytes: img.sizeBytes,
+          replacedAt: nowIso(),
+        });
+        deleteCarouselFile(oldFilePath);
+      } else if (img.data) {
+        // Legacy base64 in JSON — save to file first
+        const hFileName = saveCarouselFile(img.id, img.data, `_h${histIdx}`);
+        img.history.unshift({
+          filePath: hFileName,
+          width: img.width,
+          height: img.height,
+          sizeBytes: img.sizeBytes,
+          replacedAt: nowIso(),
+        });
+        delete img.data;
+      }
+      // Save new image as file
+      const newFileName = saveCarouselFile(img.id, input.data);
+      img.filePath = newFileName;
       img.width = input.width || 1536;
       img.height = input.height || 1024;
       img.sizeBytes = input.sizeBytes || 0;
@@ -162,14 +214,34 @@ export const carouselRouter = router({
       const old = history[input.historyIndex];
       // Current version goes to history
       history.splice(input.historyIndex, 1);
-      history.unshift({
-        data: img.data,
-        width: img.width,
-        height: img.height,
-        sizeBytes: img.sizeBytes,
-        replacedAt: nowIso(),
-      });
-      img.data = old.data;
+      const histIdx = history.length;
+      if (img.filePath) {
+        const currentData = readCarouselFileAsDataUri(img.filePath);
+        if (currentData) {
+          const hFileName = saveCarouselFile(img.id, currentData, `_h${histIdx}`);
+          history.unshift({
+            filePath: hFileName,
+            width: img.width,
+            height: img.height,
+            sizeBytes: img.sizeBytes,
+            replacedAt: nowIso(),
+          });
+        }
+        deleteCarouselFile(img.filePath);
+      }
+      // Restore old version as current
+      if (old.filePath) {
+        const oldData = readCarouselFileAsDataUri(old.filePath);
+        if (oldData) {
+          const newFileName = saveCarouselFile(img.id, oldData);
+          img.filePath = newFileName;
+          deleteCarouselFile(old.filePath);
+        }
+      } else if (old.data) {
+        const newFileName = saveCarouselFile(img.id, old.data);
+        img.filePath = newFileName;
+      }
+      delete img.data;
       img.width = old.width || 1536;
       img.height = old.height || 1024;
       img.sizeBytes = old.sizeBytes || 0;
@@ -187,6 +259,15 @@ export const carouselRouter = router({
       if (!db.carouselImages) db.carouselImages = [];
       const idx = db.carouselImages.findIndex((i: any) => i.id === input.id);
       if (idx === -1) throw new TRPCError({ code: 'NOT_FOUND', message: 'Imagen no encontrada.' });
+      const img = db.carouselImages[idx];
+      // Delete current file
+      if (img.filePath) deleteCarouselFile(img.filePath);
+      // Delete history files
+      if (img.history) {
+        for (const h of img.history) {
+          if (h.filePath) deleteCarouselFile(h.filePath);
+        }
+      }
       db.carouselImages.splice(idx, 1);
       saveDbToDisk();
       return { success: true };
@@ -198,6 +279,15 @@ export const carouselRouter = router({
       superAdminGuard(String(ctx.user?.role || '').toLowerCase());
       const db = dbInstance;
       const count = (db.carouselImages || []).length;
+      // Delete all files from disk
+      for (const img of (db.carouselImages || [])) {
+        if (img.filePath) deleteCarouselFile(img.filePath);
+        if (img.history) {
+          for (const h of img.history) {
+            if (h.filePath) deleteCarouselFile(h.filePath);
+          }
+        }
+      }
       db.carouselImages = [];
       saveDbToDisk();
       return { success: true, deleted: count };

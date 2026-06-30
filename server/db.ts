@@ -27,12 +27,87 @@ const BACKUPS_RETENTION_DAYS = Math.max(
 );
 const BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(DATA_DIR, 'uploads');
+const CAROUSEL_DIR = path.join(UPLOADS_DIR, 'carousel');
+
 export const STORAGE_PATHS = {
   dbFile: DB_FILE,
   dataDir: DATA_DIR,
   backupsDir: BACKUPS_DIR,
   retentionDays: BACKUPS_RETENTION_DAYS,
+  uploadsDir: UPLOADS_DIR,
+  carouselDir: CAROUSEL_DIR,
 };
+
+// ============================================================================
+// Carousel image file helpers
+// ============================================================================
+function ensureCarouselDir() {
+  try { fs.mkdirSync(CAROUSEL_DIR, { recursive: true }); } catch { /* ignore */ }
+}
+
+function extFromMime(dataUri: string): string {
+  if (dataUri.startsWith('data:image/png')) return '.png';
+  if (dataUri.startsWith('data:image/webp')) return '.webp';
+  if (dataUri.startsWith('data:image/gif')) return '.gif';
+  return '.jpg';
+}
+
+export function saveCarouselFile(id: number, dataUri: string, suffix = ''): string {
+  ensureCarouselDir();
+  const ext = extFromMime(dataUri);
+  const fileName = `carousel_${id}${suffix}${ext}`;
+  const filePath = path.join(CAROUSEL_DIR, fileName);
+  const base64Data = dataUri.replace(/^data:image\/\w+;base64,/, '');
+  fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+  return fileName;
+}
+
+export function deleteCarouselFile(fileName: string) {
+  try {
+    const filePath = path.join(CAROUSEL_DIR, fileName);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch { /* ignore */ }
+}
+
+export function readCarouselFileAsDataUri(fileName: string): string | null {
+  try {
+    const filePath = path.join(CAROUSEL_DIR, fileName);
+    if (!fs.existsSync(filePath)) return null;
+    const buf = fs.readFileSync(filePath);
+    const ext = path.extname(fileName).toLowerCase();
+    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  } catch { return null; }
+}
+
+export function migrateCarouselImagesToFiles(db: any) {
+  if (!db.carouselImages || db.carouselImages.length === 0) return false;
+  let migrated = false;
+  ensureCarouselDir();
+  for (const img of db.carouselImages) {
+    if (img.data && img.data.startsWith('data:image/')) {
+      const fileName = saveCarouselFile(img.id, img.data);
+      img.filePath = fileName;
+      delete img.data;
+      migrated = true;
+    }
+    if (img.history && Array.isArray(img.history)) {
+      for (let i = 0; i < img.history.length; i++) {
+        const h = img.history[i];
+        if (h.data && h.data.startsWith('data:image/')) {
+          const hFileName = saveCarouselFile(img.id, h.data, `_h${i}`);
+          h.filePath = hFileName;
+          delete h.data;
+          migrated = true;
+        }
+      }
+    }
+  }
+  return migrated;
+}
 
 // Estructura inicial de la base de datos
 interface DatabaseSchema {
@@ -107,7 +182,7 @@ interface DatabaseSchema {
   // Presentación del login (contenido gestionado por Super Admin)
   // ============================================================
   presentationItems: any[];    // { id, type:'image'|'video'|'text', title, content, order, createdAt }
-  carouselImages: any[];       // { id, label, data (base64), width, height, sizeBytes, createdAt, history[] }
+  carouselImages: any[];       // { id, label, filePath, width, height, sizeBytes, createdAt, history[] }
   carouselSettings: any;       // { intervalSeconds: number }
   warehouseHistory: any[];     // historial de retiros/eliminaciones
   warehouseSettings: any;      // configuración de visibilidad cross-CP
@@ -453,33 +528,47 @@ function loadFromLatestBackup(): DatabaseSchema | null {
 
 // Cargar o inicializar la base de datos
 function loadDb(): DatabaseSchema {
+  let result: DatabaseSchema;
   try {
     if (fs.existsSync(DB_FILE)) {
       const data = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = tryParseDatabase(data);
       if (parsed) {
-        return ensureDefaultSuperAdmin(parsed);
-      }
-      console.error(
-        `[db] Archivo ${DB_FILE} corrupto o vacío — intentando recuperar desde backup`,
-      );
-      const recovered = loadFromLatestBackup();
-      if (recovered) {
-        // Guardar inmediatamente el estado recuperado en el archivo principal
-        // para que próximas cargas no toquen el backup de nuevo.
-        try {
-          writeDbAtomic(recovered);
-        } catch (err) {
-          console.error('[db] Error reescribiendo archivo principal:', err);
+        result = ensureDefaultSuperAdmin(parsed);
+      } else {
+        console.error(
+          `[db] Archivo ${DB_FILE} corrupto o vacío — intentando recuperar desde backup`,
+        );
+        const recovered = loadFromLatestBackup();
+        if (recovered) {
+          try {
+            writeDbAtomic(recovered);
+          } catch (err) {
+            console.error('[db] Error reescribiendo archivo principal:', err);
+          }
+          result = ensureDefaultSuperAdmin(recovered);
+        } else {
+          console.error('[db] Sin backups recuperables — arrancando con schema vacío');
+          result = ensureDefaultSuperAdmin(JSON.parse(JSON.stringify(initialSchema)));
         }
-        return ensureDefaultSuperAdmin(recovered);
       }
-      console.error('[db] Sin backups recuperables — arrancando con schema vacío');
+    } else {
+      result = ensureDefaultSuperAdmin(JSON.parse(JSON.stringify(initialSchema)));
     }
   } catch (error) {
     console.error('Error loading DB file:', error);
+    result = ensureDefaultSuperAdmin(JSON.parse(JSON.stringify(initialSchema)));
   }
-  return ensureDefaultSuperAdmin(JSON.parse(JSON.stringify(initialSchema)));
+
+  // Migrate carousel images from base64 in JSON to files on disk
+  if (migrateCarouselImagesToFiles(result)) {
+    console.log('[db] Migrated carousel images from base64 to files on disk');
+    try { writeDbAtomic(result); } catch (err) {
+      console.error('[db] Error saving after carousel migration:', err);
+    }
+  }
+
+  return result;
 }
 
 // Escritura atómica: tmp + rename. Esto evita que un crash durante el save

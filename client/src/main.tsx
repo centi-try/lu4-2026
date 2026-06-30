@@ -9,7 +9,18 @@ import { getLoginUrl } from "./const";
 import { AuthProvider } from "./contexts/AuthContext";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000,          // 2 min: data se considera fresca
+      gcTime: 5 * 60 * 1000,              // 5 min: caché en memoria
+      refetchOnWindowFocus: false,         // No recargar al volver a la pestaña
+      refetchOnReconnect: false,           // No recargar al reconectar internet
+      refetchInterval: false,              // Sin polling automático
+      retry: 1,                            // Solo 1 reintento en error
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
@@ -43,6 +54,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      maxURLLength: 2048,
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),
