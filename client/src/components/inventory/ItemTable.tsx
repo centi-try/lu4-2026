@@ -11,6 +11,15 @@ import { ItemReservationButton, type ItemReservationRecord } from './ItemReserva
 import { FancySelect, type FancyOption } from '../ui/FancySelect';
 import { ImageHoverPreview } from '../ui/ImageHoverPreview';
 import type { Character } from '../../lib/types';
+import { reformatWhileTyping, parseThousands, formatThousands } from '../../lib/number-format';
+
+// #10: nombre largo → truncar a 50 chars con "…" y tooltip con el nombre completo.
+const NAME_TRUNCATE_LEN = 50;
+function truncateName(name: string): { shown: string; truncated: boolean } {
+  if (!name) return { shown: '', truncated: false };
+  if (name.length <= NAME_TRUNCATE_LEN) return { shown: name, truncated: false };
+  return { shown: name.slice(0, NAME_TRUNCATE_LEN) + '…', truncated: true };
+}
 
 // Lista compacta de personajes asociados a un ítem.
 // Muestra los primeros MAX_CHAR_AVATARS como avatars apilados y colapsa el
@@ -369,6 +378,17 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     return map;
   }, [characters, legacyBuyers]);
 
+  // #12/#17: lista de usuarios seleccionables para los pickers de personajes y
+  // responsable del modal de edición (mismo formato que CreateItemPanel).
+  const selectableUsers = useMemo(() => {
+    return (legacyBuyers as any[]).map((u: any) => {
+      const r = String(u.role || 'user').toLowerCase();
+      const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+      const roleLabel = r === 'super_admin' ? 'Administrador del Sistema' : r === 'mapper' ? 'Mapper' : r === 'admin' ? 'Admin' : 'Usuario';
+      return { id: String(u.id), name: u.name || 'Sin nombre', avatar: avatarGrad, class: String(u.classMain || '').trim() || 'Sin clase', role: roleLabel };
+    });
+  }, [legacyBuyers]);
+
   const utils = trpc.useUtils();
   const markPreSoldMutation = trpc.items.reservations.markPreSold.useMutation({
     onSuccess: () => { utils.items.reservations.list.invalidate(); toast.success('Reserva marcada como pre-vendida.'); },
@@ -396,8 +416,15 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [statusFilter, setStatusFilter] = useState<ItemStatus | 'ALL' | 'WITH_RESERVATIONS' | 'STALE_7D'>('ALL');
   const [sortKey, setSortKey] = useState<'name' | 'price' | 'createdAt'>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [editId, setEditId] = useState<string | null>(null);
+  // #12: edición completa del ítem (nombre/precio/stock/personajes/responsable).
+  const [editModalItem, setEditModalItem] = useState<Item | null>(null);
+  const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const [editCharIds, setEditCharIds] = useState<string[]>([]);
+  const [editRespId, setEditRespId] = useState<string>('');
+  const [editCharSearch, setEditCharSearch] = useState('');
+  const [editRespSearch, setEditRespSearch] = useState('');
   // Venta parcial
   const [sellModalItem, setSellModalItem] = useState<Item | null>(null);
   const [sellQty, setSellQty] = useState('1');
@@ -516,15 +543,43 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setDeleteModalItem(null);
   };
 
-  const handleEditPrice = (item: Item) => {
-    setEditId(item.id);
-    setEditPrice(String(item.price ?? ''));
+  // #12: abrir el modal de edición completa con los valores actuales del ítem.
+  const openEditModal = (item: Item) => {
+    setEditModalItem(item);
+    setEditName(item.name || '');
+    setEditPrice(item.price ? formatThousands(item.price) : '');
+    setEditQty(String(item.quantity ?? ''));
+    setEditCharIds([...(item.associatedCharacterIds || [])]);
+    setEditRespId(item.responsibleUserId ? String(item.responsibleUserId) : '');
+    setEditCharSearch('');
+    setEditRespSearch('');
   };
 
-  const handleSavePrice = (item: Item) => {
-    updateItem(item.id, { price: editPrice ? Number(editPrice) : null });
-    toast.success('Precio actualizado');
-    setEditId(null);
+  const handleSaveEdit = () => {
+    if (!editModalItem) return;
+    const name = editName.trim();
+    if (!name) { toast.error('El nombre no puede estar vacío.'); return; }
+    const priceNum = parseThousands(editPrice);
+    const qtyNum = parseInt(editQty, 10);
+    if (isNaN(qtyNum) || qtyNum < 1) { toast.error('El stock debe ser al menos 1.'); return; }
+    if (qtyNum < editModalItem.quantitySold) {
+      toast.error(`El stock no puede ser menor a las unidades ya vendidas (${editModalItem.quantitySold}).`);
+      return;
+    }
+    if (editCharIds.length === 0) { toast.error('Debes asociar al menos un personaje.'); return; }
+    updateItem(editModalItem.id, {
+      name,
+      price: priceNum,
+      quantity: qtyNum,
+      associatedCharacterIds: editCharIds,
+      responsibleUserId: editRespId || null,
+    });
+    toast.success(`Ítem "${name}" actualizado.`);
+    setEditModalItem(null);
+  };
+
+  const toggleEditChar = (cid: string) => {
+    setEditCharIds(prev => prev.includes(cid) ? prev.filter(x => x !== cid) : [...prev, cid]);
   };
 
   const { data: clanFundSettings } = trpc.clanFund.getSettings.useQuery(undefined, { staleTime: 30_000 });
@@ -716,7 +771,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
         {/* Table */}
         <div className="table-scroll">
-          <table className="w-full min-w-[800px]">
+          <table className="w-full min-w-[920px]">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Img</th>
@@ -730,13 +785,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Stock</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Estado</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Personajes</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Responsable</th>
                 {!compact && <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.3)' }}>Acciones</th>}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  <td colSpan={9} className="px-5 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>
                     No se encontraron ítems con los filtros aplicados
                   </td>
                 </tr>
@@ -744,15 +800,26 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               {filtered.map(item => {
                 const catMeta = categoryMeta[item.category] || { label: item.category, badgeClass: 'badge-default', color: '#94a3b8', emoji: '📦' };
                 const stMeta = statusMeta[item.status] || { label: item.status, badgeClass: 'badge-default', color: '#94a3b8' };
-                const canEdit = currentUser && currentUser.role === 'SUPER_ADMIN' || (currentUser && currentUser.role === 'MAPPER' && item.status === 'EN_REGISTRO');
+                // #12: SUPER_ADMIN y MAPPER pueden editar (nombre/precio/stock/personajes)
+                // para corregir errores de registro, sin importar el estado.
+                const canEdit = !!currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MAPPER');
                 const canConfirm = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status === 'EN_REGISTRO';
                 const canDelete = currentUser && currentUser.role === 'SUPER_ADMIN';
-                const canSell = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status !== 'VENDIDO' && item.status === 'CONFIRMADO';
-                const isEditing = editId === item.id;
+                // #4: SUPER_ADMIN y MAPPER pueden vender ítems confirmados con stock.
+                const canSell = !!currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MAPPER') && item.status === 'CONFIRMADO';
                 const remaining = item.quantity - item.quantitySold;
                 const assocChars = item.associatedCharacterIds
                   .map(cid => allCharLookup.get(String(cid)))
                   .filter((c): c is Character => !!c);
+                // #17: resolver el nombre del responsable del ítem.
+                const respChar = item.responsibleUserId ? allCharLookup.get(String(item.responsibleUserId)) : undefined;
+                // #10: nombre truncado a 50 chars.
+                const nameInfo = truncateName(item.name);
+                // #9: precio con descuento de clan (venta interna).
+                const discountPct = Number(clanFundSettings?.internalDiscountPercent) || 0;
+                const discountedPrice = item.price && discountPct > 0
+                  ? Math.floor(item.price * (1 - discountPct / 100))
+                  : null;
                 const itemReservations = reservationsByItem.get(String(item.id)) || [];
                 const reservedCount = itemReservations.length;
                 const reservedUnits = itemReservations.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
@@ -790,7 +857,13 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     {/* Name */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>{item.name}</p>
+                        <p
+                          className="text-sm font-medium max-w-[320px] truncate"
+                          style={{ color: 'rgba(255,255,255,0.9)' }}
+                          title={nameInfo.truncated ? item.name : undefined}
+                        >
+                          {nameInfo.shown}
+                        </p>
                         {hasReservations && (
                           <span
                             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none align-middle"
@@ -823,20 +896,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                         {catMeta.emoji} {catMeta.label}
                       </span>
                     </td>
-                    {/* Price */}
+                    {/* Price — #9: precio original + precio con descuento de clan */}
                     <td className="px-4 py-3">
-                      {isEditing ? (
-                        <div className="flex items-center gap-1">
-                          <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)}
-                            className="input-dark h-8 w-24 text-xs" autoFocus />
-                          <button onClick={() => handleSavePrice(item)} className="btn-primary text-xs px-2 py-1">✓</button>
-                          <button onClick={() => setEditId(null)} className="btn-ghost text-xs px-2 py-1">✕</button>
-                        </div>
-                      ) : (
+                      <div className="flex flex-col leading-tight">
                         <span className="text-sm font-mono" style={{ color: 'rgba(255,255,255,0.7)' }}>
                           {item.price ? `$${item.price.toLocaleString()}` : '—'}
                         </span>
-                      )}
+                        {discountedPrice !== null && (
+                          <span
+                            className="text-xs font-mono font-semibold mt-0.5"
+                            style={{ color: '#fbbf24' }}
+                            title={`Precio con descuento de clan (-${discountPct}%) para venta interna`}
+                          >
+                            ${discountedPrice.toLocaleString()} <span style={{ fontSize: 9, opacity: 0.8 }}>(-{discountPct}% clan)</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {/* Stock */}
                     <td className="px-4 py-3">
@@ -861,6 +936,24 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     <td className="px-4 py-3">
                       <AssocCharactersCell chars={assocChars} />
                     </td>
+                    {/* #17 — Responsable del ítem */}
+                    <td className="px-4 py-3">
+                      {respChar ? (
+                        <div className="flex items-center gap-1.5" title={`Responsable: ${respChar.name}`}>
+                          <div
+                            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${respChar.avatar} text-white`}
+                            style={{ fontSize: '9px', fontWeight: 'bold' }}
+                          >
+                            {respChar.name.slice(0, 1).toUpperCase()}
+                          </div>
+                          <span className="text-xs truncate max-w-[110px]" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                            {respChar.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
+                      )}
+                    </td>
                     {/* Actions — reglas replicadas de RaidDropsTable:
                         - ✏️ editar precio: deshabilitado si todo vendido (no tiene sentido cambiar el precio)
                         - 🛒 vender: oculto si no hay stock restante
@@ -868,16 +961,11 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     {!compact && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
-                          {canEdit && !isEditing && (
+                          {canEdit && (
                             <button
-                              onClick={() => { if (remaining > 0) handleEditPrice(item); }}
-                              disabled={remaining === 0}
+                              onClick={() => openEditModal(item)}
                               className="btn-ghost p-2"
-                              title={remaining === 0 ? 'No se puede editar: ítem sin stock (todo vendido)' : 'Editar precio'}
-                              style={{
-                                opacity: remaining === 0 ? 0.35 : 1,
-                                cursor: remaining === 0 ? 'not-allowed' : 'pointer',
-                              }}
+                              title="Editar ítem (nombre, precio, stock, personajes, responsable)"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
@@ -951,6 +1039,178 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
           </div>
         )}
       </div>
+
+      {/* #12 — Modal de edición completa del ítem (nombre/precio/stock/personajes/responsable) */}
+      {editModalItem && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setEditModalItem(null); }}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2">
+                <Pencil className="h-4 w-4" style={{ color: '#7bf1d6' }} />
+                <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Editar ítem</h3>
+              </div>
+              <button type="button" onClick={() => setEditModalItem(null)} className="rounded p-1 transition-colors hover:bg-white/5">
+                <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {/* Nombre */}
+              <div>
+                <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Nombre</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="input-dark h-9 w-full text-sm"
+                  placeholder="Nombre del ítem"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Precio (#11 formateado) */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Precio (Adena)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editPrice}
+                    onChange={e => setEditPrice(reformatWhileTyping(e.target.value))}
+                    className="input-dark h-9 w-full text-sm"
+                    placeholder="0"
+                  />
+                </div>
+                {/* Stock */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Stock (total)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editQty}
+                    onChange={e => setEditQty(e.target.value)}
+                    className="input-dark h-9 w-full text-sm"
+                    placeholder="0"
+                  />
+                  <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    Vendidas: {editModalItem.quantitySold} (mínimo permitido)
+                  </p>
+                </div>
+              </div>
+
+              {/* Personajes asociados (multi) */}
+              <div>
+                <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  Personajes asociados ({editCharIds.length})
+                </label>
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(10,14,22,0.98)', maxHeight: 180, overflowY: 'auto' }}>
+                  <div className="flex items-center gap-2 border-b px-3 py-2 sticky top-0" style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <Search className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                    <input
+                      value={editCharSearch}
+                      onChange={e => setEditCharSearch(e.target.value)}
+                      placeholder="Buscar personaje..."
+                      className="bg-transparent text-xs outline-none w-full"
+                      style={{ color: 'rgba(255,255,255,0.8)' }}
+                    />
+                  </div>
+                  {selectableUsers
+                    .filter(c => c.name.toLowerCase().includes(editCharSearch.toLowerCase()) || c.class.toLowerCase().includes(editCharSearch.toLowerCase()))
+                    .map(char => {
+                      const isSel = editCharIds.includes(char.id);
+                      return (
+                        <button
+                          key={char.id}
+                          type="button"
+                          onClick={() => toggleEditChar(char.id)}
+                          className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                          style={{ background: isSel ? 'rgba(123,241,214,0.06)' : undefined }}
+                        >
+                          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-[10px] font-bold text-white`}>
+                            {char.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{char.name}</p>
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{char.class} · {char.role}</p>
+                          </div>
+                          <div className="shrink-0 h-4 w-4 rounded border flex items-center justify-center" style={{ borderColor: isSel ? '#7bf1d6' : 'rgba(255,255,255,0.2)', background: isSel ? 'rgba(123,241,214,0.2)' : 'transparent' }}>
+                            {isSel && <span style={{ color: '#7bf1d6', fontSize: 10 }}>✓</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Responsable (single) */}
+              <div>
+                <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Responsable del ítem</label>
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(10,14,22,0.98)', maxHeight: 180, overflowY: 'auto' }}>
+                  <div className="flex items-center gap-2 border-b px-3 py-2 sticky top-0" style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <Search className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                    <input
+                      value={editRespSearch}
+                      onChange={e => setEditRespSearch(e.target.value)}
+                      placeholder="Buscar responsable..."
+                      className="bg-transparent text-xs outline-none w-full"
+                      style={{ color: 'rgba(255,255,255,0.8)' }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditRespId('')}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                    style={{ background: !editRespId ? 'rgba(139,183,250,0.06)' : undefined }}
+                  >
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>— Sin responsable —</span>
+                  </button>
+                  {selectableUsers
+                    .filter(c => c.name.toLowerCase().includes(editRespSearch.toLowerCase()) || c.class.toLowerCase().includes(editRespSearch.toLowerCase()))
+                    .map(char => {
+                      const isSel = editRespId === char.id;
+                      return (
+                        <button
+                          key={char.id}
+                          type="button"
+                          onClick={() => setEditRespId(isSel ? '' : char.id)}
+                          className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                          style={{ background: isSel ? 'rgba(139,183,250,0.06)' : undefined }}
+                        >
+                          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-[10px] font-bold text-white`}>
+                            {char.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{char.name}</p>
+                            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{char.class} · {char.role}</p>
+                          </div>
+                          <div className="shrink-0 h-4 w-4 rounded-full border flex items-center justify-center" style={{ borderColor: isSel ? '#8bb7fa' : 'rgba(255,255,255,0.2)', background: isSel ? 'rgba(139,183,250,0.2)' : 'transparent' }}>
+                            {isSel && <span style={{ color: '#8bb7fa', fontSize: 10 }}>✓</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button type="button" onClick={() => setEditModalItem(null)} className="rounded-lg px-4 py-2 text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={handleSaveEdit} className="btn-primary rounded-lg px-4 py-2 text-xs font-semibold">
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Modal de venta parcial */}
       {sellModalItem && (

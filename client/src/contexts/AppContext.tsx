@@ -17,6 +17,7 @@ interface SellItemOptions {
 }
 
 interface AppContextType {
+  isLoading: boolean;
   currentUser: Character;
   setCurrentUser: (c: Character) => void;
   isImpersonating: boolean;
@@ -115,21 +116,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [salesCycles, setSalesCycles] = useState<SalesCycle[]>([]);
 
-  const { data: serverItems, refetch: refetchItems } = trpc.items.list.useQuery(undefined, {
+  const { data: serverItems, refetch: refetchItems, isLoading: itemsLoading } = trpc.items.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCharacters, refetch: refetchCharacters } = trpc.items.legacyBuyers.useQuery(undefined, {
+  const { data: serverCharacters, refetch: refetchCharacters, isLoading: charsLoading } = trpc.items.legacyBuyers.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverPurchases, refetch: refetchPurchases } = trpc.items.listPurchases.useQuery(undefined, {
+  const { data: serverPurchases, refetch: refetchPurchases, isLoading: purchasesLoading } = trpc.items.listPurchases.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCycles, refetch: refetchCycles } = trpc.salesCycles.list.useQuery(undefined, {
+  const { data: serverCycles, refetch: refetchCycles, isLoading: cyclesLoading } = trpc.salesCycles.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverAuditLogs, refetch: refetchAuditLogs } = trpc.auditLogs.list.useQuery(undefined, {
+  const { data: serverAuditLogs, refetch: refetchAuditLogs, isLoading: logsLoading } = trpc.auditLogs.list.useQuery(undefined, {
     enabled: !!authUser,
   });
+
+  const isLoading = !!authUser && (itemsLoading || charsLoading || purchasesLoading || cyclesLoading || logsLoading);
 
   useEffect(() => {
     if (serverItems) {
@@ -149,6 +152,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         quantitySold: Number(item.quantitySold) || 0,
         quantitySoldInCycle: Number(item.quantitySoldInCycle) || 0,
         associatedCharacterIds: Array.isArray(item.associatedCharacterIds) ? item.associatedCharacterIds.map(String) : [],
+        // #17: responsable del ítem (id de usuario). El nombre se resuelve en la tabla.
+        responsibleUserId: item.responsibleUserId !== null && item.responsibleUserId !== undefined ? String(item.responsibleUserId) : null,
         image: item.image || {
           id: `img-${item.id}`,
           publicUrl: item.imageUrl || '',
@@ -202,12 +207,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [serverCycles]);
 
+  // #15: la fuente de verdad de la actividad son los logs PERSISTENTES del
+  // servidor. Antes fusionábamos logs temporales del navegador (addLog) que se
+  // perdían al refrescar y ensuciaban el feed. Ahora reemplazamos con los del
+  // servidor; los optimistas de addLog quedan como preview hasta el próximo
+  // refetch (que disparamos tras cada mutación).
   useEffect(() => {
-    if (serverAuditLogs) setAuditLogs(prev => {
-      const serverIds = new Set((serverAuditLogs as any[]).map((l: any) => l.id));
-      const localOnly = prev.filter(l => !serverIds.has(l.id));
-      return [...localOnly, ...(serverAuditLogs as any[])];
-    });
+    if (serverAuditLogs) setAuditLogs(serverAuditLogs as any[]);
   }, [serverAuditLogs]);
 
   const trpcUtils = trpc.useUtils();
@@ -216,6 +222,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       refetchPurchases();
       refetchItems();
       refetchCharacters();
+      refetchAuditLogs();
       trpcUtils.items.reservations.list.invalidate();
     }
   });
@@ -229,21 +236,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const createItemMutation = trpc.items.create.useMutation({
-    onSuccess: () => refetchItems()
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
   const updateItemMutation = trpc.items.update.useMutation({
-    onSuccess: () => refetchItems()
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
   const confirmItemMutation = trpc.items.confirm.useMutation({
-    onSuccess: () => refetchItems()
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
   const deleteItemMutation = trpc.items.delete.useMutation({
     onSuccess: () => {
       refetchItems();
       refetchCharacters();
+      refetchAuditLogs();
     }
   });
   const [currentCycleStartedAt, setCurrentCycleStartedAt] = useState<string | null>(
@@ -287,6 +295,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
       quantity: data.quantity || 1,
       imageUrl: imageUrlToPersist,
+      // #17: responsable del ítem (id de usuario).
+      responsibleUserId: data.responsibleUserId
+        ? (parseInt(String(data.responsibleUserId).replace('auth-', '')) || null)
+        : null,
     });
 
     const now = new Date().toISOString();
@@ -326,12 +338,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (updates as any).imageUrl ??
       updates.image?.publicUrl ??
       undefined;
+    // #12: convertir associatedCharacterIds (strings, posible prefijo auth-) a
+    // números para el backend. #17: idem responsable. quantity = stock editable.
+    const assocForServer = updates.associatedCharacterIds !== undefined
+      ? updates.associatedCharacterIds.map(cid => parseInt(String(cid).replace('auth-', '')) || 0).filter(cid => cid > 0)
+      : undefined;
+    const responsibleForServer = updates.responsibleUserId !== undefined
+      ? (updates.responsibleUserId ? (parseInt(String(updates.responsibleUserId).replace('auth-', '')) || null) : null)
+      : undefined;
     updateItemMutation.mutate({
       id: isNaN(updateNumericId) ? 0 : updateNumericId,
       name: updates.name,
       category: updates.category,
       price: updates.price || undefined,
       imageUrl: incomingImageUrl,
+      associatedCharacterIds: assocForServer,
+      quantity: updates.quantity !== undefined ? Number(updates.quantity) : undefined,
+      responsibleUserId: responsibleForServer,
     });
 
     setItems(prev => prev.map(item => {
@@ -382,8 +405,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [currentUser, addLog, deleteItemMutation]);
 
   const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale, isExternalSale }: SellItemOptions) => {
-    if (currentUser.role === 'USER') return;
-    if (currentUser.role !== 'SUPER_ADMIN') return;
+    // #4: SUPER_ADMIN y MAPPER pueden vender. USER no.
+    if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'MAPPER') return;
 
     const numericId = parseInt(String(itemId).replace('item-', ''));
     sellMutation.mutate({
@@ -551,6 +574,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
+      isLoading,
       currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
       items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,

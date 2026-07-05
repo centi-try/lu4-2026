@@ -3,13 +3,9 @@ import { useLocation } from 'wouter';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+import L2Splash from '../components/L2Splash';
 
 const CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
@@ -34,6 +30,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [touched, setTouched] = useState<{
     email: boolean;
@@ -155,8 +152,7 @@ export default function Register() {
         selectedClassMain || null,
         invitationCode.trim() || null,
       );
-      toast.success('¡Registro exitoso! Iniciando sesión...');
-      setTimeout(() => setLocation('/'), 150);
+      setRegistered(true);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error de conexión';
       setSubmitError(msg);
@@ -168,28 +164,17 @@ export default function Register() {
 
   const inputClass = 'input-dark';
 
-  // Full-page splash screen while loading initial data
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#060910' }}>
-        <div className="text-center animate-pulse">
-          <div className="flex justify-center mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(123,241,214,0.3), rgba(232,121,249,0.2))' }}>
-              <span className="text-3xl font-black" style={{ color: '#7bf1d6' }}>L2</span>
-            </div>
-          </div>
-          <h1 className="text-4xl font-black tracking-[0.25em] mb-3" style={{ color: '#7bf1d6', letterSpacing: '0.25em' }}>
-            LINEAGE II
-          </h1>
-          <p className="text-sm font-medium tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            RaptorSquad
-          </p>
-          <div className="mt-8 flex justify-center">
-            <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(123,241,214,0.4)', borderTopColor: 'transparent' }} />
-          </div>
-        </div>
-      </div>
-    );
+  // Navigate after successful registration (from a clean render, no complex DOM)
+  useEffect(() => {
+    if (registered) {
+      const t = setTimeout(() => setLocation('/'), 300);
+      return () => clearTimeout(t);
+    }
+  }, [registered, setLocation]);
+
+  // Full-page splash screen while loading initial data or after registration
+  if (initialLoading || registered) {
+    return <L2Splash />;
   }
 
   return (
@@ -348,7 +333,7 @@ export default function Register() {
               )}
             </div>
 
-            {/* Clan dropdown — Radix UI */}
+            {/* Clan dropdown */}
             {clans.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
@@ -356,14 +341,14 @@ export default function Register() {
                 </label>
                 <Select
                   value={selectedClanId}
-                  onValueChange={(val) => {
-                    setSelectedClanId(val);
+                  onValueChange={(v) => {
+                    setSelectedClanId(v);
                     setSelectedCpId('');
                   }}
                   disabled={loading}
                 >
                   <SelectTrigger
-                    className="w-full h-11 rounded-xl border text-sm"
+                    className="w-full h-11 rounded-xl border text-sm px-3"
                     style={{
                       background: 'rgba(255,255,255,0.04)',
                       borderColor: 'rgba(255,255,255,0.12)',
@@ -373,21 +358,9 @@ export default function Register() {
                   >
                     <SelectValue placeholder="Seleccionar clan..." />
                   </SelectTrigger>
-                  <SelectContent
-                    style={{
-                      background: 'rgba(10,14,22,0.98)',
-                      borderColor: 'rgba(255,255,255,0.12)',
-                      backdropFilter: 'blur(20px)',
-                    }}
-                  >
+                  <SelectContent>
                     {clans.map(c => (
-                      <SelectItem
-                        key={c.id}
-                        value={String(c.id)}
-                        className="text-sm cursor-pointer"
-                      >
-                        {c.name}
-                      </SelectItem>
+                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -399,7 +372,7 @@ export default function Register() {
               </div>
             )}
 
-            {/* CP dropdown — Radix UI */}
+            {/* CP dropdown */}
             {selectedClanId && filteredCps.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
@@ -411,7 +384,7 @@ export default function Register() {
                   disabled={loading}
                 >
                   <SelectTrigger
-                    className="w-full h-11 rounded-xl border text-sm"
+                    className="w-full h-11 rounded-xl border text-sm px-3"
                     style={{
                       background: 'rgba(255,255,255,0.04)',
                       borderColor: 'rgba(255,255,255,0.12)',
@@ -421,21 +394,9 @@ export default function Register() {
                   >
                     <SelectValue placeholder="Seleccionar CP..." />
                   </SelectTrigger>
-                  <SelectContent
-                    style={{
-                      background: 'rgba(10,14,22,0.98)',
-                      borderColor: 'rgba(255,255,255,0.12)',
-                      backdropFilter: 'blur(20px)',
-                    }}
-                  >
+                  <SelectContent>
                     {filteredCps.map(cp => (
-                      <SelectItem
-                        key={cp.id}
-                        value={String(cp.id)}
-                        className="text-sm cursor-pointer"
-                      >
-                        {cp.name}
-                      </SelectItem>
+                      <SelectItem key={cp.id} value={String(cp.id)}>{cp.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -447,7 +408,7 @@ export default function Register() {
               </div>
             )}
 
-            {/* Class Main dropdown — Radix UI */}
+            {/* Class Main dropdown */}
             {availableClasses.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
@@ -459,7 +420,7 @@ export default function Register() {
                   disabled={loading}
                 >
                   <SelectTrigger
-                    className="w-full h-11 rounded-xl border text-sm"
+                    className="w-full h-11 rounded-xl border text-sm px-3"
                     style={{
                       background: 'rgba(255,255,255,0.04)',
                       borderColor: 'rgba(255,255,255,0.12)',
@@ -468,21 +429,9 @@ export default function Register() {
                   >
                     <SelectValue placeholder="Seleccionar clase..." />
                   </SelectTrigger>
-                  <SelectContent
-                    style={{
-                      background: 'rgba(10,14,22,0.98)',
-                      borderColor: 'rgba(255,255,255,0.12)',
-                      backdropFilter: 'blur(20px)',
-                    }}
-                  >
+                  <SelectContent>
                     {availableClasses.map(c => (
-                      <SelectItem
-                        key={c.id}
-                        value={c.name}
-                        className="text-sm cursor-pointer"
-                      >
-                        {c.name}
-                      </SelectItem>
+                      <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

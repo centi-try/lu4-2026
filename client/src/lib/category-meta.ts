@@ -10,6 +10,9 @@ export const categoryMeta: any = {
   MATERIALES: { label: 'Materiales', badgeClass: 'badge-materiales', color: '#34d399', emoji: '💎' },
   QUEST:      { label: 'Quest',      badgeClass: 'badge-quest',      color: '#60a5fa', emoji: '🗺️' },
   ADENA:      { label: 'Adena',      badgeClass: 'badge-adena',      color: '#f59e0b', emoji: '💰' },
+  SCROLL:     { label: 'Scroll',     badgeClass: 'badge-recipe',     color: '#c084fc', emoji: '📜' },
+  PERSONAJES: { label: 'Personajes', badgeClass: 'badge-quest',      color: '#38bdf8', emoji: '🧙' },
+  LIFE_STONE: { label: 'Life Stone', badgeClass: 'badge-joya',       color: '#fb7185', emoji: '💠' },
 };
 
 export const statusMeta: Record<ItemStatus, { label: string; badgeClass: string; color: string }> = {
@@ -18,4 +21,4 @@ export const statusMeta: Record<ItemStatus, { label: string; badgeClass: string;
   VENDIDO:      { label: '💰 Vendido',      badgeClass: 'badge-vendido',      color: '#a78bfa' },
 };
 
-export const CATEGORIES: ItemCategory[] = ['ARMADURA', 'ARMA', 'JOYA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA'];
+export const CATEGORIES: ItemCategory[] = ['ARMADURA', 'ARMA', 'JOYA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST', 'ADENA', 'SCROLL', 'PERSONAJES', 'LIFE_STONE'];

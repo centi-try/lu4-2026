@@ -19,6 +19,8 @@ const CreateItemSchema = z.object({
   // FIX: Aceptar associatedCharacterIds en la creación
   associatedCharacterIds: z.array(z.number()).optional(),
   quantity: z.number().positive().optional(),
+  // #17: responsable del ítem (id de usuario que se encarga de venderlo).
+  responsibleUserId: z.number().nullable().optional(),
   // Icono por categoría (seteado en /raids/settings) o URL manual. El cliente
   // lo resuelve y lo envía; el backend lo persiste tal cual. Antes se forzaba
   // a null en el insert, por eso los ítems recién creados no mostraban imagen.
@@ -33,6 +35,10 @@ const UpdateItemSchema = z.object({
   imageUrl: z.string().optional(),
   // FIX: Permitir actualizar associatedCharacterIds
   associatedCharacterIds: z.array(z.number()).optional(),
+  // #12: permitir editar el stock (cantidad total).
+  quantity: z.number().int().positive().optional(),
+  // #17: responsable del ítem (id de usuario) o null para quitarlo.
+  responsibleUserId: z.number().nullable().optional(),
 });
 
 const SellItemSchema = z.object({
@@ -95,6 +101,8 @@ export const itemsRouter = router({
         quantitySoldInCycle: 0,
         // FIX: Guardar associatedCharacterIds como números
         associatedCharacterIds: input.associatedCharacterIds || [],
+        // #17: responsable del ítem
+        responsibleUserId: input.responsibleUserId ?? null,
       });
 
       await createAuditLog({
@@ -120,14 +128,41 @@ export const itemsRouter = router({
       if (input.associatedCharacterIds !== undefined) {
         updateData.associatedCharacterIds = input.associatedCharacterIds;
       }
-
+      // #12: permitir editar el stock. No dejamos bajar la cantidad por debajo
+      // de lo ya vendido para no romper la contabilidad.
       const allBefore = await getItems();
       const before = allBefore.find(i => Number(i.id) === Number(input.id));
+      if (input.quantity !== undefined) {
+        const sold = Number(before?.quantitySold) || 0;
+        if (input.quantity < sold) {
+          throw new Error(`El stock no puede ser menor a las unidades ya vendidas (${sold}).`);
+        }
+        updateData.quantity = input.quantity;
+      }
+      // #17: responsable del ítem (permite null para quitarlo)
+      if (input.responsibleUserId !== undefined) {
+        updateData.responsibleUserId = input.responsibleUserId;
+      }
+
       await updateItem(input.id, updateData);
 
       // Registrar en auditoría distinguiendo cambio de precio de cambio genérico.
       const changedKeys = Object.keys(updateData);
       const isPriceOnly = changedKeys.length === 1 && changedKeys[0] === 'price';
+      // #12: descripción legible de los cambios (viejo → nuevo) para el historial.
+      const labelMap: Record<string, string> = {
+        name: 'nombre', price: 'precio', quantity: 'stock',
+        category: 'categoría', associatedCharacterIds: 'personajes',
+        responsibleUserId: 'responsable', imageUrl: 'imagen',
+      };
+      const humanChanges = changedKeys.map((k) => {
+        if (k === 'price' || k === 'quantity') {
+          const oldV = Number((before as any)?.[k]);
+          return `${labelMap[k] || k}: ${Number.isFinite(oldV) ? oldV.toLocaleString() : '—'} → ${Number(updateData[k]).toLocaleString()}`;
+        }
+        if (k === 'name') return `nombre: "${before?.name || '—'}" → "${updateData.name}"`;
+        return labelMap[k] || k;
+      });
       await createAuditLog({
         userId: ctx.user?.id || 0,
         action: isPriceOnly ? 'UPDATE_PRICE' : 'UPDATE_ITEM',
@@ -135,7 +170,7 @@ export const itemsRouter = router({
         itemName: before?.name || updateData.name,
         detail: isPriceOnly
           ? `Actualizó el precio del ítem "${before?.name || input.id}" a $${Number(updateData.price).toLocaleString()}.`
-          : `Actualizó ${changedKeys.join(', ')} del ítem "${before?.name || input.id}".`,
+          : `Editó el ítem "${before?.name || input.id}" (${humanChanges.join('; ')}).`,
         details: { itemId: input.id, changes: updateData },
       });
 
@@ -218,18 +253,30 @@ export const itemsRouter = router({
       const clanTaxPct = Number(clanSettings.clanTaxPercent) || 0;
       const clanTaxAmount = Math.floor(totalRevenue * clanTaxPct / 100);
       const revenueAfterTax = totalRevenue - clanTaxAmount;
-      const earningsPerChar = Math.floor(revenueAfterTax / associatedCount);
+      // FIX #14: repartir el sobrante del redondeo. Math.floor por personaje
+      // perdía adena (ej: 2.600.000 / 3 = 866.666 × 3 = 2.599.998, se pierden 2).
+      // Distribuimos el resto de a 1 adena entre los primeros personajes para
+      // que la suma reparta EXACTAMENTE revenueAfterTax y todo cuadre.
+      const baseEarnings = Math.floor(revenueAfterTax / associatedCount);
+      let remainder = revenueAfterTax - baseEarnings * associatedCount;
+      const earningsByCharId = new Map<number, number>();
+      associatedCharacterIds.forEach((cid) => {
+        const extra = remainder > 0 ? 1 : 0;
+        if (remainder > 0) remainder -= 1;
+        earningsByCharId.set(Number(cid), baseEarnings + extra);
+      });
 
       // Actualizar ganancias directamente en los USUARIOS asociados
       // (associatedCharacterIds contiene IDs de usuario)
       if (dbInstance.users && associatedCharacterIds.length > 0) {
         dbInstance.users = dbInstance.users.map((u: any) => {
           const uid = Number(u.id);
-          if (associatedCharacterIds.includes(uid)) {
+          if (earningsByCharId.has(uid)) {
+            const share = earningsByCharId.get(uid) || 0;
             return {
               ...u,
-              totalEarnings: (Number(u.totalEarnings) || 0) + earningsPerChar,
-              currentCycleEarnings: (Number(u.currentCycleEarnings) || 0) + earningsPerChar,
+              totalEarnings: (Number(u.totalEarnings) || 0) + share,
+              currentCycleEarnings: (Number(u.currentCycleEarnings) || 0) + share,
               updatedAt: new Date().toISOString(),
             };
           }

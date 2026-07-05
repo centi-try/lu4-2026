@@ -1,4 +1,4 @@
-export type ItemCategory = 'ARMADURA' | 'ARMA' | 'KEY' | 'RECIPE' | 'MATERIALES' | 'QUEST' | 'ADENA' | 'JOYA';
+export type ItemCategory = 'ARMADURA' | 'ARMA' | 'KEY' | 'RECIPE' | 'MATERIALES' | 'QUEST' | 'ADENA' | 'JOYA' | 'SCROLL' | 'PERSONAJES' | 'LIFE_STONE';
 export type ItemStatus = 'EN_REGISTRO' | 'CONFIRMADO' | 'VENDIDO';
 export type UserRole = 'SUPER_ADMIN' | 'MAPPER' | 'USER';
 
@@ -21,6 +21,9 @@ export interface Item {
   createdBy: string;
   updatedBy: string;
   associatedCharacterIds: string[];
+  // #17: usuario responsable de vender/gestionar el ítem (id) y su nombre resuelto.
+  responsibleUserId?: string | null;
+  responsibleName?: string | null;
   soldAt?: string;
   soldBy?: string;
   // Cantidad de unidades

@@ -565,8 +565,10 @@ export default function Dashboard() {
         <StatusChart data={metrics.byStatus} />
       </div>
 
-      {/* Earnings + Characters */}
-      <div className="grid gap-5 xl:grid-cols-[1fr_380px] mb-6">
+      {/* #13 — Fila de 3 cards: Top Personajes por Ganancia · Personajes Activos · Actividad Reciente.
+          Achicamos Top Personajes (antes ocupaba 1fr) para que la tabla de inventario quede
+          a todo el ancho debajo y no se rompa. */}
+      <div className="grid gap-5 xl:grid-cols-3 mb-6 items-start">
         <EarningsChart characters={characters} />
         <div className="card-glass rounded-2xl p-5">
           <h3 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>Personajes Activos</h3>
@@ -643,20 +645,40 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Actividad Reciente — tercera card de la fila (#13). El feed persiste
+            en el servidor y solo muestra los últimos 7 días (#15). */}
+        <ActivityFeed logs={auditLogs} />
       </div>
 
-      {/* Inventory Items + Activity */}
-      <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Inventario de Ítems</h3>
+      {/* Inventario de Ítems — a todo el ancho (#13) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Inventario de Ítems</h3>
+        </div>
+
+        {/* #2 — Bloques informativos: cómo vender y cómo comprar ítems */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+            <p className="text-sm font-bold mb-1" style={{ color: '#7bf1d6' }}>Venta de Ítems</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Publica tu ítem en <span className="font-semibold" style={{ color: '#7bf1d6' }}>#venta-de-items</span> (Discord o TS3) utilizando el formato disponible en ese canal. Un agente revisará la publicación y registrará el ítem en la página.
+            </p>
           </div>
-          <ItemTable items={items} />
+          <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.15)' }}>
+            <p className="text-sm font-bold mb-1" style={{ color: '#a78bfa' }}>Compra de Ítems</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Haz clic en <span className="font-semibold" style={{ color: '#a78bfa' }}>"R"</span> (Reservar) en la tabla. Un agente se pondrá en contacto contigo para gestionar la compra como intermediario.
+            </p>
+          </div>
         </div>
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>Actividad Reciente</h3>
-          <ActivityFeed logs={auditLogs.slice(0, 8)} />
+
+        <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            Los ítems para ser vendidos de forma interna o externa, una vez registrados, deben ser enviados por correo/mailbox para ser confirmados. Luego de recibir el ítem, aparecerá visible. Enviar al personaje: <span className="font-bold text-base" style={{ color: '#7bf1d6' }}>vRAPTOR</span>
+          </p>
         </div>
+        <ItemTable items={items} />
       </div>
       {/* Confirmation Modal — same style as "Eliminar ítem" modal */}
       {confirmModal.open && (

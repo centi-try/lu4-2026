@@ -133,20 +133,33 @@ interface Props {
   logs: AuditLog[];
 }
 
+// #15 — solo mostramos actividad de los últimos 7 días. Los registros más
+// viejos siguen guardados en el Historial (persistente en servidor) pero no
+// aparecen en este feed. Ordenamos por fecha descendente (más reciente arriba).
+const RECENT_ACTIVITY_DAYS = 7;
+
 export function ActivityFeed({ logs }: Props) {
+  const cutoff = Date.now() - RECENT_ACTIVITY_DAYS * 24 * 60 * 60 * 1000;
+  const recentLogs = [...logs]
+    .filter((log) => {
+      const ts = new Date(log.createdAt).getTime();
+      return !Number.isNaN(ts) && ts >= cutoff;
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   return (
     <div className="card-glass rounded-2xl p-5 flex flex-col">
       <div className="mb-4">
         <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>Actividad Reciente</h3>
         <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-          Registro de todas las acciones realizadas sobre el inventario
+          Acciones sobre el inventario de los últimos {RECENT_ACTIVITY_DAYS} días
         </p>
       </div>
       <div className="flex-1 overflow-y-auto space-y-1 pr-1" style={{ maxHeight: 400 }}>
-        {logs.length === 0 && (
-          <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin actividad registrada</p>
+        {recentLogs.length === 0 && (
+          <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin actividad en los últimos {RECENT_ACTIVITY_DAYS} días</p>
         )}
-        {logs.map((log) => {
+        {recentLogs.map((log) => {
           const canonical = canonicalize(log.action);
           const meta = actionMeta[canonical] ?? { icon: Pencil, color: '#7bf1d6', label: canonical };
           const Icon = meta.icon;

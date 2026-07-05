@@ -276,7 +276,8 @@ export function ItemReservationButton({ item, reservations }: Props) {
                   ) : (
                     rowReservations.map((r) => {
                       const isOwner = Number(r.userId) === currentUserId;
-                      const canDelete = isOwner || canAdmin;
+                      // #3: el icono de eliminar reserva SOLO es visible para el Super Admin.
+                      const canDelete = roleLc === 'super_admin';
                       const isPreSold = r.status === 'pre_sold';
                       const isSold = r.status === 'sold';
                       const statusColor = isSold ? '#22c55e' : isPreSold ? '#34d399' : isOwner ? '#fbbf24' : 'rgba(255,255,255,0.85)';

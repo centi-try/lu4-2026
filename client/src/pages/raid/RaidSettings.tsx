@@ -163,7 +163,7 @@ export default function RaidSettings({ raidAccess }: Props) {
   // ---- Material Catalog ----
   const catalogQ = trpc.warehouse.catalog.list.useQuery();
   const createCatalogItem = trpc.warehouse.catalog.create.useMutation({
-    onSuccess: () => { toast.success('Material agregado al catálogo'); utils.warehouse.catalog.list.invalidate(); },
+    onSuccess: () => { toast.success('Material agregado al catálogo'); utils.warehouse.catalog.list.invalidate(); utils.items.list.invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
   const deleteCatalogItem = trpc.warehouse.catalog.delete.useMutation({
@@ -171,7 +171,7 @@ export default function RaidSettings({ raidAccess }: Props) {
     onError: (e: any) => toast.error(e.message),
   });
   const updateCatalogItem = trpc.warehouse.catalog.update.useMutation({
-    onSuccess: () => { toast.success('Material actualizado'); utils.warehouse.catalog.list.invalidate(); utils.warehouse.list.invalidate(); utils.warehouse.listIncoming.invalidate(); setEditingCatMatId(null); },
+    onSuccess: () => { toast.success('Material actualizado'); utils.warehouse.catalog.list.invalidate(); utils.warehouse.list.invalidate(); utils.warehouse.listIncoming.invalidate(); utils.items.list.invalidate(); setEditingCatMatId(null); },
     onError: (e: any) => toast.error(e.message),
   });
   const catalogItems = catalogQ.data || [];

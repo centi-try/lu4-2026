@@ -974,15 +974,29 @@ export const warehouseRouter = router({
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         };
         db.materialCatalog.push(entry);
+        // #6a: al registrar el ítem en el catálogo, propagar su imagen a los
+        // ítems de inventario con el mismo nombre que quedaron SIN imagen
+        // (registrados antes de existir en el catálogo).
+        let syncedItems = 0;
+        if (entry.imageUrl) {
+          for (const it of (db.items || [])) {
+            const itNameLower = String(it.name || '').toLowerCase();
+            const hasImage = !!String(it.imageUrl || '').trim();
+            if (itNameLower === nameLower && !hasImage) {
+              it.imageUrl = entry.imageUrl;
+              syncedItems++;
+            }
+          }
+        }
         saveDbToDisk();
         await createAuditLog({
           userId: Number(ctx.user?.id || 0),
           action: 'CATALOG_MATERIAL_CREATE',
           actorName: String(ctx.user?.characterName || ctx.user?.name || 'Sistema'),
           actorRole: String(ctx.user?.role || 'USER'),
-          detail: `Agregó "${input.name}" al catálogo de materiales (${input.category}).`,
+          detail: `Agregó "${input.name}" al catálogo de materiales (${input.category}).${syncedItems > 0 ? ` Se actualizó la imagen de ${syncedItems} ítem(s) del inventario.` : ''}`,
         });
-        return { success: true, entry };
+        return { success: true, entry, syncedItems };
       }),
 
     update: protectedProcedure
@@ -1021,6 +1035,19 @@ export const warehouseRouter = router({
             inc.name = updatedName;
             inc.category = updatedCat;
             if (updatedImg !== undefined) inc.imageUrl = updatedImg;
+          }
+        }
+        // #6a: propagar la imagen del catálogo a los ítems de inventario con el
+        // mismo nombre que estén sin imagen. También renombramos si el nombre
+        // del catálogo cambió (coincidencia por nombre viejo).
+        const newNameLower = String(item.nameLower || updatedName || '').toLowerCase();
+        for (const it of (db.items || [])) {
+          if (String(it.name || '').toLowerCase() === oldNameLower) {
+            const hasImage = !!String(it.imageUrl || '').trim();
+            if (updatedImg && !hasImage) it.imageUrl = updatedImg;
+          } else if (String(it.name || '').toLowerCase() === newNameLower) {
+            const hasImage = !!String(it.imageUrl || '').trim();
+            if (updatedImg && !hasImage) it.imageUrl = updatedImg;
           }
         }
         saveDbToDisk();

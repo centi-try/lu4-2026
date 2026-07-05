@@ -83,6 +83,58 @@ export function readCarouselFileAsDataUri(fileName: string): string | null {
   } catch { return null; }
 }
 
+// ============================================================================
+// Presentation image file helpers (same pattern as carousel)
+// ============================================================================
+const PRESENTATION_DIR = path.join(UPLOADS_DIR, 'presentation');
+
+function ensurePresentationDir() {
+  try { fs.mkdirSync(PRESENTATION_DIR, { recursive: true }); } catch { /* ignore */ }
+}
+
+export function savePresentationFile(id: number, dataUri: string): string {
+  ensurePresentationDir();
+  const ext = extFromMime(dataUri);
+  const fileName = `presentation_${id}${ext}`;
+  const filePath = path.join(PRESENTATION_DIR, fileName);
+  const base64Data = dataUri.replace(/^data:image\/\w+;base64,/, '');
+  fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+  return fileName;
+}
+
+export function deletePresentationFile(fileName: string) {
+  try {
+    const filePath = path.join(PRESENTATION_DIR, fileName);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch { /* ignore */ }
+}
+
+export function readPresentationFileAsDataUri(fileName: string): string | null {
+  try {
+    const filePath = path.join(PRESENTATION_DIR, fileName);
+    if (!fs.existsSync(filePath)) return null;
+    const buf = fs.readFileSync(filePath);
+    const ext = path.extname(fileName).toLowerCase();
+    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : ext === '.gif' ? 'image/gif' : 'image/jpeg';
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  } catch { return null; }
+}
+
+export function migratePresentationImagesToFiles(db: any) {
+  if (!db.presentationItems || db.presentationItems.length === 0) return false;
+  let migrated = false;
+  ensurePresentationDir();
+  for (const item of db.presentationItems) {
+    if (item.type === 'image' && item.content && item.content.startsWith('data:image/')) {
+      const fileName = savePresentationFile(item.id, item.content);
+      item.filePath = fileName;
+      item.content = '';
+      migrated = true;
+    }
+  }
+  return migrated;
+}
+
 export function migrateCarouselImagesToFiles(db: any) {
   if (!db.carouselImages || db.carouselImages.length === 0) return false;
   let migrated = false;
@@ -107,6 +159,27 @@ export function migrateCarouselImagesToFiles(db: any) {
     }
   }
   return migrated;
+}
+
+// Retención de logs de auditoría (#16). Los logs con más de esta cantidad de
+// días se purgan automáticamente al iniciar el servidor y cada vez que se crea
+// un log nuevo, para no saturar el JSON con el tiempo. 90 días (3 meses) es un
+// balance razonable entre auditoría y peso. Configurable por env.
+export const AUDIT_LOG_RETENTION_DAYS = Number(process.env.AUDIT_LOG_RETENTION_DAYS) || 90;
+
+// Elimina de `db.auditLogs` los registros más viejos que la ventana de
+// retención. Devuelve true si borró algo (para saber si hay que persistir).
+export function pruneOldAuditLogs(db: any): boolean {
+  if (!db || !Array.isArray(db.auditLogs) || db.auditLogs.length === 0) return false;
+  const cutoff = Date.now() - AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const before = db.auditLogs.length;
+  db.auditLogs = db.auditLogs.filter((log: any) => {
+    const ts = new Date(log?.createdAt || 0).getTime();
+    // Si la fecha es inválida (NaN), conservamos el log por seguridad.
+    if (Number.isNaN(ts) || ts === 0) return true;
+    return ts >= cutoff;
+  });
+  return db.auditLogs.length !== before;
 }
 
 // Estructura inicial de la base de datos
@@ -565,6 +638,23 @@ function loadDb(): DatabaseSchema {
     console.log('[db] Migrated carousel images from base64 to files on disk');
     try { writeDbAtomic(result); } catch (err) {
       console.error('[db] Error saving after carousel migration:', err);
+    }
+  }
+
+  // Migrate presentation images from base64 in JSON to files on disk
+  if (migratePresentationImagesToFiles(result)) {
+    console.log('[db] Migrated presentation images from base64 to files on disk');
+    try { writeDbAtomic(result); } catch (err) {
+      console.error('[db] Error saving after presentation migration:', err);
+    }
+  }
+
+  // Retención de logs: borrar registros de auditoría más viejos que
+  // AUDIT_LOG_RETENTION_DAYS (#16) para no saturar el sistema con el tiempo.
+  if (pruneOldAuditLogs(result)) {
+    console.log(`[db] Purgados logs de auditoría con más de ${AUDIT_LOG_RETENTION_DAYS} días`);
+    try { writeDbAtomic(result); } catch (err) {
+      console.error('[db] Error guardando tras purgar logs viejos:', err);
     }
   }
 

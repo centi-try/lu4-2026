@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import L2Splash from '../L2Splash';
 import { Link, useLocation } from 'wouter';
 import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
@@ -27,7 +28,8 @@ const navItems: Array<{
   { href: '/purchases', label: 'Compras', icon: ShoppingBag, desc: 'Historial de adquisiciones' },
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
-  { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
+  // #6b: solo el Super Admin puede ver la gente que compone los clanes/CPs.
+  { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties', allowedRoles: ['super_admin'] },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
@@ -61,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { currentUser, setCurrentUser, characters, cycleNumber } = useApp();
+  const { isLoading, currentUser, setCurrentUser, characters, cycleNumber } = useApp();
   const { logout, user: authUser } = useAuth();
 
   const isAuthSuperAdmin = authUser?.role === 'super_admin' || authUser?.role === 'SUPER_ADMIN';
@@ -109,6 +111,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     totalEarnings: 0,
     currentCycleEarnings: 0,
   } : null;
+
+  if (isLoading) return <L2Splash />;
 
   return (
     <div className="flex min-h-screen" style={{ background: 'radial-gradient(circle at 10% 10%, rgba(123,241,214,0.06) 0%, transparent 30%), radial-gradient(circle at 90% 20%, rgba(232,121,249,0.06) 0%, transparent 30%), linear-gradient(180deg, #060910 0%, #080c14 50%, #040608 100%)' }}>
@@ -358,7 +362,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="flex-1 overflow-auto p-4 lg:p-6">
-          <EmailVerificationBanner />
+          {/* Banner de verificación de email oculto: el envío (RESEND_API_KEY)
+              no está configurado, así que no funcionaba y generaba ruido (#7). */}
+          {false && <EmailVerificationBanner />}
           {!effectiveLegacyAccess && !effectiveIsSuper && !(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) ? (
             <div className="flex flex-1 items-center justify-center min-h-[60vh]">
               <div className="text-center max-w-md mx-auto px-6 py-12 rounded-2xl"

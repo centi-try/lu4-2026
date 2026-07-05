@@ -1005,6 +1005,11 @@ export default function WarehouseClan() {
       {/* ═══ TAB: BODEGA ═══ */}
       {tab === 'bodega' && (
         <div className="space-y-5">
+          <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              El encargado de recolectar debe enviar los materiales, objetos, etc. para ser ingresados por correo/mailbox al personaje: <span className="font-bold text-base" style={{ color: '#7bf1d6' }}>wRAPTOR</span>
+            </p>
+          </div>
           {/* Hint: SA must select a CP */}
           {isSA && !selectedCpId && (
             <div className="rounded-xl p-3 flex items-center gap-2" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
@@ -2256,6 +2261,11 @@ export default function WarehouseClan() {
       {/* ═══ TAB: OBJETIVOS ═══ */}
       {tab === 'objetivos' && (
         <div className="space-y-5">
+          <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)' }}>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Los materiales, adena o ítems solicitados deben ser enviados por correo/mailbox al personaje: <span className="font-bold text-base" style={{ color: '#38bdf8' }}>oRAPTOR</span>
+            </p>
+          </div>
           {(() => {
             const ms = new Date(objMonth);
             const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];

@@ -27,7 +27,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<LoginResult>;
   verify2fa: (challengeToken: string, code: string) => Promise<void>;
-  register: (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null, classMain?: string | null) => Promise<void>;
+  register: (email: string, password: string, characterName: string, raidClanId?: number | null, raidCpId?: number | null, classMain?: string | null, invitationCode?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }

@@ -8,6 +8,7 @@ import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
 import { FancySelect, type FancyOption } from '../ui/FancySelect';
 import { ImageHoverPreview } from '../ui/ImageHoverPreview';
+import { reformatWhileTyping, parseThousands, formatThousands } from '../../lib/number-format';
 
 // Íconos por categoría — ya no están hardcodeados. El super admin los setea
 // en /raids/settings → "Iconos por categoría de drop" y el mismo mapa se
@@ -43,6 +44,10 @@ interface RowState {
   selectedCharIds: string[];
   showCharPicker: boolean;
   charSearch: string;
+  // #17: responsable del ítem (un solo usuario) + estado del picker.
+  responsibleId: string;
+  showRespPicker: boolean;
+  respSearch: string;
 }
 
 const emptyRow = (): RowState => ({
@@ -58,6 +63,9 @@ const emptyRow = (): RowState => ({
   selectedCharIds: [],
   showCharPicker: false,
   charSearch: '',
+  responsibleId: '',
+  showRespPicker: false,
+  respSearch: '',
 });
 
 /** Indica si el string de cantidad representa un valor inválido (0, vacío, NaN, negativo). */
@@ -221,7 +229,7 @@ export function CreateItemPanel() {
     updateRow(rowId, {
       name: item.name,
       category: pickedCat,
-      price: item.price != null && item.price > 0 ? String(item.price) : '',
+      price: item.price != null && item.price > 0 ? formatThousands(item.price) : '',
       imageUrl: picked || fallback,
       quantity: '0', // <- reset de seguridad, obliga a re-ingresar
     });
@@ -242,7 +250,7 @@ export function CreateItemPanel() {
       return 'Debes seleccionar una categoría';
     const qty = parseInt(r.quantity);
     if (isNaN(qty) || qty < 1) return 'La cantidad debe ser al menos 1';
-    if (r.price && isNaN(Number(r.price))) return 'Precio inválido';
+    if (r.price && parseThousands(r.price) === null) return 'Precio inválido';
     if (!r.selectedCharIds || r.selectedCharIds.length === 0)
       return 'Debes asociar al menos un personaje al ítem';
     return null;
@@ -296,7 +304,7 @@ export function CreateItemPanel() {
         addItem({
           name: r.name.trim(),
           category: cat,
-          price: r.price ? Number(r.price) : null,
+          price: r.price ? parseThousands(r.price) : null,
           status: 'EN_REGISTRO',
           image: {
             id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -306,6 +314,8 @@ export function CreateItemPanel() {
           associatedCharacterIds: r.selectedCharIds,
           quantity: qty,
           quantitySoldInCycle: 0,
+          // #17: responsable del ítem seleccionado en el picker.
+          responsibleUserId: r.responsibleId || null,
         });
       });
 
@@ -487,10 +497,10 @@ export function CreateItemPanel() {
                       Precio (Adena)
                     </label>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="numeric"
                       value={row.price}
-                      onChange={e => updateRow(row.id, { price: e.target.value })}
+                      onChange={e => updateRow(row.id, { price: reformatWhileTyping(e.target.value) })}
                       placeholder="0"
                       className="w-full rounded-lg px-2 py-1.5 text-xs"
                       style={{
@@ -934,6 +944,161 @@ export function CreateItemPanel() {
                           No se encontraron personajes
                         </p>
                       )}
+                    </div>
+                  )}
+                </div>
+
+                {/* #17 — Responsable del ítem (un solo usuario). Mismo patrón
+                    visual que "Personajes asociados" pero de selección única:
+                    el super admin/mapper le pregunta a esta persona si ya
+                    vendió el ítem. Se guarda adjunto al ítem. */}
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateRow(row.id, { showRespPicker: !row.showRespPicker })
+                    }
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${
+                        row.showRespPicker
+                          ? 'rgba(139,183,250,0.4)'
+                          : 'rgba(255,255,255,0.08)'
+                      }`,
+                      color: 'rgba(255,255,255,0.7)',
+                    }}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Responsable del ítem
+                    {row.responsibleId && (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ background: 'rgba(139,183,250,0.2)', color: '#8bb7fa' }}
+                      >
+                        1
+                      </span>
+                    )}
+                    {row.showRespPicker ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  {/* Chip del responsable elegido */}
+                  {row.responsibleId && (() => {
+                    const resp = legacyUsers.find((c: any) => c.id === row.responsibleId);
+                    if (!resp) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <div
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                          style={{
+                            background: 'rgba(139,183,250,0.12)',
+                            border: '1px solid rgba(139,183,250,0.25)',
+                            color: '#8bb7fa',
+                          }}
+                        >
+                          <div
+                            className={`flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-br ${resp.avatar} text-white`}
+                            style={{ fontSize: 8, fontWeight: 'bold' }}
+                          >
+                            {resp.name.slice(0, 1).toUpperCase()}
+                          </div>
+                          <span>{resp.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateRow(row.id, { responsibleId: '' })}
+                            className="ml-0.5 hover:opacity-70"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Picker expandido (selección única) */}
+                  {row.showRespPicker && (
+                    <div
+                      className="mt-2 rounded-xl border overflow-hidden"
+                      style={{
+                        background: 'rgba(10,14,22,0.98)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-2 border-b px-3 py-2 sticky top-0"
+                        style={{
+                          background: 'rgba(10,14,22,0.98)',
+                          borderColor: 'rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <Search
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={{ color: 'rgba(255,255,255,0.35)' }}
+                        />
+                        <input
+                          value={row.respSearch}
+                          onChange={e =>
+                            updateRow(row.id, { respSearch: e.target.value })
+                          }
+                          placeholder="Buscar responsable..."
+                          className="bg-transparent text-xs outline-none w-full"
+                          style={{ color: 'rgba(255,255,255,0.8)' }}
+                        />
+                      </div>
+                      {legacyUsers
+                        .filter((c: any) =>
+                          c.name.toLowerCase().includes(row.respSearch.toLowerCase()) ||
+                          c.class.toLowerCase().includes(row.respSearch.toLowerCase()))
+                        .map((char: any) => {
+                          const isSelected = row.responsibleId === char.id;
+                          return (
+                            <button
+                              key={char.id}
+                              type="button"
+                              onClick={() =>
+                                updateRow(row.id, {
+                                  responsibleId: isSelected ? '' : char.id,
+                                  showRespPicker: false,
+                                })
+                              }
+                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                              style={{
+                                background: isSelected ? 'rgba(139,183,250,0.06)' : undefined,
+                              }}
+                            >
+                              <div
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}
+                              >
+                                {char.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                                  {char.name}
+                                </p>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                                  {char.class} · {char.role}
+                                </p>
+                              </div>
+                              <div
+                                className="shrink-0 h-4 w-4 rounded-full border flex items-center justify-center"
+                                style={{
+                                  borderColor: isSelected ? '#8bb7fa' : 'rgba(255,255,255,0.2)',
+                                  background: isSelected ? 'rgba(139,183,250,0.2)' : 'transparent',
+                                }}
+                              >
+                                {isSelected && (
+                                  <span style={{ color: '#8bb7fa', fontSize: 10 }}>✓</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
