@@ -946,16 +946,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     {/* #17 — Responsable del ítem */}
                     <td className="px-4 py-3">
                       {respChar ? (
-                        <div className="flex items-center gap-1.5" title={`Responsable: ${respChar.name}`}>
+                        <div className="flex items-center">
                           <div
-                            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${respChar.avatar} text-white`}
-                            style={{ fontSize: '9px', fontWeight: 'bold' }}
+                            title={respChar.name}
+                            className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${respChar.avatar} text-white border`}
+                            style={{ fontSize: '8px', fontWeight: 'bold', borderColor: 'rgba(10,14,22,0.8)' }}
                           >
                             {respChar.name.slice(0, 1).toUpperCase()}
                           </div>
-                          <span className="text-xs truncate max-w-[110px]" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                            {respChar.name}
-                          </span>
                         </div>
                       ) : (
                         <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>

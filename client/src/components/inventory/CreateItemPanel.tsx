@@ -1067,7 +1067,6 @@ export function CreateItemPanel() {
                               onClick={() =>
                                 updateRow(row.id, {
                                   responsibleId: isSelected ? '' : char.id,
-                                  showRespPicker: false,
                                 })
                               }
                               className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
@@ -1089,7 +1088,7 @@ export function CreateItemPanel() {
                                 </p>
                               </div>
                               <div
-                                className="shrink-0 h-4 w-4 rounded-full border flex items-center justify-center"
+                                className="shrink-0 h-4 w-4 rounded border flex items-center justify-center"
                                 style={{
                                   borderColor: isSelected ? '#8bb7fa' : 'rgba(255,255,255,0.2)',
                                   background: isSelected ? 'rgba(139,183,250,0.2)' : 'transparent',
