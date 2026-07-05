@@ -950,64 +950,17 @@ export const raidRouter = router({
   // ============================================================================
   commandParties: router({
     // Lista todas las CPs (solo admin / super admin ve todas; leader ve solo su CP)
-    list: raidViewerProcedure.query(async ({ ctx }) => {
-      const role = String(ctx.user?.role || '').toLowerCase();
-      const userId = Number(ctx.user?.id);
+    list: raidViewerProcedure.query(async () => {
       const allCps = await getCommandParties();
       const allClans = await getClans();
       const allUsers = await getAllUsers();
 
-      // Super admin ve todo
-      if (role === 'super_admin') {
-        return allCps.map((cp: any) => {
-          const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
-          const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
-          const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
-          const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
-          const names = ids.map((lid: number) => { const u = allUsers.find((u: any) => Number(u.id) === lid); return u?.characterName || u?.name || null; }).filter(Boolean);
-          return {
-            ...cp,
-            clanName: clan?.name || '—',
-            leaderName: leader?.name || leader?.characterName || null,
-            leaderIds: ids,
-            leaderNames: names,
-            memberCount: members.length,
-            confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
-            pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
-          };
-        });
-      }
-
-      // Admins can see all CPs too
-      const access = await canUserAccessRaidModule(ctx.user);
-      if (access.canAdmin) {
-        return allCps.map((cp: any) => {
-          const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
-          const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
-          const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
-          const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
-          const names = ids.map((lid: number) => { const u = allUsers.find((u: any) => Number(u.id) === lid); return u?.characterName || u?.name || null; }).filter(Boolean);
-          return {
-            ...cp,
-            clanName: clan?.name || '—',
-            leaderName: leader?.name || leader?.characterName || null,
-            leaderIds: ids,
-            leaderNames: names,
-            memberCount: members.length,
-            confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
-            pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
-          };
-        });
-      }
-
-      // Regular users: only see CPs of their own clan, and only if confirmed
-      const me = allUsers.find((u: any) => Number(u.id) === userId);
-      if (!me?.raidClanId || me.cpStatus !== 'confirmed') return [];
-      const myClanCps = allCps.filter((cp: any) => Number(cp.clanId) === Number(me.raidClanId));
-      return myClanCps.map((cp: any) => {
+      // #6b: todos los usuarios autenticados ven todas las CPs con su
+      // composición completa. La gestión sigue restringida por rol.
+      return allCps.map((cp: any) => {
         const clan = allClans.find((c: any) => Number(c.id) === Number(cp.clanId));
         const leader = cp.leaderId ? allUsers.find((u: any) => Number(u.id) === Number(cp.leaderId)) : null;
-        const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id) && u.cpStatus === 'confirmed');
+        const members = allUsers.filter((u: any) => Number(u.raidCpId) === Number(cp.id));
         const ids: number[] = Array.isArray(cp.leaderIds) ? cp.leaderIds.map(Number) : (cp.leaderId ? [Number(cp.leaderId)] : []);
         const names = ids.map((lid: number) => { const u = allUsers.find((u: any) => Number(u.id) === lid); return u?.characterName || u?.name || null; }).filter(Boolean);
         return {
@@ -1017,8 +970,8 @@ export const raidRouter = router({
           leaderIds: ids,
           leaderNames: names,
           memberCount: members.length,
-          confirmedCount: members.length,
-          pendingCount: 0,
+          confirmedCount: members.filter((m: any) => m.cpStatus === 'confirmed').length,
+          pendingCount: members.filter((m: any) => m.cpStatus === 'pending').length,
         };
       });
     }),
@@ -1053,31 +1006,13 @@ export const raidRouter = router({
           return 0;
         });
 
-        const access = await canUserAccessRaidModule(ctx.user);
-        if (role === 'super_admin' || access.canAdmin) {
-          const members = await getUsersByCp(input.cpId);
-          const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
-          return sortMembers(members.map((u: any) => mapMember(u, scs)));
-        }
-
-        // Leader can see their own CP members
-        if (Number(cp.leaderId) === userId) {
-          const members = await getUsersByCp(input.cpId);
-          const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
-          return sortMembers(members.map((u: any) => mapMember(u, scs)));
-        }
-
-        // Regular confirmed user: only see confirmed members of their own clan CPs
-        const me = (await getAllUsers()).find((u: any) => Number(u.id) === userId);
-        if (!me || me.cpStatus !== 'confirmed' || Number(me.raidClanId) !== Number(cp.clanId)) {
-          return [];
-        }
-        const members = (await getUsersByCp(input.cpId)).filter((u: any) => u.cpStatus === 'confirmed');
+        // #6b: todos los usuarios autenticados pueden ver la composición
+        // completa de la CP (miembros). La gestión (agregar/quitar/editar)
+        // sigue restringida por rol en las mutaciones y en la UI (readOnly).
+        void role; void userId;
+        const members = await getUsersByCp(input.cpId);
         const scs = await getSecondaryCharactersByUsers(members.map((u: any) => Number(u.id)));
-        return sortMembers(members.map((u: any) => ({
-          ...mapMember(u, scs),
-          cpStatus: 'confirmed' as const,
-        })));
+        return sortMembers(members.map((u: any) => mapMember(u, scs)));
       }),
 
     // List members of a clan (for leader dropdown) — super admin only

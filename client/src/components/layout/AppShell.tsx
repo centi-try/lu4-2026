@@ -28,8 +28,7 @@ const navItems: Array<{
   { href: '/purchases', label: 'Compras', icon: ShoppingBag, desc: 'Historial de adquisiciones' },
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
-  // #6b: solo el Super Admin puede ver la gente que compone los clanes/CPs.
-  { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties', allowedRoles: ['super_admin'] },
+  { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
