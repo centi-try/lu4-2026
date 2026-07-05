@@ -419,6 +419,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   // #12: edición completa del ítem (nombre/precio/stock/personajes/responsable).
   const [editModalItem, setEditModalItem] = useState<Item | null>(null);
   const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState<string>('');
   const [editPrice, setEditPrice] = useState('');
   const [editQty, setEditQty] = useState('');
   const [editCharIds, setEditCharIds] = useState<string[]>([]);
@@ -547,6 +548,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const openEditModal = (item: Item) => {
     setEditModalItem(item);
     setEditName(item.name || '');
+    setEditCategory(item.category || '');
     setEditPrice(item.price ? formatThousands(item.price) : '');
     setEditQty(String(item.quantity ?? ''));
     setEditCharIds([...(item.associatedCharacterIds || [])]);
@@ -566,9 +568,11 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       toast.error(`El stock no puede ser menor a las unidades ya vendidas (${editModalItem.quantitySold}).`);
       return;
     }
+    if (!editCategory || !CATEGORIES.includes(editCategory as ItemCategory)) { toast.error('Debes seleccionar una categoría.'); return; }
     if (editCharIds.length === 0) { toast.error('Debes asociar al menos un personaje.'); return; }
     updateItem(editModalItem.id, {
       name,
+      category: editCategory as ItemCategory,
       price: priceNum,
       quantity: qtyNum,
       associatedCharacterIds: editCharIds,
@@ -1079,6 +1083,33 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 />
               </div>
 
+              {/* Categoría */}
+              <div>
+                <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Categoría</label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map(c => {
+                    const meta = categoryMeta[c] || { emoji: '📦', label: c };
+                    const isSel = editCategory === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setEditCategory(c)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
+                        style={{
+                          background: isSel ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${isSel ? 'rgba(123,241,214,0.45)' : 'rgba(255,255,255,0.08)'}`,
+                          color: isSel ? '#7bf1d6' : 'rgba(255,255,255,0.7)',
+                        }}
+                      >
+                        <span>{meta.emoji}</span>
+                        {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 {/* Precio (#11 formateado) */}
                 <div>
@@ -1194,7 +1225,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                             <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{char.name}</p>
                             <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{char.class} · {char.role}</p>
                           </div>
-                          <div className="shrink-0 h-4 w-4 rounded-full border flex items-center justify-center" style={{ borderColor: isSel ? '#8bb7fa' : 'rgba(255,255,255,0.2)', background: isSel ? 'rgba(139,183,250,0.2)' : 'transparent' }}>
+                          <div className="shrink-0 h-4 w-4 rounded border flex items-center justify-center" style={{ borderColor: isSel ? '#8bb7fa' : 'rgba(255,255,255,0.2)', background: isSel ? 'rgba(139,183,250,0.2)' : 'transparent' }}>
                             {isSel && <span style={{ color: '#8bb7fa', fontSize: 10 }}>✓</span>}
                           </div>
                         </button>
