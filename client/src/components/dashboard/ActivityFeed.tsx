@@ -148,7 +148,7 @@ export function ActivityFeed({ logs }: Props) {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
-    <div className="card-glass rounded-2xl p-5 flex flex-col">
+    <div className="card-glass rounded-2xl p-5 h-full flex flex-col">
       <div className="mb-4">
         <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>Actividad Reciente</h3>
         <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>

@@ -611,8 +611,11 @@ export function CreateItemPanel() {
                   </div>
                 </div>
 
-                {/* Segunda línea: personajes asociados (colapsable) */}
-                <div className="mt-3">
+                {/* Segunda línea: personajes asociados + responsable — en la
+                    misma fila (#R1). Cada bloque ocupa la mitad y su picker
+                    se expande debajo. */}
+                <div className="mt-3 flex flex-wrap gap-3 items-start">
+                <div className="flex-1 min-w-[240px]">
                   <button
                     type="button"
                     onClick={() =>
@@ -952,7 +955,7 @@ export function CreateItemPanel() {
                     visual que "Personajes asociados" pero de selección única:
                     el super admin/mapper le pregunta a esta persona si ya
                     vendió el ítem. Se guarda adjunto al ítem. */}
-                <div className="mt-3">
+                <div className="flex-1 min-w-[240px]">
                   <button
                     type="button"
                     onClick={() =>
@@ -1101,6 +1104,7 @@ export function CreateItemPanel() {
                         })}
                     </div>
                   )}
+                </div>
                 </div>
               </div>
             );

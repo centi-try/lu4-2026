@@ -12,6 +12,7 @@ import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { trpc } from '../lib/trpc';
 import { CATEGORIES, categoryMeta } from '../lib/category-meta';
+import { formatThousands, parseThousands } from '../lib/number-format';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
@@ -341,8 +342,8 @@ export default function Dashboard() {
           {showExpenseForm && isSuperAdmin && clanMovTab === 'gastos' && (
             <form onSubmit={handleExpenseSubmit} onPaste={handleEvidencePaste} className="mb-4 p-3 rounded-xl space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
-                  placeholder="Monto (adena)" min="1" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
+                <input type="text" inputMode="numeric" value={formatThousands(expenseAmount)} onChange={e => setExpenseAmount(String(parseThousands(e.target.value) ?? ''))}
+                  placeholder="Monto (adena)" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
                   style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
                 <input type="text" value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)}
                   placeholder="Descripción (en qué se gastó)" className="rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
@@ -391,8 +392,8 @@ export default function Dashboard() {
                     <div className="rounded-lg p-2 space-y-2" onPaste={handleEditEvidencePaste}
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(251,191,36,0.2)' }}>
                       <div className="grid gap-2 sm:grid-cols-2">
-                        <input type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
-                          placeholder="Monto" min="1" className="rounded border bg-transparent px-2 py-1 text-xs font-mono outline-none"
+                        <input type="text" inputMode="numeric" value={formatThousands(editAmount)} onChange={e => setEditAmount(String(parseThousands(e.target.value) ?? ''))}
+                          placeholder="Monto" className="rounded border bg-transparent px-2 py-1 text-xs font-mono outline-none"
                           style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
                         <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)}
                           placeholder="Descripción" className="rounded border bg-transparent px-2 py-1 text-xs outline-none"
@@ -497,8 +498,8 @@ export default function Dashboard() {
           {showExpenseForm && (
             <form onSubmit={handleExpenseSubmit} onPaste={handleEvidencePaste} className="mt-3 p-3 rounded-xl space-y-3 card-glass" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)}
-                  placeholder="Monto (adena)" min="1" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
+                <input type="text" inputMode="numeric" value={formatThousands(expenseAmount)} onChange={e => setExpenseAmount(String(parseThousands(e.target.value) ?? ''))}
+                  placeholder="Monto (adena)" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
                   style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
                 <input type="text" value={expenseDesc} onChange={e => setExpenseDesc(e.target.value)}
                   placeholder="Descripción" className="rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
@@ -568,9 +569,9 @@ export default function Dashboard() {
       {/* #13 — Fila de 3 cards: Top Personajes por Ganancia · Personajes Activos · Actividad Reciente.
           Achicamos Top Personajes (antes ocupaba 1fr) para que la tabla de inventario quede
           a todo el ancho debajo y no se rompa. */}
-      <div className="grid gap-5 xl:grid-cols-3 mb-6 items-start">
+      <div className="grid gap-5 xl:grid-cols-3 mb-6 items-stretch">
         <EarningsChart characters={characters} />
-        <div className="card-glass rounded-2xl p-5">
+        <div className="card-glass rounded-2xl p-5 h-full flex flex-col">
           <h3 className="text-sm font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.85)' }}>Personajes Activos</h3>
           <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.35)' }}>
             Cuentas registradas en el sistema. Cada cuenta corresponde a un personaje del juego.
@@ -674,8 +675,9 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Los ítems para ser vendidos de forma interna o externa, una vez registrados, deben ser enviados por correo/mailbox para ser confirmados. Luego de recibir el ítem, aparecerá visible. Enviar al personaje: <span className="font-bold text-base" style={{ color: '#7bf1d6' }}>vRAPTOR</span>
+          <p className="text-sm font-bold mb-1" style={{ color: '#7bf1d6' }}>Responsable de los ítems</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            Deberá informar oportunamente a los agentes encargados del sistema de ventas cuando un ítem haya sido vendido, con el fin de actualizar la información y mantener la trazabilidad del proceso.
           </p>
         </div>
         <ItemTable items={items} />

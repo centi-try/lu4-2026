@@ -904,11 +904,18 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                         </span>
                         {discountedPrice !== null && (
                           <span
-                            className="text-xs font-mono font-semibold mt-0.5"
-                            style={{ color: '#fbbf24' }}
+                            className="flex items-center gap-1.5 mt-1"
                             title={`Precio con descuento de clan (-${discountPct}%) para venta interna`}
                           >
-                            ${discountedPrice.toLocaleString()} <span style={{ fontSize: 9, opacity: 0.8 }}>(-{discountPct}% clan)</span>
+                            <span className="text-sm font-mono font-bold" style={{ color: '#fbbf24' }}>
+                              ${discountedPrice.toLocaleString()}
+                            </span>
+                            <span
+                              className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
+                              style={{ background: 'rgba(251,191,36,0.18)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.35)' }}
+                            >
+                              -{discountPct}% clan
+                            </span>
                           </span>
                         )}
                       </div>

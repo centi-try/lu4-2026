@@ -30,8 +30,9 @@ export default function Inventory() {
           Las reglas de negocio se aplican según el rol del usuario activo: Mapper o Super Admin.
         </p>
         <div className="mt-3 rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            Los ítems para ser vendidos de forma interna o externa, una vez registrados, deben ser enviados por correo/mailbox para ser confirmados. Luego de recibir el ítem, aparecerá visible. Enviar al personaje: <span className="font-bold text-base" style={{ color: '#7bf1d6' }}>vRAPTOR</span>
+          <p className="text-sm font-bold mb-1" style={{ color: '#7bf1d6' }}>Responsable de los ítems</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            Deberá informar oportunamente a los agentes encargados del sistema de ventas cuando un ítem haya sido vendido, con el fin de actualizar la información y mantener la trazabilidad del proceso.
           </p>
         </div>
       </div>
