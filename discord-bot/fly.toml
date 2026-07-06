@@ -1,0 +1,17 @@
+app = "raptorsquad-bot"
+primary_region = "gru"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  API_BASE_URL = "https://raptorsquad.fly.dev"
+
+# El bot no expone HTTP: es un worker que mantiene conexión con Discord.
+# Una sola máquina siempre encendida.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[processes]
+  app = "sh -c 'node register-commands.mjs && node index.mjs'"
