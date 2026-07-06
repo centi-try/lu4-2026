@@ -41,6 +41,9 @@ import {
   getCommandParties,
   getAvailableClasses,
   getInvitationCode,
+  createItem,
+  getAllUsers,
+  getRaidCategoryIcons,
 } from "../db";
 import { sendPasswordResetEmail, sendEmailVerificationEmail, isEmailEnabled } from "./email";
 import {
@@ -1087,6 +1090,188 @@ async function startServer() {
     }
   });
   
+  // ============================================================
+  // Bot de Discord — registro de ítems vía API key (service account)
+  // ============================================================
+  // Endpoint pensado para un bot externo (Discord). No usa la cookie de
+  // sesión OAuth (el bot no es un humano logueado) sino una API key en el
+  // header `x-bot-api-key`. El ítem se crea SIEMPRE en estado EN_REGISTRO
+  // (borrador) para que un Super Admin lo confirme desde la web. Reusa la
+  // misma validación/persistencia que el resto de la app.
+  const BOT_ITEM_CATEGORIES = [
+    'ARMADURA', 'ARMA', 'KEY', 'RECIPE', 'MATERIALES', 'QUEST',
+    'ADENA', 'JOYA', 'SCROLL', 'PERSONAJES', 'LIFE_STONE',
+  ];
+
+  function botApiKeyValid(req: express.Request): { ok: boolean; reason?: string } {
+    const expected = process.env.BOT_API_KEY || '';
+    if (!expected) return { ok: false, reason: 'unconfigured' };
+    const provided = String(req.headers['x-bot-api-key'] || '');
+    const a = Buffer.from(provided);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length) return { ok: false, reason: 'invalid' };
+    try {
+      if (!crypto.timingSafeEqual(a, b)) return { ok: false, reason: 'invalid' };
+    } catch {
+      return { ok: false, reason: 'invalid' };
+    }
+    return { ok: true };
+  }
+
+  // Lista de usuarios para poblar los dropdowns del bot (personajes / responsable).
+  app.get('/api/bot/users', async (req, res) => {
+    const auth = botApiKeyValid(req);
+    if (!auth.ok) {
+      if (auth.reason === 'unconfigured') {
+        return res.status(503).json({ ok: false, message: 'BOT_API_KEY no está configurada en el servidor.' });
+      }
+      return res.status(401).json({ ok: false, message: 'API key inválida.' });
+    }
+    try {
+      const users = await getAllUsers();
+      const list = users
+        .filter((u: any) => u.isActive !== false)
+        .map((u: any) => ({
+          id: Number(u.id),
+          name: String(u.characterName || u.name || 'Sin nombre'),
+        }))
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+      return res.json({ ok: true, users: list });
+    } catch (err) {
+      console.error('[bot/users] error:', err);
+      return res.status(500).json({ ok: false, message: 'Error al obtener usuarios.' });
+    }
+  });
+
+  // Healthcheck simple para que el bot valide su API key al arrancar.
+  app.get('/api/bot/ping', (req, res) => {
+    const auth = botApiKeyValid(req);
+    if (!auth.ok) {
+      if (auth.reason === 'unconfigured') {
+        return res.status(503).json({ ok: false, message: 'BOT_API_KEY no está configurada en el servidor.' });
+      }
+      return res.status(401).json({ ok: false, message: 'API key inválida.' });
+    }
+    return res.json({ ok: true, categories: BOT_ITEM_CATEGORIES });
+  });
+
+  app.post('/api/bot/items', express.json(), async (req, res) => {
+    try {
+      const auth = botApiKeyValid(req);
+      if (!auth.ok) {
+        if (auth.reason === 'unconfigured') {
+          return res.status(503).json({ ok: false, message: 'BOT_API_KEY no está configurada en el servidor.' });
+        }
+        return res.status(401).json({ ok: false, message: 'API key inválida.' });
+      }
+
+      const name = String(req.body?.name || '').trim();
+      const category = String(req.body?.category || '').trim().toUpperCase().replace(/\s+/g, '_');
+      const price = Number(req.body?.price);
+      const quantity = req.body?.quantity != null ? Number(req.body.quantity) : 1;
+      const responsibleName = req.body?.responsibleName ? String(req.body.responsibleName).trim() : '';
+      const source = req.body?.source ? String(req.body.source).slice(0, 120) : 'discord-bot';
+
+      if (!name) return res.status(400).json({ ok: false, message: 'Falta el nombre del ítem.' });
+      if (name.length > 120) return res.status(400).json({ ok: false, message: 'El nombre es demasiado largo (máx 120).' });
+      if (!BOT_ITEM_CATEGORIES.includes(category)) {
+        return res.status(400).json({ ok: false, message: `Categoría inválida. Válidas: ${BOT_ITEM_CATEGORIES.join(', ')}` });
+      }
+      if (!Number.isFinite(price) || price <= 0) {
+        return res.status(400).json({ ok: false, message: 'Precio inválido (debe ser un número > 0).' });
+      }
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        return res.status(400).json({ ok: false, message: 'Cantidad inválida (debe ser un entero > 0).' });
+      }
+
+      // Resolver responsable y personajes asociados.
+      // Preferimos IDs explícitos (elegidos en los dropdowns del bot) y validamos
+      // que existan. Si no vienen IDs, caemos al match por nombre (compatibilidad).
+      let responsibleUserId: number | null = null;
+      let associatedCharacterIds: number[] = [];
+      let responsibleMatched = false;
+
+      const allUsers = await getAllUsers();
+      const validIds = new Set(allUsers.map((u: any) => Number(u.id)));
+
+      const rawAssoc = Array.isArray(req.body?.associatedCharacterIds) ? req.body.associatedCharacterIds : [];
+      const rawResponsible = req.body?.responsibleUserId;
+
+      if (rawAssoc.length > 0) {
+        associatedCharacterIds = rawAssoc
+          .map((x: any) => Number(x))
+          .filter((n: number) => Number.isInteger(n) && validIds.has(n));
+      }
+
+      if (rawResponsible != null && rawResponsible !== '') {
+        const rid = Number(rawResponsible);
+        if (Number.isInteger(rid) && validIds.has(rid)) {
+          responsibleUserId = rid;
+          responsibleMatched = true;
+        }
+      } else if (responsibleName) {
+        const match = allUsers.find(
+          (u: any) => String(u.characterName || u.name || '').trim().toLowerCase() === responsibleName.toLowerCase()
+        );
+        if (match) {
+          responsibleUserId = Number(match.id);
+          responsibleMatched = true;
+          if (associatedCharacterIds.length === 0) associatedCharacterIds = [Number(match.id)];
+        }
+      }
+
+      // Resolver imagen automática por categoría (si está mapeada en catálogo).
+      let imageUrl: string | null = null;
+      try {
+        const icons = await getRaidCategoryIcons();
+        const icon = icons.find((i: any) => String(i.category).toUpperCase() === category);
+        if (icon) imageUrl = icon.imageUrl;
+      } catch { /* sin imagen si falla */ }
+
+      const created = await createItem({
+        name,
+        category,
+        status: 'EN_REGISTRO',
+        price,
+        mapperId: responsibleUserId || 0,
+        imageUrl,
+        quantity,
+        quantitySold: 0,
+        quantitySoldInCycle: 0,
+        associatedCharacterIds,
+        responsibleUserId,
+      });
+
+      await createAuditLog({
+        userId: responsibleUserId,
+        actorName: `Bot Discord${responsibleName ? ` (${responsibleName})` : ''}`,
+        actorRole: 'bot',
+        action: 'CREATE_ITEM',
+        itemName: name,
+        detail: `Bot registró "${name}" (${quantity} unidad(es)) en categoría ${category} vía ${source}. Queda EN_REGISTRO, pendiente de confirmación del Super Admin.`,
+        details: { itemName: name, category, quantity, source, responsibleUserId, responsibleMatched },
+      });
+
+      return res.json({
+        ok: true,
+        item: {
+          id: created.id,
+          name,
+          category,
+          price,
+          quantity,
+          status: 'EN_REGISTRO',
+          responsibleUserId,
+          responsibleMatched,
+          hasImage: !!imageUrl,
+        },
+      });
+    } catch (err) {
+      console.error('[bot/items] error:', err);
+      return res.status(500).json({ ok: false, message: 'Error interno al registrar el ítem.' });
+    }
+  });
+
   const { createExpressMiddleware } = await import("@trpc/server/adapters/express");
   app.use(
     "/api/trpc",

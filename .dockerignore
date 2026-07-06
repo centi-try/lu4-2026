@@ -4,3 +4,6 @@ data_storage.json
 backups
 .git
 *.log
+discord-bot
+.env
+**/.env
