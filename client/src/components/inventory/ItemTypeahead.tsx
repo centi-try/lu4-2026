@@ -70,10 +70,24 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
       const q = value.toLowerCase();
       // Search from catalog first (priority)
       const catalogResults = (catalogRef.current || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 8).map((m: any) => ({ ...m, _source: 'catalog' as const }));
-      // Also search existing items. Los mostramos SIEMPRE (aunque el nombre
-      // exista en el catálogo) para que el usuario pueda elegir el ítem ya
-      // registrado y recuperar su precio. Cada ítem sale como opción propia.
-      const itemResults = searchItemsRef.current(value).slice(0, 5).map((i: any) => ({ ...i, _source: 'item' as const }));
+      // También buscamos entre los ítems ya registrados para recuperar su
+      // precio. Reglas:
+      //  - Solo ítems CONFIRMADOS (los vendidos y los que aún están En Registro
+      //    no se ofrecen como opción).
+      //  - Sin duplicados: si el mismo nombre+categoría+precio aparece en varias
+      //    filas de la tabla, se muestra una sola vez. Precios distintos del
+      //    mismo ítem sí salen como opciones separadas para poder elegir.
+      const seen = new Set<string>();
+      const itemResults = searchItemsRef.current(value)
+        .filter((i: any) => i.status === 'CONFIRMADO')
+        .filter((i: any) => {
+          const key = `${String(i.normalizedName || i.name || '').toLowerCase()}||${i.category}||${Number(i.price) || 0}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 5)
+        .map((i: any) => ({ ...i, _source: 'item' as const }));
       // Merge: primero los ítems registrados (traen precio), luego el catálogo.
       const merged = [...itemResults, ...catalogResults].slice(0, 10);
       setResults(merged);
