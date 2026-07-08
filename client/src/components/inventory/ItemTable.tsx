@@ -350,6 +350,10 @@ function InventorySummaryButton({
   const [coopFilter, setCoopFilter] = useState<'all' | 'coop' | 'indiv'>('all');
   // Claves validadas en la sesión actual. Se limpia al abrir/cerrar.
   const [validated, setValidated] = useState<Set<string>>(new Set());
+  // Edición de precio por grupo: clave del grupo en edición + valor tipeado.
+  const { updateItem } = useApp();
+  const [editingPriceKey, setEditingPriceKey] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState('');
 
   // Responsables presentes entre los ítems con stock disponible (para el filtro).
   const responsables = useMemo(() => {
@@ -378,6 +382,8 @@ function InventorySummaryButton({
       image: string;
       available: number;
       registros: number;
+      itemIds: string[];
+      prices: number[];
     }>();
     for (const it of items) {
       const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
@@ -391,10 +397,13 @@ function InventorySummaryButton({
       if (coopFilter === 'coop' && !it.isCooperative) continue;
       if (coopFilter === 'indiv' && it.isCooperative) continue;
       const key = `${it.name.trim().toLowerCase()}||${it.category}`;
+      const price = Number(it.price) || 0;
       const existing = map.get(key);
       if (existing) {
         existing.available += available;
         existing.registros += 1;
+        existing.itemIds.push(it.id);
+        existing.prices.push(price);
         if (!existing.image) existing.image = it.image?.publicUrl || '';
       } else {
         map.set(key, {
@@ -404,10 +413,18 @@ function InventorySummaryButton({
           image: it.image?.publicUrl || resolveCategoryIcon(it.category) || '',
           available,
           registros: 1,
+          itemIds: [it.id],
+          prices: [price],
         });
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values())
+      .map(g => {
+        const min = Math.min(...g.prices);
+        const max = Math.max(...g.prices);
+        return { ...g, minPrice: min, maxPrice: max, uniformPrice: min === max ? min : null };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [items, resolveCategoryIcon, respFilter, coopFilter]);
 
   const shown = useMemo(() => {
@@ -424,6 +441,8 @@ function InventorySummaryButton({
     setSearch('');
     setRespFilter('all');
     setCoopFilter('all');
+    setEditingPriceKey(null);
+    setPriceDraft('');
     setOpen(true);
   };
   const closeModal = () => {
@@ -432,6 +451,8 @@ function InventorySummaryButton({
     setSearch('');
     setRespFilter('all');
     setCoopFilter('all');
+    setEditingPriceKey(null);
+    setPriceDraft('');
   };
   const toggleValidated = (key: string) => {
     setValidated(prev => {
@@ -439,6 +460,28 @@ function InventorySummaryButton({
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+  };
+
+  // Abre el editor de precio de un grupo, precargando el precio uniforme si lo hay.
+  const startEditPrice = (g: { key: string; uniformPrice: number | null }) => {
+    setEditingPriceKey(g.key);
+    setPriceDraft(g.uniformPrice != null && g.uniformPrice > 0 ? formatThousands(g.uniformPrice) : '');
+  };
+  const cancelEditPrice = () => {
+    setEditingPriceKey(null);
+    setPriceDraft('');
+  };
+  // Aplica el nuevo precio base a TODOS los ítems del grupo (bulk). El descuento
+  // de clan se sigue calculando solo; esto solo cambia el precio base.
+  const saveGroupPrice = (g: { key: string; itemIds: string[]; name: string }) => {
+    const parsed = parseThousands(priceDraft);
+    if (parsed === null || parsed <= 0) { toast.error('Precio inválido.'); return; }
+    for (const id of g.itemIds) {
+      updateItem(id, { price: parsed });
+    }
+    toast.success(`Precio de "${g.name}" actualizado a $${parsed.toLocaleString()} (${g.itemIds.length} ${g.itemIds.length === 1 ? 'ítem' : 'ítems'}).`);
+    setEditingPriceKey(null);
+    setPriceDraft('');
   };
 
   return (
@@ -538,20 +581,24 @@ function InventorySummaryButton({
                   {shown.map(g => {
                     const isValidated = validated.has(g.key);
                     const meta = categoryMeta[g.category] || { emoji: '📦', label: g.category };
+                    const isEditingPrice = editingPriceKey === g.key;
+                    const priceLabel = g.uniformPrice != null
+                      ? `$${g.uniformPrice.toLocaleString()}`
+                      : `varios ($${g.minPrice.toLocaleString()}–$${g.maxPrice.toLocaleString()})`;
                     return (
-                      <button
+                      <div
                         key={g.key}
-                        type="button"
-                        onClick={() => toggleValidated(g.key)}
                         className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors"
-                        title={isValidated ? 'Marcar como no validado' : 'Marcar como validado (confirmado contra lo físico)'}
                         style={{
                           background: isValidated ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
                           border: `1px solid ${isValidated ? 'rgba(16,185,129,0.28)' : 'rgba(255,255,255,0.05)'}`,
                         }}
                       >
                         {/* Checkbox */}
-                        <span
+                        <button
+                          type="button"
+                          onClick={() => toggleValidated(g.key)}
+                          title={isValidated ? 'Marcar como no validado' : 'Marcar como validado (confirmado contra lo físico)'}
                           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
                           style={{
                             background: isValidated ? '#10b981' : 'rgba(255,255,255,0.05)',
@@ -559,7 +606,7 @@ function InventorySummaryButton({
                           }}
                         >
                           {isValidated && <Check className="h-3.5 w-3.5" style={{ color: '#fff' }} />}
-                        </span>
+                        </button>
                         {/* Image */}
                         <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                           {g.image ? (
@@ -570,7 +617,7 @@ function InventorySummaryButton({
                             </div>
                           )}
                         </div>
-                        {/* Name + category */}
+                        {/* Name + category + precio */}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate" style={{ color: isValidated ? '#10b981' : 'rgba(255,255,255,0.9)' }}>
                             {g.name}
@@ -579,13 +626,45 @@ function InventorySummaryButton({
                             {meta.emoji} {meta.label}
                             {g.registros > 1 && <span> · {g.registros} registros</span>}
                           </p>
+                          {isEditingPrice ? (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <span className="text-base font-mono font-bold" style={{ color: '#7bf1d6' }}>$</span>
+                              <input
+                                type="text"
+                                autoFocus
+                                value={priceDraft}
+                                onChange={e => setPriceDraft(reformatWhileTyping(e.target.value))}
+                                onKeyDown={e => { if (e.key === 'Enter') saveGroupPrice(g); if (e.key === 'Escape') cancelEditPrice(); }}
+                                placeholder="Precio base"
+                                className="h-9 w-36 rounded-lg px-2.5 text-base font-mono font-bold outline-none"
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(123,241,214,0.4)', color: '#7bf1d6' }}
+                              />
+                              <button type="button" onClick={() => saveGroupPrice(g)} title="Guardar precio" className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)' }}>
+                                <Check className="h-4 w-4" style={{ color: '#34d399' }} />
+                              </button>
+                              <button type="button" onClick={cancelEditPrice} title="Cancelar" className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.5)' }} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => startEditPrice(g)}
+                              title="Editar precio base de todos los ítems del grupo"
+                              className="mt-1.5 inline-flex items-center gap-2 rounded-lg px-2.5 py-1 text-base font-mono font-bold transition-colors"
+                              style={{ color: '#7bf1d6', background: 'rgba(123,241,214,0.08)', border: '1px solid rgba(123,241,214,0.22)' }}
+                            >
+                              {priceLabel}
+                              <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(123,241,214,0.75)' }} />
+                            </button>
+                          )}
                         </div>
                         {/* Available count */}
                         <div className="shrink-0 text-right">
                           <p className="text-sm font-mono font-bold" style={{ color: '#a78bfa' }}>{g.available.toLocaleString()}</p>
                           <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>disponibles</p>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

@@ -70,12 +70,12 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
       const q = value.toLowerCase();
       // Search from catalog first (priority)
       const catalogResults = (catalogRef.current || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 8).map((m: any) => ({ ...m, _source: 'catalog' as const }));
-      // Also search existing items
+      // Also search existing items. Los mostramos SIEMPRE (aunque el nombre
+      // exista en el catálogo) para que el usuario pueda elegir el ítem ya
+      // registrado y recuperar su precio. Cada ítem sale como opción propia.
       const itemResults = searchItemsRef.current(value).slice(0, 5).map((i: any) => ({ ...i, _source: 'item' as const }));
-      // Merge: catalog first, then items not already in catalog
-      const catalogNames = new Set(catalogResults.map((c: any) => String(c.name || '').toLowerCase()));
-      const filtered = itemResults.filter((i: any) => !catalogNames.has(String(i.name || '').toLowerCase()));
-      const merged = [...catalogResults, ...filtered].slice(0, 10);
+      // Merge: primero los ítems registrados (traen precio), luego el catálogo.
+      const merged = [...itemResults, ...catalogResults].slice(0, 10);
       setResults(merged);
       setOpen(merged.length > 0);
       setLoading(false);
