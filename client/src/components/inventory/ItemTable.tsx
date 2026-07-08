@@ -343,8 +343,25 @@ function InventorySummaryButton({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  // Filtros: responsable (id) y tipo (cooperativo/individual). 'all' = sin filtro.
+  const [respFilter, setRespFilter] = useState<string>('all');
+  const [coopFilter, setCoopFilter] = useState<'all' | 'coop' | 'indiv'>('all');
   // Claves validadas en la sesión actual. Se limpia al abrir/cerrar.
   const [validated, setValidated] = useState<Set<string>>(new Set());
+
+  // Responsables presentes entre los ítems con stock disponible (para el filtro).
+  const responsables = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const it of items) {
+      const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
+      if (available <= 0) continue;
+      const id = it.responsibleUserId ? String(it.responsibleUserId) : '__none__';
+      if (!map.has(id)) map.set(id, it.responsibleName || 'Sin responsable');
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [items]);
 
   const groups = useMemo(() => {
     const map = new Map<string, {
@@ -358,6 +375,14 @@ function InventorySummaryButton({
     for (const it of items) {
       const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
       if (available <= 0) continue; // opción A: solo stock disponible
+      // Filtro por responsable.
+      if (respFilter !== 'all') {
+        const id = it.responsibleUserId ? String(it.responsibleUserId) : '__none__';
+        if (id !== respFilter) continue;
+      }
+      // Filtro por tipo cooperativo/individual.
+      if (coopFilter === 'coop' && !it.isCooperative) continue;
+      if (coopFilter === 'indiv' && it.isCooperative) continue;
       const key = `${it.name.trim().toLowerCase()}||${it.category}`;
       const existing = map.get(key);
       if (existing) {
@@ -376,7 +401,7 @@ function InventorySummaryButton({
       }
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [items, resolveCategoryIcon]);
+  }, [items, resolveCategoryIcon, respFilter, coopFilter]);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -390,12 +415,16 @@ function InventorySummaryButton({
   const openModal = () => {
     setValidated(new Set());
     setSearch('');
+    setRespFilter('all');
+    setCoopFilter('all');
     setOpen(true);
   };
   const closeModal = () => {
     setOpen(false);
     setValidated(new Set());
     setSearch('');
+    setRespFilter('all');
+    setCoopFilter('all');
   };
   const toggleValidated = (key: string) => {
     setValidated(prev => {
@@ -460,6 +489,30 @@ function InventorySummaryButton({
                   className="w-full h-9 rounded-xl pl-9 pr-3 text-sm outline-none"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
                 />
+              </div>
+              {/* Filtros: responsable + tipo */}
+              <div className="flex items-center gap-2 mt-2">
+                <select
+                  value={respFilter}
+                  onChange={e => setRespFilter(e.target.value)}
+                  className="h-9 flex-1 min-w-0 rounded-xl px-2 text-xs outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
+                >
+                  <option value="all">👤 Responsable: Todos</option>
+                  {responsables.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={coopFilter}
+                  onChange={e => setCoopFilter(e.target.value as 'all' | 'coop' | 'indiv')}
+                  className="h-9 rounded-xl px-2 text-xs outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
+                >
+                  <option value="all">Tipo: Todos</option>
+                  <option value="coop">🤝 Cooperativo</option>
+                  <option value="indiv">👤 Individual</option>
+                </select>
               </div>
             </div>
 
