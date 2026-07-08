@@ -29,6 +29,26 @@ export default function Inventory() {
           Gestión completa de ítems del sistema. Crea, edita y confirma ítems con imagen obligatoria.
           Las reglas de negocio se aplican según el rol del usuario activo: Mapper o Super Admin.
         </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+            <p className="text-sm font-bold mb-1" style={{ color: '#7bf1d6' }}>Venta de Ítems</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Publica tu ítem en <span className="font-semibold" style={{ color: '#7bf1d6' }}>#venta-de-items</span> (Discord o TS3) utilizando el formato disponible en ese canal. Un agente revisará la publicación y registrará el ítem en la página.
+            </p>
+          </div>
+          <div className="rounded-lg px-4 py-3" style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.15)' }}>
+            <p className="text-sm font-bold mb-1" style={{ color: '#a78bfa' }}>Compra de Ítems</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Haz clic en <span className="font-semibold" style={{ color: '#a78bfa' }}>"R"</span> (Reservar) en la tabla. Un agente se pondrá en contacto contigo para gestionar la compra como intermediario.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 rounded-lg px-4 py-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
+          <p className="text-sm font-bold mb-1" style={{ color: '#7bf1d6' }}>Responsable de los ítems</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            Deberá informar oportunamente a los agentes encargados del sistema de ventas cuando un ítem haya sido vendido, con el fin de actualizar la información y mantener la trazabilidad del proceso.
+          </p>
+        </div>
       </div>
       <div className="space-y-5">
         {(currentUser && (currentUser.role === 'MAPPER' || currentUser.role === 'SUPER_ADMIN')) && <CreateItemPanel />}

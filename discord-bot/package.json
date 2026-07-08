@@ -1,0 +1,15 @@
+{
+  "name": "raptorsquad-discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bot de Discord que registra ítems en RaptorSquad (estado EN_REGISTRO, pendiente de confirmación del Super Admin).",
+  "scripts": {
+    "register": "node register-commands.mjs",
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}

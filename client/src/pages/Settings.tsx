@@ -1,79 +1,68 @@
-import React, { useState } from 'react';
-import { Shield, Lock, CheckCircle, ImageIcon, Zap, Package, AlertTriangle, Key, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Shield, Lock, CheckCircle, Zap, Package, AlertTriangle, Key, RefreshCw, Coins } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { categoryMeta, CATEGORIES } from '../lib/category-meta';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+import { useApp } from '../contexts/AppContext';
+import { TwoFactorSection } from '../components/settings/TwoFactorSection';
 
 const rules = [
   {
     icon: Shield,
     color: '#7bf1d6',
-    title: 'Control de Roles',
-    desc: 'El sistema implementa dos roles con permisos diferenciados: Mapper y Super Admin. Las reglas se aplican en todas las vistas y operaciones del sistema.',
+    title: 'Roles del Sistema',
+    desc: 'Cada usuario tiene un rol que determina qué acciones puede realizar dentro de la plataforma.',
     items: [
-      'Mapper: puede crear y editar ítems en estado EN_REGISTRO',
-      'Mapper: no puede modificar imágenes de ítems confirmados',
-      'Super Admin: acceso total a todas las operaciones',
-      'Super Admin: puede corregir imágenes en cualquier estado',
-      'Super Admin: puede confirmar y eliminar ítems',
-    ],
-  },
-  {
-    icon: ImageIcon,
-    color: '#e879f9',
-    title: 'Reglas de Imagen',
-    desc: 'Cada ítem tiene una relación 1:1 obligatoria con su imagen. La imagen puede asignarse automáticamente por categoría o de forma manual.',
-    items: [
-      'Imagen obligatoria para todo ítem registrado',
-      'Relación 1:1 permanente entre ítem e imagen',
-      'Asignación automática por categoría si no se especifica',
-      'Imagen bloqueada para Mapper una vez confirmado el ítem',
-      'Super Admin puede corregir imágenes incorrectas en cualquier momento',
-      'Imágenes mostradas en 30×30px en tablas sin deformación',
+      'Usuario: acceso básico a la plataforma',
+      'Mapper: puede registrar y editar ítems del inventario',
+      'Admin: permisos administrativos sobre módulos asignados',
+      'Los permisos se gestionan de forma centralizada',
     ],
   },
   {
     icon: CheckCircle,
     color: '#34d399',
-    title: 'Estados del Ítem',
-    desc: 'Los ítems transicionan entre estados con restricciones específicas que protegen la integridad del inventario.',
+    title: 'Inventario e Ítems',
+    desc: 'Los ítems pasan por un flujo de estados que garantiza la trazabilidad y control del inventario.',
     items: [
-      'EN_REGISTRO: ítem totalmente editable por Mapper y Super Admin',
-      'CONFIRMADO: imagen bloqueada para Mapper, datos parcialmente editables',
-      'Solo Super Admin puede cambiar el estado a CONFIRMADO',
-      'Una vez confirmado, el ítem no puede volver a EN_REGISTRO',
+      'Registro de ítems con nombre, categoría, imagen y precio',
+      'Confirmación de ítems para validar la información ingresada',
+      'Historial completo de cada ítem desde su registro hasta su venta',
+      'Ciclos de ventas para agrupar y reportar ganancias por período',
     ],
   },
   {
     icon: Zap,
     color: '#fbbf24',
-    title: 'Autocompletado Inteligente',
-    desc: 'El campo de nombre incluye búsqueda en tiempo real para evitar duplicados y precargar datos de ítems existentes.',
+    title: 'Herramientas de Productividad',
+    desc: 'Funcionalidades diseñadas para agilizar el trabajo diario dentro de la plataforma.',
     items: [
-      'Búsqueda insensible a mayúsculas/minúsculas',
-      'Coincidencias parciales desde el primer carácter',
-      'Muestra entre 5 y 10 sugerencias con imagen y categoría',
-      'Navegación con teclado: flechas, Enter y Escape',
-      'Al seleccionar: precarga nombre, categoría, imagen y precio',
-      'Resaltado visual de la coincidencia de texto',
+      'Autocompletado inteligente al registrar ítems',
+      'Sugerencias en tiempo real con imagen y categoría',
+      'Navegación rápida con teclado en formularios',
+      'Búsqueda y filtros avanzados en todas las tablas',
     ],
   },
   {
     icon: Lock,
     color: '#60a5fa',
-    title: 'Persistencia y Seguridad',
-    desc: 'Toda la información es persistente y no depende del navegador del usuario. Las reglas de negocio se aplican de forma consistente.',
+    title: 'Datos y Respaldos',
+    desc: 'La plataforma mantiene toda la información de forma segura y persistente.',
     items: [
-      'Ningún dato crítico depende del almacenamiento local del navegador',
-      'Imágenes almacenadas en almacenamiento seguro en la nube',
-      'Historial de acciones inmutable e identificado por usuario',
-      'Validaciones aplicadas en todas las operaciones del sistema',
+      'Información almacenada de forma centralizada en el servidor',
+      'Respaldos automáticos diarios de toda la información',
+      'Historial de acciones inmutable para auditoría',
+      'Recuperación ante errores mediante sistema de backups',
     ],
   },
 ];
 
 export default function Settings() {
+  const { user } = useAuth();
+  const { effectiveIsSuperAdmin } = useApp();
+  const isSuperAdmin = effectiveIsSuperAdmin;
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -192,6 +181,12 @@ export default function Settings() {
             </form>
           </div>
 
+          {/* 2FA (solo super_admin — PR6) */}
+          {isSuperAdmin && <TwoFactorSection />}
+
+          {/* Fondo del Clan — visible para todos, solo super_admin puede editar */}
+          <ClanFundSettingsCard canEdit={isSuperAdmin} />
+
           {/* Categories reference */}
           <div className="card-glass rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-4">
@@ -233,5 +228,110 @@ export default function Settings() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function ClanFundSettingsCard({ canEdit }: { canEdit: boolean }) {
+  const { data: settings, isLoading } = trpc.clanFund.getSettings.useQuery();
+  const utils = trpc.useUtils();
+  const updateMutation = trpc.clanFund.updateSettings.useMutation({
+    onSuccess: () => {
+      utils.clanFund.getSettings.invalidate();
+      toast.success('Configuración del Fondo del Clan actualizada');
+    },
+    onError: (err) => toast.error(err.message || 'Error al guardar'),
+  });
+
+  const [taxPct, setTaxPct] = useState('0');
+  const [discPct, setDiscPct] = useState('0');
+
+  useEffect(() => {
+    if (settings) {
+      setTaxPct(String(settings.clanTaxPercent ?? 0));
+      setDiscPct(String(settings.internalDiscountPercent ?? 0));
+    }
+  }, [settings]);
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canEdit) return;
+    const tax = parseFloat(taxPct);
+    const disc = parseFloat(discPct);
+    if (isNaN(tax) || tax < 0 || tax > 100) { toast.error('Porcentaje clan debe estar entre 0 y 100'); return; }
+    if (isNaN(disc) || disc < 0 || disc > 100) { toast.error('Descuento debe estar entre 0 y 100'); return; }
+    updateMutation.mutate({ clanTaxPercent: tax, internalDiscountPercent: disc });
+  };
+
+  if (isLoading) return null;
+
+  const disabledStyle = !canEdit ? { opacity: 0.6, cursor: 'not-allowed' } : {};
+
+  return (
+    <div className="card-glass rounded-2xl p-5" style={{ border: '1px solid rgba(251,191,36,0.15)' }}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}>
+          <Coins className="h-5 w-5" style={{ color: '#fbbf24' }} />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Fondo del Clan</h3>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {canEdit ? 'Retención y descuento interno' : 'Solo lectura — solo el Administrador del Sistema puede modificar'}
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Porcentaje Retención Clan (%)
+          </label>
+          <input
+            type="number"
+            value={taxPct}
+            onChange={e => canEdit && setTaxPct(e.target.value)}
+            disabled={!canEdit}
+            min="0" max="100" step="0.1"
+            className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all font-mono"
+            style={{ ...{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }, ...disabledStyle }}
+          />
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Porcentaje de cada venta que se destina al fondo del clan (sobre precio real cobrado).
+          </p>
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Descuento Venta Interna (%)
+          </label>
+          <input
+            type="number"
+            value={discPct}
+            onChange={e => canEdit && setDiscPct(e.target.value)}
+            disabled={!canEdit}
+            min="0" max="100" step="0.1"
+            className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all font-mono"
+            style={{ ...{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }, ...disabledStyle }}
+          />
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Descuento aplicado al precio cuando se marca como "Venta Interna Clan".
+          </p>
+        </div>
+        {canEdit && (
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+            style={{ background: '#fbbf24', color: '#000' }}
+          >
+            {updateMutation.isPending ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Coins className="h-4 w-4" />
+            )}
+            {updateMutation.isPending ? 'Guardando...' : 'Guardar Configuración'}
+          </button>
+        )}
+      </form>
+    </div>
   );
 }
