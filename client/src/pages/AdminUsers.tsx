@@ -921,8 +921,7 @@ export default function AdminUsers() {
 
       {/* Delete User Confirmation Modal */}
       {deleteModalUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setDeleteModalUser(null); }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
             style={{
               background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
@@ -972,8 +971,7 @@ export default function AdminUsers() {
 
       {/* Toggle Active Confirmation Modal */}
       {toggleModalUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setToggleModalUser(null); }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
             style={{
               background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
@@ -1030,8 +1028,7 @@ export default function AdminUsers() {
 
       {/* Unlock User Confirmation Modal */}
       {unlockModalUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setUnlockModalUser(null); }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
             style={{
               background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
@@ -1080,8 +1077,7 @@ export default function AdminUsers() {
 
       {/* Edit Profile Modal */}
       {editModalUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditModalUser(null); }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div
             className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl"
             style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(59,130,246,0.3)' }}

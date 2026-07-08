@@ -999,6 +999,9 @@ export const createItem = async (data: any) => {
     associatedCharacterIds: Array.isArray(data.associatedCharacterIds)
       ? data.associatedCharacterIds.map(Number)
       : [],
+    // Flag cooperativo (solo separación visual en Ciclos de Venta). Ítems del
+    // bot de Discord no lo envían → nacen como Individual (false) por defecto.
+    isCooperative: Boolean(data.isCooperative),
     createdAt: new Date(),
     updatedAt: new Date() 
   };
@@ -1078,14 +1081,26 @@ function normalizeCycle(cycle: any): any {
 function normalizeCharacterEarnings(cycle: any): any[] {
   // Si ya tiene el formato correcto
   if (Array.isArray(cycle.characterEarnings) && cycle.characterEarnings.length > 0) {
-    return cycle.characterEarnings.map((ce: any) => ({
-      characterId: String(ce.characterId),
-      characterName: ce.characterName || String(ce.characterId),
-      earnings: Number(ce.earnings) || 0,
-      paidOut: Boolean(ce.paidOut),
-      paidAt: ce.paidAt || null,
-      paidBy: ce.paidBy || null,
-    }));
+    return cycle.characterEarnings.map((ce: any) => {
+      const earnings = Number(ce.earnings) || 0;
+      // Desglose coop/individual. Compat: si el desglose no cubre el total
+      // (ciclos/ventas previos al split, donde coop+indiv < earnings), el
+      // faltante se atribuye a cooperativo para no perder el monto ni ocultar
+      // al personaje en la vista separada. Garantiza coop+indiv == earnings.
+      const coopRaw = Number(ce.coopEarnings) || 0;
+      const indivRaw = Number(ce.indivEarnings) || 0;
+      const shortfall = Math.max(0, earnings - coopRaw - indivRaw);
+      return {
+        characterId: String(ce.characterId),
+        characterName: ce.characterName || String(ce.characterId),
+        earnings,
+        coopEarnings: coopRaw + shortfall,
+        indivEarnings: indivRaw,
+        paidOut: Boolean(ce.paidOut),
+        paidAt: ce.paidAt || null,
+        paidBy: ce.paidBy || null,
+      };
+    });
   }
   // Si viene como profitByCharacter (objeto { userId: amount })
   if (cycle.profitByCharacter && typeof cycle.profitByCharacter === 'object') {
@@ -1121,6 +1136,11 @@ function normalizeSoldItems(cycle: any): any[] {
         ? si.associatedCharacterIds.map(String)
         : [],
       earningsPerCharacter: Number(si.earningsPerCharacter) || 0,
+      // Reparto real por usuario (para el desglose por usuario en Ciclos).
+      earningsByCharacter: (si.earningsByCharacter && typeof si.earningsByCharacter === 'object')
+        ? si.earningsByCharacter
+        : {},
+      isCooperative: Boolean(si.isCooperative),
     }));
   }
   // Si viene como itemsSold (formato del router: { itemId, quantity })
@@ -1144,6 +1164,7 @@ function normalizeSoldItems(cycle: any): any[] {
         totalRevenue: totalRev,
         associatedCharacterIds: assocIds,
         earningsPerCharacter: Math.floor(totalRev / assocCount),
+        isCooperative: Boolean(item?.isCooperative),
       };
     });
   }
@@ -1180,16 +1201,27 @@ export const closeSalesCycle = async (id: number, data: any) => {
         totalRevenue: totalRev,
         associatedCharacterIds: assocIds,
         earningsPerCharacter: Math.floor(totalRev / associatedCount),
+        // Reparto REAL por usuario acumulado en el ciclo (ya con impuesto y
+        // sobrante). Permite desglosar por usuario cuadrando exacto su total.
+        earningsByCharacter: (i.cycleEarningsByChar && typeof i.cycleEarningsByChar === 'object')
+          ? i.cycleEarningsByChar
+          : {},
+        // Flag cooperativo (solo separación visual en Ciclos de Venta).
+        isCooperative: Boolean(i.isCooperative),
       };
     });
 
-  // Identificar ganancias por usuario (1 cuenta = 1 personaje)
+  // Identificar ganancias por usuario (1 cuenta = 1 personaje).
+  // `earnings` = total (compat), con el desglose coop/individual para separar
+  // visualmente en el ciclo. Solo separación: la suma coop+indiv == earnings.
   const characterEarnings = users
     .filter((u: any) => (Number(u.currentCycleEarnings) || 0) > 0)
     .map((u: any) => ({
       characterId: String(u.id),
       characterName: u.characterName || u.name || 'Sin nombre',
       earnings: Number(u.currentCycleEarnings) || 0,
+      coopEarnings: Number(u.currentCycleEarningsCoop) || 0,
+      indivEarnings: Number(u.currentCycleEarningsIndiv) || 0,
     }));
 
   // FIX: Identificar items no vendidos correctamente
@@ -1276,6 +1308,8 @@ export const closeSalesCycle = async (id: number, data: any) => {
     dbInstance.items = dbInstance.items.map(item => ({
       ...item,
       quantitySoldInCycle: 0,
+      // Reset del acumulado de reparto por usuario para el próximo ciclo.
+      cycleEarningsByChar: {},
       // FIX: Si el item fue completamente vendido, mantener status VENDIDO
       // Si no, restaurar a CONFIRMED para que siga disponible en el siguiente ciclo
       status: (() => {
@@ -1303,6 +1337,8 @@ export const closeSalesCycle = async (id: number, data: any) => {
     dbInstance.users = dbInstance.users.map(user => ({
       ...user,
       currentCycleEarnings: 0,
+      currentCycleEarningsCoop: 0,
+      currentCycleEarningsIndiv: 0,
     }));
   }
 

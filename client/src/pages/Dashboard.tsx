@@ -685,8 +685,7 @@ export default function Dashboard() {
       {/* Confirmation Modal — same style as "Eliminar ítem" modal */}
       {confirmModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setConfirmModal(prev => ({ ...prev, open: false })); }}>
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
           <div className="w-full max-w-md rounded-2xl p-5"
             style={{
               background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',

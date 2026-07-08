@@ -827,13 +827,6 @@ export default function RaidDropsTable({ raidAccess }: Props) {
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget && !sellDrop.isPending) {
-                setSellModalDrop(null);
-                setSelectedBuyerId('');
-                setSellQty('1');
-              }
-            }}
           >
             <div
               className="w-full max-w-lg rounded-2xl p-6 max-h-[92vh] overflow-y-auto"
@@ -1227,9 +1220,6 @@ export default function RaidDropsTable({ raidAccess }: Props) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => {
-            if (!deleteDrop.isPending) setDeleteModalDrop(null);
-          }}
         >
           <div
             className="w-full max-w-md rounded-2xl p-5"

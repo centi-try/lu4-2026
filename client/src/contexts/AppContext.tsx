@@ -299,6 +299,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       responsibleUserId: data.responsibleUserId
         ? (parseInt(String(data.responsibleUserId).replace('auth-', '')) || null)
         : null,
+      // Flag cooperativo (solo separación visual en Ciclos de Venta).
+      isCooperative: Boolean(data.isCooperative),
     });
 
     const now = new Date().toISOString();
@@ -355,6 +357,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       associatedCharacterIds: assocForServer,
       quantity: updates.quantity !== undefined ? Number(updates.quantity) : undefined,
       responsibleUserId: responsibleForServer,
+      isCooperative: updates.isCooperative !== undefined ? Boolean(updates.isCooperative) : undefined,
     });
 
     setItems(prev => prev.map(item => {

@@ -636,7 +636,6 @@ function ClosedSalesCycleCard({ cycle, canAdmin }: { cycle: any; canAdmin: boole
             <div
               className="fixed inset-0 z-[100] flex items-center justify-center p-4"
               style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-              onClick={e => { if (e.target === e.currentTarget) setConfirmAll(false); }}
             >
               <div
                 className="w-full max-w-md rounded-2xl p-6"
@@ -847,7 +846,6 @@ function CloseConfirmModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-      onClick={onCancel}
     >
       <div
         className="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"

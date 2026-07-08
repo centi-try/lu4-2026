@@ -11,6 +11,9 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
   const [open, setOpen] = useState(defaultOpen);
   const [confirmAll, setConfirmAll] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Filas de usuario desplegadas (desglose de ítems). Clave = "c|i:characterId"
+  // para permitir expandir por separado el mismo usuario en cada grupo.
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const utils = trpc.useUtils();
   const markPaid = trpc.salesCycles.markCharacterPaid.useMutation({
     onSuccess: () => {
@@ -60,8 +63,24 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
     );
   };
 
-  const paidCount = characterEarnings.filter(ce => ce.paidOut).length;
-  const allPaid = characterEarnings.length > 0 && paidCount === characterEarnings.length;
+  // Separación SOLO visual (🤝 Cooperativo | 👤 Individual). No cambia montos:
+  // cada personaje puede figurar en ambos grupos según el desglose de su ganancia.
+  // Compat: ciclos viejos sin desglose caen todos en "cooperativo" (ver server).
+  const coopEarnings = characterEarnings
+    .filter(ce => (Number(ce.coopEarnings) || 0) > 0)
+    .map(ce => ({ ...ce, amount: Number(ce.coopEarnings) || 0 }))
+    .sort((a, b) => b.amount - a.amount);
+  const indivEarnings = characterEarnings
+    .filter(ce => (Number(ce.indivEarnings) || 0) > 0)
+    .map(ce => ({ ...ce, amount: Number(ce.indivEarnings) || 0 }))
+    .sort((a, b) => b.amount - a.amount);
+  const coopItems = soldItems.filter(si => si.isCooperative);
+  const indivItems = soldItems.filter(si => !si.isCooperative);
+
+  // El "PAGADO por persona" (R1) aplica al pozo cooperativo, que es lo que el
+  // admin reparte. Las ventas individuales las gestiona cada quien.
+  const paidCount = coopEarnings.filter(ce => ce.paidOut).length;
+  const allPaid = coopEarnings.length > 0 && paidCount === coopEarnings.length;
 
   const togglePaid = (ce: typeof characterEarnings[number]) => {
     if (!canPay) return;
@@ -93,6 +112,144 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
       }
     );
   };
+
+  // Fila de ganancia por personaje. `amount` es el monto del grupo (coop o
+  // individual). `showPay` controla si aparece el botón Pagar (solo cooperativo,
+  // que es el pozo que el admin reparte). idx es el ranking dentro del grupo.
+  const renderEarningRow = (
+    ce: typeof characterEarnings[number] & { amount: number },
+    idx: number,
+    showPay: boolean,
+  ) => {
+    const paid = Boolean(ce.paidOut);
+    // Desglose: ítems del grupo (coop=showPay) que le sumaron adena a este
+    // usuario. El monto por ítem es el reparto REAL guardado, por lo que la
+    // suma cuadra EXACTA con ce.amount (total del usuario en el grupo).
+    const groupItems = showPay ? coopItems : indivItems;
+    const breakdown = groupItems
+      .map(si => ({ si, amt: Number(si.earningsByCharacter?.[String(ce.characterId)]) || 0 }))
+      .filter(x => x.amt > 0)
+      .sort((a, b) => b.amt - a.amt);
+    const rowKey = `${showPay ? 'c' : 'i'}:${ce.characterId}`;
+    const isExpanded = expandedRows.has(rowKey);
+    const canExpand = breakdown.length > 0;
+    const toggleExpand = () => {
+      if (!canExpand) return;
+      setExpandedRows(prev => {
+        const next = new Set(prev);
+        if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
+        return next;
+      });
+    };
+    return (
+      <div key={ce.characterId}>
+        <div
+          className="flex items-center justify-between rounded-xl px-3 py-2 transition-colors"
+          style={{
+            background: paid && showPay ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${paid && showPay ? 'rgba(16,185,129,0.28)' : 'rgba(255,255,255,0.05)'}`,
+            borderBottomLeftRadius: isExpanded ? 0 : undefined,
+            borderBottomRightRadius: isExpanded ? 0 : undefined,
+          }}
+          title={paid && ce.paidAt ? `Pagado ${new Date(ce.paidAt).toLocaleString('es-CL')}${ce.paidBy ? ` por ${ce.paidBy}` : ''}` : undefined}
+        >
+          <button
+            type="button"
+            onClick={toggleExpand}
+            disabled={!canExpand}
+            className="flex items-center gap-2 min-w-0 flex-1 text-left disabled:cursor-default"
+            title={canExpand ? (isExpanded ? 'Ocultar ítems' : 'Ver ítems que sumaron esta adena') : undefined}
+          >
+            {canExpand ? (
+              isExpanded
+                ? <ChevronUp className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                : <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }} />
+            ) : (
+              <span className="w-3.5 shrink-0" />
+            )}
+            <span className="text-xs font-mono w-5 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>#{idx + 1}</span>
+            <span className="text-sm font-medium truncate" style={{ color: paid && showPay ? '#10b981' : 'rgba(255,255,255,0.85)' }}>{ce.characterName}</span>
+            {paid && showPay && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: '#10b981' }} />}
+          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm font-bold font-mono" style={{ color: paid && showPay ? '#10b981' : '#a78bfa' }}>
+              +${(ce.amount ?? 0).toLocaleString()}
+            </span>
+            {canPay && showPay && (
+              <button
+                onClick={() => togglePaid(ce)}
+                disabled={busyId === ce.characterId}
+                className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 whitespace-nowrap"
+                style={{
+                  background: paid ? 'rgba(16,185,129,0.15)' : 'rgba(167,139,250,0.12)',
+                  color: paid ? '#10b981' : '#a78bfa',
+                  border: `1px solid ${paid ? 'rgba(16,185,129,0.35)' : 'rgba(167,139,250,0.3)'}`,
+                }}
+                title={paid ? 'Desmarcar pago' : 'Marcar como pagado'}
+              >
+                {paid ? '✓ Pagado' : 'Pagar'}
+              </button>
+            )}
+          </div>
+        </div>
+        {isExpanded && (
+          <div
+            className="rounded-b-xl px-3 py-2 space-y-1"
+            style={{ background: 'rgba(255,255,255,0.02)', borderLeft: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            {breakdown.map(({ si, amt }) => (
+              <div key={si.itemId} className="flex items-center justify-between pl-6 pr-1">
+                <span className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  {si.itemName}
+                  <span style={{ color: 'rgba(255,255,255,0.3)' }}> · {si.quantitySold} ud.</span>
+                </span>
+                <span className="text-xs font-mono font-semibold shrink-0" style={{ color: '#a78bfa' }}>
+                  +${amt.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderSoldItem = (si: typeof soldItems[number]) => (
+    <div key={si.itemId} className="flex items-center justify-between rounded-xl px-3 py-2"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <div>
+        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{si.itemName}</p>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          {si.quantitySold} ud. × ${(si.price ?? 0).toLocaleString()}
+          {si.associatedCharacterIds.length > 0 && ` · ${si.associatedCharacterIds.length} personajes`}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-bold font-mono" style={{ color: '#7bf1d6' }}>
+          ${(si.totalRevenue ?? 0).toLocaleString()}
+        </p>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          ${(si.earningsPerCharacter ?? 0).toLocaleString()} c/u
+        </p>
+      </div>
+    </div>
+  );
+
+  // Encabezado de grupo (Cooperativo / Individual) con subtotal.
+  const groupHeader = (label: string, emoji: string, color: string, count: number, subtotal: number) => (
+    <div className="flex items-center justify-between mb-2 mt-1">
+      <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color }}>
+        <span>{emoji}</span> {label}
+        <span className="rounded px-1.5 py-0.5 text-[10px] font-mono" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>{count}</span>
+      </span>
+      <span className="text-xs font-bold font-mono" style={{ color }}>${subtotal.toLocaleString()}</span>
+    </div>
+  );
+
+  const coopEarningsTotal = coopEarnings.reduce((s, ce) => s + ce.amount, 0);
+  const indivEarningsTotal = indivEarnings.reduce((s, ce) => s + ce.amount, 0);
+  const coopItemsRevenue = coopItems.reduce((s, si) => s + (Number(si.totalRevenue) || 0), 0);
+  const indivItemsRevenue = indivItems.reduce((s, si) => s + (Number(si.totalRevenue) || 0), 0);
 
   return (
     <div className="card-glass rounded-2xl overflow-hidden">
@@ -193,7 +350,7 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
                 <h4 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   <Users className="h-4 w-4" style={{ color: '#fbbf24' }} />
                   Ganancias por personaje
-                  {characterEarnings.length > 0 && (
+                  {coopEarnings.length > 0 && (
                     <span
                       className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
                       style={{
@@ -202,11 +359,11 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
                         border: `1px solid ${allPaid ? 'rgba(16,185,129,0.3)' : 'rgba(251,191,36,0.25)'}`,
                       }}
                     >
-                      Pagados {paidCount}/{characterEarnings.length}
+                      Pagados {paidCount}/{coopEarnings.length}
                     </span>
                   )}
                 </h4>
-                {canPay && characterEarnings.length > 0 && !allPaid && (
+                {canPay && coopEarnings.length > 0 && !allPaid && (
                   <button
                     onClick={() => setConfirmAll(true)}
                     disabled={markAll.isPending}
@@ -226,49 +383,23 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
               {characterEarnings.length === 0 ? (
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin ganancias registradas en este ciclo</p>
               ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {[...characterEarnings]
-                    .sort((a, b) => b.earnings - a.earnings)
-                    .map((ce, idx) => {
-                      const paid = Boolean(ce.paidOut);
-                      return (
-                        <div
-                          key={ce.characterId}
-                          className="flex items-center justify-between rounded-xl px-3 py-2 transition-colors"
-                          style={{
-                            background: paid ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
-                            border: `1px solid ${paid ? 'rgba(16,185,129,0.28)' : 'rgba(255,255,255,0.05)'}`,
-                          }}
-                          title={paid && ce.paidAt ? `Pagado ${new Date(ce.paidAt).toLocaleString('es-CL')}${ce.paidBy ? ` por ${ce.paidBy}` : ''}` : undefined}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-mono w-5 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>#{idx + 1}</span>
-                            <p className="text-sm font-medium truncate" style={{ color: paid ? '#10b981' : 'rgba(255,255,255,0.85)' }}>{ce.characterName}</p>
-                            {paid && <Check className="h-3.5 w-3.5 shrink-0" style={{ color: '#10b981' }} />}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-bold font-mono" style={{ color: paid ? '#10b981' : '#a78bfa' }}>
-                              +${(ce.earnings ?? 0).toLocaleString()}
-                            </span>
-                            {canPay && (
-                              <button
-                                onClick={() => togglePaid(ce)}
-                                disabled={busyId === ce.characterId}
-                                className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 whitespace-nowrap"
-                                style={{
-                                  background: paid ? 'rgba(16,185,129,0.15)' : 'rgba(167,139,250,0.12)',
-                                  color: paid ? '#10b981' : '#a78bfa',
-                                  border: `1px solid ${paid ? 'rgba(16,185,129,0.35)' : 'rgba(167,139,250,0.3)'}`,
-                                }}
-                                title={paid ? 'Desmarcar pago' : 'Marcar como pagado'}
-                              >
-                                {paid ? '✓ Pagado' : 'Pagar'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {coopEarnings.length > 0 && (
+                    <div>
+                      {groupHeader('Cooperativo', '🤝', '#7bf1d6', coopEarnings.length, coopEarningsTotal)}
+                      <div className="space-y-2">
+                        {coopEarnings.map((ce, idx) => renderEarningRow(ce, idx, true))}
+                      </div>
+                    </div>
+                  )}
+                  {indivEarnings.length > 0 && (
+                    <div>
+                      {groupHeader('Individual', '👤', '#8bb7fa', indivEarnings.length, indivEarningsTotal)}
+                      <div className="space-y-2">
+                        {indivEarnings.map((ce, idx) => renderEarningRow(ce, idx, false))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -329,27 +460,23 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
               {soldItems.length === 0 ? (
                 <p className="text-sm" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin ventas en este ciclo</p>
               ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {soldItems.map(si => (
-                    <div key={si.itemId} className="flex items-center justify-between rounded-xl px-3 py-2"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.85)' }}>{si.itemName}</p>
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                          {si.quantitySold} ud. × ${(si.price ?? 0).toLocaleString()}
-                          {si.associatedCharacterIds.length > 0 && ` · ${si.associatedCharacterIds.length} personajes`}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold font-mono" style={{ color: '#7bf1d6' }}>
-                          ${(si.totalRevenue ?? 0).toLocaleString()}
-                        </p>
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                          ${(si.earningsPerCharacter ?? 0).toLocaleString()} c/u
-                        </p>
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {coopItems.length > 0 && (
+                    <div>
+                      {groupHeader('Cooperativo', '🤝', '#7bf1d6', coopItems.length, coopItemsRevenue)}
+                      <div className="space-y-2">
+                        {coopItems.map(renderSoldItem)}
                       </div>
                     </div>
-                  ))}
+                  )}
+                  {indivItems.length > 0 && (
+                    <div>
+                      {groupHeader('Individual', '👤', '#8bb7fa', indivItems.length, indivItemsRevenue)}
+                      <div className="space-y-2">
+                        {indivItems.map(renderSoldItem)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -360,7 +487,6 @@ function CycleCard({ cycle, defaultOpen = false, canPay = false }: { cycle: Sale
             <div
               className="fixed inset-0 z-[100] flex items-center justify-center p-4"
               style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-              onClick={e => { if (e.target === e.currentTarget) setConfirmAll(false); }}
             >
               <div
                 className="w-full max-w-md rounded-2xl p-6"
@@ -550,7 +676,6 @@ export default function SalesCyclesPage() {
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-            onClick={e => { if (e.target === e.currentTarget) setShowConfirm(false); }}
           >
             <div
               className="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"

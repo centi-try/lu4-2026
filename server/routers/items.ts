@@ -21,6 +21,8 @@ const CreateItemSchema = z.object({
   quantity: z.number().positive().optional(),
   // #17: responsable del ítem (id de usuario que se encarga de venderlo).
   responsibleUserId: z.number().nullable().optional(),
+  // Flag cooperativo (solo separación visual en Ciclos de Venta).
+  isCooperative: z.boolean().optional(),
   // Icono por categoría (seteado en /raids/settings) o URL manual. El cliente
   // lo resuelve y lo envía; el backend lo persiste tal cual. Antes se forzaba
   // a null en el insert, por eso los ítems recién creados no mostraban imagen.
@@ -39,6 +41,8 @@ const UpdateItemSchema = z.object({
   quantity: z.number().int().positive().optional(),
   // #17: responsable del ítem (id de usuario) o null para quitarlo.
   responsibleUserId: z.number().nullable().optional(),
+  // Flag cooperativo (solo separación visual en Ciclos de Venta).
+  isCooperative: z.boolean().optional(),
 });
 
 const SellItemSchema = z.object({
@@ -103,6 +107,8 @@ export const itemsRouter = router({
         associatedCharacterIds: input.associatedCharacterIds || [],
         // #17: responsable del ítem
         responsibleUserId: input.responsibleUserId ?? null,
+        // Flag cooperativo (default false = venta individual).
+        isCooperative: input.isCooperative ?? false,
       });
 
       await createAuditLog({
@@ -143,6 +149,10 @@ export const itemsRouter = router({
       if (input.responsibleUserId !== undefined) {
         updateData.responsibleUserId = input.responsibleUserId;
       }
+      // Flag cooperativo (solo separación visual en Ciclos de Venta)
+      if (input.isCooperative !== undefined) {
+        updateData.isCooperative = input.isCooperative;
+      }
 
       await updateItem(input.id, updateData);
 
@@ -154,6 +164,7 @@ export const itemsRouter = router({
         name: 'nombre', price: 'precio', quantity: 'stock',
         category: 'categoría', associatedCharacterIds: 'personajes',
         responsibleUserId: 'responsable', imageUrl: 'imagen',
+        isCooperative: 'cooperativo',
       };
       const humanChanges = changedKeys.map((k) => {
         if (k === 'price' || k === 'quantity') {
@@ -266,6 +277,11 @@ export const itemsRouter = router({
         earningsByCharId.set(Number(cid), baseEarnings + extra);
       });
 
+      // Flag cooperativo del ítem: SOLO sirve para separar visualmente en Ciclos
+      // de Venta (🤝 Cooperativo vs 👤 Individual). No cambia el reparto ni los
+      // montos: acumulamos la MISMA `share` en un contador u otro según el flag.
+      const isCoop = Boolean(item.isCooperative);
+
       // Actualizar ganancias directamente en los USUARIOS asociados
       // (associatedCharacterIds contiene IDs de usuario)
       if (dbInstance.users && associatedCharacterIds.length > 0) {
@@ -277,6 +293,9 @@ export const itemsRouter = router({
               ...u,
               totalEarnings: (Number(u.totalEarnings) || 0) + share,
               currentCycleEarnings: (Number(u.currentCycleEarnings) || 0) + share,
+              // Desglose para la separación visual del ciclo.
+              currentCycleEarningsCoop: (Number(u.currentCycleEarningsCoop) || 0) + (isCoop ? share : 0),
+              currentCycleEarningsIndiv: (Number(u.currentCycleEarningsIndiv) || 0) + (isCoop ? 0 : share),
               updatedAt: new Date().toISOString(),
             };
           }
@@ -284,6 +303,18 @@ export const itemsRouter = router({
         });
         saveDbToDisk();
       }
+
+      // Acumular el reparto REAL por (ítem, usuario) del ciclo actual, para poder
+      // desglosar en Ciclos de Venta qué ítems le sumaron adena a cada usuario y
+      // que la suma cuadre EXACTA con su total (ya incluye impuesto y sobrante).
+      const prevByChar = (item.cycleEarningsByChar && typeof item.cycleEarningsByChar === 'object')
+        ? item.cycleEarningsByChar as Record<string, number>
+        : {};
+      const nextByChar: Record<string, number> = { ...prevByChar };
+      earningsByCharId.forEach((share, cid) => {
+        nextByChar[String(cid)] = (Number(nextByChar[String(cid)]) || 0) + share;
+      });
+      await updateItem(input.id, { cycleEarningsByChar: nextByChar });
 
       // Acumular retención del clan (se registra como transacción al cerrar el ciclo)
       if (clanTaxAmount > 0) {

@@ -152,7 +152,6 @@ function ConfirmModal({ open, title, message, confirmLabel, confirmColor, onConf
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
         className="w-full max-w-md rounded-2xl p-5"
@@ -2675,7 +2674,7 @@ export default function WarehouseClan() {
 
                     {/* Create/Edit objective form modal */}
                     {showObjForm && (
-                      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => resetObjForm()}>
+                      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
                         <div className="w-full max-w-md rounded-2xl p-5 flex flex-col" style={{ background: '#1e1e2e', border: '1px solid rgba(56,189,248,0.2)', maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
                           <h3 className="text-base font-bold mb-4 shrink-0" style={{ color: '#38bdf8' }}>{editObjId ? 'Editar objetivo' : 'Nuevo objetivo'}</h3>
                           <div className="space-y-3 overflow-y-auto flex-1 pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
@@ -3709,7 +3708,7 @@ export default function WarehouseClan() {
         const proj = (projects as any[]).find((p: any) => Number(p.id) === Number(completeProjectModal.id));
         const charName = proj?.assignedCharacter || 'Sin asignar';
         return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }} onClick={() => setCompleteProjectModal(null)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
           <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.98), rgba(18,18,30,0.98))', border: '1px solid rgba(52,211,153,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(52,211,153,0.12)' }}>
               <div>
@@ -3742,7 +3741,7 @@ export default function WarehouseClan() {
       })()}
       {/* Edit Assignment Modal for Completed Projects */}
       {editAssignmentModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }} onClick={() => setEditAssignmentModal(null)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
           <div className="rounded-2xl w-full max-w-md mx-4" style={{ background: 'linear-gradient(180deg, rgba(24,24,40,0.98), rgba(18,18,30,0.98))', border: '1px solid rgba(96,165,250,0.25)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(96,165,250,0.12)' }}>
               <div>

@@ -24,6 +24,9 @@ export interface Item {
   // #17: usuario responsable de vender/gestionar el ítem (id) y su nombre resuelto.
   responsibleUserId?: string | null;
   responsibleName?: string | null;
+  // Flag de agrupación cooperativa. SOLO afecta la visualización en Ciclos de
+  // Venta (separa 🤝 Cooperativo de 👤 Individual). No cambia montos ni reparto.
+  isCooperative?: boolean;
   soldAt?: string;
   soldBy?: string;
   // Cantidad de unidades
@@ -75,6 +78,9 @@ export interface CycleCharacterEarning {
   characterId: string;
   characterName: string;
   earnings: number;
+  // Desglose de la ganancia según el flag del ítem (solo separación visual).
+  coopEarnings?: number;
+  indivEarnings?: number;
   // Estado de pago manual (admin marca cuando ya le pagó la adena al personaje)
   paidOut?: boolean;
   paidAt?: string;
@@ -91,6 +97,12 @@ export interface CycleSoldItem {
   totalRevenue: number;
   associatedCharacterIds: string[];
   earningsPerCharacter: number;
+  // Reparto real por usuario acumulado en el ciclo (ya con impuesto y sobrante).
+  // Clave = id de usuario, valor = adena que recibió por este ítem. Permite el
+  // desglose por usuario cuadrando exacto con su total.
+  earningsByCharacter?: Record<string, number>;
+  // Marca si el ítem fue vendido como cooperativo (solo separación visual).
+  isCooperative?: boolean;
 }
 
 // Ciclo de ventas (puede ser diario o semanal)

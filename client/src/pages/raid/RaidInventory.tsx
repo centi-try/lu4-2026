@@ -1029,9 +1029,6 @@ export default function RaidInventory({ raidAccess }: Props) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => {
-            if (!closeCycle.isPending) setCloseCycleOpen(false);
-          }}
         >
           <div
             className="w-full max-w-md rounded-2xl p-5"
@@ -1142,9 +1139,6 @@ export default function RaidInventory({ raidAccess }: Props) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => {
-            if (!deleteEvent.isPending) setDeleteEventTarget(null);
-          }}
         >
           <div
             className="w-full max-w-md rounded-2xl p-5"
@@ -1351,9 +1345,6 @@ export default function RaidInventory({ raidAccess }: Props) {
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-            onClick={() => {
-              if (!createEvent.isPending) setConfirmOpen(false);
-            }}
           >
             <div
               className="w-full max-w-lg rounded-2xl p-5 max-h-[90vh] overflow-y-auto"

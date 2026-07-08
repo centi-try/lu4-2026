@@ -436,10 +436,6 @@ export function Backups() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-6"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => {
-            setConfirmRestoreFile(null);
-            setConfirmText('');
-          }}
         >
           <div
             className="max-w-md w-full rounded-2xl border p-6 space-y-4"
@@ -533,7 +529,6 @@ export function Backups() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-6"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => { setShowResetModal(false); setResetConfirmText(''); }}
         >
           <div
             className="max-w-md w-full rounded-2xl border p-6 space-y-4"

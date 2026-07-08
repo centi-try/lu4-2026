@@ -48,6 +48,8 @@ interface RowState {
   responsibleId: string;
   showRespPicker: boolean;
   respSearch: string;
+  // Flag cooperativo (solo separación visual en Ciclos de Venta).
+  isCooperative: boolean;
 }
 
 const emptyRow = (): RowState => ({
@@ -66,6 +68,7 @@ const emptyRow = (): RowState => ({
   responsibleId: '',
   showRespPicker: false,
   respSearch: '',
+  isCooperative: false,
 });
 
 /** Indica si el string de cantidad representa un valor inválido (0, vacío, NaN, negativo). */
@@ -125,6 +128,12 @@ export function CreateItemPanel() {
   const [copyPanelRowId, setCopyPanelRowId] = useState<string | null>(null);
   const [copyTargets, setCopyTargets] = useState<Set<string>>(new Set());
 
+  // Mismo mecanismo pero para copiar el RESPONSABLE de una fila a otras filas
+  // del lote (selección única). Estado independiente del de personajes para
+  // que ambos paneles puedan usarse sin pisarse.
+  const [copyRespPanelRowId, setCopyRespPanelRowId] = useState<string | null>(null);
+  const [copyRespTargets, setCopyRespTargets] = useState<Set<string>>(new Set());
+
   const openCopyPanel = (rowId: string) => {
     if (copyPanelRowId === rowId) {
       // toggle cerrar
@@ -165,6 +174,45 @@ export function CreateItemPanel() {
     setCopyTargets(new Set());
   };
 
+  const openCopyRespPanel = (rowId: string) => {
+    if (copyRespPanelRowId === rowId) {
+      setCopyRespPanelRowId(null);
+      setCopyRespTargets(new Set());
+    } else {
+      setCopyRespPanelRowId(rowId);
+      setCopyRespTargets(new Set());
+    }
+  };
+
+  const toggleCopyRespTarget = (rowId: string) => {
+    setCopyRespTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+
+  const copyRespToTargets = (fromRowId: string) => {
+    const source = rows.find((r) => r.id === fromRowId);
+    if (!source) return;
+    if (copyRespTargets.size === 0) {
+      toast.error('Selecciona al menos una fila destino');
+      return;
+    }
+    const respId = source.responsibleId;
+    setRows((prev) =>
+      prev.map((r) =>
+        copyRespTargets.has(r.id) ? { ...r, responsibleId: respId } : r,
+      ),
+    );
+    toast.success(
+      `Responsable copiado a ${copyRespTargets.size} fila${copyRespTargets.size === 1 ? '' : 's'}.`,
+    );
+    setCopyRespPanelRowId(null);
+    setCopyRespTargets(new Set());
+  };
+
   const canCreate =
     (currentUser && currentUser.role === 'MAPPER') ||
     (currentUser && currentUser.role === 'SUPER_ADMIN');
@@ -172,6 +220,9 @@ export function CreateItemPanel() {
   const updateRow = (id: string, patch: Partial<RowState>) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
   };
+
+  // Flag global: activo cuando TODAS las filas están marcadas como cooperativas.
+  const allCoop = rows.length > 0 && rows.every(r => r.isCooperative);
 
   // Cambiar categoría auto-asigna el ícono default si la fila no tiene imagen
   // propia todavía (misma lógica que /raids/inventory).
@@ -205,6 +256,17 @@ export function CreateItemPanel() {
       setCopyTargets(new Set());
     } else if (copyTargets.has(id)) {
       setCopyTargets((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+    // Idem para el panel de copiar responsable.
+    if (copyRespPanelRowId === id) {
+      setCopyRespPanelRowId(null);
+      setCopyRespTargets(new Set());
+    } else if (copyRespTargets.has(id)) {
+      setCopyRespTargets((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
@@ -312,6 +374,7 @@ export function CreateItemPanel() {
             altText: categoryMeta[cat].label,
           },
           associatedCharacterIds: r.selectedCharIds,
+          isCooperative: r.isCooperative,
           quantity: qty,
           quantitySoldInCycle: 0,
           // #17: responsable del ítem seleccionado en el picker.
@@ -399,6 +462,31 @@ export function CreateItemPanel() {
             <Plus className="h-3 w-3" /> Añadir ítem
           </button>
         </div>
+
+        {/* Flag global cooperativo. Solo lo ven SA/Mapper (todo este panel ya
+            está gateado a esos roles). Marca/desmarca TODAS las filas de golpe.
+            Es solo separación visual en Ciclos de Venta: no cambia montos. */}
+        <label
+          className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer select-none"
+          style={{
+            background: allCoop ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${allCoop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+          }}
+          title="Marca todos los ítems del lote como cooperativos (solo separa la vista en Ciclos de Venta)"
+        >
+          <input
+            type="checkbox"
+            checked={allCoop}
+            onChange={e => setRows(prev => prev.map(r => ({ ...r, isCooperative: e.target.checked })))}
+            className="h-4 w-4 accent-[#7bf1d6]"
+          />
+          <span className="text-xs font-medium" style={{ color: allCoop ? '#7bf1d6' : 'rgba(255,255,255,0.7)' }}>
+            🤝 Marcar todo el lote como Cooperativo
+          </span>
+          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            (solo separa la vista en Ciclos de Venta)
+          </span>
+        </label>
 
         <div className="space-y-3">
           {rows.map((row, idx) => {
@@ -1022,6 +1110,166 @@ export function CreateItemPanel() {
                     );
                   })()}
 
+                  {/* Copiar responsable a otras filas — mismo atajo que el de
+                      personajes, pero para el responsable (selección única).
+                      Solo se muestra si hay más de una fila Y esta fila tiene
+                      un responsable elegido. */}
+                  {rows.length > 1 && row.responsibleId && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => openCopyRespPanel(row.id)}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold transition-all"
+                        style={{
+                          background: copyRespPanelRowId === row.id
+                            ? 'rgba(139,183,250,0.18)'
+                            : 'rgba(139,183,250,0.08)',
+                          border: `1px solid ${
+                            copyRespPanelRowId === row.id
+                              ? 'rgba(139,183,250,0.45)'
+                              : 'rgba(139,183,250,0.25)'
+                          }`,
+                          color: '#8bb7fa',
+                        }}
+                        title="Aplicá el responsable de esta fila a otras filas del lote"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copiar este responsable a otras filas
+                        {copyRespPanelRowId === row.id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {copyRespPanelRowId === row.id && (
+                        <div
+                          className="mt-2 rounded-xl border p-3"
+                          style={{
+                            background: 'rgba(10,14,22,0.98)',
+                            borderColor: 'rgba(139,183,250,0.25)',
+                          }}
+                        >
+                          {(() => {
+                            const resp = legacyUsers.find((c: any) => c.id === row.responsibleId);
+                            return (
+                              <p
+                                className="text-[11px] mb-2"
+                                style={{ color: 'rgba(255,255,255,0.6)' }}
+                              >
+                                Marca las filas a las que quieres copiarle como responsable a{' '}
+                                <strong style={{ color: '#8bb7fa' }}>
+                                  {resp ? resp.name : 'esta persona'}
+                                </strong>
+                                . El responsable que esas filas tuvieran se reemplaza.
+                              </p>
+                            );
+                          })()}
+
+                          <div className="space-y-1 mb-3">
+                            {rows.map((other, otherIdx) => {
+                              if (other.id === row.id) return null;
+                              const checked = copyRespTargets.has(other.id);
+                              const display = other.name.trim() || `(sin nombre)`;
+                              const otherResp = other.responsibleId
+                                ? legacyUsers.find((c: any) => c.id === other.responsibleId)
+                                : null;
+                              return (
+                                <label
+                                  key={other.id}
+                                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                                  style={{
+                                    background: checked
+                                      ? 'rgba(139,183,250,0.1)'
+                                      : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${
+                                      checked
+                                        ? 'rgba(139,183,250,0.35)'
+                                        : 'rgba(255,255,255,0.05)'
+                                    }`,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleCopyRespTarget(other.id)}
+                                    className="cursor-pointer"
+                                    style={{ accentColor: '#8bb7fa' }}
+                                  />
+                                  <span
+                                    className="text-xs font-medium"
+                                    style={{ color: 'rgba(255,255,255,0.85)' }}
+                                  >
+                                    Ítem #{otherIdx + 1}
+                                  </span>
+                                  <span
+                                    className="text-xs truncate flex-1"
+                                    style={{ color: 'rgba(255,255,255,0.45)' }}
+                                  >
+                                    {display}
+                                  </span>
+                                  {otherResp && (
+                                    <span
+                                      className="rounded-full px-1.5 py-0.5 text-[10px]"
+                                      style={{
+                                        background: 'rgba(255,255,255,0.06)',
+                                        color: 'rgba(255,255,255,0.5)',
+                                      }}
+                                      title="Esta fila ya tenía responsable; se reemplaza"
+                                    >
+                                      ya tiene: {otherResp.name}
+                                    </span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCopyRespPanelRowId(null);
+                                setCopyRespTargets(new Set());
+                              }}
+                              className="rounded-lg px-3 py-1.5 text-xs transition-all"
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(255,255,255,0.7)',
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyRespToTargets(row.id)}
+                              disabled={copyRespTargets.size === 0}
+                              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+                              style={{
+                                background:
+                                  copyRespTargets.size === 0
+                                    ? 'rgba(139,183,250,0.1)'
+                                    : 'rgba(139,183,250,0.2)',
+                                border: '1px solid rgba(139,183,250,0.4)',
+                                color: '#8bb7fa',
+                                opacity: copyRespTargets.size === 0 ? 0.5 : 1,
+                                cursor:
+                                  copyRespTargets.size === 0
+                                    ? 'not-allowed'
+                                    : 'pointer',
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                              Copiar a {copyRespTargets.size} fila
+                              {copyRespTargets.size === 1 ? '' : 's'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Picker expandido (selección única) */}
                   {row.showRespPicker && (
                     <div
@@ -1105,6 +1353,27 @@ export function CreateItemPanel() {
                   )}
                 </div>
                 </div>
+
+                {/* Flag cooperativo por fila (solo separación visual en Ciclos
+                    de Venta). Este panel ya está gateado a SA/Mapper. */}
+                <label
+                  className="mt-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer select-none w-fit"
+                  style={{
+                    background: row.isCooperative ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${row.isCooperative ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  }}
+                  title="Marca este ítem como cooperativo (solo separa la vista en Ciclos de Venta)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.isCooperative}
+                    onChange={e => updateRow(row.id, { isCooperative: e.target.checked })}
+                    className="h-4 w-4 accent-[#7bf1d6]"
+                  />
+                  <span className="text-[11px] font-medium" style={{ color: row.isCooperative ? '#7bf1d6' : 'rgba(255,255,255,0.65)' }}>
+                    🤝 {row.isCooperative ? 'Cooperativo' : 'Individual'}
+                  </span>
+                </label>
               </div>
             );
           })}

@@ -43,26 +43,35 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const suppressNextOpenRef = useRef(false);
+  // El dropdown SOLO debe abrirse cuando el usuario escribe. Cualquier otro
+  // cambio de `value` (abrir el modal con un nombre precargado, elegir una
+  // sugerencia que rellena el nombre, o un re-render por refrescos de datos en
+  // segundo plano) NO debe abrir la lista. Marcamos con este ref cuándo el
+  // cambio proviene del teclado del usuario.
+  const userTypedRef = useRef(false);
+  // Mantenemos catálogo y searchItems en refs para poder leerlos dentro del
+  // debounce sin que el efecto dependa de ellos. Antes el efecto se
+  // re-ejecutaba cuando TanStack Query refrescaba el catálogo/ítems en segundo
+  // plano, reabriendo el dropdown solo aunque el usuario ya hubiera elegido.
+  const catalogRef = useRef(catalogData);
+  catalogRef.current = catalogData;
+  const searchItemsRef = useRef(searchItems);
+  searchItemsRef.current = searchItems;
 
   useEffect(() => {
     clearTimeout(timerRef.current);
-    if (!value.trim()) { setResults([]); setOpen(false); suppressNextOpenRef.current = false; return; }
-    if (suppressNextOpenRef.current) {
-      suppressNextOpenRef.current = false;
-      setResults([]);
-      setOpen(false);
-      setLoading(false);
-      setActiveIdx(-1);
-      return;
-    }
+    // Solo reaccionamos a lo que el usuario tipea. Cambios programáticos de
+    // `value` (montaje con nombre precargado, o selección de sugerencia) se
+    // ignoran: no abren la lista.
+    if (!userTypedRef.current) return;
+    if (!value.trim()) { setResults([]); setOpen(false); setLoading(false); return; }
     setLoading(true);
     timerRef.current = setTimeout(() => {
       const q = value.toLowerCase();
       // Search from catalog first (priority)
-      const catalogResults = (catalogData || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 8).map((m: any) => ({ ...m, _source: 'catalog' as const }));
+      const catalogResults = (catalogRef.current || []).filter((m: any) => String(m.name || '').toLowerCase().includes(q)).slice(0, 8).map((m: any) => ({ ...m, _source: 'catalog' as const }));
       // Also search existing items
-      const itemResults = searchItems(value).slice(0, 5).map((i: any) => ({ ...i, _source: 'item' as const }));
+      const itemResults = searchItemsRef.current(value).slice(0, 5).map((i: any) => ({ ...i, _source: 'item' as const }));
       // Merge: catalog first, then items not already in catalog
       const catalogNames = new Set(catalogResults.map((c: any) => String(c.name || '').toLowerCase()));
       const filtered = itemResults.filter((i: any) => !catalogNames.has(String(i.name || '').toLowerCase()));
@@ -73,12 +82,19 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
       setActiveIdx(-1);
     }, 200);
     return () => clearTimeout(timerRef.current);
-  }, [value, searchItems, catalogData]);
+    // OJO: solo `value` va en deps. `catalogData`/`searchItems` se leen vía ref
+    // para que un refresco en segundo plano no reabra el dropdown solo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const handleSelect = useCallback((item: any) => {
-    suppressNextOpenRef.current = true;
+    // La selección rellena el nombre (cambia `value`); ese cambio NO debe
+    // reabrir la lista.
+    userTypedRef.current = false;
+    clearTimeout(timerRef.current);
     setOpen(false);
     setResults([]);
+    setLoading(false);
     setActiveIdx(-1);
     // If from catalog, convert to Item-like shape for onSelect
     if (item._source === 'catalog') {
@@ -128,9 +144,9 @@ export function ItemTypeahead({ value, onChange, onSelect, placeholder = 'Nombre
         <input
           ref={inputRef}
           value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => { userTypedRef.current = true; onChange(e.target.value); }}
           onKeyDown={handleKeyDown}
-          onFocus={() => results.length > 0 && setOpen(true)}
+          onFocus={() => userTypedRef.current && results.length > 0 && setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder={placeholder}
           className={`w-full bg-transparent outline-none ${compact ? 'text-xs' : 'text-sm'}`}

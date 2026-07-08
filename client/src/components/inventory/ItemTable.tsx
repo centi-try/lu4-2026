@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X, Bookmark, Clock } from 'lucide-react';
+import { Pencil, Trash2, CheckCircle, Search, ChevronUp, ChevronDown, ShoppingCart, Users, X, Bookmark, Clock, ClipboardList, Check } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, statusMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory, ItemStatus } from '../../lib/types';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { trpc } from '../../lib/trpc';
 import { useAuth } from '../../contexts/AuthContext';
 import { ItemReservationButton, type ItemReservationRecord } from './ItemReservationButton';
+import { ItemTypeahead } from './ItemTypeahead';
 import { FancySelect, type FancyOption } from '../ui/FancySelect';
 import { ImageHoverPreview } from '../ui/ImageHoverPreview';
 import type { Character } from '../../lib/types';
@@ -174,7 +175,6 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setOpen(false)}
         >
           <div
             className="w-full max-w-lg rounded-2xl shadow-2xl"
@@ -327,6 +327,230 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
   );
 }
 
+// ============================================================================
+// Resumen de Inventario — modal solo para Super Admin
+// ============================================================================
+// Agrupa los ítems por nombre + categoría y contabiliza el stock disponible
+// (cantidad - vendidas) para cuadrar lo registrado en la página contra lo
+// físico en mano. Datos siempre frescos: recalcula sobre `items` cada apertura.
+// La validación es un checklist por sesión (se reinicia al cerrar el modal).
+function InventorySummaryButton({
+  items,
+  resolveCategoryIcon,
+}: {
+  items: Item[];
+  resolveCategoryIcon: (cat: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  // Claves validadas en la sesión actual. Se limpia al abrir/cerrar.
+  const [validated, setValidated] = useState<Set<string>>(new Set());
+
+  const groups = useMemo(() => {
+    const map = new Map<string, {
+      key: string;
+      name: string;
+      category: ItemCategory;
+      image: string;
+      available: number;
+      registros: number;
+    }>();
+    for (const it of items) {
+      const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
+      if (available <= 0) continue; // opción A: solo stock disponible
+      const key = `${it.name.trim().toLowerCase()}||${it.category}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.available += available;
+        existing.registros += 1;
+        if (!existing.image) existing.image = it.image?.publicUrl || '';
+      } else {
+        map.set(key, {
+          key,
+          name: it.name.trim(),
+          category: it.category,
+          image: it.image?.publicUrl || resolveCategoryIcon(it.category) || '',
+          available,
+          registros: 1,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [items, resolveCategoryIcon]);
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return groups;
+    return groups.filter(g => g.name.toLowerCase().includes(q) || g.category.toLowerCase().includes(q));
+  }, [groups, search]);
+
+  const totalUnits = groups.reduce((s, g) => s + g.available, 0);
+  const validatedCount = groups.filter(g => validated.has(g.key)).length;
+
+  const openModal = () => {
+    setValidated(new Set());
+    setSearch('');
+    setOpen(true);
+  };
+  const closeModal = () => {
+    setOpen(false);
+    setValidated(new Set());
+    setSearch('');
+  };
+  const toggleValidated = (key: string) => {
+    setValidated(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={openModal}
+        className="inline-flex items-center gap-1.5 rounded-xl px-3 h-10 text-xs font-semibold transition"
+        title="Resumen de inventario: agrupa por nombre + categoría y contabiliza el stock disponible para validar contra lo físico"
+        style={{
+          background: 'rgba(123,241,214,0.1)',
+          border: '1px solid rgba(123,241,214,0.3)',
+          color: '#7bf1d6',
+        }}
+      >
+        <ClipboardList className="h-4 w-4" />
+        Resumen
+      </button>
+
+      {open && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl flex flex-col"
+            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '85vh' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" style={{ color: '#7bf1d6' }} />
+                <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Resumen de Inventario</h3>
+              </div>
+              <button type="button" onClick={closeModal} className="rounded p-1 transition-colors hover:bg-white/5">
+                <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
+              </button>
+            </div>
+
+            {/* Stats + search */}
+            <div className="px-5 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                <span>Grupos: <span className="font-mono font-bold" style={{ color: '#7bf1d6' }}>{groups.length}</span></span>
+                <span>Unidades disponibles: <span className="font-mono font-bold" style={{ color: '#a78bfa' }}>{totalUnits.toLocaleString()}</span></span>
+                <span>Validados: <span className="font-mono font-bold" style={{ color: '#34d399' }}>{validatedCount}/{groups.length}</span></span>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar en el resumen…"
+                  className="w-full h-9 rounded-xl pl-9 pr-3 text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
+                />
+              </div>
+            </div>
+
+            {/* Groups list */}
+            <div className="overflow-y-auto px-5 py-3 flex-1">
+              {groups.length === 0 ? (
+                <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  No hay ítems con stock disponible.
+                </p>
+              ) : shown.length === 0 ? (
+                <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  Sin resultados para “{search}”.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {shown.map(g => {
+                    const isValidated = validated.has(g.key);
+                    const meta = categoryMeta[g.category] || { emoji: '📦', label: g.category };
+                    return (
+                      <button
+                        key={g.key}
+                        type="button"
+                        onClick={() => toggleValidated(g.key)}
+                        className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors"
+                        title={isValidated ? 'Marcar como no validado' : 'Marcar como validado (confirmado contra lo físico)'}
+                        style={{
+                          background: isValidated ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${isValidated ? 'rgba(16,185,129,0.28)' : 'rgba(255,255,255,0.05)'}`,
+                        }}
+                      >
+                        {/* Checkbox */}
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+                          style={{
+                            background: isValidated ? '#10b981' : 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${isValidated ? '#10b981' : 'rgba(255,255,255,0.2)'}`,
+                          }}
+                        >
+                          {isValidated && <Check className="h-3.5 w-3.5" style={{ color: '#fff' }} />}
+                        </span>
+                        {/* Image */}
+                        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                          {g.image ? (
+                            <img src={g.image} alt={g.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-white/5">
+                              <ShoppingCart className="h-4 w-4 text-white/20" />
+                            </div>
+                          )}
+                        </div>
+                        {/* Name + category */}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" style={{ color: isValidated ? '#10b981' : 'rgba(255,255,255,0.9)' }}>
+                            {g.name}
+                          </p>
+                          <p className="text-[11px] truncate" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                            {meta.emoji} {meta.label}
+                            {g.registros > 1 && <span> · {g.registros} registros</span>}
+                          </p>
+                        </div>
+                        {/* Available count */}
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-mono font-bold" style={{ color: '#a78bfa' }}>{g.available.toLocaleString()}</p>
+                          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>disponibles</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end px-5 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 interface Props {
   items?: Item[];
   compact?: boolean;
@@ -347,6 +571,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
   const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const legacyBuyers = (legacyBuyersData as any[]) || [];
+
+  // #12: mapa categoría → ícono global (mismo catálogo que /raids/settings y que
+  // usa Registro de ítem). Al cambiar categoría o elegir sugerencia en el modal
+  // de edición, se asigna la imagen de la categoría cuando corresponde.
+  const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery(undefined, { staleTime: 60_000, enabled: !!authUser });
+  const categoryIconMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    (categoryIconsQ.data || []).forEach((r: { category: string; imageUrl: string }) => {
+      map[String(r.category).toUpperCase()] = r.imageUrl;
+    });
+    return map;
+  }, [categoryIconsQ.data]);
+  const resolveCategoryIcon = (cat: string): string => {
+    if (!cat) return '';
+    return categoryIconMap[String(cat).toUpperCase()] || '';
+  };
 
   // Build combined character lookup: old characters + legacyBuyers (user accounts)
   // Items may have associatedCharacterIds with old char IDs OR new user IDs
@@ -424,8 +664,13 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [editQty, setEditQty] = useState('');
   const [editCharIds, setEditCharIds] = useState<string[]>([]);
   const [editRespId, setEditRespId] = useState<string>('');
+  // Flag cooperativo (solo separación visual en Ciclos de Venta), editable por SA/Mapper.
+  const [editIsCoop, setEditIsCoop] = useState(false);
   const [editCharSearch, setEditCharSearch] = useState('');
   const [editRespSearch, setEditRespSearch] = useState('');
+  // #12: imagen del ítem en edición. Se rellena al elegir una sugerencia del
+  // typeahead de nombre (o al cambiar categoría) igual que en Registro de ítem.
+  const [editImageUrl, setEditImageUrl] = useState('');
   // Venta parcial
   const [sellModalItem, setSellModalItem] = useState<Item | null>(null);
   const [sellQty, setSellQty] = useState('1');
@@ -553,8 +798,30 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setEditQty(String(item.quantity ?? ''));
     setEditCharIds([...(item.associatedCharacterIds || [])]);
     setEditRespId(item.responsibleUserId ? String(item.responsibleUserId) : '');
+    setEditIsCoop(Boolean(item.isCooperative));
     setEditCharSearch('');
     setEditRespSearch('');
+    setEditImageUrl(item.image?.publicUrl || (item as any).imageUrl || '');
+  };
+
+  // #12: al elegir una sugerencia del typeahead en el modal de edición se
+  // rellenan SOLO nombre, categoría e imagen (el precio no se toca, por pedido
+  // explícito). Si el ítem sugerido no trae imagen propia, cae al ícono global
+  // de la categoría (igual que Registro de ítem).
+  const applyEditTypeahead = (picked: any) => {
+    const cat = picked.category || '';
+    const img = picked.image?.publicUrl || picked.imageUrl || '';
+    const fallback = cat && CATEGORIES.includes(cat as ItemCategory) ? resolveCategoryIcon(cat) : '';
+    setEditName(picked.name || '');
+    if (cat && CATEGORIES.includes(cat as ItemCategory)) setEditCategory(cat);
+    setEditImageUrl(img || fallback);
+  };
+
+  // Cambiar categoría en el modal reasigna la imagen al ícono global de esa
+  // categoría (mismo comportamiento que Registro de ítem).
+  const handleEditCategoryChange = (cat: ItemCategory) => {
+    setEditCategory(cat);
+    setEditImageUrl(resolveCategoryIcon(cat));
   };
 
   const handleSaveEdit = () => {
@@ -577,6 +844,12 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       quantity: qtyNum,
       associatedCharacterIds: editCharIds,
       responsibleUserId: editRespId || null,
+      isCooperative: editIsCoop,
+      image: {
+        id: editModalItem.image?.id || `img-${editModalItem.id}`,
+        publicUrl: editImageUrl || '',
+        altText: name,
+      },
     });
     toast.success(`Ítem "${name}" actualizado.`);
     setEditModalItem(null);
@@ -676,6 +949,9 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 del menú raid: Unid · Vendidas · Vendido · Restante · Total
                 + pill R clickeable que toggle-filtra a ítems con reservas. */}
             <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {!compact && currentUser?.role === 'SUPER_ADMIN' && (
+                <InventorySummaryButton items={items} resolveCategoryIcon={resolveCategoryIcon} />
+              )}
               <span>
                 Unid: <span style={{ color: '#7bf1d6' }}>{totals.remainingUnits}</span>/
                 {totals.totalUnits}
@@ -809,8 +1085,21 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const canEdit = !!currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MAPPER');
                 const canConfirm = currentUser && currentUser.role === 'SUPER_ADMIN' && item.status === 'EN_REGISTRO';
                 const canDelete = currentUser && currentUser.role === 'SUPER_ADMIN';
-                // #4: SUPER_ADMIN y MAPPER pueden vender ítems confirmados con stock.
-                const canSell = !!currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'MAPPER') && item.status === 'CONFIRMADO';
+                // Si el responsable del ítem es la cuenta del Super Admin, la
+                // venta la maneja SOLO el Super Admin (ítems más delicados que
+                // él tiene en su poder). Si el responsable es otra persona, el
+                // Mapper puede gestionar la venta con normalidad.
+                const responsibleRole = item.responsibleUserId
+                  ? String(allCharLookup.get(String(item.responsibleUserId))?.role || '').toUpperCase()
+                  : '';
+                const responsibleIsSuperAdmin = responsibleRole === 'SUPER_ADMIN';
+                // #4: SUPER_ADMIN y MAPPER pueden vender ítems confirmados con stock,
+                // salvo cuando el responsable es el Super Admin → solo Super Admin.
+                const canSell =
+                  !!currentUser &&
+                  item.status === 'CONFIRMADO' &&
+                  (currentUser.role === 'SUPER_ADMIN' ||
+                    (currentUser.role === 'MAPPER' && !responsibleIsSuperAdmin));
                 const remaining = item.quantity - item.quantitySold;
                 const assocChars = item.associatedCharacterIds
                   .map(cid => allCharLookup.get(String(cid)))
@@ -1054,7 +1343,6 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setEditModalItem(null); }}
         >
           <div
             className="w-full max-w-lg rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
@@ -1071,15 +1359,16 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             </div>
 
             <div className="px-5 py-4 space-y-4">
-              {/* Nombre */}
+              {/* Nombre — mismo buscador con sugerencias del catálogo que en
+                  "Registro de ítem". Al elegir una sugerencia se rellena
+                  nombre, categoría e imagen (el precio no se toca). */}
               <div>
                 <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Nombre</label>
-                <input
-                  type="text"
+                <ItemTypeahead
                   value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  className="input-dark h-9 w-full text-sm"
-                  placeholder="Nombre del ítem"
+                  onChange={v => setEditName(v)}
+                  onSelect={picked => applyEditTypeahead(picked)}
+                  placeholder="Nombre del ítem (con sugerencias del catálogo)…"
                 />
               </div>
 
@@ -1094,7 +1383,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       <button
                         key={c}
                         type="button"
-                        onClick={() => setEditCategory(c)}
+                        onClick={() => handleEditCategoryChange(c)}
                         className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
                         style={{
                           background: isSel ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.03)',
@@ -1107,6 +1396,31 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Imagen (auto por categoría / sugerencia). Solo lectura. */}
+              <div>
+                <label className="mb-1 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>Imagen</label>
+                <div
+                  className="rounded-lg overflow-hidden flex items-center gap-2 px-2"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.08)', height: 40 }}
+                  title={editImageUrl ? 'Asignada por categoría / sugerencia' : 'Elige una categoría o una sugerencia para asignar la imagen'}
+                >
+                  {editImageUrl ? (
+                    <>
+                      <ImageHoverPreview src={editImageUrl} caption={editCategory} size={240}>
+                        <img src={editImageUrl} alt="" className="h-7 w-7 rounded object-cover shrink-0" />
+                      </ImageHoverPreview>
+                      <span className="text-[11px] truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        {editCategory ? `auto · ${editCategory}` : 'imagen asignada'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      elige categoría o sugerencia
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1233,6 +1547,27 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     })}
                 </div>
               </div>
+
+              {/* Flag cooperativo (solo separación visual en Ciclos de Venta).
+                  El modal de edición ya está gateado a SA/Mapper (canEdit). */}
+              <label
+                className="flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer select-none w-fit"
+                style={{
+                  background: editIsCoop ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${editIsCoop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                }}
+                title="Marca este ítem como cooperativo (solo separa la vista en Ciclos de Venta)"
+              >
+                <input
+                  type="checkbox"
+                  checked={editIsCoop}
+                  onChange={e => setEditIsCoop(e.target.checked)}
+                  className="h-4 w-4 accent-[#7bf1d6]"
+                />
+                <span className="text-xs font-medium" style={{ color: editIsCoop ? '#7bf1d6' : 'rgba(255,255,255,0.7)' }}>
+                  🤝 Ítem Cooperativo {editIsCoop ? '' : '(Individual)'}
+                </span>
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 px-5 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1251,8 +1586,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       {/* Modal de venta parcial */}
       {sellModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setSellModalItem(null); }}>
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
           <div className="w-full max-w-lg rounded-2xl p-6"
             style={{ background: 'rgba(10,14,22,0.98)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Header */}
@@ -1599,8 +1933,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       {/* Modal de confirmación de borrado */}
       {deleteModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setDeleteModalItem(null); }}>
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
           <div className="w-full max-w-md rounded-2xl p-5"
             style={{
               background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',

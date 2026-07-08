@@ -974,11 +974,10 @@ function MemberRow({
 
 // ---------- Simple modal overlay ----------
 
-function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function ModalOverlay({ children }: { children: React.ReactNode; onClose?: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
       {children}
     </div>
   );
