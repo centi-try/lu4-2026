@@ -337,9 +337,11 @@ function ItemSaleHistoryButton({ itemId, itemName }: { itemId: string; itemName:
 function InventorySummaryButton({
   items,
   resolveCategoryIcon,
+  resolveResponsibleName,
 }: {
   items: Item[];
   resolveCategoryIcon: (cat: string) => string;
+  resolveResponsibleName: (id: string) => string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -356,12 +358,17 @@ function InventorySummaryButton({
       const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
       if (available <= 0) continue;
       const id = it.responsibleUserId ? String(it.responsibleUserId) : '__none__';
-      if (!map.has(id)) map.set(id, it.responsibleName || 'Sin responsable');
+      if (!map.has(id)) {
+        const name = id === '__none__'
+          ? 'Sin responsable'
+          : (resolveResponsibleName(id) || it.responsibleName || 'Sin responsable');
+        map.set(id, name);
+      }
     }
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items]);
+  }, [items, resolveResponsibleName]);
 
   const groups = useMemo(() => {
     const map = new Map<string, {
@@ -1003,7 +1010,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 + pill R clickeable que toggle-filtra a ítems con reservas. */}
             <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: 'rgba(255,255,255,0.55)' }}>
               {!compact && currentUser?.role === 'SUPER_ADMIN' && (
-                <InventorySummaryButton items={items} resolveCategoryIcon={resolveCategoryIcon} />
+                <InventorySummaryButton items={items} resolveCategoryIcon={resolveCategoryIcon} resolveResponsibleName={(id) => allCharLookup.get(String(id))?.name || ''} />
               )}
               <span>
                 Unid: <span style={{ color: '#7bf1d6' }}>{totals.remainingUnits}</span>/
