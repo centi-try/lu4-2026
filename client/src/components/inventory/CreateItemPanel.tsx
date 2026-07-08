@@ -1362,7 +1362,7 @@ export function CreateItemPanel() {
                     background: row.isCooperative ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
                     border: `1px solid ${row.isCooperative ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
                   }}
-                  title="Marca este ítem como cooperativo (solo separa la vista en Ciclos de Venta)"
+                  title="Marca la casilla para Cooperativo; desmarcada queda como Individual (solo separa la vista en Ciclos de Venta)"
                 >
                   <input
                     type="checkbox"
@@ -1370,8 +1370,17 @@ export function CreateItemPanel() {
                     onChange={e => updateRow(row.id, { isCooperative: e.target.checked })}
                     className="h-4 w-4 accent-[#7bf1d6]"
                   />
-                  <span className="text-[11px] font-medium" style={{ color: row.isCooperative ? '#7bf1d6' : 'rgba(255,255,255,0.65)' }}>
-                    🤝 {row.isCooperative ? 'Cooperativo' : 'Individual'}
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    Marcar como Cooperativo
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold rounded-full px-2 py-0.5"
+                    style={{
+                      background: row.isCooperative ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: row.isCooperative ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
+                    }}
+                  >
+                    {row.isCooperative ? '🤝 Cooperativo' : '👤 Individual'}
                   </span>
                 </label>
               </div>
