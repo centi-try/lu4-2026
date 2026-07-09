@@ -384,6 +384,7 @@ function InventorySummaryButton({
       registros: number;
       itemIds: string[];
       prices: number[];
+      coopCount: number;
     }>();
     for (const it of items) {
       const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
@@ -404,6 +405,7 @@ function InventorySummaryButton({
         existing.registros += 1;
         existing.itemIds.push(it.id);
         existing.prices.push(price);
+        if (it.isCooperative) existing.coopCount += 1;
         if (!existing.image) existing.image = it.image?.publicUrl || '';
       } else {
         map.set(key, {
@@ -415,6 +417,7 @@ function InventorySummaryButton({
           registros: 1,
           itemIds: [it.id],
           prices: [price],
+          coopCount: it.isCooperative ? 1 : 0,
         });
       }
     }
@@ -422,7 +425,9 @@ function InventorySummaryButton({
       .map(g => {
         const min = Math.min(...g.prices);
         const max = Math.max(...g.prices);
-        return { ...g, minPrice: min, maxPrice: max, uniformPrice: min === max ? min : null };
+        // El grupo se considera Cooperativo solo si TODOS sus ítems lo son.
+        const allCoop = g.itemIds.length > 0 && g.coopCount === g.itemIds.length;
+        return { ...g, minPrice: min, maxPrice: max, uniformPrice: min === max ? min : null, allCoop };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [items, resolveCategoryIcon, respFilter, coopFilter]);
@@ -483,6 +488,27 @@ function InventorySummaryButton({
     setEditingPriceKey(null);
     setPriceDraft('');
   };
+
+  // Marca/desmarca TODOS los ítems del grupo como Cooperativo (bulk). Solo
+  // afecta la separación visual en Ciclos de Venta, no montos ni reparto.
+  const setGroupCoop = (g: { itemIds: string[]; name: string }, value: boolean) => {
+    for (const id of g.itemIds) {
+      updateItem(id, { isCooperative: value });
+    }
+    toast.success(`"${g.name}" marcado como ${value ? '🤝 Cooperativo' : '👤 Individual'} (${g.itemIds.length} ${g.itemIds.length === 1 ? 'ítem' : 'ítems'}).`);
+  };
+
+  // Aplica Cooperativo/Individual a TODOS los grupos visibles (respeta filtros
+  // y buscador). El check global de arriba en el modal.
+  const setAllShownCoop = (value: boolean) => {
+    const ids = shown.flatMap(g => g.itemIds);
+    if (ids.length === 0) return;
+    for (const id of ids) {
+      updateItem(id, { isCooperative: value });
+    }
+    toast.success(`${ids.length} ${ids.length === 1 ? 'ítem' : 'ítems'} marcados como ${value ? '🤝 Cooperativo' : '👤 Individual'}.`);
+  };
+  const allShownCoop = shown.length > 0 && shown.every(g => g.allCoop);
 
   return (
     <>
@@ -564,6 +590,27 @@ function InventorySummaryButton({
                   <option value="indiv">👤 Individual</option>
                 </select>
               </div>
+              {/* Marcar todo el lote (visible) como Cooperativo */}
+              {shown.length > 0 && (
+                <label
+                  className="mt-2 flex items-center gap-2 rounded-xl px-2.5 py-1.5 cursor-pointer select-none w-fit"
+                  style={{
+                    background: allShownCoop ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${allShownCoop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  }}
+                  title="Marca o desmarca como Cooperativo todos los grupos que se están mostrando (respeta filtros y búsqueda)."
+                >
+                  <input
+                    type="checkbox"
+                    checked={allShownCoop}
+                    onChange={e => setAllShownCoop(e.target.checked)}
+                    className="h-4 w-4 accent-[#7bf1d6]"
+                  />
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    🤝 Marcar todo el lote como Cooperativo
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Groups list */}
@@ -658,6 +705,22 @@ function InventorySummaryButton({
                               <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(123,241,214,0.75)' }} />
                             </button>
                           )}
+                          {/* Tipo Cooperativo/Individual — click marca/desmarca todo el grupo */}
+                          <button
+                            type="button"
+                            onClick={() => setGroupCoop(g, !g.allCoop)}
+                            title={g.allCoop
+                              ? 'Cooperativo — clic para pasar todo el grupo a Individual'
+                              : 'Individual — clic para marcar todo el grupo como Cooperativo'}
+                            className="mt-1.5 ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors align-middle"
+                            style={{
+                              background: g.allCoop ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.06)',
+                              color: g.allCoop ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
+                              border: `1px solid ${g.allCoop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.12)'}`,
+                            }}
+                          >
+                            {g.allCoop ? '🤝 Cooperativo' : '👤 Individual'}
+                          </button>
                         </div>
                         {/* Available count */}
                         <div className="shrink-0 text-right">
