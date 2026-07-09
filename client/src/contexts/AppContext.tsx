@@ -33,6 +33,7 @@ interface AppContextType {
 
   addItem: (item: Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold'>) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
+  bulkSetItemCooperative: (ids: string[], isCooperative: boolean) => void;
   confirmItem: (id: string) => void;
   deleteItem: (id: string) => void;
   sellItem: (opts: SellItemOptions) => void;
@@ -243,6 +244,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
+  const bulkSetCooperativeMutation = trpc.items.bulkSetCooperative.useMutation({
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
   const confirmItemMutation = trpc.items.confirm.useMutation({
     onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
@@ -371,6 +376,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return prev;
     });
   }, [currentUser, addLog, updateItemMutation]);
+
+  // Marca/desmarca el flag cooperativo en LOTE con UNA sola llamada al backend
+  // (evita disparar N mutaciones cuando son muchos ítems). Optimista en local.
+  const bulkSetItemCooperative = useCallback((ids: string[], isCooperative: boolean) => {
+    if (currentUser.role === 'USER') return;
+    const numericIds = ids
+      .map(id => parseInt(String(id).replace('item-', '')))
+      .filter(n => !isNaN(n));
+    if (numericIds.length === 0) return;
+    bulkSetCooperativeMutation.mutate({ ids: numericIds, isCooperative });
+    const idSet = new Set(ids);
+    setItems(prev => prev.map(item =>
+      idSet.has(item.id)
+        ? { ...item, isCooperative, updatedAt: new Date().toISOString(), updatedBy: currentUser.name }
+        : item
+    ));
+  }, [currentUser, bulkSetCooperativeMutation]);
 
   const confirmItem = useCallback((id: string) => {
     if (currentUser.role === 'USER') return;
@@ -581,7 +603,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
       items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,
-      addItem, updateItem, confirmItem, deleteItem, sellItem, searchItems,
+      addItem, updateItem, bulkSetItemCooperative, confirmItem, deleteItem, sellItem, searchItems,
       startCycle, closeCycle
     }}>
       {children}

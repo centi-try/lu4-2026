@@ -351,7 +351,11 @@ function InventorySummaryButton({
   // Claves validadas en la sesión actual. Se limpia al abrir/cerrar.
   const [validated, setValidated] = useState<Set<string>>(new Set());
   // Edición de precio por grupo: clave del grupo en edición + valor tipeado.
-  const { updateItem } = useApp();
+  const { updateItem, bulkSetItemCooperative } = useApp();
+  // Cambios de Cooperativo/Individual PENDIENTES (por clave de grupo). No se
+  // aplican hasta pulsar "Guardar cambios" — así un lote grande hace una sola
+  // escritura al backend en vez de N mutaciones que tumban la página.
+  const [coopDraft, setCoopDraft] = useState<Map<string, boolean>>(new Map());
   const [editingPriceKey, setEditingPriceKey] = useState<string | null>(null);
   const [priceDraft, setPriceDraft] = useState('');
 
@@ -448,6 +452,7 @@ function InventorySummaryButton({
     setCoopFilter('all');
     setEditingPriceKey(null);
     setPriceDraft('');
+    setCoopDraft(new Map());
     setOpen(true);
   };
   const closeModal = () => {
@@ -458,6 +463,7 @@ function InventorySummaryButton({
     setCoopFilter('all');
     setEditingPriceKey(null);
     setPriceDraft('');
+    setCoopDraft(new Map());
   };
   const toggleValidated = (key: string) => {
     setValidated(prev => {
@@ -489,26 +495,52 @@ function InventorySummaryButton({
     setPriceDraft('');
   };
 
-  // Marca/desmarca TODOS los ítems del grupo como Cooperativo (bulk). Solo
-  // afecta la separación visual en Ciclos de Venta, no montos ni reparto.
-  const setGroupCoop = (g: { itemIds: string[]; name: string }, value: boolean) => {
-    for (const id of g.itemIds) {
-      updateItem(id, { isCooperative: value });
-    }
-    toast.success(`"${g.name}" marcado como ${value ? '🤝 Cooperativo' : '👤 Individual'} (${g.itemIds.length} ${g.itemIds.length === 1 ? 'ítem' : 'ítems'}).`);
+  // Estado de Cooperativo mostrado para un grupo: el borrador si existe, si no
+  // el estado real guardado (g.allCoop).
+  const groupCoopState = (g: { key: string; allCoop: boolean }) =>
+    coopDraft.has(g.key) ? Boolean(coopDraft.get(g.key)) : g.allCoop;
+
+  // Marca/desmarca un grupo en el BORRADOR (no escribe al backend todavía).
+  const setGroupCoopDraft = (g: { key: string }, value: boolean) => {
+    setCoopDraft(prev => {
+      const next = new Map(prev);
+      next.set(g.key, value);
+      return next;
+    });
   };
 
-  // Aplica Cooperativo/Individual a TODOS los grupos visibles (respeta filtros
-  // y buscador). El check global de arriba en el modal.
-  const setAllShownCoop = (value: boolean) => {
-    const ids = shown.flatMap(g => g.itemIds);
-    if (ids.length === 0) return;
-    for (const id of ids) {
-      updateItem(id, { isCooperative: value });
-    }
-    toast.success(`${ids.length} ${ids.length === 1 ? 'ítem' : 'ítems'} marcados como ${value ? '🤝 Cooperativo' : '👤 Individual'}.`);
+  // Marca/desmarca en el borrador TODOS los grupos visibles (respeta filtros y
+  // buscador). El check global de arriba en el modal.
+  const setAllShownCoopDraft = (value: boolean) => {
+    setCoopDraft(prev => {
+      const next = new Map(prev);
+      for (const g of shown) next.set(g.key, value);
+      return next;
+    });
   };
-  const allShownCoop = shown.length > 0 && shown.every(g => g.allCoop);
+  const allShownCoop = shown.length > 0 && shown.every(g => groupCoopState(g));
+
+  // Cambios pendientes: grupos cuyo estado en borrador difiere del real.
+  const pendingGroups = shown.filter(g => coopDraft.has(g.key) && Boolean(coopDraft.get(g.key)) !== g.allCoop);
+  const hasPendingCoop = pendingGroups.length > 0;
+
+  const discardCoopChanges = () => setCoopDraft(new Map());
+
+  // Aplica TODOS los cambios pendientes al backend en UNA sola llamada por
+  // valor (una para Cooperativo, otra para Individual). Evita N mutaciones.
+  const saveCoopChanges = () => {
+    const toCoop: string[] = [];
+    const toIndiv: string[] = [];
+    for (const g of pendingGroups) {
+      const value = Boolean(coopDraft.get(g.key));
+      (value ? toCoop : toIndiv).push(...g.itemIds);
+    }
+    if (toCoop.length > 0) bulkSetItemCooperative(toCoop, true);
+    if (toIndiv.length > 0) bulkSetItemCooperative(toIndiv, false);
+    const total = toCoop.length + toIndiv.length;
+    toast.success(`${total} ${total === 1 ? 'ítem' : 'ítems'} actualizados (Cooperativo/Individual).`);
+    setCoopDraft(new Map());
+  };
 
   return (
     <>
@@ -603,7 +635,7 @@ function InventorySummaryButton({
                   <input
                     type="checkbox"
                     checked={allShownCoop}
-                    onChange={e => setAllShownCoop(e.target.checked)}
+                    onChange={e => setAllShownCoopDraft(e.target.checked)}
                     className="h-4 w-4 accent-[#7bf1d6]"
                   />
                   <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
@@ -705,22 +737,29 @@ function InventorySummaryButton({
                               <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(123,241,214,0.75)' }} />
                             </button>
                           )}
-                          {/* Tipo Cooperativo/Individual — click marca/desmarca todo el grupo */}
-                          <button
-                            type="button"
-                            onClick={() => setGroupCoop(g, !g.allCoop)}
-                            title={g.allCoop
-                              ? 'Cooperativo — clic para pasar todo el grupo a Individual'
-                              : 'Individual — clic para marcar todo el grupo como Cooperativo'}
-                            className="mt-1.5 ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors align-middle"
-                            style={{
-                              background: g.allCoop ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.06)',
-                              color: g.allCoop ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
-                              border: `1px solid ${g.allCoop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.12)'}`,
-                            }}
-                          >
-                            {g.allCoop ? '🤝 Cooperativo' : '👤 Individual'}
-                          </button>
+                          {/* Tipo Cooperativo/Individual — click marca/desmarca todo el grupo (pendiente hasta Guardar) */}
+                          {(() => {
+                            const coop = groupCoopState(g);
+                            const dirty = coopDraft.has(g.key) && coop !== g.allCoop;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setGroupCoopDraft(g, !coop)}
+                                title={coop
+                                  ? 'Cooperativo — clic para pasar todo el grupo a Individual'
+                                  : 'Individual — clic para marcar todo el grupo como Cooperativo'}
+                                className="mt-1.5 ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors align-middle"
+                                style={{
+                                  background: coop ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.06)',
+                                  color: coop ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
+                                  border: `1px solid ${coop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.12)'}`,
+                                }}
+                              >
+                                {coop ? '🤝 Cooperativo' : '👤 Individual'}
+                                {dirty && <span title="Cambio pendiente de guardar" style={{ color: '#fbbf24' }}>•</span>}
+                              </button>
+                            );
+                          })()}
                         </div>
                         {/* Available count */}
                         <div className="shrink-0 text-right">
@@ -735,15 +774,46 @@ function InventorySummaryButton({
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end px-5 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
-                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
-              >
-                Cerrar
-              </button>
+            <div className="flex items-center justify-between gap-2 px-5 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="text-[11px]" style={{ color: hasPendingCoop ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
+                {hasPendingCoop
+                  ? `${pendingGroups.length} ${pendingGroups.length === 1 ? 'cambio' : 'cambios'} sin guardar`
+                  : 'Sin cambios pendientes'}
+              </div>
+              <div className="flex items-center gap-2">
+                {hasPendingCoop && (
+                  <button
+                    type="button"
+                    onClick={discardCoopChanges}
+                    className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    Descartar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={saveCoopChanges}
+                  disabled={!hasPendingCoop}
+                  className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                  style={{
+                    background: hasPendingCoop ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                    color: hasPendingCoop ? '#34d399' : 'rgba(255,255,255,0.3)',
+                    border: `1px solid ${hasPendingCoop ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                    cursor: hasPendingCoop ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Guardar cambios
+                </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>,

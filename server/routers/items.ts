@@ -188,6 +188,33 @@ export const itemsRouter = router({
       return { success: true };
     }),
 
+  // Marca/desmarca el flag cooperativo en LOTE. Una sola escritura a disco y un
+  // solo log de auditoría, para no gatillar N mutaciones cuando son muchos ítems
+  // (ej. 80) desde el Resumen de Inventario. Solo separación visual en Ciclos.
+  bulkSetCooperative: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1), isCooperative: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const idSet = new Set(input.ids.map(Number));
+      let updated = 0;
+      dbInstance.items = dbInstance.items.map((i: any) => {
+        if (idSet.has(Number(i.id))) {
+          updated += 1;
+          return { ...i, isCooperative: input.isCooperative, updatedAt: new Date() };
+        }
+        return i;
+      });
+      saveDbToDisk();
+
+      await createAuditLog({
+        userId: ctx.user?.id || 0,
+        action: "UPDATE_ITEM",
+        detail: `Marcó ${updated} ítem(s) como ${input.isCooperative ? "Cooperativo" : "Individual"} (en lote).`,
+        details: { ids: input.ids, isCooperative: input.isCooperative, count: updated },
+      });
+
+      return { success: true, count: updated };
+    }),
+
   confirm: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
