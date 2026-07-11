@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
-import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key } from 'lucide-react';
+import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil, Lock, Ticket, Copy, RotateCw, Clock } from 'lucide-react';
 
 type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
@@ -13,17 +13,22 @@ interface AdminUser {
   characterName?: string;
   role: string;
   isActive: boolean;
+  legacyAccess?: boolean;
   loginMethod?: string;
   createdAt?: string;
   lastSignedIn?: string;
   openId?: string;
+  raidClanId?: number | null;
+  raidCpId?: number | null;
+  cpStatus?: string | null;
+  classMain?: string | null;
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
   { value: 'user', label: 'Usuario', color: '#8b5cf6' },
   { value: 'mapper', label: 'Mapper', color: '#fbbf24' },
   { value: 'admin', label: 'Admin', color: '#3b82f6' },
-  { value: 'super_admin', label: 'Super Admin', color: '#7bf1d6' },
+  { value: 'super_admin', label: 'Administrador del Sistema', color: '#7bf1d6' },
 ];
 
 function getRoleStyle(role: string) {
@@ -135,11 +140,194 @@ function ActiveToggle({ userId, isActive, onToggle, disabled }: {
   );
 }
 
+function getCodeAgeInfo(createdAt: string): { label: string; color: string; bgColor: string; borderColor: string; level: 'green' | 'yellow' | 'red' } {
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const hours = diffMs / (1000 * 60 * 60);
+  if (hours < 12) {
+    return {
+      label: `Creado hace ${hours < 1 ? `${Math.floor(hours * 60)} min` : `${Math.floor(hours)}h ${Math.floor((hours % 1) * 60)}m`}`,
+      color: '#4ade80',
+      bgColor: 'rgba(74,222,128,0.08)',
+      borderColor: 'rgba(74,222,128,0.25)',
+      level: 'green',
+    };
+  } else if (hours < 24) {
+    return {
+      label: `Creado hace ${Math.floor(hours)}h`,
+      color: '#fbbf24',
+      bgColor: 'rgba(251,191,36,0.08)',
+      borderColor: 'rgba(251,191,36,0.25)',
+      level: 'yellow',
+    };
+  } else {
+    const days = Math.floor(hours / 24);
+    return {
+      label: `Creado hace ${days}d ${Math.floor(hours % 24)}h`,
+      color: '#f87171',
+      bgColor: 'rgba(248,113,113,0.08)',
+      borderColor: 'rgba(248,113,113,0.25)',
+      level: 'red',
+    };
+  }
+}
+
+function InvitationCodePanel() {
+  const { data: codeData, refetch } = trpc.adminUsers.getInvitationCode.useQuery(undefined, { staleTime: 5000 });
+  const generateMutation = trpc.adminUsers.generateInvitationCode.useMutation({
+    onSuccess: () => {
+      toast.success('Nuevo código de invitación generado.');
+      refetch();
+    },
+    onError: (err) => toast.error(err.message || 'Error al generar código.'),
+  });
+  const [copied, setCopied] = useState(false);
+
+  const ageInfo = codeData ? getCodeAgeInfo(codeData.createdAt) : null;
+
+  const handleCopy = () => {
+    if (!codeData) return;
+    navigator.clipboard.writeText(codeData.code).then(() => {
+      setCopied(true);
+      toast.success('Código copiado al portapapeles.');
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div
+      className="rounded-2xl border p-4"
+      style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }}
+    >
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg"
+            style={{ background: 'rgba(232,121,249,0.15)', border: '1px solid rgba(232,121,249,0.3)' }}
+          >
+            <Ticket className="h-4 w-4" style={{ color: '#e879f9' }} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Código de Invitación
+            </p>
+          </div>
+        </div>
+
+        {codeData ? (
+          <div className="flex items-center gap-3 flex-wrap flex-1">
+            {/* Code display */}
+            <div className="flex items-center gap-2">
+              <span
+                className="font-mono text-2xl font-black tracking-[0.3em] px-4 py-1.5 rounded-xl border"
+                style={{
+                  color: '#e879f9',
+                  background: 'rgba(232,121,249,0.08)',
+                  borderColor: 'rgba(232,121,249,0.25)',
+                }}
+              >
+                {codeData.code}
+              </span>
+              <button
+                onClick={handleCopy}
+                className="p-2 rounded-lg transition-all hover:bg-white/5"
+                title="Copiar código"
+                style={{ color: copied ? '#4ade80' : 'rgba(255,255,255,0.4)' }}
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Age indicator */}
+            {ageInfo && (
+              <div
+                className="flex items-center gap-2 rounded-xl px-4 py-2 border"
+                style={{ background: ageInfo.bgColor, borderColor: ageInfo.borderColor }}
+              >
+                <div
+                  className="h-3.5 w-3.5 rounded-full"
+                  style={{ background: ageInfo.color, boxShadow: `0 0 8px ${ageInfo.color}88` }}
+                />
+                <span className="text-sm font-semibold" style={{ color: ageInfo.color }}>
+                  {ageInfo.label}
+                </span>
+              </div>
+            )}
+
+            {/* Status messages */}
+            {ageInfo && ageInfo.level === 'green' && (
+              <span className="text-sm font-semibold" style={{ color: 'rgba(74,222,128,0.8)' }}>
+                Seguro
+              </span>
+            )}
+            {ageInfo && ageInfo.level === 'yellow' && (
+              <span className="text-sm font-semibold" style={{ color: 'rgba(251,191,36,0.9)' }}>
+                Se recomienda cambiar el código
+              </span>
+            )}
+            {ageInfo && ageInfo.level === 'red' && (
+              <span className="text-sm font-bold" style={{ color: 'rgba(248,113,113,0.95)' }}>
+                Expirado — cámbialo ahora
+              </span>
+            )}
+
+            {/* Generate button */}
+            <button
+              onClick={() => generateMutation.mutate()}
+              disabled={generateMutation.isPending}
+              className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-all hover:bg-white/5 ml-auto"
+              style={{ borderColor: 'rgba(232,121,249,0.25)', color: '#e879f9' }}
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${generateMutation.isPending ? 'animate-spin' : ''}`} />
+              Generar nuevo
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              Sin código configurado — cualquiera puede registrarse
+            </span>
+            <button
+              onClick={() => generateMutation.mutate()}
+              disabled={generateMutation.isPending}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ml-auto"
+              style={{ background: '#e879f9', color: '#000' }}
+            >
+              <Ticket className="h-3.5 w-3.5" />
+              {generateMutation.isPending ? 'Generando...' : 'Activar código de invitación'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-5 mt-3 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: '#4ade80' }} />
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>0-12h: Seguro</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: '#fbbf24' }} />
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>12-24h: Cambiar recomendado</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ background: '#f87171' }} />
+          <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>+24h: Expirado</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUsers() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [passwordModal, setPasswordModal] = useState<{ userId: number; email: string } | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [deleteModalUser, setDeleteModalUser] = useState<AdminUser | null>(null);
+  const [toggleModalUser, setToggleModalUser] = useState<AdminUser | null>(null);
+  const [unlockModalUser, setUnlockModalUser] = useState<any | null>(null);
+  const [editModalUser, setEditModalUser] = useState<AdminUser | null>(null);
+  const [editForm, setEditForm] = useState({ email: '', characterName: '', raidClanId: '' as string, raidCpId: '' as string, classMain: '' as string });
 
   const { data: users, isLoading, error, refetch } = trpc.adminUsers.listUsers.useQuery(undefined, {
     retry: false,
@@ -191,18 +379,92 @@ export default function AdminUsers() {
     },
   });
 
-  const handleToggleActive = (userId: number, isActive: boolean) => {
-    toggleActiveMutation.mutate({ userId, isActive });
+  const unlockUserMutation = trpc.adminUsers.unlockUser.useMutation({
+    onSuccess: () => {
+      toast.success('Usuario desbloqueado correctamente.');
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al desbloquear el usuario.');
+    },
+  });
+
+  const { data: clansAndCps } = trpc.adminUsers.clansAndCps.useQuery(undefined, { staleTime: 60_000 });
+
+  const updateProfileMutation = trpc.adminUsers.updateProfile.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Perfil de ${data.user.name} actualizado correctamente.`);
+      setEditModalUser(null);
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al actualizar el perfil.');
+    },
+  });
+
+  const toggleLegacyMutation = trpc.adminUsers.toggleLegacyAccess.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        data.user.legacyAccess
+          ? `Menú antiguo activado para ${data.user.name}.`
+          : `Menú antiguo desactivado para ${data.user.name}.`
+      );
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al cambiar acceso al menú antiguo.');
+    },
+  });
+
+  const handleToggleActive = (userId: number, _nextState: boolean) => {
+    const user = (users || []).find(u => u.id === userId);
+    if (user) setToggleModalUser(user);
+  };
+
+  const confirmToggleActive = () => {
+    if (!toggleModalUser) return;
+    toggleActiveMutation.mutate({ userId: toggleModalUser.id, isActive: !toggleModalUser.isActive });
+    setToggleModalUser(null);
   };
 
   const handleRoleChange = (userId: number, role: UserRole) => {
     updateRoleMutation.mutate({ userId, role });
   };
 
+  const handleEditUser = (user: AdminUser) => {
+    setEditForm({
+      email: user.email || '',
+      characterName: user.characterName || user.name || '',
+      raidClanId: user.raidClanId ? String(user.raidClanId) : '',
+      raidCpId: user.raidCpId ? String(user.raidCpId) : '',
+      classMain: user.classMain || '',
+    });
+    setEditModalUser(user);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editModalUser) return;
+    const payload: any = { userId: editModalUser.id };
+    if (editForm.email && editForm.email !== editModalUser.email) payload.email = editForm.email;
+    if (editForm.characterName && editForm.characterName !== (editModalUser.characterName || editModalUser.name)) payload.characterName = editForm.characterName;
+    payload.raidClanId = editForm.raidClanId ? Number(editForm.raidClanId) : null;
+    payload.raidCpId = editForm.raidCpId ? Number(editForm.raidCpId) : null;
+    payload.classMain = editForm.classMain || null;
+    updateProfileMutation.mutate(payload);
+  };
+
+  const editFilteredCps = (clansAndCps?.commandParties || []).filter(
+    (cp: any) => !editForm.raidClanId || Number(cp.clanId) === Number(editForm.raidClanId)
+  );
+
   const handleDeleteUser = (user: AdminUser) => {
-    if (confirm(`¿Estás seguro de que deseas eliminar la cuenta de ${user.email}? Esta acción no se puede deshacer.`)) {
-      deleteUserMutation.mutate({ userId: user.id });
-    }
+    setDeleteModalUser(user);
+  };
+
+  const confirmDeleteUser = () => {
+    if (!deleteModalUser) return;
+    deleteUserMutation.mutate({ userId: deleteModalUser.id });
+    setDeleteModalUser(null);
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -215,12 +477,18 @@ export default function AdminUsers() {
     changePasswordMutation.mutate({ userId: passwordModal.userId, newPassword });
   };
 
+  const isUserLocked = (user: any) => {
+    if (!user.lockedUntil) return false;
+    return new Date(user.lockedUntil).getTime() > Date.now();
+  };
+
   const filteredUsers = (users || []).filter(user => {
     const matchesSearch =
       !search ||
       user.email?.toLowerCase().includes(search.toLowerCase()) ||
       user.name?.toLowerCase().includes(search.toLowerCase()) ||
       user.characterName?.toLowerCase().includes(search.toLowerCase());
+    if (roleFilter === 'locked') return matchesSearch && isUserLocked(user);
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -229,6 +497,7 @@ export default function AdminUsers() {
   const activeUsers = (users || []).filter(u => u.isActive !== false).length;
   const inactiveUsers = (users || []).filter(u => u.isActive === false).length;
   const adminCount = (users || []).filter(u => u.role === 'super_admin' || u.role === 'admin').length;
+  const lockedCount = (users || []).filter(u => isUserLocked(u)).length;
 
   if (error) {
     const isForbidden = error.message?.includes('Super Admin') || error.data?.code === 'FORBIDDEN';
@@ -246,7 +515,7 @@ export default function AdminUsers() {
           </h2>
           <p className="text-sm text-center max-w-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
             {isForbidden
-              ? 'Solo el Super Admin puede acceder al panel de gestión de usuarios.'
+              ? 'Solo el Administrador del Sistema puede acceder al panel de gestión de usuarios.'
               : error.message}
           </p>
         </div>
@@ -274,7 +543,7 @@ export default function AdminUsers() {
                 className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
                 style={{ background: 'rgba(123,241,214,0.15)', color: '#7bf1d6', border: '1px solid rgba(123,241,214,0.3)' }}
               >
-                Super Admin
+                Administrador del Sistema
               </span>
             </div>
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -292,12 +561,13 @@ export default function AdminUsers() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             { label: 'Total Usuarios', value: totalUsers, color: '#7bf1d6', icon: Users },
             { label: 'Cuentas Activas', value: activeUsers, color: '#4ade80', icon: UserCheck },
             { label: 'Desactivadas', value: inactiveUsers, color: '#f87171', icon: UserX },
             { label: 'Administradores', value: adminCount, color: '#a78bfa', icon: Shield },
+            { label: 'Bloqueados', value: lockedCount, color: '#fbbf24', icon: Lock },
           ].map(({ label, value, color, icon: Icon }) => (
             <div
               key={label}
@@ -312,6 +582,9 @@ export default function AdminUsers() {
             </div>
           ))}
         </div>
+
+        {/* Invitation Code Panel */}
+        <InvitationCodePanel />
 
         {/* Filters */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -350,6 +623,17 @@ export default function AdminUsers() {
                 </button>
               );
             })}
+            <button
+              onClick={() => setRoleFilter('locked')}
+              className="rounded-xl border px-3 py-2 text-xs font-medium transition-all"
+              style={{
+                borderColor: roleFilter === 'locked' ? '#ef444444' : 'rgba(255,255,255,0.08)',
+                background: roleFilter === 'locked' ? '#ef444422' : 'rgba(255,255,255,0.03)',
+                color: roleFilter === 'locked' ? '#f87171' : 'rgba(255,255,255,0.5)',
+              }}
+            >
+              Bloqueados
+            </button>
           </div>
         </div>
 
@@ -379,15 +663,16 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
                 <span className="text-center">Rol</span>
                 <span className="text-center">Último acceso</span>
                 <span className="text-center">Estado</span>
+                <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
+                <span className="text-center">Bloqueo</span>
                 <span className="text-center">Acciones</span>
-                <span className="text-center">Eliminar</span>
               </div>
 
             {/* Table Rows */}
@@ -403,7 +688,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 md:gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -473,8 +758,51 @@ export default function AdminUsers() {
                         </span>
                       </div>
 
+                      {/* Legacy Access Toggle */}
+                      <div className="flex items-center gap-3 justify-start md:justify-center">
+                        {isCurrentUserSuperAdmin ? (
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Siempre</span>
+                        ) : (
+                          <>
+                            <ActiveToggle
+                              userId={user.id}
+                              isActive={user.legacyAccess === true}
+                              onToggle={(uid) => toggleLegacyMutation.mutate({ userId: uid, legacyAccess: !(user.legacyAccess === true) })}
+                              disabled={isPending}
+                            />
+                            <span className="text-xs md:hidden" style={{ color: user.legacyAccess === true ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
+                              {user.legacyAccess === true ? 'Sí' : 'No'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Lock Status */}
+                      <div className="flex items-center justify-start md:justify-center">
+                        {isUserLocked(user) ? (
+                          <button
+                            onClick={() => setUnlockModalUser(user)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:bg-red-500/20"
+                            style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                          >
+                            Desbloquear
+                          </button>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
+                        )}
+                      </div>
+
                       {/* Actions info */}
-                      <div className="flex items-center justify-start md:justify-center gap-2">
+                      <div className="flex items-center justify-start md:justify-center gap-1">
+                        <button
+                          onClick={() => handleEditUser(user)}
+                          disabled={isPending || isDeleting}
+                          title="Editar perfil"
+                          className="p-2 rounded-lg transition-all hover:bg-blue-500/10"
+                          style={{ color: '#3b82f6' }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => setPasswordModal({ userId: user.id, email: user.email })}
                           disabled={isPending || isDeleting}
@@ -484,14 +812,7 @@ export default function AdminUsers() {
                         >
                           <Key className="h-4 w-4" />
                         </button>
-                        {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
-                      </div>
-
-                      {/* Delete Button */}
-                      <div className="flex items-center justify-start md:justify-center">
-                        {isCurrentUserSuperAdmin ? (
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>—</span>
-                        ) : (
+                        {!isCurrentUserSuperAdmin && (
                           <button
                             onClick={() => handleDeleteUser(user)}
                             disabled={isDeleting || isPending}
@@ -510,6 +831,7 @@ export default function AdminUsers() {
                             )}
                           </button>
                         )}
+                        {isPending && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: '#7bf1d6' }} />}
                       </div>
                     </div>
                   );
@@ -534,7 +856,7 @@ export default function AdminUsers() {
               <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 Los usuarios desactivados no pueden iniciar sesión ni realizar acciones, incluso si tienen una sesión activa. 
                 El bloqueo es inmediato y se aplica en cada solicitud al servidor. 
-                Las cuentas con rol <strong style={{ color: '#7bf1d6' }}>Super Admin</strong> están protegidas y no pueden ser modificadas desde este panel.
+                Las cuentas con rol <strong style={{ color: '#7bf1d6' }}>Administrador del Sistema</strong> están protegidas y no pueden ser modificadas desde este panel.
               </p>
             </div>
           </div>
@@ -593,6 +915,303 @@ export default function AdminUsers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {deleteModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(239,68,68,0.35)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" style={{ color: '#ef4444' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Eliminar cuenta
+                </h3>
+              </div>
+              <button onClick={() => setDeleteModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará la cuenta de forma permanente. No se puede deshacer.
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {deleteModalUser.name}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {deleteModalUser.email} · {getRoleStyle(deleteModalUser.role).label}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmDeleteUser}
+                disabled={deleteUserMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                style={{ background: '#ef4444', color: '#fff' }}>
+                <Trash2 className="h-4 w-4" />
+                {deleteUserMutation.isPending ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toggle Active Confirmation Modal */}
+      {toggleModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: `1px solid ${toggleModalUser.isActive ? 'rgba(251,191,36,0.35)' : 'rgba(123,241,214,0.35)'}`,
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5"
+                  style={{ color: toggleModalUser.isActive ? '#fbbf24' : '#7bf1d6' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  {toggleModalUser.isActive ? 'Desactivar cuenta' : 'Activar cuenta'}
+                </h3>
+              </div>
+              <button onClick={() => setToggleModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              {toggleModalUser.isActive
+                ? 'La cuenta no podrá iniciar sesión hasta que vuelva a activarse.'
+                : 'La cuenta podrá iniciar sesión nuevamente.'}
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {toggleModalUser.name}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {toggleModalUser.email} · {getRoleStyle(toggleModalUser.role).label}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setToggleModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={confirmToggleActive}
+                disabled={toggleActiveMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+                style={{
+                  background: toggleModalUser.isActive ? '#fbbf24' : '#7bf1d6',
+                  color: '#000'
+                }}>
+                {toggleActiveMutation.isPending
+                  ? 'Guardando…'
+                  : toggleModalUser.isActive ? 'Sí, desactivar' : 'Sí, activar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock User Confirmation Modal */}
+      {unlockModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl p-5 shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, rgba(24,24,40,0.96), rgba(18,18,30,0.96))',
+              border: '1px solid rgba(123,241,214,0.35)',
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>
+                  Desbloquear usuario
+                </h3>
+              </div>
+              <button onClick={() => setUnlockModalUser(null)} className="p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Esta acción eliminará el bloqueo y reseteará los intentos fallidos. El usuario podrá iniciar sesión inmediatamente.
+            </p>
+            <div className="rounded-xl p-3 mb-4"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {unlockModalUser.name || unlockModalUser.characterName}
+              </p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {unlockModalUser.email} · Bloqueado
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setUnlockModalUser(null)}
+                className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                Cancelar
+              </button>
+              <button onClick={() => { unlockUserMutation.mutate({ userId: unlockModalUser.id }); setUnlockModalUser(null); }}
+                disabled={unlockUserMutation.isPending}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50"
+                style={{ background: '#7bf1d6', color: '#000' }}>
+                {unlockUserMutation.isPending ? 'Desbloqueando…' : 'Sí, desbloquear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {editModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div
+            className="w-full max-w-lg rounded-2xl border p-6 shadow-2xl"
+            style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(59,130,246,0.3)' }}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl" style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                <Pencil className="h-5 w-5" style={{ color: '#3b82f6' }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Editar Perfil</h3>
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {editModalUser.characterName || editModalUser.name} · {editModalUser.email}
+                </p>
+              </div>
+              <button onClick={() => setEditModalUser(null)} className="ml-auto p-1.5 rounded-lg hover:bg-white/5"
+                style={{ color: 'rgba(255,255,255,0.6)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+                />
+              </div>
+
+              {/* Character Name */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Nombre del personaje
+                </label>
+                <input
+                  type="text"
+                  value={editForm.characterName}
+                  onChange={e => setEditForm(f => ({ ...f, characterName: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-4 py-2.5 text-sm outline-none transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(255,255,255,0.03)' }}
+                />
+              </div>
+
+              {/* Clan + CP row */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Clan */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Clan
+                  </label>
+                  <select
+                    value={editForm.raidClanId}
+                    onChange={e => {
+                      setEditForm(f => ({ ...f, raidClanId: e.target.value, raidCpId: '' }));
+                    }}
+                    className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                  >
+                    <option value="">Sin clan</option>
+                    {(clansAndCps?.clans || []).map((c: any) => (
+                      <option key={c.id} value={String(c.id)}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Command Party */}
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    Command Party (CP)
+                  </label>
+                  <select
+                    value={editForm.raidCpId}
+                    onChange={e => setEditForm(f => ({ ...f, raidCpId: e.target.value }))}
+                    disabled={!editForm.raidClanId}
+                    className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none disabled:opacity-40"
+                    style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                  >
+                    <option value="">Sin CP</option>
+                    {editFilteredCps.map((cp: any) => (
+                      <option key={cp.id} value={String(cp.id)}>{cp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Class */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Clase principal
+                </label>
+                <select
+                  value={editForm.classMain}
+                  onChange={e => setEditForm(f => ({ ...f, classMain: e.target.value }))}
+                  className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)', background: 'rgba(15,18,28,0.98)' }}
+                >
+                  <option value="">Sin clase</option>
+                  {(clansAndCps?.availableClasses || []).map((c: any) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalUser(null)}
+                  className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all hover:bg-white/5"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  disabled={updateProfileMutation.isPending || !editForm.email || !editForm.characterName}
+                  className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: '#3b82f6', color: '#fff' }}
+                >
+                  {updateProfileMutation.isPending ? (
+                    <><RefreshCw className="h-4 w-4 animate-spin" /> Guardando...</>
+                  ) : (
+                    'Guardar cambios'
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

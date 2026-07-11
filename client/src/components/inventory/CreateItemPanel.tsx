@@ -1,349 +1,1414 @@
-import React, { useState } from 'react';
-import { ImagePlus, Lock, ShieldCheck, Plus, AlertCircle, Users, X, Search } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { ShieldCheck, Plus, Users, X, Search, Trash2, PackagePlus, Image as ImageIcon, ChevronDown, ChevronUp, Copy, Check, AlertCircle } from 'lucide-react';
 import { ItemTypeahead } from './ItemTypeahead';
 import { useApp } from '../../contexts/AppContext';
 import { categoryMeta, CATEGORIES } from '../../lib/category-meta';
 import type { Item, ItemCategory } from '../../lib/types';
+import { trpc } from '../../lib/trpc';
 import { toast } from 'sonner';
+import { FancySelect, type FancyOption } from '../ui/FancySelect';
+import { ImageHoverPreview } from '../ui/ImageHoverPreview';
+import { reformatWhileTyping, parseThousands, formatThousands } from '../../lib/number-format';
 
-const DEFAULT_IMAGES: Record<ItemCategory, string> = {
-  ARMADURA:   'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=80&q=80',
-  ARMA:       'https://images.unsplash.com/photo-1589656966895-2f33e7653819?auto=format&fit=crop&w=80&q=80',
-  KEY:        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=80&q=80',
-  RECIPE:     'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=80&q=80',
-  MATERIALES: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=80&q=80',
-  QUEST:      'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=80&q=80',
-  ADENA:      'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&w=80&q=80',
+// Íconos por categoría — ya no están hardcodeados. El super admin los setea
+// en /raids/settings → "Iconos por categoría de drop" y el mismo mapa se
+// usa acá al seleccionar categoría (fuente única, categorías compartidas
+// entre inventario legacy y raid). Si una categoría no tiene icono cargado,
+// la imagen queda vacía y el usuario puede subir la suya manualmente.
+// Endpoint: trpc.raid.categoryIcons.list (protectedProcedure — accesible a
+// USER / MAPPER / SUPER_ADMIN aunque no tengan acceso al módulo raid).
+
+// ============================================================================
+// Registro de ítems — layout compacto multi-fila, mismo patrón que el
+// formulario "Registrar nuevo evento de raid" en /raids/inventory.
+//
+// Estructura de cada fila (columnas grid-12):
+//   [Nombre (typeahead, 4)] [Categoría (3)] [Precio (2)] [Cant. (1)] [Imagen preview (2)]
+//   + segunda línea colapsable con selector de "Personajes asociados".
+//
+// Autocompletado del typeahead (al seleccionar un ítem existente):
+//   ✅ nombre, categoría, precio
+//   ✅ imagen ← copia la imagen del ítem seleccionado; si queda vacía, se
+//      auto-asigna el ícono default por categoría al elegir categoría.
+//   ❌ cantidad  (queda en 1)
+//   ❌ personajes (quedan vacíos — se asignan a mano por ítem)
+// ============================================================================
+
+interface RowState {
+  id: string;
+  name: string;
+  category: ItemCategory | '';
+  price: string;
+  quantity: string;
+  imageUrl: string;
+  selectedCharIds: string[];
+  showCharPicker: boolean;
+  charSearch: string;
+  // #17: responsable del ítem (un solo usuario) + estado del picker.
+  responsibleId: string;
+  showRespPicker: boolean;
+  respSearch: string;
+  // Flag cooperativo (solo separación visual en Ciclos de Venta).
+  isCooperative: boolean;
+}
+
+const emptyRow = (): RowState => ({
+  id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  name: '',
+  category: '',
+  price: '',
+  // Cantidad arranca en 0 a propósito — obliga al usuario a tipear la cantidad
+  // real en vez de arrastrar un "1" por defecto. La validación al submit lo
+  // marca en rojo si no cambió.
+  quantity: '0',
+  imageUrl: '',
+  selectedCharIds: [],
+  showCharPicker: false,
+  charSearch: '',
+  responsibleId: '',
+  showRespPicker: false,
+  respSearch: '',
+  isCooperative: false,
+});
+
+/** Indica si el string de cantidad representa un valor inválido (0, vacío, NaN, negativo). */
+const isInvalidQuantity = (q: string): boolean => {
+  const n = parseInt(q, 10);
+  return isNaN(n) || n < 1;
 };
 
 export function CreateItemPanel() {
-  const { addItem, currentUser, characters } = useApp();
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<ItemCategory>('ARMA');
-  const [price, setPrice] = useState('');
-  const [quantity, setQuantity] = useState('1');
-  const [imageUrl, setImageUrl] = useState('');
-  const [imagePreview, setImagePreview] = useState('');
-  const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
-  const [charSearch, setCharSearch] = useState('');
-  const [showCharPicker, setShowCharPicker] = useState(false);
+  const { addItemsBatch, currentUser } = useApp();
+  const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery();
+  const legacyUsers = useMemo(() => {
+    return (legacyBuyersData as any[] || []).map((u: any) => {
+      const r = String(u.role || 'user').toLowerCase();
+      const avatarGrad = r === 'super_admin' ? 'from-cyan-400 to-blue-600' : r === 'mapper' ? 'from-amber-400 to-orange-600' : r === 'admin' ? 'from-blue-400 to-indigo-600' : 'from-fuchsia-400 to-purple-600';
+      const roleLabel = r === 'super_admin' ? 'Administrador del Sistema' : r === 'mapper' ? 'Mapper' : r === 'admin' ? 'Admin' : 'Usuario';
+      return { id: u.id, name: u.name, avatar: avatarGrad, class: String(u.classMain || '').trim() || 'Sin clase', role: roleLabel };
+    });
+  }, [legacyBuyersData]);
+  const [rows, setRows] = useState<RowState[]>([emptyRow()]);
+  const [submitting, setSubmitting] = useState(false);
 
-  const filteredChars = characters.filter(c =>
-    c.name.toLowerCase().includes(charSearch.toLowerCase()) ||
-    c.class.toLowerCase().includes(charSearch.toLowerCase())
-  );
+  // Mapa categoría (uppercase) → imageUrl, leído desde raid.categoryIcons.
+  // Re-usamos el mismo catálogo que /raids/settings para que al seleccionar
+  // Categoría en el form legacy se asigne automáticamente la imagen global.
+  const categoryIconsQ = trpc.raid.categoryIcons.list.useQuery(undefined, {
+    staleTime: 60_000,
+  });
+  const categoryIconMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    (categoryIconsQ.data || []).forEach((r: { category: string; imageUrl: string }) => {
+      map[String(r.category).toUpperCase()] = r.imageUrl;
+    });
+    return map;
+  }, [categoryIconsQ.data]);
+  const resolveCategoryIcon = (cat: ItemCategory | ''): string => {
+    if (!cat) return '';
+    return categoryIconMap[String(cat).toUpperCase()] || '';
+  };
 
-  const toggleChar = (charId: string) => {
-    setSelectedCharIds(prev =>
-      prev.includes(charId) ? prev.filter(id => id !== charId) : [...prev, charId]
+  // Una vez que el usuario intenta submitir al menos una vez, cualquier fila
+  // con cantidad inválida queda permanentemente en rojo hasta que la corrija.
+  // Antes del primer intento no mostramos errores en rojo — solo el 0 inicial
+  // en estado neutro, para no asustar al usuario ni bien entra a la pantalla.
+  const [triedSubmit, setTriedSubmit] = useState(false);
+
+  // Refs a cada fila (por id) para hacer scroll a la primera inválida cuando
+  // el usuario intenta registrar con qty=0. También disparamos un pulso breve
+  // en esa fila para remarcarla.
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [pulseRowId, setPulseRowId] = useState<string | null>(null);
+
+  // Estado del "mini-panel de copiar personajes a otras filas".
+  // copyPanelRowId  = id de la fila que está actuando como origen de la copia.
+  // copyTargets     = set de ids de las filas destino que el usuario marcó.
+  // Se resetea al cerrar el panel, cambiar de fila, o tras copiar.
+  const [copyPanelRowId, setCopyPanelRowId] = useState<string | null>(null);
+  const [copyTargets, setCopyTargets] = useState<Set<string>>(new Set());
+
+  // Mismo mecanismo pero para copiar el RESPONSABLE de una fila a otras filas
+  // del lote (selección única). Estado independiente del de personajes para
+  // que ambos paneles puedan usarse sin pisarse.
+  const [copyRespPanelRowId, setCopyRespPanelRowId] = useState<string | null>(null);
+  const [copyRespTargets, setCopyRespTargets] = useState<Set<string>>(new Set());
+
+  const openCopyPanel = (rowId: string) => {
+    if (copyPanelRowId === rowId) {
+      // toggle cerrar
+      setCopyPanelRowId(null);
+      setCopyTargets(new Set());
+    } else {
+      setCopyPanelRowId(rowId);
+      setCopyTargets(new Set());
+    }
+  };
+
+  const toggleCopyTarget = (rowId: string) => {
+    setCopyTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+
+  const copyCharsToTargets = (fromRowId: string) => {
+    const source = rows.find((r) => r.id === fromRowId);
+    if (!source) return;
+    if (copyTargets.size === 0) {
+      toast.error('Selecciona al menos una fila destino');
+      return;
+    }
+    const charIds = [...source.selectedCharIds];
+    setRows((prev) =>
+      prev.map((r) =>
+        copyTargets.has(r.id) ? { ...r, selectedCharIds: charIds } : r,
+      ),
+    );
+    toast.success(
+      `Personajes copiados a ${copyTargets.size} fila${copyTargets.size === 1 ? '' : 's'}.`,
+    );
+    setCopyPanelRowId(null);
+    setCopyTargets(new Set());
+  };
+
+  const openCopyRespPanel = (rowId: string) => {
+    if (copyRespPanelRowId === rowId) {
+      setCopyRespPanelRowId(null);
+      setCopyRespTargets(new Set());
+    } else {
+      setCopyRespPanelRowId(rowId);
+      setCopyRespTargets(new Set());
+    }
+  };
+
+  const toggleCopyRespTarget = (rowId: string) => {
+    setCopyRespTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+
+  const copyRespToTargets = (fromRowId: string) => {
+    const source = rows.find((r) => r.id === fromRowId);
+    if (!source) return;
+    if (copyRespTargets.size === 0) {
+      toast.error('Selecciona al menos una fila destino');
+      return;
+    }
+    const respId = source.responsibleId;
+    setRows((prev) =>
+      prev.map((r) =>
+        copyRespTargets.has(r.id) ? { ...r, responsibleId: respId } : r,
+      ),
+    );
+    toast.success(
+      `Responsable copiado a ${copyRespTargets.size} fila${copyRespTargets.size === 1 ? '' : 's'}.`,
+    );
+    setCopyRespPanelRowId(null);
+    setCopyRespTargets(new Set());
+  };
+
+  const canCreate =
+    (currentUser && currentUser.role === 'MAPPER') ||
+    (currentUser && currentUser.role === 'SUPER_ADMIN');
+
+  const updateRow = (id: string, patch: Partial<RowState>) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
+  // Flag global: activo cuando TODAS las filas están marcadas como cooperativas.
+  const allCoop = rows.length > 0 && rows.every(r => r.isCooperative);
+
+  // Cambiar categoría auto-asigna el ícono default si la fila no tiene imagen
+  // propia todavía (misma lógica que /raids/inventory).
+  const handleCategoryChange = (rowId: string, newCat: ItemCategory | '') => {
+    setRows(prev =>
+      prev.map(r => {
+        if (r.id !== rowId) return r;
+        // Al elegir categoría sobrescribimos siempre la imagen con el icono
+        // global de la categoría (o vacío si la categoría no tiene icono
+        // cargado en /raids/settings). Si el usuario ya había subido/pegado
+        // una imagen manual, queda reemplazada — misma lógica que raid.
+        const nextImg =
+          newCat && CATEGORIES.includes(newCat as ItemCategory)
+            ? resolveCategoryIcon(newCat)
+            : '';
+        return { ...r, category: newCat, imageUrl: nextImg };
+      }),
     );
   };
 
-  const removeChar = (charId: string) => {
-    setSelectedCharIds(prev => prev.filter(id => id !== charId));
+  const addRow = () => {
+    setRows(prev => [...prev, emptyRow()]);
   };
 
-  const handleSelect = (item: Item) => {
-    setName(item.name);
-    setCategory(item.category);
-    if (item.price) setPrice(String(item.price));
-    if (item.image?.publicUrl) {
-      setImageUrl(item.image.publicUrl);
-      setImagePreview(item.image.publicUrl);
+  const removeRow = (id: string) => {
+    setRows(prev => (prev.length === 1 ? prev : prev.filter(r => r.id !== id)));
+    // Si la fila eliminada era la fuente de la copia o un destino marcado,
+    // reseteo el mini-panel para que el estado no quede colgado.
+    if (copyPanelRowId === id) {
+      setCopyPanelRowId(null);
+      setCopyTargets(new Set());
+    } else if (copyTargets.has(id)) {
+      setCopyTargets((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
-    setSelectedCharIds(item.associatedCharacterIds);
-  };
-
-  const handleCategoryChange = (cat: ItemCategory) => {
-    setCategory(cat);
-    if (!imageUrl) {
-      setImagePreview(DEFAULT_IMAGES[cat]);
+    // Idem para el panel de copiar responsable.
+    if (copyRespPanelRowId === id) {
+      setCopyRespPanelRowId(null);
+      setCopyRespTargets(new Set());
+    } else if (copyRespTargets.has(id)) {
+      setCopyRespTargets((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
-  const handleImageUrl = (url: string) => {
-    setImageUrl(url);
-    setImagePreview(url);
+  // Typeahead select: autocompleta nombre, categoría, precio, imagen.
+  // Cantidad y personajes NO se autocompletan, y además la cantidad se
+  // resetea a '0' para forzar al usuario a tipearla manualmente — así
+  // evitamos registrar accidentalmente 1 unidad cuando el mapper solo
+  // quiso reutilizar los datos del ítem existente.
+  const applyTypeaheadSelection = (rowId: string, item: any) => {
+    const pickedCat = item.category || '';
+    const picked = item.image?.publicUrl || item.imageUrl || '';
+    // Si el ítem tiene imagen propia la reutilizamos; si no, caemos
+    // al icono global de la categoría (cargado en /raids/settings).
+    const fallback =
+      pickedCat && CATEGORIES.includes(pickedCat as ItemCategory)
+        ? resolveCategoryIcon(pickedCat)
+        : '';
+    updateRow(rowId, {
+      name: item.name,
+      category: pickedCat,
+      price: item.price != null && item.price > 0 ? formatThousands(item.price) : '',
+      imageUrl: picked || fallback,
+      quantity: '0', // <- reset de seguridad, obliga a re-ingresar
+    });
+  };
+
+  const toggleCharInRow = (rowId: string, charId: string) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row) return;
+    const next = row.selectedCharIds.includes(charId)
+      ? row.selectedCharIds.filter(id => id !== charId)
+      : [...row.selectedCharIds, charId];
+    updateRow(rowId, { selectedCharIds: next });
+  };
+
+  const validateRow = (r: RowState): string | null => {
+    if (!r.name.trim()) return 'Nombre del ítem es obligatorio';
+    if (!r.category || !CATEGORIES.includes(r.category as ItemCategory))
+      return 'Debes seleccionar una categoría';
+    const qty = parseInt(r.quantity);
+    if (isNaN(qty) || qty < 1) return 'La cantidad debe ser al menos 1';
+    if (r.price && parseThousands(r.price) === null) return 'Precio inválido';
+    if (!r.selectedCharIds || r.selectedCharIds.length === 0)
+      return 'Debes asociar al menos un personaje al ítem';
+    return null;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error('El nombre del ítem es obligatorio'); return; }
-    const qty = parseInt(quantity) || 1;
-    if (qty < 1) { toast.error('La cantidad debe ser al menos 1'); return; }
-    const finalImage = imageUrl || DEFAULT_IMAGES[category];
-    addItem({
-      name: name.trim(),
-      category,
-      price: price ? Number(price) : null,
-      status: 'EN_REGISTRO',
-      image: {
-        id: `img-${Date.now()}`,
-        publicUrl: finalImage,
-        altText: categoryMeta[category].label,
-      },
-      associatedCharacterIds: selectedCharIds,
-      quantity: qty,
-      quantitySoldInCycle: 0,
-    });
-    toast.success(`Ítem "${name}" registrado con ${qty} unidad(es) y ${selectedCharIds.length} personaje(s) asociado(s)`);
-    setName(''); setCategory('ARMA'); setPrice(''); setQuantity('1');
-    setImageUrl(''); setImagePreview(''); setSelectedCharIds(''.split(',').filter(Boolean));
+    if (submitting) return;
+
+    // Al primer submit activamos el modo "mostrar errores" para que las
+    // filas inválidas queden en rojo hasta que se corrijan.
+    setTriedSubmit(true);
+
+    // Chequeo específico de cantidad: si hay 1+ filas con qty inválida
+    // concentramos el feedback en el input de cantidad (rojo + scroll + pulse).
+    const invalidQtyRows = rows.filter((r) => isInvalidQuantity(r.quantity));
+    if (invalidQtyRows.length > 0) {
+      const firstInvalid = invalidQtyRows[0];
+      const firstIdx = rows.findIndex((r) => r.id === firstInvalid.id);
+      const el = rowRefs.current[firstInvalid.id];
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      // Pulso breve (se limpia solo con el timeout)
+      setPulseRowId(firstInvalid.id);
+      window.setTimeout(() => setPulseRowId(null), 750);
+      toast.error(
+        invalidQtyRows.length === 1
+          ? `Ítem #${firstIdx + 1}: ingresa una cantidad mayor a 0.`
+          : `${invalidQtyRows.length} ítems necesitan una cantidad mayor a 0.`,
+      );
+      return;
+    }
+
+    // Validaciones restantes (nombre, categoría, precio) — mantienen el
+    // toast clásico fila-por-fila como estaba antes.
+    for (let i = 0; i < rows.length; i++) {
+      const err = validateRow(rows[i]);
+      if (err) {
+        toast.error(`Ítem #${i + 1}: ${err}`);
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      // Registro en LOTE: una sola llamada al backend en vez de N (evita colgar
+      // la página al registrar muchas filas a la vez).
+      addItemsBatch(rows.map(r => {
+        const cat = r.category as ItemCategory;
+        const qty = parseInt(r.quantity) || 1;
+        const finalImage = r.imageUrl || resolveCategoryIcon(cat);
+        return {
+          name: r.name.trim(),
+          category: cat,
+          price: r.price ? parseThousands(r.price) : null,
+          status: 'EN_REGISTRO',
+          image: {
+            id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            publicUrl: finalImage,
+            altText: categoryMeta[cat].label,
+          },
+          associatedCharacterIds: r.selectedCharIds,
+          isCooperative: r.isCooperative,
+          quantity: qty,
+          // #17: responsable del ítem seleccionado en el picker.
+          responsibleUserId: r.responsibleId || null,
+        };
+      }));
+
+      if (rows.length === 1) {
+        toast.success(`Ítem "${rows[0].name.trim()}" registrado correctamente.`);
+      } else {
+        toast.success(`${rows.length} ítems registrados correctamente.`);
+      }
+      setRows([emptyRow()]);
+      setTriedSubmit(false); // Reset — lote siguiente arranca limpio
+    } catch (err: any) {
+      toast.error(err?.message || 'Error al registrar los ítems');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const canCreate = currentUser && currentUser.role === 'MAPPER' || currentUser && currentUser.role === 'SUPER_ADMIN';
+  if (!canCreate) {
+    return (
+      <div className="card-glass rounded-2xl p-5">
+        <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>
+          Registro de Ítems
+        </h3>
+        <p className="mt-3 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Tu rol actual no permite registrar ítems. Contactá a un administrador.
+        </p>
+      </div>
+    );
+  }
+
+  const validCount = rows.filter(r => r.name.trim() && r.category).length;
 
   return (
-    <div className="card-glass rounded-2xl p-5">
+    // NOTE: `.card-glass` aplica `backdrop-filter: blur(12px)` y eso crea un
+    // stacking context. Como hay otro card-glass debajo (Inventario de Ítems),
+    // ese otro pinta por encima y tapa el dropdown del typeahead. Subimos el
+    // z-index de este card para que su dropdown siempre quede visible.
+    <div className="card-glass rounded-2xl p-5 relative" style={{ zIndex: 20 }}>
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <h3 className="text-base font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Registro de Ítems</h3>
+          <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.9)' }}>
+            <PackagePlus className="h-5 w-5" style={{ color: '#7bf1d6' }} />
+            Registro de Ítems
+          </h3>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            Crea nuevos ítems con imagen, cantidad y personajes asociados. El autocompletado evita duplicados.
+            Registra uno o varios ítems. El autocompletado busca ítems existentes y copia
+            <strong style={{ color: 'rgba(255,255,255,0.7)' }}> nombre, categoría, precio e imagen</strong>
+            {' '}— la cantidad y los personajes siempre los ingresas tú.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs"
-          style={{ borderColor: 'rgba(123,241,214,0.25)', background: 'rgba(123,241,214,0.08)', color: '#7bf1d6' }}>
+        <div
+          className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs"
+          style={{
+            borderColor: 'rgba(123,241,214,0.25)',
+            background: 'rgba(123,241,214,0.08)',
+            color: '#7bf1d6',
+          }}
+        >
           <ShieldCheck className="h-3.5 w-3.5" />
           Reglas por rol activas
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid gap-5 lg:grid-cols-2">
-          {/* Left: fields */}
-          <div className="space-y-4">
-            {/* Nombre */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Nombre del ítem <span style={{ color: '#f87171' }}>*</span>
-              </label>
-              <ItemTypeahead value={name} onChange={setName} onSelect={handleSelect} />
-              <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                Escribe para buscar ítems existentes o ingresa un nombre nuevo
-              </p>
-            </div>
-
-            {/* Categoría + Precio + Cantidad */}
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Categoría <span style={{ color: '#f87171' }}>*</span>
-                </label>
-                <select
-                  value={category}
-                  onChange={e => handleCategoryChange(e.target.value as ItemCategory)}
-                  className="select-dark h-11">
-                  {CATEGORIES.map(cat => {
-                    const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
-                    return <option key={cat} value={cat}>{meta.emoji} {meta.label}</option>;
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Precio (Adena)
-                </label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={e => setPrice(e.target.value)}
-                  placeholder="Ej: 1200"
-                  className="input-dark h-11"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  Cantidad <span style={{ color: '#f87171' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={e => setQuantity(e.target.value)}
-                  placeholder="1"
-                  className="input-dark h-11"
-                  min="1"
-                />
-              </div>
-            </div>
-
-            {/* URL de imagen */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                URL de imagen (opcional)
-              </label>
-              <input
-                type="url"
-                value={imageUrl}
-                onChange={e => handleImageUrl(e.target.value)}
-                placeholder="https://..."
-                className="input-dark h-11"
-              />
-            </div>
-
-            {/* Selector de personajes */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                <Users className="inline h-3.5 w-3.5 mr-1" />
-                Personajes asociados <span style={{ color: 'rgba(255,255,255,0.3)' }}>(quienes ayudaron a conseguir el ítem)</span>
-              </label>
-
-              {/* Chips de personajes seleccionados */}
-              {selectedCharIds.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {selectedCharIds.map(cid => {
-                    const char = characters.find(c => c.id === cid);
-                    if (!char) return null;
-                    return (
-                      <div key={cid} className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
-                        style={{ background: 'rgba(123,241,214,0.12)', border: '1px solid rgba(123,241,214,0.25)', color: '#7bf1d6' }}>
-                        <div className={`flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
-                          style={{ fontSize: '8px', fontWeight: 'bold' }}>
-                          {char.name.slice(0, 1).toUpperCase()}
-                        </div>
-                        <span>{char.name}</span>
-                        <button type="button" onClick={() => removeChar(cid)} className="ml-0.5 hover:opacity-70">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Botón para abrir picker */}
-              <button
-                type="button"
-                onClick={() => setShowCharPicker(!showCharPicker)}
-                className="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs w-full text-left transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  borderColor: showCharPicker ? 'rgba(123,241,214,0.4)' : 'rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.6)',
-                }}>
-                <Users className="h-3.5 w-3.5" />
-                {selectedCharIds.length === 0
-                  ? 'Seleccionar personajes...'
-                  : `${selectedCharIds.length} personaje(s) seleccionado(s)`}
-              </button>
-
-              {/* Dropdown picker */}
-              {showCharPicker && (
-                <div className="mt-1 rounded-xl border overflow-hidden"
-                  style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(255,255,255,0.1)', maxHeight: 220, overflowY: 'auto' }}>
-                  {/* Búsqueda */}
-                  <div className="flex items-center gap-2 border-b px-3 py-2 sticky top-0"
-                    style={{ background: 'rgba(10,14,22,0.98)', borderColor: 'rgba(255,255,255,0.06)' }}>
-                    <Search className="h-3.5 w-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
-                    <input
-                      value={charSearch}
-                      onChange={e => setCharSearch(e.target.value)}
-                      placeholder="Buscar personaje..."
-                      className="bg-transparent text-xs outline-none w-full"
-                      style={{ color: 'rgba(255,255,255,0.8)' }}
-                    />
-                  </div>
-                  {filteredChars.map(char => {
-                    const isSelected = selectedCharIds.includes(char.id);
-                    return (
-                      <button
-                        key={char.id}
-                        type="button"
-                        onClick={() => toggleChar(char.id)}
-                        className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
-                        style={{ background: isSelected ? 'rgba(123,241,214,0.06)' : undefined }}>
-                        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}>
-                          {char.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>{char.name}</p>
-                          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{char.class} · Nv.{char.level}</p>
-                        </div>
-                        <div className="shrink-0 h-4 w-4 rounded border flex items-center justify-center"
-                          style={{
-                            borderColor: isSelected ? '#7bf1d6' : 'rgba(255,255,255,0.2)',
-                            background: isSelected ? 'rgba(123,241,214,0.2)' : 'transparent',
-                          }}>
-                          {isSelected && <span style={{ color: '#7bf1d6', fontSize: 10 }}>✓</span>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {filteredChars.length === 0 && (
-                    <p className="px-3 py-4 text-xs text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      No se encontraron personajes
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right: image preview */}
-          <div className="rounded-2xl border border-dashed p-4 flex flex-col items-center justify-center min-h-[200px]"
-            style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.01)' }}>
-            {imagePreview ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative h-24 w-24 overflow-hidden rounded-2xl border" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-                  <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
-                </div>
-                <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Vista previa de la imagen del ítem
-                </p>
-                <button type="button" onClick={() => { setImageUrl(''); setImagePreview(''); }}
-                  className="text-xs" style={{ color: '#f87171' }}>
-                  Quitar imagen
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl"
-                  style={{ background: 'rgba(232,121,249,0.12)', border: '1px solid rgba(232,121,249,0.2)' }}>
-                  <ImagePlus className="h-6 w-6" style={{ color: '#e879f9' }} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>Imagen del ítem</p>
-                  <p className="mt-1 text-xs max-w-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    Ingresa una URL o se asignará automáticamente la imagen de la categoría seleccionada.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Resumen de personajes seleccionados */}
-            {selectedCharIds.length > 0 && (
-              <div className="mt-4 w-full rounded-xl p-3" style={{ background: 'rgba(123,241,214,0.06)', border: '1px solid rgba(123,241,214,0.15)' }}>
-                <p className="text-xs font-semibold mb-2" style={{ color: '#7bf1d6' }}>
-                  <Users className="inline h-3 w-3 mr-1" />
-                  {selectedCharIds.length} personaje(s) asociado(s)
-                </p>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                  Cada uno recibirá 1/{selectedCharIds.length} de la ganancia al vender este ítem.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3"
-          style={{ borderColor: 'rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.06)' }}>
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(251,191,36,0.8)' }}>
-            <Lock className="h-3.5 w-3.5" />
-            Relación 1:1 imagen → ítem. Una vez confirmado, la imagen queda bloqueada para Mapper.
-          </div>
-          {!canCreate && (
-            <div className="flex items-center gap-1 text-xs" style={{ color: '#f87171' }}>
-              <AlertCircle className="h-3.5 w-3.5" /> Sin permisos
-            </div>
-          )}
-          <button type="submit" disabled={!canCreate} className="btn-primary">
-            <Plus className="h-4 w-4" />
-            Guardar ítem
+      <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Toolbar: contador + añadir ítem */}
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Ítems <span style={{ color: '#f87171' }}>*</span> ({validCount})
+          </label>
+          <button
+            type="button"
+            onClick={addRow}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all"
+            style={{
+              background: 'rgba(123,241,214,0.1)',
+              border: '1px solid rgba(123,241,214,0.25)',
+              color: '#7bf1d6',
+            }}
+          >
+            <Plus className="h-3 w-3" /> Añadir ítem
           </button>
         </div>
+
+        {/* Flag global cooperativo. Solo lo ven SA/Mapper (todo este panel ya
+            está gateado a esos roles). Marca/desmarca TODAS las filas de golpe.
+            Es solo separación visual en Ciclos de Venta: no cambia montos. */}
+        <label
+          className="mb-3 flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer select-none"
+          style={{
+            background: allCoop ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${allCoop ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+          }}
+          title="Marca todos los ítems del lote como cooperativos (solo separa la vista en Ciclos de Venta)"
+        >
+          <input
+            type="checkbox"
+            checked={allCoop}
+            onChange={e => setRows(prev => prev.map(r => ({ ...r, isCooperative: e.target.checked })))}
+            className="h-4 w-4 accent-[#7bf1d6]"
+          />
+          <span className="text-xs font-medium" style={{ color: allCoop ? '#7bf1d6' : 'rgba(255,255,255,0.7)' }}>
+            🤝 Marcar todo el lote como Cooperativo
+          </span>
+          <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            (solo separa la vista en Ciclos de Venta)
+          </span>
+        </label>
+
+        <div className="space-y-3">
+          {rows.map((row, idx) => {
+            const catOk =
+              row.category && CATEGORIES.includes(row.category as ItemCategory);
+            const filteredChars = legacyUsers.filter(
+              (c: any) =>
+                c.name.toLowerCase().includes(row.charSearch.toLowerCase()) ||
+                c.class.toLowerCase().includes(row.charSearch.toLowerCase()),
+            );
+
+            const qtyInvalid = triedSubmit && isInvalidQuantity(row.quantity);
+            return (
+              <div
+                key={row.id}
+                ref={(el) => {
+                  rowRefs.current[row.id] = el;
+                }}
+                className={`rounded-xl p-3 ${pulseRowId === row.id ? 'row-pulse-error' : ''}`}
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${qtyInvalid ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                  transition: 'border-color 200ms ease',
+                }}
+              >
+                {/* Row header: #N + quitar */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                    Ítem #{idx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(row.id)}
+                    disabled={rows.length <= 1}
+                    className="rounded-lg px-2 py-1 text-xs transition-all flex items-center gap-1"
+                    style={{
+                      background: 'rgba(255,120,120,0.05)',
+                      border: '1px solid rgba(255,120,120,0.15)',
+                      color: 'rgba(255,120,120,0.7)',
+                      opacity: rows.length <= 1 ? 0.3 : 1,
+                      cursor: rows.length <= 1 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" /> quitar
+                  </button>
+                </div>
+
+                {/* Grid principal horizontal: nombre + cat + precio + cant + imagen */}
+                <div className="grid gap-3 sm:grid-cols-12">
+                  {/* Nombre con typeahead */}
+                  <div className="sm:col-span-4">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Nombre del ítem <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <ItemTypeahead
+                      value={row.name}
+                      onChange={v => updateRow(row.id, { name: v })}
+                      onSelect={item => applyTypeaheadSelection(row.id, item)}
+                      placeholder="Ej: Draconic Leather"
+                      compact
+                    />
+                  </div>
+
+                  {/* Categoría */}
+                  <div className="sm:col-span-3">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Categoría <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <FancySelect<ItemCategory | ''>
+                      value={catOk ? (row.category as ItemCategory) : ''}
+                      onChange={(v) =>
+                        handleCategoryChange(row.id, v as ItemCategory | '')
+                      }
+                      accent="turquoise"
+                      size="md"
+                      placeholder="-- Seleccionar --"
+                      options={CATEGORIES.map<FancyOption<ItemCategory | ''>>(cat => {
+                        const meta = categoryMeta[cat] || { emoji: '📦', label: cat };
+                        return { value: cat, label: meta.label, emoji: meta.emoji };
+                      })}
+                    />
+                  </div>
+
+                  {/* Precio */}
+                  <div className="sm:col-span-2">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Precio (Adena)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={row.price}
+                      onChange={e => updateRow(row.id, { price: reformatWhileTyping(e.target.value) })}
+                      placeholder="0"
+                      className="w-full rounded-lg px-2 py-1.5 text-xs"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                        height: 36,
+                      }}
+                    />
+                  </div>
+
+                  {/* Cantidad */}
+                  <div className="sm:col-span-1">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Cant. <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={row.quantity}
+                      onChange={e => updateRow(row.id, { quantity: e.target.value })}
+                      onFocus={e => {
+                        // UX: si el valor es '0' (default o post-typeahead),
+                        // al hacer focus lo vaciamos para que el usuario
+                        // pueda tipear sin borrar manualmente.
+                        if (row.quantity === '0') {
+                          updateRow(row.id, { quantity: '' });
+                          // preservar el cursor — el browser se encarga después del re-render
+                          e.target.select?.();
+                        }
+                      }}
+                      placeholder="0"
+                      className={`w-full rounded-lg px-2 py-1.5 text-xs ${qtyInvalid ? 'input-error' : ''}`}
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: 'rgba(255,255,255,0.9)',
+                        height: 36,
+                      }}
+                      aria-invalid={qtyInvalid}
+                    />
+                    {qtyInvalid && (
+                      <div
+                        className="flex items-center gap-1 mt-1 text-[10px] font-medium"
+                        style={{ color: '#f87171', whiteSpace: 'nowrap' }}
+                      >
+                        <AlertCircle className="h-3 w-3 shrink-0" />
+                        <span>debe ser &gt; 0</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Imagen preview (solo lectura, se asigna por categoría) */}
+                  <div className="sm:col-span-2">
+                    <label
+                      className="mb-1 block text-xs font-medium"
+                      style={{ color: 'rgba(255,255,255,0.55)' }}
+                    >
+                      Imagen
+                    </label>
+                    <div
+                      className="rounded-lg overflow-hidden flex items-center justify-center px-2 gap-2"
+                      style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px dashed rgba(255,255,255,0.08)',
+                        height: 36,
+                      }}
+                      title={
+                        row.imageUrl
+                          ? 'Asignada automáticamente por categoría'
+                          : 'Elige una categoría para asignar el ícono'
+                      }
+                    >
+                      {row.imageUrl ? (
+                        <>
+                          <ImageHoverPreview src={row.imageUrl} caption={catOk ? row.category : ''} size={240}>
+                            <img
+                              src={row.imageUrl}
+                              alt=""
+                              className="h-7 w-7 rounded object-cover shrink-0"
+                            />
+                          </ImageHoverPreview>
+                          <span
+                            className="text-[10px] truncate"
+                            style={{ color: 'rgba(255,255,255,0.5)' }}
+                          >
+                            auto · {catOk ? row.category : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon
+                            className="h-4 w-4 shrink-0"
+                            style={{ color: 'rgba(255,255,255,0.25)' }}
+                          />
+                          <span
+                            className="text-[10px]"
+                            style={{ color: 'rgba(255,255,255,0.3)' }}
+                          >
+                            elige categoría
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Segunda línea: personajes asociados + responsable — en la
+                    misma fila (#R1). Cada bloque ocupa la mitad y su picker
+                    se expande debajo. */}
+                <div className="mt-3 flex flex-wrap gap-3 items-start">
+                <div className="flex-1 min-w-[240px]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateRow(row.id, { showCharPicker: !row.showCharPicker })
+                    }
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${
+                        row.showCharPicker
+                          ? 'rgba(123,241,214,0.4)'
+                          : 'rgba(255,255,255,0.08)'
+                      }`,
+                      color: 'rgba(255,255,255,0.7)',
+                    }}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Personajes asociados
+                    {row.selectedCharIds.length > 0 && (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{
+                          background: 'rgba(123,241,214,0.2)',
+                          color: '#7bf1d6',
+                        }}
+                      >
+                        {row.selectedCharIds.length}
+                      </span>
+                    )}
+                    {row.showCharPicker ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  {/* Chips de personajes ya seleccionados (visibles siempre si hay) */}
+                  {row.selectedCharIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {row.selectedCharIds.map(cid => {
+                        const char = legacyUsers.find((c: any) => c.id === cid);
+                        if (!char) return null;
+                        return (
+                          <div
+                            key={cid}
+                            className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                            style={{
+                              background: 'rgba(123,241,214,0.12)',
+                              border: '1px solid rgba(123,241,214,0.25)',
+                              color: '#7bf1d6',
+                            }}
+                          >
+                            <div
+                              className={`flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-br ${char.avatar} text-white`}
+                              style={{ fontSize: 8, fontWeight: 'bold' }}
+                            >
+                              {char.name.slice(0, 1).toUpperCase()}
+                            </div>
+                            <span>{char.name}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateRow(row.id, {
+                                  selectedCharIds: row.selectedCharIds.filter(
+                                    id => id !== cid,
+                                  ),
+                                })
+                              }
+                              className="ml-0.5 hover:opacity-70"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Copiar personajes a otras filas — atajo para cuando varias
+                      filas del mismo lote comparten los mismos personajes.
+                      Solo se muestra si hay más de una fila Y la fila actual
+                      tiene personajes seleccionados (si no hay nada para copiar,
+                      el botón no aparece). */}
+                  {rows.length > 1 && row.selectedCharIds.length > 0 && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => openCopyPanel(row.id)}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold transition-all"
+                        style={{
+                          background: copyPanelRowId === row.id
+                            ? 'rgba(139,183,250,0.18)'
+                            : 'rgba(139,183,250,0.08)',
+                          border: `1px solid ${
+                            copyPanelRowId === row.id
+                              ? 'rgba(139,183,250,0.45)'
+                              : 'rgba(139,183,250,0.25)'
+                          }`,
+                          color: '#8bb7fa',
+                        }}
+                        title="Aplicá los personajes de esta fila a otras filas del lote"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copiar estos personajes a otras filas
+                        {copyPanelRowId === row.id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {copyPanelRowId === row.id && (
+                        <div
+                          className="mt-2 rounded-xl border p-3"
+                          style={{
+                            background: 'rgba(10,14,22,0.98)',
+                            borderColor: 'rgba(139,183,250,0.25)',
+                          }}
+                        >
+                          <p
+                            className="text-[11px] mb-2"
+                            style={{ color: 'rgba(255,255,255,0.6)' }}
+                          >
+                            Marca las filas a las que quieres copiarle estos{' '}
+                            <strong style={{ color: '#8bb7fa' }}>
+                              {row.selectedCharIds.length} personaje
+                              {row.selectedCharIds.length === 1 ? '' : 's'}
+                            </strong>
+                            . Los personajes que esas filas tuvieran se
+                            reemplazan por los de acá.
+                          </p>
+
+                          <div className="space-y-1 mb-3">
+                            {rows.map((other, otherIdx) => {
+                              if (other.id === row.id) return null;
+                              const checked = copyTargets.has(other.id);
+                              const display =
+                                other.name.trim() || `(sin nombre)`;
+                              return (
+                                <label
+                                  key={other.id}
+                                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                                  style={{
+                                    background: checked
+                                      ? 'rgba(139,183,250,0.1)'
+                                      : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${
+                                      checked
+                                        ? 'rgba(139,183,250,0.35)'
+                                        : 'rgba(255,255,255,0.05)'
+                                    }`,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleCopyTarget(other.id)}
+                                    className="cursor-pointer"
+                                    style={{ accentColor: '#8bb7fa' }}
+                                  />
+                                  <span
+                                    className="text-xs font-medium"
+                                    style={{
+                                      color: 'rgba(255,255,255,0.85)',
+                                    }}
+                                  >
+                                    Ítem #{otherIdx + 1}
+                                  </span>
+                                  <span
+                                    className="text-xs truncate flex-1"
+                                    style={{
+                                      color: 'rgba(255,255,255,0.45)',
+                                    }}
+                                  >
+                                    {display}
+                                  </span>
+                                  {other.selectedCharIds.length > 0 && (
+                                    <span
+                                      className="rounded-full px-1.5 py-0.5 text-[10px]"
+                                      style={{
+                                        background: 'rgba(255,255,255,0.06)',
+                                        color: 'rgba(255,255,255,0.5)',
+                                      }}
+                                      title="Esta fila ya tenía personajes; se reemplazan"
+                                    >
+                                      ya tiene {other.selectedCharIds.length}
+                                    </span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCopyPanelRowId(null);
+                                setCopyTargets(new Set());
+                              }}
+                              className="rounded-lg px-3 py-1.5 text-xs transition-all"
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(255,255,255,0.7)',
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyCharsToTargets(row.id)}
+                              disabled={copyTargets.size === 0}
+                              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+                              style={{
+                                background:
+                                  copyTargets.size === 0
+                                    ? 'rgba(139,183,250,0.1)'
+                                    : 'rgba(139,183,250,0.2)',
+                                border: '1px solid rgba(139,183,250,0.4)',
+                                color: '#8bb7fa',
+                                opacity: copyTargets.size === 0 ? 0.5 : 1,
+                                cursor:
+                                  copyTargets.size === 0
+                                    ? 'not-allowed'
+                                    : 'pointer',
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                              Copiar a {copyTargets.size} fila
+                              {copyTargets.size === 1 ? '' : 's'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Picker expandido */}
+                  {row.showCharPicker && (
+                    <div
+                      className="mt-2 rounded-xl border overflow-hidden"
+                      style={{
+                        background: 'rgba(10,14,22,0.98)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-2 border-b px-3 py-2 sticky top-0"
+                        style={{
+                          background: 'rgba(10,14,22,0.98)',
+                          borderColor: 'rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <Search
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={{ color: 'rgba(255,255,255,0.35)' }}
+                        />
+                        <input
+                          value={row.charSearch}
+                          onChange={e =>
+                            updateRow(row.id, { charSearch: e.target.value })
+                          }
+                          placeholder="Buscar personaje..."
+                          className="bg-transparent text-xs outline-none w-full"
+                          style={{ color: 'rgba(255,255,255,0.8)' }}
+                        />
+                      </div>
+                      {filteredChars.map(char => {
+                        const isSelected = row.selectedCharIds.includes(char.id);
+                        return (
+                          <button
+                            key={char.id}
+                            type="button"
+                            onClick={() => toggleCharInRow(row.id, char.id)}
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                            style={{
+                              background: isSelected
+                                ? 'rgba(123,241,214,0.06)'
+                                : undefined,
+                            }}
+                          >
+                            <div
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}
+                            >
+                              {char.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="text-xs font-medium truncate"
+                                style={{ color: 'rgba(255,255,255,0.85)' }}
+                              >
+                                {char.name}
+                              </p>
+                              <p
+                                className="text-xs"
+                                style={{ color: 'rgba(255,255,255,0.35)' }}
+                              >
+                                {char.class} · {char.role}
+                              </p>
+                            </div>
+                            <div
+                              className="shrink-0 h-4 w-4 rounded border flex items-center justify-center"
+                              style={{
+                                borderColor: isSelected
+                                  ? '#7bf1d6'
+                                  : 'rgba(255,255,255,0.2)',
+                                background: isSelected
+                                  ? 'rgba(123,241,214,0.2)'
+                                  : 'transparent',
+                              }}
+                            >
+                              {isSelected && (
+                                <span style={{ color: '#7bf1d6', fontSize: 10 }}>
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {filteredChars.length === 0 && (
+                        <p
+                          className="px-3 py-4 text-xs text-center"
+                          style={{ color: 'rgba(255,255,255,0.3)' }}
+                        >
+                          No se encontraron personajes
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* #17 — Responsable del ítem (un solo usuario). Mismo patrón
+                    visual que "Personajes asociados" pero de selección única:
+                    el super admin/mapper le pregunta a esta persona si ya
+                    vendió el ítem. Se guarda adjunto al ítem. */}
+                <div className="flex-1 min-w-[240px]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateRow(row.id, { showRespPicker: !row.showRespPicker })
+                    }
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${
+                        row.showRespPicker
+                          ? 'rgba(139,183,250,0.4)'
+                          : 'rgba(255,255,255,0.08)'
+                      }`,
+                      color: 'rgba(255,255,255,0.7)',
+                    }}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Responsable del ítem
+                    {row.responsibleId && (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ background: 'rgba(139,183,250,0.2)', color: '#8bb7fa' }}
+                      >
+                        1
+                      </span>
+                    )}
+                    {row.showRespPicker ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+
+                  {/* Chip del responsable elegido */}
+                  {row.responsibleId && (() => {
+                    const resp = legacyUsers.find((c: any) => c.id === row.responsibleId);
+                    if (!resp) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        <div
+                          className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]"
+                          style={{
+                            background: 'rgba(139,183,250,0.12)',
+                            border: '1px solid rgba(139,183,250,0.25)',
+                            color: '#8bb7fa',
+                          }}
+                        >
+                          <div
+                            className={`flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-br ${resp.avatar} text-white`}
+                            style={{ fontSize: 8, fontWeight: 'bold' }}
+                          >
+                            {resp.name.slice(0, 1).toUpperCase()}
+                          </div>
+                          <span>{resp.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateRow(row.id, { responsibleId: '' })}
+                            className="ml-0.5 hover:opacity-70"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Copiar responsable a otras filas — mismo atajo que el de
+                      personajes, pero para el responsable (selección única).
+                      Solo se muestra si hay más de una fila Y esta fila tiene
+                      un responsable elegido. */}
+                  {rows.length > 1 && row.responsibleId && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => openCopyRespPanel(row.id)}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold transition-all"
+                        style={{
+                          background: copyRespPanelRowId === row.id
+                            ? 'rgba(139,183,250,0.18)'
+                            : 'rgba(139,183,250,0.08)',
+                          border: `1px solid ${
+                            copyRespPanelRowId === row.id
+                              ? 'rgba(139,183,250,0.45)'
+                              : 'rgba(139,183,250,0.25)'
+                          }`,
+                          color: '#8bb7fa',
+                        }}
+                        title="Aplicá el responsable de esta fila a otras filas del lote"
+                      >
+                        <Copy className="h-3 w-3" />
+                        Copiar este responsable a otras filas
+                        {copyRespPanelRowId === row.id ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                      </button>
+
+                      {copyRespPanelRowId === row.id && (
+                        <div
+                          className="mt-2 rounded-xl border p-3"
+                          style={{
+                            background: 'rgba(10,14,22,0.98)',
+                            borderColor: 'rgba(139,183,250,0.25)',
+                          }}
+                        >
+                          {(() => {
+                            const resp = legacyUsers.find((c: any) => c.id === row.responsibleId);
+                            return (
+                              <p
+                                className="text-[11px] mb-2"
+                                style={{ color: 'rgba(255,255,255,0.6)' }}
+                              >
+                                Marca las filas a las que quieres copiarle como responsable a{' '}
+                                <strong style={{ color: '#8bb7fa' }}>
+                                  {resp ? resp.name : 'esta persona'}
+                                </strong>
+                                . El responsable que esas filas tuvieran se reemplaza.
+                              </p>
+                            );
+                          })()}
+
+                          <div className="space-y-1 mb-3">
+                            {rows.map((other, otherIdx) => {
+                              if (other.id === row.id) return null;
+                              const checked = copyRespTargets.has(other.id);
+                              const display = other.name.trim() || `(sin nombre)`;
+                              const otherResp = other.responsibleId
+                                ? legacyUsers.find((c: any) => c.id === other.responsibleId)
+                                : null;
+                              return (
+                                <label
+                                  key={other.id}
+                                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                                  style={{
+                                    background: checked
+                                      ? 'rgba(139,183,250,0.1)'
+                                      : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${
+                                      checked
+                                        ? 'rgba(139,183,250,0.35)'
+                                        : 'rgba(255,255,255,0.05)'
+                                    }`,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleCopyRespTarget(other.id)}
+                                    className="cursor-pointer"
+                                    style={{ accentColor: '#8bb7fa' }}
+                                  />
+                                  <span
+                                    className="text-xs font-medium"
+                                    style={{ color: 'rgba(255,255,255,0.85)' }}
+                                  >
+                                    Ítem #{otherIdx + 1}
+                                  </span>
+                                  <span
+                                    className="text-xs truncate flex-1"
+                                    style={{ color: 'rgba(255,255,255,0.45)' }}
+                                  >
+                                    {display}
+                                  </span>
+                                  {otherResp && (
+                                    <span
+                                      className="rounded-full px-1.5 py-0.5 text-[10px]"
+                                      style={{
+                                        background: 'rgba(255,255,255,0.06)',
+                                        color: 'rgba(255,255,255,0.5)',
+                                      }}
+                                      title="Esta fila ya tenía responsable; se reemplaza"
+                                    >
+                                      ya tiene: {otherResp.name}
+                                    </span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCopyRespPanelRowId(null);
+                                setCopyRespTargets(new Set());
+                              }}
+                              className="rounded-lg px-3 py-1.5 text-xs transition-all"
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(255,255,255,0.7)',
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyRespToTargets(row.id)}
+                              disabled={copyRespTargets.size === 0}
+                              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
+                              style={{
+                                background:
+                                  copyRespTargets.size === 0
+                                    ? 'rgba(139,183,250,0.1)'
+                                    : 'rgba(139,183,250,0.2)',
+                                border: '1px solid rgba(139,183,250,0.4)',
+                                color: '#8bb7fa',
+                                opacity: copyRespTargets.size === 0 ? 0.5 : 1,
+                                cursor:
+                                  copyRespTargets.size === 0
+                                    ? 'not-allowed'
+                                    : 'pointer',
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                              Copiar a {copyRespTargets.size} fila
+                              {copyRespTargets.size === 1 ? '' : 's'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Picker expandido (selección única) */}
+                  {row.showRespPicker && (
+                    <div
+                      className="mt-2 rounded-xl border overflow-hidden"
+                      style={{
+                        background: 'rgba(10,14,22,0.98)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        maxHeight: 220,
+                        overflowY: 'auto',
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-2 border-b px-3 py-2 sticky top-0"
+                        style={{
+                          background: 'rgba(10,14,22,0.98)',
+                          borderColor: 'rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <Search
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={{ color: 'rgba(255,255,255,0.35)' }}
+                        />
+                        <input
+                          value={row.respSearch}
+                          onChange={e =>
+                            updateRow(row.id, { respSearch: e.target.value })
+                          }
+                          placeholder="Buscar responsable..."
+                          className="bg-transparent text-xs outline-none w-full"
+                          style={{ color: 'rgba(255,255,255,0.8)' }}
+                        />
+                      </div>
+                      {legacyUsers
+                        .filter((c: any) =>
+                          c.name.toLowerCase().includes(row.respSearch.toLowerCase()) ||
+                          c.class.toLowerCase().includes(row.respSearch.toLowerCase()))
+                        .map((char: any) => {
+                          const isSelected = row.responsibleId === char.id;
+                          return (
+                            <button
+                              key={char.id}
+                              type="button"
+                              onClick={() =>
+                                updateRow(row.id, {
+                                  responsibleId: isSelected ? '' : char.id,
+                                })
+                              }
+                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition-all hover:bg-white/5"
+                              style={{
+                                background: isSelected ? 'rgba(139,183,250,0.06)' : undefined,
+                              }}
+                            >
+                              <div
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${char.avatar} text-xs font-bold text-white`}
+                              >
+                                {char.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                                  {char.name}
+                                </p>
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                                  {char.class} · {char.role}
+                                </p>
+                              </div>
+                              <div
+                                className="shrink-0 h-4 w-4 rounded border flex items-center justify-center"
+                                style={{
+                                  borderColor: isSelected ? '#8bb7fa' : 'rgba(255,255,255,0.2)',
+                                  background: isSelected ? 'rgba(139,183,250,0.2)' : 'transparent',
+                                }}
+                              >
+                                {isSelected && (
+                                  <span style={{ color: '#8bb7fa', fontSize: 10 }}>✓</span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+                </div>
+
+                {/* Flag cooperativo por fila (solo separación visual en Ciclos
+                    de Venta). Este panel ya está gateado a SA/Mapper. */}
+                <label
+                  className="mt-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 cursor-pointer select-none w-fit"
+                  style={{
+                    background: row.isCooperative ? 'rgba(123,241,214,0.1)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${row.isCooperative ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  }}
+                  title="Marca la casilla para Cooperativo; desmarcada queda como Individual (solo separa la vista en Ciclos de Venta)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={row.isCooperative}
+                    onChange={e => updateRow(row.id, { isCooperative: e.target.checked })}
+                    className="h-4 w-4 accent-[#7bf1d6]"
+                  />
+                  <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    Marcar como Cooperativo
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold rounded-full px-2 py-0.5"
+                    style={{
+                      background: row.isCooperative ? 'rgba(123,241,214,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: row.isCooperative ? '#7bf1d6' : 'rgba(255,255,255,0.5)',
+                    }}
+                  >
+                    {row.isCooperative ? '🤝 Cooperativo' : '👤 Individual'}
+                  </span>
+                </label>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Botón submit (estilo raid) */}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(123,241,214,0.2), rgba(139,183,250,0.2))',
+            border: '1px solid rgba(123,241,214,0.35)',
+            color: '#7bf1d6',
+            opacity: submitting ? 0.5 : 1,
+            cursor: submitting ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {submitting
+            ? 'Registrando…'
+            : rows.length === 1
+            ? 'Registrar ítem'
+            : `Registrar ${rows.length} ítems`}
+        </button>
       </form>
     </div>
   );

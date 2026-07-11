@@ -148,6 +148,7 @@
   /* Badge variants */
   .badge-armadura { color: oklch(0.85 0.15 195); background: oklch(0.72 0.19 195 / 12%); border: 1px solid oklch(0.72 0.19 195 / 25%); }
   .badge-arma { color: oklch(0.85 0.15 310); background: oklch(0.72 0.19 310 / 12%); border: 1px solid oklch(0.72 0.19 310 / 25%); }
+  .badge-joya { color: oklch(0.85 0.15 345); background: oklch(0.72 0.19 345 / 12%); border: 1px solid oklch(0.72 0.19 345 / 25%); }
   .badge-key { color: oklch(0.85 0.15 80); background: oklch(0.72 0.19 80 / 12%); border: 1px solid oklch(0.72 0.19 80 / 25%); }
   .badge-recipe { color: oklch(0.85 0.15 270); background: oklch(0.72 0.19 270 / 12%); border: 1px solid oklch(0.72 0.19 270 / 25%); }
   .badge-materiales { color: oklch(0.85 0.15 145); background: oklch(0.72 0.19 145 / 12%); border: 1px solid oklch(0.72 0.19 145 / 25%); }
@@ -221,6 +222,60 @@
   .select-dark option { background: oklch(0.12 0.012 265); color: oklch(0.95 0.005 265); padding: 0.5rem; font-weight: 500; }
   .select-dark option:checked { background: oklch(0.72 0.19 195 / 30%); color: oklch(0.95 0.005 265); }
 
+  /* Global dark options — aplica a TODO <select> del proyecto para evitar que
+   * los <option> se rendericen con el estilo default del sistema (blanco sobre
+   * blanco en algunos navegadores + modo oscuro). Cubre los selects que no usan
+   * .select-dark explícitamente (ej: form de Registrar evento raid). */
+  select option {
+    background-color: #0a0e16;
+    color: rgba(255, 255, 255, 0.92);
+  }
+  select option:disabled {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  /* Chevron global — hace que TODO <select> del proyecto muestre una flecha
+   * indicando que es desplegable.
+   *
+   * NOTA sobre !important: muchos selects del proyecto declaran el fondo con
+   * la propiedad shorthand `background: rgba(...)` inline, lo que resetea
+   * `background-image`, `background-position` y `background-repeat` cada
+   * vez que se renderiza. Para que el chevron sobreviva a esos inline styles
+   * sin tener que tocar cada componente, se fuerzan las propiedades
+   * específicas del chevron con !important. Los colores/bordes inline se
+   * respetan porque no los tocamos. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23bbb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    padding-right: 2.25rem !important;
+  }
+  select:hover {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fbbf24' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    cursor: pointer;
+    border-color: rgba(251, 191, 36, 0.35) !important;
+  }
+  select:focus {
+    border-color: rgba(251, 191, 36, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+  }
+  select:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
   /* Btn primary */
   .btn-primary {
     display: inline-flex;
@@ -277,7 +332,7 @@
     left: 0;
     right: 0;
     top: calc(100% + 6px);
-    z-index: 50;
+    z-index: 9999;
     background: oklch(0.10 0.012 265);
     border: 1px solid oklch(1 0 0 / 12%);
     border-radius: 0.875rem;
@@ -301,6 +356,34 @@
   .table-scroll {
     overflow-x: auto;
     overflow-y: auto;
-    max-height: 520px;
+    max-height: 700px;
+  }
+
+  /* ----------------------------------------------------------------------
+   * Validación de inputs — usado por el input "Cantidad" de los formularios
+   * de registro (legacy y raid) cuando el usuario intenta registrar un ítem
+   * con qty=0. Borde rojo sutil + glow + pulso breve de la fila para llamar
+   * la atención sin ser agresivo.
+   * -------------------------------------------------------------------- */
+  .input-error {
+    border-color: rgba(248, 113, 113, 0.65) !important;
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+    background: rgba(248, 113, 113, 0.06) !important;
+  }
+
+  @keyframes pulse-error {
+    0%   { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.35); }
+    60%  { box-shadow: 0 0 0 8px rgba(248, 113, 113, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+  }
+
+  .row-pulse-error {
+    animation: pulse-error 700ms ease-out 1;
+    border-radius: 0.75rem;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
   }
 }

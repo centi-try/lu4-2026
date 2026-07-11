@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type {
   Item, Character, AuditLog, ItemCategory, ItemStatus, UserRole,
   SalesCycle, CycleCharacterEarning, CycleSoldItem, Purchase
@@ -12,11 +12,17 @@ interface SellItemOptions {
   quantityToSell: number;
   buyerId: string;
   buyerName: string;
+  isInternalSale?: boolean;
+  isExternalSale?: boolean;
 }
 
 interface AppContextType {
+  isLoading: boolean;
   currentUser: Character;
   setCurrentUser: (c: Character) => void;
+  isImpersonating: boolean;
+  effectiveRole: string;
+  effectiveIsSuperAdmin: boolean;
   items: Item[];
   characters: Character[];
   auditLogs: AuditLog[];
@@ -26,7 +32,10 @@ interface AppContextType {
   cycleNumber: number;
 
   addItem: (item: Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold'>) => void;
+  addItemsBatch: (items: Array<Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>>) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
+  bulkSetItemCooperative: (ids: string[], isCooperative: boolean) => void;
+  bulkSetItemPrice: (ids: string[], price: number) => void;
   confirmItem: (id: string) => void;
   deleteItem: (id: string) => void;
   sellItem: (opts: SellItemOptions) => void;
@@ -76,25 +85,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [authUser]);
 
   const [currentUser, setCurrentUserState] = useState<Character>(() => getAuthUserAsCharacter());
+  const isImpersonatingRef = useRef(false);
 
   useEffect(() => {
-    setCurrentUserState(getAuthUserAsCharacter());
+    if (!isImpersonatingRef.current) {
+      setCurrentUserState(getAuthUserAsCharacter());
+    }
   }, [getAuthUserAsCharacter]);
 
   const setCurrentUser = useCallback((nextUser: Character) => {
     const originalUser = getAuthUserAsCharacter();
-    const isOriginalAccount = nextUser.id === originalUser.id;
+    const isOriginalAccount = nextUser.id === originalUser.id || String(nextUser.id) === `auth-${authUser?.id}`;
 
     if (!authUser) {
+      isImpersonatingRef.current = false;
       setCurrentUserState(defaultEmptyCharacter);
       return;
     }
 
     if (!isAuthSuperAdmin && !isOriginalAccount) {
+      isImpersonatingRef.current = false;
       setCurrentUserState(originalUser);
       return;
     }
 
+    isImpersonatingRef.current = !isOriginalAccount;
     setCurrentUserState(nextUser);
   }, [authUser, getAuthUserAsCharacter, isAuthSuperAdmin]);
 
@@ -104,21 +119,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [salesCycles, setSalesCycles] = useState<SalesCycle[]>([]);
 
-  const { data: serverItems, refetch: refetchItems } = trpc.items.list.useQuery(undefined, {
+  const { data: serverItems, refetch: refetchItems, isLoading: itemsLoading } = trpc.items.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCharacters, refetch: refetchCharacters } = trpc.characters.list.useQuery(undefined, {
+  const { data: serverCharacters, refetch: refetchCharacters, isLoading: charsLoading } = trpc.items.legacyBuyers.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverPurchases, refetch: refetchPurchases } = trpc.items.listPurchases.useQuery(undefined, {
+  const { data: serverPurchases, refetch: refetchPurchases, isLoading: purchasesLoading } = trpc.items.listPurchases.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverCycles, refetch: refetchCycles } = trpc.salesCycles.list.useQuery(undefined, {
+  const { data: serverCycles, refetch: refetchCycles, isLoading: cyclesLoading } = trpc.salesCycles.list.useQuery(undefined, {
     enabled: !!authUser,
   });
-  const { data: serverAuditLogs, refetch: refetchAuditLogs } = trpc.auditLogs.list.useQuery(undefined, {
+  const { data: serverAuditLogs, refetch: refetchAuditLogs, isLoading: logsLoading } = trpc.auditLogs.list.useQuery(undefined, {
     enabled: !!authUser,
   });
+
+  const isLoading = !!authUser && (itemsLoading || charsLoading || purchasesLoading || cyclesLoading || logsLoading);
 
   useEffect(() => {
     if (serverItems) {
@@ -138,6 +155,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         quantitySold: Number(item.quantitySold) || 0,
         quantitySoldInCycle: Number(item.quantitySoldInCycle) || 0,
         associatedCharacterIds: Array.isArray(item.associatedCharacterIds) ? item.associatedCharacterIds.map(String) : [],
+        // #17: responsable del ítem (id de usuario). El nombre se resuelve en la tabla.
+        responsibleUserId: item.responsibleUserId !== null && item.responsibleUserId !== undefined ? String(item.responsibleUserId) : null,
         image: item.image || {
           id: `img-${item.id}`,
           publicUrl: item.imageUrl || '',
@@ -191,19 +210,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [serverCycles]);
 
+  // #15: la fuente de verdad de la actividad son los logs PERSISTENTES del
+  // servidor. Antes fusionábamos logs temporales del navegador (addLog) que se
+  // perdían al refrescar y ensuciaban el feed. Ahora reemplazamos con los del
+  // servidor; los optimistas de addLog quedan como preview hasta el próximo
+  // refetch (que disparamos tras cada mutación).
   useEffect(() => {
-    if (serverAuditLogs) setAuditLogs(prev => {
-      const serverIds = new Set((serverAuditLogs as any[]).map((l: any) => l.id));
-      const localOnly = prev.filter(l => !serverIds.has(l.id));
-      return [...localOnly, ...(serverAuditLogs as any[])];
-    });
+    if (serverAuditLogs) setAuditLogs(serverAuditLogs as any[]);
   }, [serverAuditLogs]);
 
+  const trpcUtils = trpc.useUtils();
   const sellMutation = trpc.items.sell.useMutation({
     onSuccess: () => {
       refetchPurchases();
       refetchItems();
       refetchCharacters();
+      refetchAuditLogs();
+      trpcUtils.items.reservations.list.invalidate();
     }
   });
 
@@ -216,21 +239,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const createItemMutation = trpc.items.create.useMutation({
-    onSuccess: () => refetchItems()
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
   const updateItemMutation = trpc.items.update.useMutation({
-    onSuccess: () => refetchItems()
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
+  const bulkSetCooperativeMutation = trpc.items.bulkSetCooperative.useMutation({
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
+  const bulkSetPriceMutation = trpc.items.bulkSetPrice.useMutation({
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
+  const bulkCreateMutation = trpc.items.bulkCreate.useMutation({
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
   const confirmItemMutation = trpc.items.confirm.useMutation({
-    onSuccess: () => refetchItems()
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
   const deleteItemMutation = trpc.items.delete.useMutation({
     onSuccess: () => {
       refetchItems();
       refetchCharacters();
+      refetchAuditLogs();
     }
   });
   const [currentCycleStartedAt, setCurrentCycleStartedAt] = useState<string | null>(
@@ -261,14 +297,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((data: Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>) => {
     if (currentUser.role === 'USER') return;
 
+    // Enviamos imageUrl para que el backend persista el icono global de la
+    // categoría (seteado en /raids/settings) o la URL manual ingresada. Antes
+    // este campo no viajaba al server y el item quedaba con imageUrl=null.
+    const imageUrlToPersist = String(data.image?.publicUrl || '').trim() || null;
     createItemMutation.mutate({
       name: data.name,
       category: data.category,
       status: data.status,
       price: data.price || 0,
-      mapperId: parseInt(currentUser.id.replace('auth-', '')) || 0,
+      mapperId: parseInt(String(currentUser.id).replace('auth-', '')) || 0,
       associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
       quantity: data.quantity || 1,
+      imageUrl: imageUrlToPersist,
+      // #17: responsable del ítem (id de usuario).
+      responsibleUserId: data.responsibleUserId
+        ? (parseInt(String(data.responsibleUserId).replace('auth-', '')) || null)
+        : null,
+      // Flag cooperativo (solo separación visual en Ciclos de Venta).
+      isCooperative: Boolean(data.isCooperative),
     });
 
     const now = new Date().toISOString();
@@ -297,15 +344,80 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addLog(item.id, item.name, 'CREATED_ITEM', `Registró "${item.name}" en categoría ${item.category}.`);
   }, [currentUser, addLog, createItemMutation]);
 
+  // Registra varios ítems con UNA sola llamada al backend (evita N mutaciones
+  // al registrar muchas filas de una vez). Optimista en local, mismo formato
+  // que addItem por cada fila.
+  const addItemsBatch = useCallback((list: Array<Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>>) => {
+    if (currentUser.role === 'USER') return;
+    if (list.length === 0) return;
+
+    const payload = list.map(data => ({
+      name: data.name,
+      category: data.category,
+      status: data.status,
+      price: data.price || 0,
+      mapperId: parseInt(String(currentUser.id).replace('auth-', '')) || 0,
+      associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
+      quantity: data.quantity || 1,
+      imageUrl: String(data.image?.publicUrl || '').trim() || null,
+      responsibleUserId: data.responsibleUserId
+        ? (parseInt(String(data.responsibleUserId).replace('auth-', '')) || null)
+        : null,
+      isCooperative: Boolean(data.isCooperative),
+    }));
+    bulkCreateMutation.mutate({ items: payload });
+
+    const now = new Date().toISOString();
+    const newItems: Item[] = list.map(data => ({
+      ...data,
+      id: `item-${nanoid(6)}`,
+      normalizedName: data.name.toLowerCase(),
+      createdAt: now,
+      updatedAt: now,
+      createdBy: currentUser.name,
+      updatedBy: currentUser.name,
+      quantitySold: 0,
+      quantitySoldInCycle: 0,
+    }));
+    setItems(prev => [...newItems, ...prev]);
+
+    setCharacters(prev => prev.map(char => {
+      const extra = newItems.filter(it => it.associatedCharacterIds.includes(char.id) && !char.itemIds.includes(it.id)).map(it => it.id);
+      return extra.length > 0 ? { ...char, itemIds: [...char.itemIds, ...extra] } : char;
+    }));
+
+    addLog(newItems[0].id, newItems[0].name, 'CREATED_ITEM', `Registró ${newItems.length} ítem(s) en lote.`);
+  }, [currentUser, addLog, bulkCreateMutation]);
+
   const updateItem = useCallback((id: string, updates: Partial<Item>) => {
     if (currentUser.role === 'USER') return;
 
     const updateNumericId = parseInt(String(id).replace('item-', ''));
+    // Propagar la URL de imagen al backend. Si no se propaga, el cambio solo
+    // vive en el estado local y se pierde al recargar (bug observado en
+    // /images del menú antiguo: la nueva URL no se persistía en DB).
+    const incomingImageUrl =
+      (updates as any).imageUrl ??
+      updates.image?.publicUrl ??
+      undefined;
+    // #12: convertir associatedCharacterIds (strings, posible prefijo auth-) a
+    // números para el backend. #17: idem responsable. quantity = stock editable.
+    const assocForServer = updates.associatedCharacterIds !== undefined
+      ? updates.associatedCharacterIds.map(cid => parseInt(String(cid).replace('auth-', '')) || 0).filter(cid => cid > 0)
+      : undefined;
+    const responsibleForServer = updates.responsibleUserId !== undefined
+      ? (updates.responsibleUserId ? (parseInt(String(updates.responsibleUserId).replace('auth-', '')) || null) : null)
+      : undefined;
     updateItemMutation.mutate({
       id: isNaN(updateNumericId) ? 0 : updateNumericId,
       name: updates.name,
       category: updates.category,
       price: updates.price || undefined,
+      imageUrl: incomingImageUrl,
+      associatedCharacterIds: assocForServer,
+      quantity: updates.quantity !== undefined ? Number(updates.quantity) : undefined,
+      responsibleUserId: responsibleForServer,
+      isCooperative: updates.isCooperative !== undefined ? Boolean(updates.isCooperative) : undefined,
     });
 
     setItems(prev => prev.map(item => {
@@ -319,6 +431,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return prev;
     });
   }, [currentUser, addLog, updateItemMutation]);
+
+  // Marca/desmarca el flag cooperativo en LOTE con UNA sola llamada al backend
+  // (evita disparar N mutaciones cuando son muchos ítems). Optimista en local.
+  const bulkSetItemCooperative = useCallback((ids: string[], isCooperative: boolean) => {
+    if (currentUser.role === 'USER') return;
+    const numericIds = ids
+      .map(id => parseInt(String(id).replace('item-', '')))
+      .filter(n => !isNaN(n));
+    if (numericIds.length === 0) return;
+    bulkSetCooperativeMutation.mutate({ ids: numericIds, isCooperative });
+    const idSet = new Set(ids);
+    setItems(prev => prev.map(item =>
+      idSet.has(item.id)
+        ? { ...item, isCooperative, updatedAt: new Date().toISOString(), updatedBy: currentUser.name }
+        : item
+    ));
+  }, [currentUser, bulkSetCooperativeMutation]);
+
+  // Aplica un mismo precio base a varios ítems con UNA sola llamada al backend
+  // (evita disparar N mutaciones al editar el precio de un grupo grande).
+  const bulkSetItemPrice = useCallback((ids: string[], price: number) => {
+    if (currentUser.role === 'USER') return;
+    const numericIds = ids
+      .map(id => parseInt(String(id).replace('item-', '')))
+      .filter(n => !isNaN(n));
+    if (numericIds.length === 0) return;
+    bulkSetPriceMutation.mutate({ ids: numericIds, price });
+    const idSet = new Set(ids);
+    setItems(prev => prev.map(item =>
+      idSet.has(item.id)
+        ? { ...item, price, updatedAt: new Date().toISOString(), updatedBy: currentUser.name }
+        : item
+    ));
+  }, [currentUser, bulkSetPriceMutation]);
 
   const confirmItem = useCallback((id: string) => {
     if (currentUser.role === 'USER') return;
@@ -355,16 +501,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [currentUser, addLog, deleteItemMutation]);
 
-  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName }: SellItemOptions) => {
-    if (currentUser.role === 'USER') return;
-    if (currentUser.role !== 'SUPER_ADMIN') return;
+  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale, isExternalSale }: SellItemOptions) => {
+    // #4: SUPER_ADMIN y MAPPER pueden vender. USER no.
+    if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'MAPPER') return;
 
     const numericId = parseInt(String(itemId).replace('item-', ''));
     sellMutation.mutate({
       id: isNaN(numericId) ? 0 : numericId,
       quantity: quantityToSell,
       buyerId,
-      buyerName
+      buyerName,
+      isInternalSale: isInternalSale || false,
+      isExternalSale: isExternalSale || false,
     });
 
     setItems(prevItems => {
@@ -517,11 +665,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addLog('system', 'Sistema', 'CYCLE_CLOSED', `Cerró ${newCycleLabel} (${type}) con $${totalRevenue.toLocaleString()} recaudados.`);
   }, [currentUser, items, characters, salesCycles, currentCycleStartedAt, addLog, closeCycleMutation]);
 
+  const isImpersonating = !!(currentUser && !String(currentUser.id).startsWith('auth-') && String(currentUser.id) !== `auth-${authUser?.id}`);
+  const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
+  const effectiveIsSuperAdmin = effectiveRole === 'super_admin';
+
   return (
     <AppContext.Provider value={{
-      currentUser, setCurrentUser, items, characters, auditLogs, purchases, salesCycles,
+      isLoading,
+      currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
+      items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,
-      addItem, updateItem, confirmItem, deleteItem, sellItem, searchItems,
+      addItem, addItemsBatch, updateItem, bulkSetItemCooperative, bulkSetItemPrice, confirmItem, deleteItem, sellItem, searchItems,
       startCycle, closeCycle
     }}>
       {children}

@@ -34,7 +34,7 @@ export function EarningsChart({ characters }: Props) {
   };
 
   return (
-    <div className="card-glass rounded-2xl p-5">
+    <div className="card-glass rounded-2xl p-5 h-full flex flex-col">
       <div className="mb-3">
         <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>Top Personajes por Ganancia</h3>
         <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>

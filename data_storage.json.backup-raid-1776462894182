@@ -1,0 +1,1094 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2b$10$rOzJqQZQZQZQZQZQZQZQZeKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+      "displayName": "Super Admin",
+      "role": "super_admin",
+      "characterId": null,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "email": "superadmin@inventory.com",
+      "openId": "local-superadmin@inventory.com",
+      "name": "Super Admin",
+      "characterName": "Super Admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "d357150517d3e65ae84985f7b705ad99fdc38372a22ecea0cecaf8aaf820a249",
+      "updatedAt": "2026-04-17T21:54:21.866Z",
+      "lastSignedIn": "2026-04-17T21:54:21.866Z"
+    },
+    {
+      "id": 581030,
+      "email": "superadmin@inventory.com",
+      "openId": "local-lucia.admin@inventory.com",
+      "name": "Lucía Admin",
+      "characterName": "Lucía Admin",
+      "displayName": "Lucía Admin",
+      "username": "lucia.admin@inventory.com",
+      "role": "super_admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 620324,
+      "email": "superadmin@inventory.com",
+      "openId": "local-mateo.admin@inventory.com",
+      "name": "Mateo Admin",
+      "characterName": "Mateo Admin",
+      "displayName": "Mateo Admin",
+      "username": "mateo.admin@inventory.com",
+      "role": "super_admin",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 689563,
+      "email": "sofia.mapper@inventory.com",
+      "openId": "local-sofia.mapper@inventory.com",
+      "name": "Sofía Mapper",
+      "characterName": "Sofía Mapper",
+      "displayName": "Sofía Mapper",
+      "username": "sofia.mapper@inventory.com",
+      "role": "mapper",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 831008,
+      "email": "tomas.mapper@inventory.com",
+      "openId": "local-tomas.mapper@inventory.com",
+      "name": "Tomás Mapper",
+      "characterName": "Tomás Mapper",
+      "displayName": "Tomás Mapper",
+      "username": "tomas.mapper@inventory.com",
+      "role": "mapper",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 871224,
+      "email": "valeria.mapper@inventory.com",
+      "openId": "local-valeria.mapper@inventory.com",
+      "name": "Valeria Mapper",
+      "characterName": "Valeria Mapper",
+      "displayName": "Valeria Mapper",
+      "username": "valeria.mapper@inventory.com",
+      "role": "mapper",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 849181,
+      "email": "diego.user@inventory.com",
+      "openId": "local-diego.user@inventory.com",
+      "name": "Diego Usuario",
+      "characterName": "Diego Usuario",
+      "displayName": "Diego Usuario",
+      "username": "diego.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": false,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:49:06.629Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 193339,
+      "email": "camila.user@inventory.com",
+      "openId": "local-camila.user@inventory.com",
+      "name": "Camila Usuario",
+      "characterName": "Camila Usuario",
+      "displayName": "Camila Usuario",
+      "username": "camila.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 356166,
+      "email": "santiago.user@inventory.com",
+      "openId": "local-santiago.user@inventory.com",
+      "name": "Santiago Usuario",
+      "characterName": "Santiago Usuario",
+      "displayName": "Santiago Usuario",
+      "username": "santiago.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": false,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:49:14.156Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 310328,
+      "email": "paula.user@inventory.com",
+      "openId": "local-paula.user@inventory.com",
+      "name": "Paula Usuario",
+      "characterName": "Paula Usuario",
+      "displayName": "Paula Usuario",
+      "username": "paula.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 477495,
+      "email": "bruno.user@inventory.com",
+      "openId": "local-bruno.user@inventory.com",
+      "name": "Bruno Usuario",
+      "characterName": "Bruno Usuario",
+      "displayName": "Bruno Usuario",
+      "username": "bruno.user@inventory.com",
+      "role": "user",
+      "loginMethod": "local",
+      "isActive": true,
+      "passwordHash": "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea",
+      "characterId": null,
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z",
+      "lastSignedIn": "2026-04-17T21:41:39.972Z"
+    }
+  ],
+  "characters": [
+    {
+      "id": 793539,
+      "name": "Sofía Mapper",
+      "userId": 689563,
+      "profitPerCycle": 0,
+      "totalProfit": 833,
+      "currentCycleEarnings": 833,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 161722,
+      "name": "Tomás Mapper",
+      "userId": 831008,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 153267,
+      "name": "Valeria Mapper",
+      "userId": 871224,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 483702,
+      "name": "Diego User",
+      "userId": 849181,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 150360,
+      "name": "Camila User",
+      "userId": 193339,
+      "profitPerCycle": 0,
+      "totalProfit": 120,
+      "currentCycleEarnings": 120,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 922616,
+      "name": "Santiago User",
+      "userId": 356166,
+      "profitPerCycle": 0,
+      "totalProfit": 0,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 420418,
+      "name": "Paula User",
+      "userId": 310328,
+      "profitPerCycle": 0,
+      "totalProfit": 833,
+      "currentCycleEarnings": 833,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 789410,
+      "name": "Bruno User",
+      "userId": 477495,
+      "profitPerCycle": 0,
+      "totalProfit": 900,
+      "currentCycleEarnings": 900,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 875140,
+      "name": "Guild Storage A",
+      "userId": 581030,
+      "profitPerCycle": 0,
+      "totalProfit": 1500,
+      "currentCycleEarnings": 1500,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 841502,
+      "name": "Guild Storage B",
+      "userId": 620324,
+      "profitPerCycle": 0,
+      "totalProfit": 1733,
+      "currentCycleEarnings": 1733,
+      "createdAt": "2026-04-17T21:41:39.972Z"
+    }
+  ],
+  "items": [
+    {
+      "id": 280963,
+      "name": "Espada de Hielo +7",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1500,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 619629,
+      "name": "Arco Élfico +5",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1200,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        153267,
+        483702
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 927720,
+      "name": "Daga de Obsidiana",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 900,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 4,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        922616,
+        789410,
+        420418
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 233088,
+      "name": "Maza Rúnica",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1100,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        161722
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 576277,
+      "name": "Bastón del Oráculo",
+      "category": "ARMA",
+      "status": "CONFIRMED",
+      "price": 1700,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 1,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        161722,
+        420418
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 894583,
+      "name": "Armadura de Dragón",
+      "category": "ARMADURA",
+      "status": "VENDIDO",
+      "price": 2500,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 1,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        793539,
+        420418,
+        841502
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 421397,
+      "name": "Coraza de Mithril",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 2100,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 655475,
+      "name": "Casco de Guerra",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 800,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        922616,
+        161722
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 406150,
+      "name": "Guanteletes Rúnicos",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 950,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        841502,
+        789410,
+        922616
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 481440,
+      "name": "Escudo de Acero",
+      "category": "ARMADURA",
+      "status": "CONFIRMED",
+      "price": 700,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 4,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        420418
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 129921,
+      "name": "Anillo de Poder",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 1800,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        789410,
+        841502
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 654358,
+      "name": "Amuleto del Sabio",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 1400,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        922616,
+        153267,
+        483702
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 775092,
+      "name": "Capa del Viento",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 850,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 3,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 492820,
+      "name": "Botas Aladas",
+      "category": "ACCESORIO",
+      "status": "CONFIRMED",
+      "price": 1000,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 2,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        789410,
+        922616
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 210593,
+      "name": "Poción de Vida Mayor",
+      "category": "CONSUMIBLE",
+      "status": "CONFIRMED",
+      "price": 150,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 20,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        875140,
+        153267,
+        483702
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 463706,
+      "name": "Poción de Maná",
+      "category": "CONSUMIBLE",
+      "status": "CONFIRMED",
+      "price": 120,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 25,
+      "quantitySold": 1,
+      "quantitySoldInCycle": 1,
+      "associatedCharacterIds": [
+        150360
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 109875,
+      "name": "Elixir de Fuerza",
+      "category": "CONSUMIBLE",
+      "status": "CONFIRMED",
+      "price": 300,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 10,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        153267,
+        841502
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 462272,
+      "name": "Lingote de Adamantium",
+      "category": "MATERIAL",
+      "status": "CONFIRMED",
+      "price": 600,
+      "mapperId": 871224,
+      "imageUrl": null,
+      "quantity": 8,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        153267,
+        875140,
+        793539
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 399991,
+      "name": "Cristal Arcano",
+      "category": "MATERIAL",
+      "status": "CONFIRMED",
+      "price": 450,
+      "mapperId": 689563,
+      "imageUrl": null,
+      "quantity": 12,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        793539
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 720105,
+      "name": "Piel de Grifo",
+      "category": "MATERIAL",
+      "status": "CONFIRMED",
+      "price": 550,
+      "mapperId": 831008,
+      "imageUrl": null,
+      "quantity": 6,
+      "quantitySold": 0,
+      "quantitySoldInCycle": 0,
+      "associatedCharacterIds": [
+        483702,
+        150360
+      ],
+      "createdAt": "2026-04-17T21:41:39.972Z",
+      "updatedAt": "2026-04-17T21:41:39.972Z"
+    }
+  ],
+  "salesCycles": [],
+  "purchases": [],
+  "auditLogs": [
+    {
+      "userId": 1,
+      "action": "USER_DEACTIVATED",
+      "details": {
+        "targetUserId": 849181,
+        "targetEmail": "diego.user@inventory.com",
+        "performedBy": "superadmin@inventory.com"
+      },
+      "id": 986534,
+      "createdAt": "2026-04-17T21:49:06.630Z"
+    },
+    {
+      "userId": 1,
+      "action": "USER_DEACTIVATED",
+      "details": {
+        "targetUserId": 356166,
+        "targetEmail": "santiago.user@inventory.com",
+        "performedBy": "superadmin@inventory.com"
+      },
+      "id": 397956,
+      "createdAt": "2026-04-17T21:49:14.156Z"
+    }
+  ],
+  "images": [],
+  "rules": {
+    "allowMapperToCreateItems": true,
+    "allowMapperToEditPrice": false,
+    "requireImageForItems": false,
+    "maxItemsPerCycle": 100
+  },
+  "settings": [
+    {
+      "cycleCounter": 1
+    }
+  ],
+  "raidBosses": [
+    {
+      "id": 586552341,
+      "name": "Antharas",
+      "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+      "level": 85,
+      "notes": null,
+      "createdAt": "2026-04-17T11:43:47.717Z",
+      "updatedAt": "2026-04-17T11:43:47.717Z"
+    }
+  ],
+  "clans": [
+    {
+      "id": 680198214,
+      "name": "Valhalla",
+      "tag": "VLH",
+      "description": null,
+      "totalRaidEarnings": 4499,
+      "currentCycleEarnings": 0,
+      "createdAt": "2026-04-17T11:43:57.836Z",
+      "updatedAt": "2026-04-17T11:43:57.836Z"
+    }
+  ],
+  "raidCycles": [
+    {
+      "id": 378095518,
+      "label": "Ciclo de Raids #1",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T11:43:58.695Z",
+      "closedAt": "2026-04-17T11:44:05.785Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T11:43:58.695Z",
+      "updatedAt": "2026-04-17T11:44:05.785Z"
+    },
+    {
+      "id": 433986787,
+      "label": "Raids 17/04",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T11:44:19.448Z",
+      "closedAt": "2026-04-17T15:21:15.044Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 2,
+      "totalEvents": 2,
+      "totalRevenue": 1000,
+      "clansParticipated": [
+        {
+          "clanId": 680198214,
+          "clanName": "Valhalla",
+          "eventsParticipated": 2,
+          "revenueShare": 1000
+        }
+      ],
+      "bossesKilled": [
+        {
+          "bossId": 586552341,
+          "bossName": "Antharas",
+          "officialImageUrl": "https://static.wikia.nocookie.net/lineage2/images/1/17/Antharas.png",
+          "kills": 2
+        }
+      ],
+      "summary": {
+        "events": 2,
+        "drops": 3,
+        "bosses": 2,
+        "clans": 1,
+        "totalRevenue": 1000,
+        "totalPotentialValue": 4499
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T11:44:19.448Z",
+      "updatedAt": "2026-04-17T15:21:15.044Z"
+    },
+    {
+      "id": 101954364,
+      "label": "Ciclo de Raids #3",
+      "type": "DIARIO",
+      "status": "CLOSED",
+      "startedAt": "2026-04-17T21:33:04.876Z",
+      "closedAt": "2026-04-17T21:33:07.282Z",
+      "closedBy": "Super Admin",
+      "totalBosses": 0,
+      "totalEvents": 0,
+      "totalRevenue": 0,
+      "clansParticipated": [],
+      "bossesKilled": [],
+      "summary": {
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdBy": 1,
+      "createdAt": "2026-04-17T21:33:04.876Z",
+      "updatedAt": "2026-04-17T21:33:07.282Z"
+    }
+  ],
+  "raidEvents": [],
+  "raidEventClans": [],
+  "raidDropItems": [],
+  "userRaidAccess": [
+    {
+      "id": 222818,
+      "userId": 581030,
+      "accessLevel": "raid_admin",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 497204,
+      "userId": 620324,
+      "accessLevel": "raid_admin",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 179919,
+      "userId": 689563,
+      "accessLevel": "raid_mapper",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:50:11.737Z",
+      "updatedAt": "2026-04-17T21:50:11.737Z"
+    },
+    {
+      "id": 972389,
+      "userId": 831008,
+      "accessLevel": "raid_mapper",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 459557,
+      "userId": 849181,
+      "accessLevel": "raid_user",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 391710,
+      "userId": 193339,
+      "accessLevel": "raid_user",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    },
+    {
+      "id": 438271,
+      "userId": 356166,
+      "accessLevel": "viewer_only",
+      "grantedBy": 1,
+      "grantedAt": "2026-04-17T21:41:39.972Z"
+    }
+  ],
+  "raidAuditLogs": [
+    {
+      "id": 164674250,
+      "userId": 1,
+      "action": "RAID_BOSS_CREATED",
+      "details": {
+        "bossId": 586552341,
+        "name": "Antharas"
+      },
+      "createdAt": "2026-04-17T11:43:47.717Z"
+    },
+    {
+      "id": 32312352,
+      "userId": 1,
+      "action": "CLAN_CREATED",
+      "details": {
+        "clanId": 680198214,
+        "name": "Valhalla"
+      },
+      "createdAt": "2026-04-17T11:43:57.836Z"
+    },
+    {
+      "id": 188815554,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 378095518,
+        "label": "Ciclo de Raids #1"
+      },
+      "createdAt": "2026-04-17T11:43:58.696Z"
+    },
+    {
+      "id": 994303760,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 378095518,
+        "label": "Ciclo de Raids #1",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T11:44:05.785Z"
+    },
+    {
+      "id": 629018616,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 433986787,
+        "label": "Raids 17/04"
+      },
+      "createdAt": "2026-04-17T11:44:19.448Z"
+    },
+    {
+      "id": 493717271,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 117590370,
+        "bossId": 586552341,
+        "bossName": "Antharas",
+        "clanIds": [
+          680198214
+        ],
+        "dropsCount": 2
+      },
+      "createdAt": "2026-04-17T11:45:16.227Z"
+    },
+    {
+      "id": 658131709,
+      "userId": 1,
+      "action": "RAID_EVENT_CREATED",
+      "details": {
+        "eventId": 309130874,
+        "bossId": 586552341,
+        "bossName": "Antharas",
+        "clanIds": [
+          680198214
+        ],
+        "dropsCount": 1
+      },
+      "createdAt": "2026-04-17T11:45:53.213Z"
+    },
+    {
+      "id": 559322499,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 491061685,
+        "itemName": "Espada +7",
+        "quantitySold": 1,
+        "revenue": 1000,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T11:45:54.737Z"
+    },
+    {
+      "id": 481762837,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 433986787,
+        "label": "Raids 17/04",
+        "events": 2,
+        "drops": 3,
+        "bosses": 2,
+        "clans": 1,
+        "totalRevenue": 1000,
+        "totalPotentialValue": 4499
+      },
+      "createdAt": "2026-04-17T15:21:15.044Z"
+    },
+    {
+      "id": 434104042,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 491061685,
+        "itemName": "Espada +7",
+        "quantitySold": 1,
+        "revenue": 1000,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T21:32:19.546Z"
+    },
+    {
+      "id": 277094456,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 338003639,
+        "itemName": "armadura draconic",
+        "quantitySold": 1,
+        "revenue": 1999,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T21:32:42.244Z"
+    },
+    {
+      "id": 722585560,
+      "userId": 1,
+      "action": "RAID_DROP_SOLD",
+      "details": {
+        "dropItemId": 940650982,
+        "itemName": "Escudo",
+        "quantitySold": 1,
+        "revenue": 500,
+        "clansShared": [
+          680198214
+        ]
+      },
+      "createdAt": "2026-04-17T21:32:45.463Z"
+    },
+    {
+      "id": 690199418,
+      "userId": 1,
+      "action": "RAID_CYCLE_OPENED",
+      "details": {
+        "cycleId": 101954364,
+        "label": "Ciclo de Raids #3"
+      },
+      "createdAt": "2026-04-17T21:33:04.876Z"
+    },
+    {
+      "id": 251418875,
+      "userId": 1,
+      "action": "RAID_CYCLE_CLOSED",
+      "details": {
+        "cycleId": 101954364,
+        "label": "Ciclo de Raids #3",
+        "events": 0,
+        "drops": 0,
+        "bosses": 0,
+        "clans": 0,
+        "totalRevenue": 0,
+        "totalPotentialValue": 0
+      },
+      "createdAt": "2026-04-17T21:33:07.282Z"
+    },
+    {
+      "id": 349848089,
+      "userId": 1,
+      "action": "RAID_EVENT_DELETED",
+      "details": {
+        "eventId": 309130874
+      },
+      "createdAt": "2026-04-17T21:33:28.303Z"
+    },
+    {
+      "id": 655140183,
+      "userId": 1,
+      "action": "RAID_EVENT_DELETED",
+      "details": {
+        "eventId": 117590370
+      },
+      "createdAt": "2026-04-17T21:33:31.477Z"
+    },
+    {
+      "id": 303253025,
+      "userId": 1,
+      "action": "RAID_ACCESS_BULK_GRANTED",
+      "details": {
+        "count": 1,
+        "accessLevel": "raid_user",
+        "userIds": [
+          689563
+        ]
+      },
+      "createdAt": "2026-04-17T21:49:59.376Z"
+    },
+    {
+      "id": 504631435,
+      "userId": 1,
+      "action": "RAID_ACCESS_GRANTED",
+      "details": {
+        "targetUserId": 689563,
+        "accessLevel": "raid_mapper"
+      },
+      "createdAt": "2026-04-17T21:50:11.738Z"
+    },
+    {
+      "id": 876157159,
+      "userId": 1,
+      "action": "RAID_ACCESS_REVOKED",
+      "details": {
+        "targetUserId": 871224,
+        "accessLevel": null
+      },
+      "createdAt": "2026-04-17T21:51:03.970Z"
+    }
+  ],
+  "raidSettings": []
+}

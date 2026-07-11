@@ -9,7 +9,40 @@ import { getLoginUrl } from "./const";
 import { AuthProvider } from "./contexts/AuthContext";
 import "./index.css";
 
-const queryClient = new QueryClient();
+// Patch DOM methods to prevent crashes caused by browser extensions,
+// Google Translate, password managers, or accessibility tools on mobile
+// that modify the DOM outside of React's control.
+if (typeof Node !== 'undefined') {
+  const origInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function <T extends Node>(newNode: T, refNode: Node | null): T {
+    if (refNode && refNode.parentNode !== this) {
+      return newNode;
+    }
+    return origInsertBefore.call(this, newNode, refNode) as T;
+  };
+
+  const origRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function <T extends Node>(child: T): T {
+    if (child.parentNode !== this) {
+      return child;
+    }
+    return origRemoveChild.call(this, child) as T;
+  };
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 20 * 1000,               // 20s: data fresca; luego se puede refrescar
+      gcTime: 5 * 60 * 1000,              // 5 min: caché en memoria
+      refetchOnWindowFocus: true,          // Recargar al volver a la pestaña (ver cambios de otros)
+      refetchOnReconnect: true,            // Recargar al reconectar internet
+      refetchInterval: 30 * 1000,          // Polling cada 30s: otros usuarios ven cambios sin refrescar
+      refetchIntervalInBackground: false,  // Pero NO cuando la pestaña está oculta (ahorra recursos/OOM)
+      retry: 1,                            // Solo 1 reintento en error
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
@@ -43,6 +76,7 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      maxURLLength: 2048,
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),
