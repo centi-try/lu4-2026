@@ -409,7 +409,14 @@ export const itemsRouter = router({
       earningsByCharId.forEach((share, cid) => {
         nextByChar[String(cid)] = (Number(nextByChar[String(cid)]) || 0) + share;
       });
-      await updateItem(input.id, { cycleEarningsByChar: nextByChar });
+      // Acumular el REVENUE REAL de cada venta con el precio del momento. Al
+      // cerrar el ciclo el total se toma de aquí (no se recalcula con el precio
+      // actual), así editar el precio después de vender no descuadra el ciclo.
+      const prevCycleRevenue = Number(item.cycleRevenue) || 0;
+      await updateItem(input.id, {
+        cycleEarningsByChar: nextByChar,
+        cycleRevenue: prevCycleRevenue + totalRevenue,
+      });
 
       // Acumular retención del clan (se registra como transacción al cerrar el ciclo)
       if (clanTaxAmount > 0) {

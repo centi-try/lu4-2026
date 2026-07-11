@@ -1191,13 +1191,20 @@ export const closeSalesCycle = async (id: number, data: any) => {
         ? i.associatedCharacterIds.map(String)
         : [];
       const associatedCount = assocIds.length || 1;
-      const totalRev = (Number(i.price) || 0) * (i.quantitySoldInCycle || 0);
+      const qtyInCycle = i.quantitySoldInCycle || 0;
+      // REVENUE REAL del ciclo: se usa el monto acumulado en cada venta
+      // (`cycleRevenue`, precio del momento), NO precio_actual × cantidad. Así
+      // editar el precio después de vender no infla ni desinfla el total del
+      // ciclo. Fallback a precio×cantidad para ítems sin el acumulado (legacy).
+      const realCycleRev = Number(i.cycleRevenue) || 0;
+      const totalRev = realCycleRev > 0 ? realCycleRev : (Number(i.price) || 0) * qtyInCycle;
+      const displayPrice = qtyInCycle > 0 ? Math.floor(totalRev / qtyInCycle) : (Number(i.price) || 0);
       return {
         itemId: String(i.id),
         itemName: i.name,
         category: i.category || 'ARMA',
-        price: Number(i.price) || 0,
-        quantitySold: i.quantitySoldInCycle,
+        price: displayPrice,
+        quantitySold: qtyInCycle,
         totalRevenue: totalRev,
         associatedCharacterIds: assocIds,
         earningsPerCharacter: Math.floor(totalRev / associatedCount),
@@ -1211,18 +1218,38 @@ export const closeSalesCycle = async (id: number, data: any) => {
       };
     });
 
+  // Desglose Cooperativo/Individual por usuario, según el flag FINAL del ítem
+  // (el que quede marcado al cerrar el ciclo manda). Se suma el reparto real
+  // (`earningsByCharacter`) de cada ítem en el bucket que corresponde a su flag
+  // actual. Así el conteo de ítems 🤝/👤 cuadra con los montos, aunque el flag
+  // se haya cambiado después de vender.
+  const coopByChar: Record<string, number> = {};
+  for (const si of soldItems) {
+    if (!si.isCooperative) continue;
+    const ebc = (si.earningsByCharacter && typeof si.earningsByCharacter === 'object')
+      ? si.earningsByCharacter as Record<string, number>
+      : {};
+    for (const [cid, v] of Object.entries(ebc)) {
+      coopByChar[cid] = (Number(coopByChar[cid]) || 0) + (Number(v) || 0);
+    }
+  }
+
   // Identificar ganancias por usuario (1 cuenta = 1 personaje).
-  // `earnings` = total (compat), con el desglose coop/individual para separar
-  // visualmente en el ciclo. Solo separación: la suma coop+indiv == earnings.
+  // `earnings` = total real acumulado; coop = reparto en ítems cooperativos;
+  // indiv = el resto. Garantiza coop + indiv == earnings.
   const characterEarnings = users
     .filter((u: any) => (Number(u.currentCycleEarnings) || 0) > 0)
-    .map((u: any) => ({
-      characterId: String(u.id),
-      characterName: u.characterName || u.name || 'Sin nombre',
-      earnings: Number(u.currentCycleEarnings) || 0,
-      coopEarnings: Number(u.currentCycleEarningsCoop) || 0,
-      indivEarnings: Number(u.currentCycleEarningsIndiv) || 0,
-    }));
+    .map((u: any) => {
+      const earnings = Number(u.currentCycleEarnings) || 0;
+      const coop = Math.min(earnings, Number(coopByChar[String(u.id)]) || 0);
+      return {
+        characterId: String(u.id),
+        characterName: u.characterName || u.name || 'Sin nombre',
+        earnings,
+        coopEarnings: coop,
+        indivEarnings: earnings - coop,
+      };
+    });
 
   // FIX: Identificar items no vendidos correctamente
   // Un item no vendido es aquel que tiene stock disponible (quantity > quantitySold)
@@ -1235,13 +1262,12 @@ export const closeSalesCycle = async (id: number, data: any) => {
     })
     .map(i => String(i.id));
 
-  // Calcular totales
-  const totalRevenue = data.totalRevenue !== undefined
-    ? Number(data.totalRevenue)
-    : soldItems.reduce((acc, i) => acc + i.totalRevenue, 0);
-  const totalProfit = data.totalProfit !== undefined
-    ? Number(data.totalProfit)
-    : totalRevenue;
+  // Calcular totales desde el REVENUE REAL de los ítems vendidos (suma de lo
+  // realmente cobrado en cada venta). No se usa el total enviado por el cliente
+  // porque ese se recalcula con el precio actual y se descuadra si el precio
+  // cambió después de vender.
+  const totalRevenue = soldItems.reduce((acc, i) => acc + i.totalRevenue, 0);
+  const totalProfit = totalRevenue;
 
   // FIX: Determinar el número de ciclo correcto
   const closedCyclesCount = (dbInstance.salesCycles || []).filter(c => c.status === 'CLOSED').length;
@@ -1310,6 +1336,8 @@ export const closeSalesCycle = async (id: number, data: any) => {
       quantitySoldInCycle: 0,
       // Reset del acumulado de reparto por usuario para el próximo ciclo.
       cycleEarningsByChar: {},
+      // Reset del revenue real acumulado del ciclo.
+      cycleRevenue: 0,
       // FIX: Si el item fue completamente vendido, mantener status VENDIDO
       // Si no, restaurar a CONFIRMED para que siga disponible en el siguiente ciclo
       status: (() => {
