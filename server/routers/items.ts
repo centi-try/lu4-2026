@@ -215,6 +215,74 @@ export const itemsRouter = router({
       return { success: true, count: updated };
     }),
 
+  // Aplica un mismo precio base a varios ítems en LOTE. Una sola escritura a
+  // disco y un solo log de auditoría, para no gatillar N mutaciones al editar
+  // el precio de un grupo grande (ej. 80 ítems) desde el Resumen de Inventario.
+  // Solo cambia el precio base; el descuento de clan y KPIs se calculan igual.
+  bulkSetPrice: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1), price: z.number().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const idSet = new Set(input.ids.map(Number));
+      let updated = 0;
+      dbInstance.items = dbInstance.items.map((i: any) => {
+        if (idSet.has(Number(i.id))) {
+          updated += 1;
+          return { ...i, price: input.price, updatedAt: new Date() };
+        }
+        return i;
+      });
+      saveDbToDisk();
+
+      await createAuditLog({
+        userId: ctx.user?.id || 0,
+        action: "UPDATE_PRICE",
+        detail: `Actualizó el precio de ${updated} ítem(s) a $${input.price.toLocaleString()} (en lote).`,
+        details: { ids: input.ids, price: input.price, count: updated },
+      });
+
+      return { success: true, count: updated };
+    }),
+
+  // Crea varios ítems en LOTE. Una sola escritura a disco y un solo log de
+  // auditoría, para no gatillar N mutaciones al registrar muchas filas de una
+  // vez desde el panel de Registro. Mismo formato/validación que `create`.
+  bulkCreate: protectedProcedure
+    .input(z.object({ items: z.array(CreateItemSchema).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      for (const it of input.items) {
+        const newItem = {
+          name: it.name,
+          category: it.category,
+          status: it.status,
+          price: it.price,
+          mapperId: it.mapperId,
+          imageUrl: it.imageUrl ?? null,
+          quantity: it.quantity || 1,
+          quantitySold: 0,
+          quantitySoldInCycle: 0,
+          associatedCharacterIds: Array.isArray(it.associatedCharacterIds)
+            ? it.associatedCharacterIds.map(Number)
+            : [],
+          responsibleUserId: it.responsibleUserId ?? null,
+          isCooperative: Boolean(it.isCooperative),
+          id: Math.floor(Math.random() * 1000000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        dbInstance.items.push(newItem);
+      }
+      saveDbToDisk();
+
+      await createAuditLog({
+        userId: ctx.user?.id || 0,
+        action: "CREATE_ITEM",
+        detail: `Registró ${input.items.length} ítem(s) en lote.`,
+        details: { count: input.items.length, names: input.items.map((i) => i.name) },
+      });
+
+      return { success: true, count: input.items.length };
+    }),
+
   confirm: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {

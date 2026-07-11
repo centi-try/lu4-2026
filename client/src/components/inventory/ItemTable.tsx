@@ -351,7 +351,7 @@ function InventorySummaryButton({
   // Claves validadas en la sesión actual. Se limpia al abrir/cerrar.
   const [validated, setValidated] = useState<Set<string>>(new Set());
   // Edición de precio por grupo: clave del grupo en edición + valor tipeado.
-  const { updateItem, bulkSetItemCooperative } = useApp();
+  const { updateItem, bulkSetItemCooperative, bulkSetItemPrice } = useApp();
   // Cambios de Cooperativo/Individual PENDIENTES (por clave de grupo). No se
   // aplican hasta pulsar "Guardar cambios" — así un lote grande hace una sola
   // escritura al backend en vez de N mutaciones que tumban la página.
@@ -487,9 +487,8 @@ function InventorySummaryButton({
   const saveGroupPrice = (g: { key: string; itemIds: string[]; name: string }) => {
     const parsed = parseThousands(priceDraft);
     if (parsed === null || parsed <= 0) { toast.error('Precio inválido.'); return; }
-    for (const id of g.itemIds) {
-      updateItem(id, { price: parsed });
-    }
+    // Una sola llamada en lote (evita N mutaciones que tumban la página con grupos grandes).
+    bulkSetItemPrice(g.itemIds, parsed);
     toast.success(`Precio de "${g.name}" actualizado a $${parsed.toLocaleString()} (${g.itemIds.length} ${g.itemIds.length === 1 ? 'ítem' : 'ítems'}).`);
     setEditingPriceKey(null);
     setPriceDraft('');

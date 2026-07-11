@@ -78,7 +78,7 @@ const isInvalidQuantity = (q: string): boolean => {
 };
 
 export function CreateItemPanel() {
-  const { addItem, currentUser } = useApp();
+  const { addItemsBatch, currentUser } = useApp();
   const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery();
   const legacyUsers = useMemo(() => {
     return (legacyBuyersData as any[] || []).map((u: any) => {
@@ -359,11 +359,13 @@ export function CreateItemPanel() {
 
     setSubmitting(true);
     try {
-      rows.forEach(r => {
+      // Registro en LOTE: una sola llamada al backend en vez de N (evita colgar
+      // la página al registrar muchas filas a la vez).
+      addItemsBatch(rows.map(r => {
         const cat = r.category as ItemCategory;
         const qty = parseInt(r.quantity) || 1;
         const finalImage = r.imageUrl || resolveCategoryIcon(cat);
-        addItem({
+        return {
           name: r.name.trim(),
           category: cat,
           price: r.price ? parseThousands(r.price) : null,
@@ -376,11 +378,10 @@ export function CreateItemPanel() {
           associatedCharacterIds: r.selectedCharIds,
           isCooperative: r.isCooperative,
           quantity: qty,
-          quantitySoldInCycle: 0,
           // #17: responsable del ítem seleccionado en el picker.
           responsibleUserId: r.responsibleId || null,
-        });
-      });
+        };
+      }));
 
       if (rows.length === 1) {
         toast.success(`Ítem "${rows[0].name.trim()}" registrado correctamente.`);

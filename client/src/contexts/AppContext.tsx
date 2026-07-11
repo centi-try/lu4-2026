@@ -32,8 +32,10 @@ interface AppContextType {
   cycleNumber: number;
 
   addItem: (item: Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold'>) => void;
+  addItemsBatch: (items: Array<Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>>) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
   bulkSetItemCooperative: (ids: string[], isCooperative: boolean) => void;
+  bulkSetItemPrice: (ids: string[], price: number) => void;
   confirmItem: (id: string) => void;
   deleteItem: (id: string) => void;
   sellItem: (opts: SellItemOptions) => void;
@@ -248,6 +250,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
 
+  const bulkSetPriceMutation = trpc.items.bulkSetPrice.useMutation({
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
+  const bulkCreateMutation = trpc.items.bulkCreate.useMutation({
+    onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
   const confirmItemMutation = trpc.items.confirm.useMutation({
     onSuccess: () => { refetchItems(); refetchAuditLogs(); }
   });
@@ -334,6 +344,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addLog(item.id, item.name, 'CREATED_ITEM', `Registró "${item.name}" en categoría ${item.category}.`);
   }, [currentUser, addLog, createItemMutation]);
 
+  // Registra varios ítems con UNA sola llamada al backend (evita N mutaciones
+  // al registrar muchas filas de una vez). Optimista en local, mismo formato
+  // que addItem por cada fila.
+  const addItemsBatch = useCallback((list: Array<Omit<Item, 'id' | 'normalizedName' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'quantitySold' | 'quantitySoldInCycle'>>) => {
+    if (currentUser.role === 'USER') return;
+    if (list.length === 0) return;
+
+    const payload = list.map(data => ({
+      name: data.name,
+      category: data.category,
+      status: data.status,
+      price: data.price || 0,
+      mapperId: parseInt(String(currentUser.id).replace('auth-', '')) || 0,
+      associatedCharacterIds: data.associatedCharacterIds.map(id => parseInt(String(id).replace('auth-', '')) || 0).filter(id => id > 0),
+      quantity: data.quantity || 1,
+      imageUrl: String(data.image?.publicUrl || '').trim() || null,
+      responsibleUserId: data.responsibleUserId
+        ? (parseInt(String(data.responsibleUserId).replace('auth-', '')) || null)
+        : null,
+      isCooperative: Boolean(data.isCooperative),
+    }));
+    bulkCreateMutation.mutate({ items: payload });
+
+    const now = new Date().toISOString();
+    const newItems: Item[] = list.map(data => ({
+      ...data,
+      id: `item-${nanoid(6)}`,
+      normalizedName: data.name.toLowerCase(),
+      createdAt: now,
+      updatedAt: now,
+      createdBy: currentUser.name,
+      updatedBy: currentUser.name,
+      quantitySold: 0,
+      quantitySoldInCycle: 0,
+    }));
+    setItems(prev => [...newItems, ...prev]);
+
+    setCharacters(prev => prev.map(char => {
+      const extra = newItems.filter(it => it.associatedCharacterIds.includes(char.id) && !char.itemIds.includes(it.id)).map(it => it.id);
+      return extra.length > 0 ? { ...char, itemIds: [...char.itemIds, ...extra] } : char;
+    }));
+
+    addLog(newItems[0].id, newItems[0].name, 'CREATED_ITEM', `Registró ${newItems.length} ítem(s) en lote.`);
+  }, [currentUser, addLog, bulkCreateMutation]);
+
   const updateItem = useCallback((id: string, updates: Partial<Item>) => {
     if (currentUser.role === 'USER') return;
 
@@ -393,6 +448,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         : item
     ));
   }, [currentUser, bulkSetCooperativeMutation]);
+
+  // Aplica un mismo precio base a varios ítems con UNA sola llamada al backend
+  // (evita disparar N mutaciones al editar el precio de un grupo grande).
+  const bulkSetItemPrice = useCallback((ids: string[], price: number) => {
+    if (currentUser.role === 'USER') return;
+    const numericIds = ids
+      .map(id => parseInt(String(id).replace('item-', '')))
+      .filter(n => !isNaN(n));
+    if (numericIds.length === 0) return;
+    bulkSetPriceMutation.mutate({ ids: numericIds, price });
+    const idSet = new Set(ids);
+    setItems(prev => prev.map(item =>
+      idSet.has(item.id)
+        ? { ...item, price, updatedAt: new Date().toISOString(), updatedBy: currentUser.name }
+        : item
+    ));
+  }, [currentUser, bulkSetPriceMutation]);
 
   const confirmItem = useCallback((id: string) => {
     if (currentUser.role === 'USER') return;
@@ -603,7 +675,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
       items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,
-      addItem, updateItem, bulkSetItemCooperative, confirmItem, deleteItem, sellItem, searchItems,
+      addItem, addItemsBatch, updateItem, bulkSetItemCooperative, bulkSetItemPrice, confirmItem, deleteItem, sellItem, searchItems,
       startCycle, closeCycle
     }}>
       {children}
