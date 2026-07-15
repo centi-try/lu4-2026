@@ -197,6 +197,10 @@ interface DatabaseSchema {
   // se valida que la cantidad individual ≤ stock disponible. El dueño o un
   // admin/mapper pueden cancelar.
   itemReservations: any[];
+  // Tiendas (vendedores) — nombres de texto que el Super Admin registra para
+  // anotar en qué personaje/tienda quedó puesto a la venta un ítem. Es solo
+  // una referencia (no cambia estado del ítem ni afecta ciclos/montos).
+  shops: any[];
   // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
@@ -276,6 +280,7 @@ const initialSchema: DatabaseSchema = {
   purchases: [],
   settings: [],
   itemReservations: [],
+  shops: [],
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -480,6 +485,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     purchases: ensureArray(data?.purchases),
     settings: Array.isArray(data?.settings) ? data.settings : (data?.settings ? [data.settings] : []),
     itemReservations: ensureArray(data?.itemReservations),
+    shops: ensureArray(data?.shops),
     // ============================================================
     // Raid module collections
     // ============================================================
@@ -1027,6 +1033,35 @@ export const updateItem = async (id: number, data: any) => {
 };
 export const deleteItem = async (id: number) => {
   dbInstance.items = dbInstance.items.filter(i => i.id !== id);
+  saveDb(dbInstance);
+};
+
+// ============================================================================
+// Tiendas (vendedores) — CRUD simple. Solo referencia para el Super Admin de
+// dónde quedó puesto a la venta un ítem; no afecta estado del ítem ni ciclos.
+// ============================================================================
+export const getShops = () => dbInstance.shops || [];
+export const createShop = (name: string) => {
+  if (!dbInstance.shops) dbInstance.shops = [];
+  const shop = { id: Math.floor(Math.random() * 1000000), name: name.trim(), createdAt: new Date().toISOString() };
+  dbInstance.shops.push(shop);
+  saveDb(dbInstance);
+  return shop;
+};
+export const renameShop = (id: number, name: string) => {
+  if (!dbInstance.shops) dbInstance.shops = [];
+  dbInstance.shops = dbInstance.shops.map((s: any) =>
+    Number(s.id) === Number(id) ? { ...s, name: name.trim() } : s
+  );
+  saveDb(dbInstance);
+};
+export const deleteShop = (id: number) => {
+  if (!dbInstance.shops) dbInstance.shops = [];
+  dbInstance.shops = dbInstance.shops.filter((s: any) => Number(s.id) !== Number(id));
+  // Al borrar una tienda, los ítems que la tenían asignada quedan sin tienda.
+  dbInstance.items = (dbInstance.items || []).map((i: any) =>
+    Number(i.shopId) === Number(id) ? { ...i, shopId: null } : i
+  );
   saveDb(dbInstance);
 };
 

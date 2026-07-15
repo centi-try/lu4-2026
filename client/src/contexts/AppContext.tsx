@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type {
   Item, Character, AuditLog, ItemCategory, ItemStatus, UserRole,
-  SalesCycle, CycleCharacterEarning, CycleSoldItem, Purchase
+  SalesCycle, CycleCharacterEarning, CycleSoldItem, Purchase, Shop
 } from '../lib/types';
 import { nanoid } from 'nanoid';
 import { useAuth } from './AuthContext';
@@ -36,6 +36,11 @@ interface AppContextType {
   updateItem: (id: string, updates: Partial<Item>) => void;
   bulkSetItemCooperative: (ids: string[], isCooperative: boolean) => void;
   bulkSetItemPrice: (ids: string[], price: number) => void;
+  bulkSetItemShop: (ids: string[], shopId: string | null) => void;
+  shops: Shop[];
+  createShop: (name: string) => void;
+  renameShop: (id: string, name: string) => void;
+  deleteShop: (id: string) => void;
   confirmItem: (id: string) => void;
   deleteItem: (id: string) => void;
   sellItem: (opts: SellItemOptions) => void;
@@ -128,6 +133,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { data: serverPurchases, refetch: refetchPurchases, isLoading: purchasesLoading } = trpc.items.listPurchases.useQuery(undefined, {
     enabled: !!authUser,
   });
+  const { data: serverShops, refetch: refetchShops } = trpc.items.shops.list.useQuery(undefined, {
+    enabled: !!authUser && isAuthSuperAdmin,
+  });
   const { data: serverCycles, refetch: refetchCycles, isLoading: cyclesLoading } = trpc.salesCycles.list.useQuery(undefined, {
     enabled: !!authUser,
   });
@@ -157,6 +165,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         associatedCharacterIds: Array.isArray(item.associatedCharacterIds) ? item.associatedCharacterIds.map(String) : [],
         // #17: responsable del ítem (id de usuario). El nombre se resuelve en la tabla.
         responsibleUserId: item.responsibleUserId !== null && item.responsibleUserId !== undefined ? String(item.responsibleUserId) : null,
+        // Tienda asignada (solo referencia). null = sin tienda.
+        shopId: item.shopId !== null && item.shopId !== undefined ? String(item.shopId) : null,
         image: item.image || {
           id: `img-${item.id}`,
           publicUrl: item.imageUrl || '',
@@ -256,6 +266,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const bulkCreateMutation = trpc.items.bulkCreate.useMutation({
     onSuccess: () => { refetchItems(); refetchAuditLogs(); }
+  });
+
+  const bulkSetShopMutation = trpc.items.bulkSetShop.useMutation({
+    onSuccess: () => { refetchItems(); }
+  });
+  const shopCreateMutation = trpc.items.shops.create.useMutation({
+    onSuccess: () => { refetchShops(); }
+  });
+  const shopRenameMutation = trpc.items.shops.rename.useMutation({
+    onSuccess: () => { refetchShops(); }
+  });
+  const shopDeleteMutation = trpc.items.shops.delete.useMutation({
+    onSuccess: () => { refetchShops(); refetchItems(); }
   });
 
   const confirmItemMutation = trpc.items.confirm.useMutation({
@@ -466,6 +489,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ));
   }, [currentUser, bulkSetPriceMutation]);
 
+  // Tiendas (vendedores). Lista derivada del servidor + CRUD. Solo Super Admin.
+  const shops: Shop[] = React.useMemo(
+    () => (serverShops as any[] | undefined || []).map(s => ({
+      id: String(s.id),
+      name: String(s.name || ''),
+      createdAt: s.createdAt,
+    })),
+    [serverShops]
+  );
+
+  const createShop = useCallback((name: string) => {
+    if (currentUser.role !== 'SUPER_ADMIN') return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    shopCreateMutation.mutate({ name: trimmed });
+  }, [currentUser, shopCreateMutation]);
+
+  const renameShop = useCallback((id: string, name: string) => {
+    if (currentUser.role !== 'SUPER_ADMIN') return;
+    const numericId = parseInt(String(id), 10);
+    const trimmed = name.trim();
+    if (isNaN(numericId) || !trimmed) return;
+    shopRenameMutation.mutate({ id: numericId, name: trimmed });
+  }, [currentUser, shopRenameMutation]);
+
+  const deleteShop = useCallback((id: string) => {
+    if (currentUser.role !== 'SUPER_ADMIN') return;
+    const numericId = parseInt(String(id), 10);
+    if (isNaN(numericId)) return;
+    shopDeleteMutation.mutate({ id: numericId });
+  }, [currentUser, shopDeleteMutation]);
+
+  // Asigna (o quita, shopId=null) la tienda a varios ítems con UNA sola llamada
+  // al backend (evita N mutaciones en grupos grandes). Optimista en local.
+  const bulkSetItemShop = useCallback((ids: string[], shopId: string | null) => {
+    if (currentUser.role !== 'SUPER_ADMIN') return;
+    const numericIds = ids
+      .map(id => parseInt(String(id).replace('item-', '')))
+      .filter(n => !isNaN(n));
+    if (numericIds.length === 0) return;
+    const numericShopId = shopId != null ? parseInt(String(shopId), 10) : null;
+    bulkSetShopMutation.mutate({ ids: numericIds, shopId: (numericShopId != null && !isNaN(numericShopId)) ? numericShopId : null });
+    const idSet = new Set(ids);
+    setItems(prev => prev.map(item =>
+      idSet.has(item.id)
+        ? { ...item, shopId, updatedAt: new Date().toISOString(), updatedBy: currentUser.name }
+        : item
+    ));
+  }, [currentUser, bulkSetShopMutation]);
+
   const confirmItem = useCallback((id: string) => {
     if (currentUser.role === 'USER') return;
     if (currentUser.role !== 'SUPER_ADMIN') return;
@@ -675,7 +748,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       currentUser, setCurrentUser, isImpersonating, effectiveRole, effectiveIsSuperAdmin,
       items, characters, auditLogs, purchases, salesCycles,
       currentCycleStartedAt, cycleNumber,
-      addItem, addItemsBatch, updateItem, bulkSetItemCooperative, bulkSetItemPrice, confirmItem, deleteItem, sellItem, searchItems,
+      addItem, addItemsBatch, updateItem, bulkSetItemCooperative, bulkSetItemPrice,
+      bulkSetItemShop, shops, createShop, renameShop, deleteShop,
+      confirmItem, deleteItem, sellItem, searchItems,
       startCycle, closeCycle
     }}>
       {children}
