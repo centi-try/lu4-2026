@@ -16,6 +16,7 @@ import { clanFundRouter } from "./routers/clanFund";
 import { warehouseRouter } from "./routers/warehouse";
 import { presentationRouter } from "./routers/presentation";
 import { carouselRouter } from "./routers/carousel";
+import { cpSplitRouter } from "./routers/cpSplit";
 
 export const appRouter = router({
   system: systemRouter,
@@ -43,6 +44,7 @@ export const appRouter = router({
   warehouse: warehouseRouter,
   presentation: presentationRouter,
   carousel: carouselRouter,
+  cpSplit: cpSplitRouter,
 });
 
 export type AppRouter = typeof appRouter;

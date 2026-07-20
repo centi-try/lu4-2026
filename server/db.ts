@@ -202,6 +202,16 @@ interface DatabaseSchema {
   // una referencia (no cambia estado del ítem ni afecta ciclos/montos).
   shops: any[];
   // ============================================================
+  // Reparticiones CP (módulo independiente, solo Super Admin)
+  // ============================================================
+  // Reparto equitativo de ítems entre Command Parties. NO comparte data con
+  // el inventario: tiene sus propios ítems, CPs y vendedores persistentes, y
+  // su propio historial de trazabilidad (visible solo para el Super Admin).
+  cpParticipants: any[];  // CPs nombradas (id, name, createdAt)
+  cpVendors: any[];       // vendedores propios de este módulo (id, name, createdAt)
+  cpItems: any[];         // ítems registrados (borrador/confirmado) + su reparto
+  cpHistory: any[];       // historial de acciones del módulo (trazabilidad)
+  // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
   raidBosses: any[];
@@ -281,6 +291,10 @@ const initialSchema: DatabaseSchema = {
   settings: [],
   itemReservations: [],
   shops: [],
+  cpParticipants: [],
+  cpVendors: [],
+  cpItems: [],
+  cpHistory: [],
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -486,6 +500,10 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     settings: Array.isArray(data?.settings) ? data.settings : (data?.settings ? [data.settings] : []),
     itemReservations: ensureArray(data?.itemReservations),
     shops: ensureArray(data?.shops),
+    cpParticipants: ensureArray(data?.cpParticipants),
+    cpVendors: ensureArray(data?.cpVendors),
+    cpItems: ensureArray(data?.cpItems),
+    cpHistory: ensureArray(data?.cpHistory),
     // ============================================================
     // Raid module collections
     // ============================================================
@@ -1063,6 +1081,31 @@ export const deleteShop = (id: number) => {
     Number(i.shopId) === Number(id) ? { ...i, shopId: null } : i
   );
   saveDb(dbInstance);
+};
+
+// ============================================================================
+// Reparticiones CP — accesores del módulo independiente. No tocan inventario,
+// personajes, ciclos ni montos: es data propia (CPs, vendedores, ítems a
+// repartir) con su propio historial de trazabilidad para el Super Admin.
+// ============================================================================
+const cpId = () => Math.floor(Math.random() * 1000000);
+
+export const getCpParticipants = () => dbInstance.cpParticipants || [];
+export const getCpVendors = () => dbInstance.cpVendors || [];
+export const getCpItems = () => dbInstance.cpItems || [];
+export const getCpHistory = () => dbInstance.cpHistory || [];
+
+export const pushCpHistory = (action: string, detail: string, actorName: string) => {
+  if (!dbInstance.cpHistory) dbInstance.cpHistory = [];
+  dbInstance.cpHistory.unshift({
+    id: cpId(),
+    action,
+    detail,
+    actorName: actorName || 'Super Admin',
+    createdAt: new Date().toISOString(),
+  });
+  // Acotamos el historial para no crecer sin límite en la máquina de 256 MB.
+  if (dbInstance.cpHistory.length > 1000) dbInstance.cpHistory.length = 1000;
 };
 
 export const getCharacters = async (userId?: number) => {

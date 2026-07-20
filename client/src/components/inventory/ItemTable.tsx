@@ -1226,7 +1226,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       let matchesStatus = true;
       if (statusStr === 'WITH_RESERVATIONS') {
         const rs = reservationsByItem.get(String(i.id));
-        matchesStatus = !!(rs && rs.length > 0);
+        const remaining = (Number(i.quantity) || 0) - (Number(i.quantitySold) || 0);
+        matchesStatus = !!(rs && rs.length > 0) && remaining > 0;
       } else if (statusStr === 'STALE_7D') {
         const daysOld = Math.floor((Date.now() - new Date(i.createdAt).getTime()) / 86400000);
         matchesStatus = daysOld >= 7 && i.status !== 'VENDIDO' && i.quantitySold < i.quantity;
@@ -1274,7 +1275,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     let reservedUnitsTotal = 0;
     for (const it of filtered) {
       const rs = reservationsByItem.get(String(it.id));
-      if (rs && rs.length > 0) {
+      const remaining = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
+      if (rs && rs.length > 0 && remaining > 0) {
         itemsWithReservations += 1;
         for (const r of rs) reservedUnitsTotal += Number(r.quantity) || 0;
       }
