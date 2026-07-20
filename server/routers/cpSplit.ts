@@ -22,16 +22,31 @@ const newId = () => Math.floor(Math.random() * 1000000);
 const actor = (ctx: any) =>
   String(ctx?.user?.characterName || ctx?.user?.name || ctx?.user?.email || "Super Admin");
 
-type RemainderAction = "SELL" | "ASSIGN";
+// remainderAlloc: mapa CP → unidades EXTRA del sobrante que se le asignan a esa
+// CP. Lo que no se asigne del sobrante queda "a vender". Ej.: 5 ítems / 4 CP →
+// base 1·1·1·1, sobrante 1; { "CP Oeste": 1 } → 1·1·1·2. Con sobrante 2 se
+// puede repartir a gusto: { "CP Norte": 1, "CP Sur": 1 }.
+type RemainderAlloc = Record<string, number>;
+
+// Convierte el ítem a un remainderAlloc normalizado, tolerando el modelo viejo
+// (remainderAction/assignedCp) por si quedaran registros antiguos.
+function remainderAllocOf(item: any): RemainderAlloc {
+  if (item && item.remainderAlloc && typeof item.remainderAlloc === "object") {
+    return item.remainderAlloc as RemainderAlloc;
+  }
+  if (item && item.remainderAction === "ASSIGN" && item.assignedCp) {
+    return { [String(item.assignedCp)]: Number.MAX_SAFE_INTEGER };
+  }
+  return {};
+}
 
 // Reparto equitativo por ítem: cada CP recibe floor(cantidad / nCP). El
-// sobrante (resto) por defecto va "a vender"; si el Super Admin elige ASSIGN,
-// ese sobrante se le suma a la CP elegida (ej. 5 ítems / 4 CP → 1·1·1·2).
+// sobrante (resto) por defecto va "a vender"; el Super Admin puede repartir ese
+// sobrante entre las CPs con remainderAlloc.
 export function computeAllocation(
   quantity: number,
   cpNames: string[],
-  remainderAction: RemainderAction,
-  assignedCp: string | null,
+  remainderAlloc: RemainderAlloc,
 ) {
   const n = cpNames.length;
   const qty = Math.max(0, Number(quantity) || 0);
@@ -39,14 +54,19 @@ export function computeAllocation(
   const remainder = n > 0 ? qty - perCp * n : qty;
   const alloc: Record<string, number> = {};
   for (const name of cpNames) alloc[name] = perCp;
-  let toSell = 0;
-  if (remainder > 0) {
-    if (remainderAction === "ASSIGN" && assignedCp && cpNames.includes(assignedCp)) {
-      alloc[assignedCp] = (alloc[assignedCp] || 0) + remainder;
-    } else {
-      toSell = remainder;
+  let assigned = 0;
+  if (remainder > 0 && remainderAlloc) {
+    for (const name of cpNames) {
+      if (assigned >= remainder) break;
+      const want = Math.max(0, Math.floor(Number(remainderAlloc[name]) || 0));
+      const give = Math.min(want, remainder - assigned);
+      if (give > 0) {
+        alloc[name] += give;
+        assigned += give;
+      }
     }
   }
+  const toSell = remainder - assigned;
   return { perCp, remainder, alloc, toSell };
 }
 
@@ -119,13 +139,15 @@ export const cpSplitRouter = router({
     delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const prev = getCpParticipants().find((c: any) => Number(c.id) === Number(input.id));
       dbInstance.cpParticipants = getCpParticipants().filter((c: any) => Number(c.id) !== Number(input.id));
-      // Si alguna CP borrada tenía asignado un sobrante en un ítem borrador, se
-      // revierte ese ítem a "a vender" para no quedar apuntando a una CP muerta.
-      dbInstance.cpItems = getCpItems().map((it: any) =>
-        it.status !== "CONFIRMED" && it.remainderAction === "ASSIGN" && String(it.assignedCp) === String(prev?.name)
-          ? { ...it, remainderAction: "SELL", assignedCp: null }
-          : it,
-      );
+      // Si alguna CP borrada tenía asignado sobrante en un ítem borrador, se
+      // quita ese extra (vuelve a "a vender") para no apuntar a una CP muerta.
+      dbInstance.cpItems = getCpItems().map((it: any) => {
+        if (it.status === "CONFIRMED" || !it.remainderAlloc || !prev?.name) return it;
+        if (it.remainderAlloc[prev.name] == null) return it;
+        const next = { ...it.remainderAlloc };
+        delete next[prev.name];
+        return { ...it, remainderAlloc: next };
+      });
       pushCpHistory("CP_ELIMINADA", `Eliminó la CP "${prev?.name ?? input.id}"`, actor(ctx));
       saveDbToDisk();
       return { success: true };
@@ -189,8 +211,7 @@ export const cpSplitRouter = router({
           category: input.category?.trim() || "",
           imageUrl: input.imageUrl?.trim() || "",
           quantity: input.quantity,
-          remainderAction: "SELL" as RemainderAction,
-          assignedCp: null as string | null,
+          remainderAlloc: {} as RemainderAlloc,
           price: null as number | null,
           vendorId: null as number | null,
           status: "DRAFT" as "DRAFT" | "CONFIRMED",
@@ -210,8 +231,7 @@ export const cpSplitRouter = router({
           category: z.string().trim().max(80).optional(),
           imageUrl: z.string().trim().max(1000).optional(),
           quantity: z.number().int().min(1).max(100000).optional(),
-          remainderAction: z.enum(["SELL", "ASSIGN"]).optional(),
-          assignedCp: z.string().trim().max(60).nullable().optional(),
+          remainderAlloc: z.record(z.string(), z.number().int().min(0)).optional(),
           price: z.number().min(0).nullable().optional(),
           vendorId: z.number().nullable().optional(),
         }),
@@ -222,9 +242,7 @@ export const cpSplitRouter = router({
         dbInstance.cpItems = getCpItems().map((it: any) => {
           if (Number(it.id) !== Number(id)) return it;
           found = true;
-          const next = { ...it, ...patch };
-          if (next.remainderAction === "SELL") next.assignedCp = null;
-          return next;
+          return { ...it, ...patch };
         });
         if (!found) throw new Error("Ítem no encontrado");
         saveDbToDisk();
@@ -245,8 +263,7 @@ export const cpSplitRouter = router({
       const { alloc, toSell } = computeAllocation(
         item.quantity,
         participants,
-        item.remainderAction,
-        item.assignedCp,
+        remainderAllocOf(item),
       );
       const repartoTxt = participants.map((n) => `${n}: ${alloc[n] ?? 0}`).join(" · ");
       pushCpHistory(
@@ -311,7 +328,7 @@ export const cpSplitRouter = router({
       let rowIdx = 2;
       for (const it of allItems) {
         const cpNames = effectiveCpNames(it);
-        const { alloc, toSell } = computeAllocation(it.quantity, cpNames, it.remainderAction, it.assignedCp);
+        const { alloc, toSell } = computeAllocation(it.quantity, cpNames, remainderAllocOf(it));
         const rowData: Record<string, any> = {
           img: "",
           name: it.name,
