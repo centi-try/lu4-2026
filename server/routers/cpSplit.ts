@@ -79,6 +79,18 @@ function effectiveCpNames(item: any): string[] {
   return getCpParticipants().map((c: any) => String(c.name));
 }
 
+const normName = (s: any) => String(s ?? "").trim().toLowerCase();
+
+// Dos conjuntos de CPs son "iguales" si tienen los mismos nombres (sin importar
+// el orden). Se usa para decidir si un ítem nuevo puede agruparse con uno
+// existente (mismo nombre + mismas CPs participantes).
+function cpSetEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].map(String).sort();
+  const sb = [...b].map(String).sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
 const nameInput = z.object({ name: z.string().trim().min(1).max(60) });
 
 function assertUniqueName(list: any[], name: string, excludeId?: number) {
@@ -205,17 +217,53 @@ export const cpSplitRouter = router({
       )
       .mutation(async ({ input, ctx }) => {
         if (!dbInstance.cpItems) dbInstance.cpItems = [];
+        const participants = getCpParticipants().map((c: any) => String(c.name));
+        const name = input.name.trim();
+
+        // #6c — Agrupar: si ya existe un ítem NO vendido con el mismo nombre y
+        // las mismas CPs participantes, sumamos la cantidad y re-repartimos en
+        // vez de crear un duplicado. Los ítems vendidos nunca se agrupan.
+        const match = getCpItems().find(
+          (it: any) =>
+            it.status !== "SOLD" &&
+            normName(it.name) === normName(name) &&
+            cpSetEqual(effectiveCpNames(it), participants),
+        );
+        if (match) {
+          const newQty = Number(match.quantity) + input.quantity;
+          dbInstance.cpItems = getCpItems().map((it: any) =>
+            Number(it.id) === Number(match.id) ? { ...it, quantity: newQty } : it,
+          );
+          const merged = getCpItems().find((it: any) => Number(it.id) === Number(match.id));
+          const { toSell } = computeAllocation(newQty, effectiveCpNames(merged), remainderAllocOf(merged));
+          const vName = merged.vendorId
+            ? getCpVendors().find((v: any) => Number(v.id) === Number(merged.vendorId))?.name
+            : null;
+          const pend =
+            toSell > 0
+              ? ` · Faltan ${toSell} u. por enviar${vName ? ` a ${vName}` : " (sin vendedor)"}`
+              : "";
+          pushCpHistory(
+            "ITEM_AGRUPADO",
+            `Agrupó "${name}" +${input.quantity} u. (total ${newQty} u.) y re-repartió${pend}`,
+            actor(ctx),
+          );
+          saveDbToDisk();
+          return { ...merged, _merged: true, _toSell: toSell, _vendorName: vName ?? null };
+        }
+
         const item = {
           id: newId(),
-          name: input.name.trim(),
+          name,
           category: input.category?.trim() || "",
           imageUrl: input.imageUrl?.trim() || "",
           quantity: input.quantity,
           remainderAlloc: {} as RemainderAlloc,
           price: null as number | null,
           vendorId: null as number | null,
-          status: "DRAFT" as "DRAFT" | "CONFIRMED",
+          status: "DRAFT" as "DRAFT" | "CONFIRMED" | "SOLD",
           cpNamesSnapshot: null as string[] | null,
+          sale: null as any,
           createdAt: new Date().toISOString(),
           confirmedAt: null as string | null,
         };
@@ -242,6 +290,7 @@ export const cpSplitRouter = router({
         dbInstance.cpItems = getCpItems().map((it: any) => {
           if (Number(it.id) !== Number(id)) return it;
           found = true;
+          if (it.status === "SOLD") throw new Error("El ítem está vendido; revierte la venta para editarlo");
           return { ...it, ...patch };
         });
         if (!found) throw new Error("Ítem no encontrado");
@@ -271,6 +320,57 @@ export const cpSplitRouter = router({
         `Confirmó "${item.name}" (${item.quantity} u.) → ${repartoTxt}${toSell > 0 ? ` · A vender: ${toSell}` : ""}`,
         actor(ctx),
       );
+      saveDbToDisk();
+      return { success: true };
+    }),
+    // #6b — Marcar vendido: la adena (precio × unidades a vender) se divide en
+    // partes iguales entre TODAS las CPs participantes del ítem (snapshot). El
+    // ítem queda "SOLD" (bloqueado) pero se puede revertir.
+    markSold: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+      if (!item) throw new Error("Ítem no encontrado");
+      if (item.status !== "CONFIRMED") throw new Error("Confirma el ítem antes de marcarlo vendido");
+      const cps = effectiveCpNames(item);
+      const { toSell } = computeAllocation(item.quantity, cps, remainderAllocOf(item));
+      if (toSell <= 0) throw new Error("Este ítem no tiene unidades a vender");
+      if (item.price == null || Number(item.price) <= 0) throw new Error("Asigna un precio antes de vender");
+      const nCp = cps.length;
+      const total = Number(item.price) * toSell;
+      const adenaPerCp = nCp > 0 ? Math.floor(total / nCp) : 0;
+      const adenaRemainder = total - adenaPerCp * nCp;
+      const vName = item.vendorId
+        ? getCpVendors().find((v: any) => Number(v.id) === Number(item.vendorId))?.name
+        : null;
+      const sale = {
+        price: Number(item.price),
+        units: toSell,
+        total,
+        cpNames: cps,
+        adenaPerCp,
+        adenaRemainder,
+        vendorId: item.vendorId ?? null,
+        vendorName: vName ?? null,
+        soldAt: new Date().toISOString(),
+      };
+      dbInstance.cpItems = getCpItems().map((it: any) =>
+        Number(it.id) === Number(input.id) ? { ...it, status: "SOLD", sale } : it,
+      );
+      pushCpHistory(
+        "ITEM_VENDIDO",
+        `Vendió ${toSell} u. de "${item.name}" a ${Number(item.price).toLocaleString("es-CL")} = ${total.toLocaleString("es-CL")} adena → ${adenaPerCp.toLocaleString("es-CL")} por CP entre ${nCp} CPs${adenaRemainder > 0 ? ` (sobran ${adenaRemainder})` : ""}`,
+        actor(ctx),
+      );
+      saveDbToDisk();
+      return { success: true };
+    }),
+    revertSold: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+      if (!item) throw new Error("Ítem no encontrado");
+      if (item.status !== "SOLD") throw new Error("El ítem no está vendido");
+      dbInstance.cpItems = getCpItems().map((it: any) =>
+        Number(it.id) === Number(input.id) ? { ...it, status: "CONFIRMED", sale: null } : it,
+      );
+      pushCpHistory("VENTA_REVERTIDA", `Revirtió la venta de "${item.name}"`, actor(ctx));
       saveDbToDisk();
       return { success: true };
     }),
@@ -320,6 +420,8 @@ export const cpSplitRouter = router({
         { header: "Precio", key: "price", width: 14 },
         { header: "Vendedor", key: "vendor", width: 20 },
         { header: "Estado", key: "status", width: 14 },
+        { header: "Adena vendida", key: "saleTotal", width: 16 },
+        { header: "Adena por CP", key: "saledPerCp", width: 16 },
       ];
       ws.columns = columns;
       ws.getRow(1).font = { bold: true };
@@ -337,7 +439,9 @@ export const cpSplitRouter = router({
           toSell: toSell,
           price: toSell > 0 && it.price != null ? Number(it.price) : "",
           vendor: toSell > 0 ? vendorName(it.vendorId) : "",
-          status: it.status === "CONFIRMED" ? "Confirmado" : "Borrador",
+          status: it.status === "SOLD" ? "Vendido" : it.status === "CONFIRMED" ? "Confirmado" : "Borrador",
+          saleTotal: it.status === "SOLD" && it.sale ? Number(it.sale.total) : "",
+          saledPerCp: it.status === "SOLD" && it.sale ? Number(it.sale.adenaPerCp) : "",
         };
         for (const n of cpCols) rowData[`cp_${n}`] = alloc[n] != null ? alloc[n] : "";
         const row = ws.addRow(rowData);

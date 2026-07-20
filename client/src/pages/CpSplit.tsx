@@ -262,7 +262,17 @@ export default function CpSplit() {
   });
 
   const iCreate = trpc.cpSplit.items.create.useMutation({
-    onSuccess: () => { invAll(); toast.success('Ítem agregado (borrador). Confírmalo para guardarlo.'); },
+    onSuccess: (res: any) => {
+      invAll();
+      if (res?._merged) {
+        const pend = res._toSell > 0
+          ? ` · Faltan ${res._toSell} u. por enviar${res._vendorName ? ` a ${res._vendorName}` : ' (sin vendedor)'}`
+          : '';
+        toast.success(`Se agrupó con "${res.name}" (total ${res.quantity} u.) y se re-repartió.${pend}`);
+      } else {
+        toast.success('Ítem agregado (borrador). Confírmalo para guardarlo.');
+      }
+    },
     onError: (e) => toast.error(e.message),
   });
   const iUpdate = trpc.cpSplit.items.update.useMutation({
@@ -275,6 +285,14 @@ export default function CpSplit() {
   });
   const iDelete = trpc.cpSplit.items.delete.useMutation({
     onSuccess: () => { invAll(); toast.success('Ítem eliminado.'); },
+    onError: (e) => toast.error(e.message),
+  });
+  const iMarkSold = trpc.cpSplit.items.markSold.useMutation({
+    onSuccess: () => { invAll(); toast.success('Ítem marcado como vendido. Adena dividida entre las CPs.'); },
+    onError: (e) => toast.error(e.message),
+  });
+  const iRevertSold = trpc.cpSplit.items.revertSold.useMutation({
+    onSuccess: () => { invAll(); toast.success('Venta revertida.'); },
     onError: (e) => toast.error(e.message),
   });
   const exportMut = trpc.cpSplit.exportExcel.useMutation({
@@ -408,6 +426,8 @@ export default function CpSplit() {
           onUpdate={(id, patch) => iUpdate.mutate({ id, ...patch })}
           onConfirm={(id) => iConfirm.mutate({ id })}
           onDelete={(id) => iDelete.mutate({ id })}
+          onMarkSold={(id) => iMarkSold.mutate({ id })}
+          onRevertSold={(id) => iRevertSold.mutate({ id })}
         />
 
         {/* Historial */}
@@ -514,7 +534,7 @@ function RemainderEditor({
 }
 
 function ItemRow({
-  it, cpNames, vendors, onUpdate, onConfirm, onDelete,
+  it, cpNames, vendors, onUpdate, onConfirm, onDelete, onMarkSold, onRevertSold,
 }: {
   it: any;
   cpNames: string[];
@@ -522,21 +542,28 @@ function ItemRow({
   onUpdate: (id: number, patch: any) => void;
   onConfirm: (id: number) => void;
   onDelete: (id: number) => void;
+  onMarkSold: (id: number) => void;
+  onRevertSold: (id: number) => void;
 }) {
+  const sold = it.status === 'SOLD';
   const confirmed = it.status === 'CONFIRMED';
   const [editing, setEditing] = useState(false);
-  const [modal, setModal] = useState<null | 'confirm' | 'delete'>(null);
-  const editable = !confirmed || editing;
+  const [modal, setModal] = useState<null | 'confirm' | 'delete' | 'sell' | 'revert'>(null);
+  const editable = !sold && (!confirmed || editing);
 
-  const effCpNames: string[] = confirmed && Array.isArray(it.cpNamesSnapshot) ? it.cpNamesSnapshot.map(String) : cpNames;
+  const effCpNames: string[] = (confirmed || sold) && Array.isArray(it.cpNamesSnapshot) ? it.cpNamesSnapshot.map(String) : cpNames;
   const alloc0 = remainderAllocOf(it);
   const { alloc, toSell, remainder } = computeAllocation(it.quantity, effCpNames, alloc0);
   const meta = categoryMeta[it.category] || { emoji: '📦', label: it.category || 'Sin categoría', color: '#7bf1d6' };
   const vendorName = vendors.find((v) => Number(v.id) === Number(it.vendorId))?.name;
 
+  const borderColor = sold ? 'rgba(96,165,250,0.35)' : confirmed ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)';
+  const saleTotal = Number(it.price ?? 0) * toSell;
+  const nCp = effCpNames.length;
+  const previewPerCp = nCp > 0 ? Math.floor(saleTotal / nCp) : 0;
   return (
     <div className="rounded-xl p-3"
-      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${confirmed ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)'}` }}>
+      style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${borderColor}` }}>
       <ConfirmModal
         open={modal === 'delete'}
         title="Eliminar ítem"
@@ -554,6 +581,23 @@ function ItemRow({
         onConfirm={() => { onConfirm(it.id); setModal(null); }}
         onCancel={() => setModal(null)}
       />
+      <ConfirmModal
+        open={modal === 'sell'}
+        title="Marcar como vendido"
+        danger={false}
+        message={`Vender ${toSell} u. de "${it.name}" a $${formatThousands(it.price ?? 0)} = $${formatThousands(saleTotal)} adena, dividida en partes iguales entre ${nCp} CP${nCp === 1 ? '' : 's'} (~$${formatThousands(previewPerCp)} c/u). Podrás revertirlo.`}
+        confirmLabel="Vender"
+        onConfirm={() => { onMarkSold(it.id); setModal(null); }}
+        onCancel={() => setModal(null)}
+      />
+      <ConfirmModal
+        open={modal === 'revert'}
+        title="Revertir venta"
+        message={`¿Revertir la venta de "${it.name}"? Volverá a estado Confirmado y podrás editarlo.`}
+        confirmLabel="Revertir"
+        onConfirm={() => { onRevertSold(it.id); setModal(null); }}
+        onCancel={() => setModal(null)}
+      />
 
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
@@ -566,19 +610,31 @@ function ItemRow({
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{meta.emoji} {meta.label} · {it.quantity} u.</p>
         </div>
         <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
-          style={{ background: confirmed ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)', color: confirmed ? '#34d399' : '#fbbf24' }}>
-          {confirmed ? 'Confirmado' : 'Borrador'}
+          style={{ background: sold ? 'rgba(96,165,250,0.14)' : confirmed ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)', color: sold ? '#60a5fa' : confirmed ? '#34d399' : '#fbbf24' }}>
+          {sold ? 'Vendido' : confirmed ? 'Confirmado' : 'Borrador'}
         </span>
-        {!confirmed && (
+        {!confirmed && !sold && (
           <button onClick={() => setModal('confirm')} disabled={effCpNames.length === 0} title="Confirmar y guardar"
             className={`${btnBase} px-2.5 py-1.5`} style={btnGreen}>
             <Check className="h-3.5 w-3.5" /> Confirmar
+          </button>
+        )}
+        {confirmed && toSell > 0 && (
+          <button onClick={() => setModal('sell')} disabled={it.price == null || Number(it.price) <= 0} title="Marcar como vendido"
+            className={`${btnBase} px-2.5 py-1.5`} style={btnTeal}>
+            <ShoppingCart className="h-3.5 w-3.5" /> Vendido
           </button>
         )}
         {confirmed && (
           <button onClick={() => setEditing((e) => !e)} title={editing ? 'Terminar edición' : 'Editar'}
             className={`${btnBase} px-2.5 py-1.5`} style={editing ? btnGreen : btnGhost}>
             {editing ? <><Check className="h-3.5 w-3.5" /> Listo</> : <><Pencil className="h-3.5 w-3.5" /> Editar</>}
+          </button>
+        )}
+        {sold && (
+          <button onClick={() => setModal('revert')} title="Revertir venta"
+            className={`${btnBase} px-2.5 py-1.5`} style={btnGhost}>
+            <X className="h-3.5 w-3.5" /> Revertir
           </button>
         )}
         <button onClick={() => setModal('delete')} title="Eliminar"
@@ -633,12 +689,22 @@ function ItemRow({
           )}
         </div>
       )}
+
+      {/* Resumen de venta (vendido) */}
+      {sold && it.sale && (
+        <div className="mt-3 rounded-lg border-t px-3 py-2 text-xs" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(96,165,250,0.06)', color: 'rgba(255,255,255,0.75)' }}>
+          Vendido {it.sale.units} u. a <b>${formatThousands(it.sale.price)}</b> = <b>${formatThousands(it.sale.total)}</b> adena →{' '}
+          <b>${formatThousands(it.sale.adenaPerCp)}</b> por CP entre {(it.sale.cpNames || []).length} CP{(it.sale.cpNames || []).length === 1 ? '' : 's'}
+          {it.sale.adenaRemainder > 0 ? ` (sobran $${formatThousands(it.sale.adenaRemainder)})` : ''}
+          {it.sale.vendorName ? ` · Vendedor: ${it.sale.vendorName}` : ''}
+        </div>
+      )}
     </div>
   );
 }
 
 function ItemsTable({
-  items, cpNames, vendors, onUpdate, onConfirm, onDelete,
+  items, cpNames, vendors, onUpdate, onConfirm, onDelete, onMarkSold, onRevertSold,
 }: {
   items: any[];
   cpNames: string[];
@@ -646,6 +712,8 @@ function ItemsTable({
   onUpdate: (id: number, patch: any) => void;
   onConfirm: (id: number) => void;
   onDelete: (id: number) => void;
+  onMarkSold: (id: number) => void;
+  onRevertSold: (id: number) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -660,7 +728,8 @@ function ItemsTable({
       <div className="space-y-3">
         {items.map((it) => (
           <ItemRow key={it.id} it={it} cpNames={cpNames} vendors={vendors}
-            onUpdate={onUpdate} onConfirm={onConfirm} onDelete={onDelete} />
+            onUpdate={onUpdate} onConfirm={onConfirm} onDelete={onDelete}
+            onMarkSold={onMarkSold} onRevertSold={onRevertSold} />
         ))}
       </div>
     </div>

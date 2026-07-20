@@ -362,8 +362,22 @@ function InventorySummaryButton({
   const [editingPriceKey, setEditingPriceKey] = useState<string | null>(null);
   const [priceDraft, setPriceDraft] = useState('');
   // Tab activo del modal y gestión de nombres de tienda.
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tiendas'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tiendas' | 'porVendedor'>('resumen');
   const [newShopName, setNewShopName] = useState('');
+  // Resumen por vendedor + reset. Solo lectura del backend (persistente).
+  const summaryUtils = trpc.useUtils();
+  const shopSummaryQ = trpc.items.shops.summary.useQuery(undefined, { enabled: open && activeTab === 'porVendedor' });
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const resetShopsMut = trpc.items.shops.reset.useMutation({
+    onSuccess: (r: any) => {
+      summaryUtils.items.shops.summary.invalidate();
+      summaryUtils.items.list.invalidate();
+      summaryUtils.items.listPurchases.invalidate();
+      setResetConfirm(false);
+      toast.success(`Tiendas reseteadas: ${r?.items ?? 0} ítem(s) sin tienda, ${r?.sales ?? 0} venta(s) desvinculada(s).`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const [renamingShopId, setRenamingShopId] = useState<string | null>(null);
   const [renameShopDraft, setRenameShopDraft] = useState('');
   const shopName = (id: string | null | undefined) =>
@@ -689,7 +703,7 @@ function InventorySummaryButton({
 
             {/* Tabs: Resumen / Tiendas */}
             <div className="flex items-center gap-1 px-5 pt-3 shrink-0">
-              {([['resumen', '📋 Resumen'], ['tiendas', '🏪 Tiendas']] as const).map(([tab, label]) => (
+              {([['resumen', '📋 Resumen'], ['tiendas', '🏪 Tiendas'], ['porVendedor', '💰 Por vendedor']] as const).map(([tab, label]) => (
                 <button
                   key={tab}
                   type="button"
@@ -1018,6 +1032,104 @@ function InventorySummaryButton({
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'porVendedor' && (
+              <div className="overflow-y-auto px-5 py-3 flex-1">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Agrupa por vendedor los ítems asignados con stock y las ventas ya realizadas (precio real + interna/externa). La adena esperada es solo referencia para cuadrar montos.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setResetConfirm(true)}
+                    disabled={resetShopsMut.isPending}
+                    className="shrink-0 h-8 rounded-lg px-3 text-xs font-semibold transition-colors disabled:opacity-40"
+                    style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                  >
+                    Resetear vendedores
+                  </button>
+                </div>
+
+                {shopSummaryQ.isLoading ? (
+                  <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.35)' }}>Cargando…</p>
+                ) : !shopSummaryQ.data || shopSummaryQ.data.length === 0 ? (
+                  <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    No hay tiendas registradas todavía.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {shopSummaryQ.data.map((sm: any) => (
+                      <div key={sm.shopId} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>🏪 {sm.shopName}</p>
+                          <span className="text-xs font-mono font-bold" style={{ color: '#34d399' }}>
+                            Adena esperada: ${formatThousands(sm.expectedTotal)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-[11px] mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <span>En stock: <b style={{ color: '#a78bfa' }}>${formatThousands(sm.expectedActive)}</b></span>
+                          <span>Vendido: <b style={{ color: '#7bf1d6' }}>${formatThousands(sm.soldTotal)}</b></span>
+                        </div>
+
+                        {sm.activeItems.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.55)' }}>A la venta ({sm.activeItems.length})</p>
+                            <div className="space-y-1">
+                              {sm.activeItems.map((ai: any) => (
+                                <div key={ai.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                  <span className="truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{ai.name} · {ai.remaining} u.</span>
+                                  <span className="shrink-0 font-mono" style={{ color: 'rgba(255,255,255,0.6)' }}>${formatThousands(ai.expected)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {sm.sales.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.55)' }}>Vendidos ({sm.sales.length})</p>
+                            <div className="space-y-1">
+                              {sm.sales.map((s: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(96,165,250,0.06)' }}>
+                                  <span className="truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                    {s.itemName} · {s.quantity} u.
+                                    <span className="ml-1 rounded px-1 py-0.5 text-[10px]" style={{ background: s.isExternalSale ? 'rgba(251,191,36,0.14)' : 'rgba(52,211,153,0.14)', color: s.isExternalSale ? '#fbbf24' : '#34d399' }}>
+                                      {s.isExternalSale ? 'Externa' : s.isInternalSale ? 'Interna' : 'Normal'}
+                                    </span>
+                                  </span>
+                                  <span className="shrink-0 font-mono" style={{ color: '#7bf1d6' }}>${formatThousands(s.total)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {sm.activeItems.length === 0 && sm.sales.length === 0 && (
+                          <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin ítems asignados ni ventas.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {resetConfirm && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setResetConfirm(false)}>
+                    <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
+                      <h3 className="text-sm font-bold mb-2" style={{ color: 'rgba(255,255,255,0.95)' }}>Resetear vendedores</h3>
+                      <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                        Esto deja todas las tiendas en 0: quita la asignación de tienda de todos los ítems y desvincula las ventas ya registradas de sus vendedores. No borra las compras ni afecta montos ni ciclos. Podrás empezar a asignar de nuevo.
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => setResetConfirm(false)} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}>Cancelar</button>
+                        <button type="button" onClick={() => resetShopsMut.mutate()} disabled={resetShopsMut.isPending} className="rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                          {resetShopsMut.isPending ? 'Reseteando…' : 'Resetear'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

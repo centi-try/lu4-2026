@@ -297,6 +297,77 @@ export const itemsRouter = router({
         deleteShop(input.id);
         return { success: true };
       }),
+
+    // Resumen por vendedor/tienda: agrupa por tienda los ítems asignados con
+    // stock (referencia de lo que "tiene" el enano) y las ventas ya realizadas
+    // (precio real + interna/externa, persistente vía purchases). Devuelve la
+    // adena esperada como referencia para cuadrar montos. Solo Super Admin.
+    summary: adminProcedure.query(async () => {
+      const shops = getShops();
+      const items = await getItems();
+      const purchases = await getPurchases();
+
+      return shops.map((shop: any) => {
+        const sid = Number(shop.id);
+        const activeItems = items
+          .filter((i: any) => Number(i.shopId) === sid && ((Number(i.quantity) || 0) - (Number(i.quantitySold) || 0)) > 0)
+          .map((i: any) => {
+            const remaining = (Number(i.quantity) || 0) - (Number(i.quantitySold) || 0);
+            return {
+              id: i.id,
+              name: i.name,
+              category: i.category || "",
+              imageUrl: i.imageUrl || "",
+              remaining,
+              price: Number(i.price) || 0,
+              expected: (Number(i.price) || 0) * remaining,
+            };
+          });
+        const sales = purchases
+          .filter((p: any) => Number(p.shopId) === sid)
+          .map((p: any) => ({
+            itemName: p.itemName,
+            quantity: Number(p.quantity) || 0,
+            price: Number(p.price) || 0,
+            total: Number(p.total) || 0,
+            isInternalSale: !!p.isInternalSale,
+            isExternalSale: !!p.isExternalSale,
+            createdAt: p.createdAt,
+          }))
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        const expectedActive = activeItems.reduce((s: number, i: any) => s + i.expected, 0);
+        const soldTotal = sales.reduce((s: number, x: any) => s + x.total, 0);
+        return {
+          shopId: shop.id,
+          shopName: shop.name,
+          activeItems,
+          sales,
+          expectedActive,
+          soldTotal,
+          expectedTotal: expectedActive + soldTotal,
+        };
+      });
+    }),
+
+    // Resetear vendedores: deja todas las tiendas "en 0" — quita la asignación
+    // de tienda de todos los ítems y limpia la referencia de tienda de las
+    // ventas ya registradas (sin borrar las compras ni tocar montos/ciclos).
+    // Se usa cuando ya se cuadraron los montos y se quiere empezar de nuevo.
+    reset: adminProcedure.mutation(async () => {
+      let items = 0;
+      dbInstance.items = (dbInstance.items || []).map((i: any) => {
+        if (i.shopId != null) { items += 1; return { ...i, shopId: null }; }
+        return i;
+      });
+      let sales = 0;
+      dbInstance.purchases = (dbInstance.purchases || []).map((p: any) => {
+        if (p.shopId != null) { sales += 1; return { ...p, shopId: null, shopName: null }; }
+        return p;
+      });
+      saveDbToDisk();
+      return { success: true, items, sales };
+    }),
   }),
 
   // Crea varios ítems en LOTE. Una sola escritura a disco y un solo log de
@@ -480,6 +551,13 @@ export const itemsRouter = router({
         saveDbToDisk();
       }
 
+      // Tienda (vendedor) asignada al ítem al momento de la venta. Se persiste
+      // en la compra para que el resumen por vendedor conserve la referencia y
+      // el valor real aunque el ítem se venda por completo. Solo referencia.
+      const saleShop = item.shopId != null
+        ? getShops().find((s: any) => Number(s.id) === Number(item.shopId))
+        : null;
+
       // Crear registro de compra persistente
       await createPurchase({
         itemId: String(item.id),
@@ -494,6 +572,8 @@ export const itemsRouter = router({
         isExternalSale: input.isExternalSale || false,
         discountPct: discountPct || 0,
         clanTax: clanTaxAmount,
+        shopId: item.shopId ?? null,
+        shopName: saleShop?.name ?? null,
       });
 
       await createAuditLog({
