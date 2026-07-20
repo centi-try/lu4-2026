@@ -8,6 +8,14 @@ export interface ItemImage {
   altText: string;
 }
 
+// Tienda (vendedor) — nombre reutilizable para anotar dónde quedó un ítem a la
+// venta. Solo referencia del Super Admin; no afecta estado del ítem ni ciclos.
+export interface Shop {
+  id: string;
+  name: string;
+  createdAt?: string;
+}
+
 export interface Item {
   id: string;
   name: string;
@@ -27,6 +35,9 @@ export interface Item {
   // Flag de agrupación cooperativa. SOLO afecta la visualización en Ciclos de
   // Venta (separa 🤝 Cooperativo de 👤 Individual). No cambia montos ni reparto.
   isCooperative?: boolean;
+  // Tienda (vendedor) donde quedó puesto a la venta el ítem. Solo referencia
+  // para el Super Admin; no cambia el estado del ítem ni afecta ciclos/montos.
+  shopId?: string | null;
   soldAt?: string;
   soldBy?: string;
   // Cantidad de unidades

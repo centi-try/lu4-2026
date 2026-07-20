@@ -351,13 +351,23 @@ function InventorySummaryButton({
   // Claves validadas en la sesión actual. Se limpia al abrir/cerrar.
   const [validated, setValidated] = useState<Set<string>>(new Set());
   // Edición de precio por grupo: clave del grupo en edición + valor tipeado.
-  const { updateItem, bulkSetItemCooperative, bulkSetItemPrice } = useApp();
+  const { updateItem, bulkSetItemCooperative, bulkSetItemPrice, bulkSetItemShop, shops, createShop, renameShop, deleteShop } = useApp();
   // Cambios de Cooperativo/Individual PENDIENTES (por clave de grupo). No se
   // aplican hasta pulsar "Guardar cambios" — así un lote grande hace una sola
   // escritura al backend en vez de N mutaciones que tumban la página.
   const [coopDraft, setCoopDraft] = useState<Map<string, boolean>>(new Map());
+  // Asignación de TIENDA pendiente por grupo (clave → shopId | null). Mismo
+  // patrón de borrador que Cooperativo: se aplica en lote al "Guardar cambios".
+  const [shopDraft, setShopDraft] = useState<Map<string, string | null>>(new Map());
   const [editingPriceKey, setEditingPriceKey] = useState<string | null>(null);
   const [priceDraft, setPriceDraft] = useState('');
+  // Tab activo del modal y gestión de nombres de tienda.
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tiendas'>('resumen');
+  const [newShopName, setNewShopName] = useState('');
+  const [renamingShopId, setRenamingShopId] = useState<string | null>(null);
+  const [renameShopDraft, setRenameShopDraft] = useState('');
+  const shopName = (id: string | null | undefined) =>
+    id ? (shops.find(s => s.id === String(id))?.name || 'Tienda') : 'Sin tienda';
 
   // Responsables presentes entre los ítems con stock disponible (para el filtro).
   const responsables = useMemo(() => {
@@ -389,6 +399,7 @@ function InventorySummaryButton({
       itemIds: string[];
       prices: number[];
       coopCount: number;
+      shopIds: (string | null)[];
     }>();
     for (const it of items) {
       const available = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
@@ -403,12 +414,14 @@ function InventorySummaryButton({
       if (coopFilter === 'indiv' && it.isCooperative) continue;
       const key = `${it.name.trim().toLowerCase()}||${it.category}`;
       const price = Number(it.price) || 0;
+      const shopId = it.shopId ? String(it.shopId) : null;
       const existing = map.get(key);
       if (existing) {
         existing.available += available;
         existing.registros += 1;
         existing.itemIds.push(it.id);
         existing.prices.push(price);
+        existing.shopIds.push(shopId);
         if (it.isCooperative) existing.coopCount += 1;
         if (!existing.image) existing.image = it.image?.publicUrl || '';
       } else {
@@ -422,6 +435,7 @@ function InventorySummaryButton({
           itemIds: [it.id],
           prices: [price],
           coopCount: it.isCooperative ? 1 : 0,
+          shopIds: [shopId],
         });
       }
     }
@@ -431,7 +445,13 @@ function InventorySummaryButton({
         const max = Math.max(...g.prices);
         // El grupo se considera Cooperativo solo si TODOS sus ítems lo son.
         const allCoop = g.itemIds.length > 0 && g.coopCount === g.itemIds.length;
-        return { ...g, minPrice: min, maxPrice: max, uniformPrice: min === max ? min : null, allCoop };
+        // Tienda del grupo: uniformShopId si todos los ítems comparten la misma
+        // (o null = sin tienda). undefined = mezcla (varios) → sin valor único.
+        const distinctShops = Array.from(new Set(g.shopIds.map(s => s ?? '__none__')));
+        const uniformShopId: string | null | undefined = distinctShops.length === 1
+          ? (g.shopIds[0] ?? null)
+          : undefined;
+        return { ...g, minPrice: min, maxPrice: max, uniformPrice: min === max ? min : null, allCoop, uniformShopId };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [items, resolveCategoryIcon, respFilter, coopFilter]);
@@ -453,6 +473,11 @@ function InventorySummaryButton({
     setEditingPriceKey(null);
     setPriceDraft('');
     setCoopDraft(new Map());
+    setShopDraft(new Map());
+    setActiveTab('resumen');
+    setNewShopName('');
+    setRenamingShopId(null);
+    setRenameShopDraft('');
     setOpen(true);
   };
   const closeModal = () => {
@@ -464,6 +489,11 @@ function InventorySummaryButton({
     setEditingPriceKey(null);
     setPriceDraft('');
     setCoopDraft(new Map());
+    setShopDraft(new Map());
+    setActiveTab('resumen');
+    setNewShopName('');
+    setRenamingShopId(null);
+    setRenameShopDraft('');
   };
   const toggleValidated = (key: string) => {
     setValidated(prev => {
@@ -519,15 +549,38 @@ function InventorySummaryButton({
   };
   const allShownCoop = shown.length > 0 && shown.every(g => groupCoopState(g));
 
+  // ---- Tienda por grupo (borrador) ----
+  // Valor de tienda mostrado: el borrador si existe; si no, el uniforme del
+  // grupo (string=tienda, null=sin tienda, undefined=varios/mezcla).
+  const groupShopState = (g: { key: string; uniformShopId: string | null | undefined }): string | null | undefined =>
+    shopDraft.has(g.key) ? shopDraft.get(g.key)! : g.uniformShopId;
+
+  const setGroupShopDraft = (g: { key: string }, value: string | null) => {
+    setShopDraft(prev => {
+      const next = new Map(prev);
+      next.set(g.key, value);
+      return next;
+    });
+  };
+
+  // Un grupo tiene cambio de tienda pendiente si su borrador difiere de la
+  // tienda uniforme actual (o si el grupo estaba mezclado → cualquier valor unifica).
+  const shopChanged = (g: { key: string; uniformShopId: string | null | undefined }) =>
+    shopDraft.has(g.key) && shopDraft.get(g.key) !== g.uniformShopId;
+
   // Cambios pendientes: grupos cuyo estado en borrador difiere del real.
   const pendingGroups = shown.filter(g => coopDraft.has(g.key) && Boolean(coopDraft.get(g.key)) !== g.allCoop);
   const hasPendingCoop = pendingGroups.length > 0;
+  const pendingShopGroups = shown.filter(shopChanged);
+  const hasPendingShop = pendingShopGroups.length > 0;
+  const hasPending = hasPendingCoop || hasPendingShop;
+  const pendingCount = pendingGroups.length + pendingShopGroups.length;
 
-  const discardCoopChanges = () => setCoopDraft(new Map());
+  const discardChanges = () => { setCoopDraft(new Map()); setShopDraft(new Map()); };
 
-  // Aplica TODOS los cambios pendientes al backend en UNA sola llamada por
-  // valor (una para Cooperativo, otra para Individual). Evita N mutaciones.
-  const saveCoopChanges = () => {
+  // Aplica TODOS los cambios pendientes al backend en pocas llamadas en lote
+  // (una por valor de Cooperativo/Individual y una por cada tienda destino).
+  const saveChanges = () => {
     const toCoop: string[] = [];
     const toIndiv: string[] = [];
     for (const g of pendingGroups) {
@@ -536,9 +589,64 @@ function InventorySummaryButton({
     }
     if (toCoop.length > 0) bulkSetItemCooperative(toCoop, true);
     if (toIndiv.length > 0) bulkSetItemCooperative(toIndiv, false);
-    const total = toCoop.length + toIndiv.length;
-    toast.success(`${total} ${total === 1 ? 'ítem' : 'ítems'} actualizados (Cooperativo/Individual).`);
+
+    // Agrupar los ítems por tienda destino → una llamada por destino distinto.
+    const byShop = new Map<string, string[]>();
+    for (const g of pendingShopGroups) {
+      const target = shopDraft.get(g.key) ?? null;
+      const bucket = target === null ? '__none__' : String(target);
+      const arr = byShop.get(bucket) || [];
+      arr.push(...g.itemIds);
+      byShop.set(bucket, arr);
+    }
+    let shopItems = 0;
+    for (const [bucket, ids] of Array.from(byShop.entries())) {
+      bulkSetItemShop(ids, bucket === '__none__' ? null : bucket);
+      shopItems += ids.length;
+    }
+
+    const coopItems = toCoop.length + toIndiv.length;
+    const parts: string[] = [];
+    if (coopItems > 0) parts.push(`${coopItems} en Cooperativo/Individual`);
+    if (shopItems > 0) parts.push(`${shopItems} en Tienda`);
+    toast.success(`Cambios guardados (${parts.join(' · ')}).`);
     setCoopDraft(new Map());
+    setShopDraft(new Map());
+  };
+
+  // ---- Gestión de nombres de tienda (inmediato, no borrador) ----
+  const handleCreateShop = () => {
+    const name = newShopName.trim();
+    if (!name) { toast.error('Escribe un nombre de tienda.'); return; }
+    if (shops.some(s => s.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast.error('Ya existe una tienda con ese nombre.'); return;
+    }
+    createShop(name);
+    toast.success(`Tienda "${name}" creada.`);
+    setNewShopName('');
+  };
+  const startRenameShop = (id: string, name: string) => { setRenamingShopId(id); setRenameShopDraft(name); };
+  const handleRenameShop = (id: string) => {
+    const name = renameShopDraft.trim();
+    if (!name) { toast.error('El nombre no puede estar vacío.'); return; }
+    if (shops.some(s => s.id !== id && s.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast.error('Ya existe una tienda con ese nombre.'); return;
+    }
+    renameShop(id, name);
+    toast.success('Tienda renombrada.');
+    setRenamingShopId(null);
+    setRenameShopDraft('');
+  };
+  const shopUsageCount = (id: string) => items.filter(it => String(it.shopId || '') === String(id)).length;
+  const handleDeleteShop = (id: string) => {
+    const used = shopUsageCount(id);
+    const s = shops.find(x => x.id === id);
+    const msg = used > 0
+      ? `La tienda "${s?.name}" está asignada a ${used} ítem(s). Al borrarla esos ítems quedarán SIN tienda. ¿Continuar?`
+      : `¿Borrar la tienda "${s?.name}"?`;
+    if (!window.confirm(msg)) return;
+    deleteShop(id);
+    toast.success('Tienda borrada.');
   };
 
   return (
@@ -579,6 +687,27 @@ function InventorySummaryButton({
               </button>
             </div>
 
+            {/* Tabs: Resumen / Tiendas */}
+            <div className="flex items-center gap-1 px-5 pt-3 shrink-0">
+              {([['resumen', '📋 Resumen'], ['tiendas', '🏪 Tiendas']] as const).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                  style={{
+                    background: activeTab === tab ? 'rgba(123,241,214,0.12)' : 'rgba(255,255,255,0.03)',
+                    color: activeTab === tab ? '#7bf1d6' : 'rgba(255,255,255,0.55)',
+                    border: `1px solid ${activeTab === tab ? 'rgba(123,241,214,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'resumen' && (
+            <>
             {/* Stats + search */}
             <div className="px-5 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -759,6 +888,41 @@ function InventorySummaryButton({
                               </button>
                             );
                           })()}
+                          {/* Tienda del grupo — selector (borrador hasta Guardar). Solo referencia. */}
+                          {(() => {
+                            const shopState = groupShopState(g);
+                            const dirty = shopChanged(g);
+                            // Valor del <select>: '' = varios/mezcla, '__none__' = sin tienda.
+                            const selectValue = shopState === undefined ? '' : (shopState === null ? '__none__' : String(shopState));
+                            return (
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>🏪</span>
+                                <select
+                                  value={selectValue}
+                                  onChange={e => {
+                                    const v = e.target.value;
+                                    if (v === '') return; // "Varios" no es una acción
+                                    setGroupShopDraft(g, v === '__none__' ? null : v);
+                                  }}
+                                  className="h-7 rounded-lg px-2 text-[11px] font-semibold outline-none"
+                                  style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: `1px solid ${dirty ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                                    color: shopState ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+                                    maxWidth: '11rem',
+                                  }}
+                                  title="Tienda donde está puesto a la venta el grupo (solo referencia)"
+                                >
+                                  {shopState === undefined && <option value="">— Varios —</option>}
+                                  <option value="__none__">Sin tienda</option>
+                                  {shops.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                  ))}
+                                </select>
+                                {dirty && <span title="Cambio pendiente de guardar" style={{ color: '#fbbf24' }}>•</span>}
+                              </div>
+                            );
+                          })()}
                         </div>
                         {/* Available count */}
                         <div className="shrink-0 text-right">
@@ -771,19 +935,106 @@ function InventorySummaryButton({
                 </div>
               )}
             </div>
+            </>
+            )}
+
+            {activeTab === 'tiendas' && (
+              <div className="overflow-y-auto px-5 py-3 flex-1">
+                <p className="text-[11px] mb-3" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  Registra los nombres de tienda (personajes) que luego asignarás a los grupos en la pestaña 📋 Resumen. Es solo una referencia: no cambia el estado del ítem ni afecta ciclos.
+                </p>
+                {/* Crear tienda */}
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={newShopName}
+                    onChange={e => setNewShopName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreateShop(); }}
+                    placeholder="Nombre de la tienda…"
+                    maxLength={60}
+                    className="h-9 flex-1 rounded-xl px-3 text-sm outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateShop}
+                    className="h-9 rounded-xl px-3 text-xs font-semibold transition-colors"
+                    style={{ background: 'rgba(123,241,214,0.12)', color: '#7bf1d6', border: '1px solid rgba(123,241,214,0.3)' }}
+                  >
+                    + Agregar
+                  </button>
+                </div>
+                {/* Lista de tiendas */}
+                {shops.length === 0 ? (
+                  <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    No hay tiendas registradas todavía.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {shops.slice().sort((a, b) => a.name.localeCompare(b.name)).map(s => {
+                      const used = shopUsageCount(s.id);
+                      const isRenaming = renamingShopId === s.id;
+                      return (
+                        <div
+                          key={s.id}
+                          className="flex items-center gap-2 rounded-xl px-3 py-2"
+                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                        >
+                          {isRenaming ? (
+                            <>
+                              <input
+                                type="text"
+                                autoFocus
+                                value={renameShopDraft}
+                                onChange={e => setRenameShopDraft(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleRenameShop(s.id); if (e.key === 'Escape') { setRenamingShopId(null); setRenameShopDraft(''); } }}
+                                maxLength={60}
+                                className="h-8 flex-1 rounded-lg px-2 text-sm outline-none"
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(123,241,214,0.4)', color: 'rgba(255,255,255,0.9)' }}
+                              />
+                              <button type="button" onClick={() => handleRenameShop(s.id)} title="Guardar nombre" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)' }}>
+                                <Check className="h-4 w-4" style={{ color: '#34d399' }} />
+                              </button>
+                              <button type="button" onClick={() => { setRenamingShopId(null); setRenameShopDraft(''); }} title="Cancelar" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.5)' }} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate" style={{ color: 'rgba(255,255,255,0.9)' }}>🏪 {s.name}</p>
+                                <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                                  {used > 0 ? `${used} ítem(s) asignado(s)` : 'Sin ítems asignados'}
+                                </p>
+                              </div>
+                              <button type="button" onClick={() => startRenameShop(s.id, s.name)} title="Renombrar" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                                <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.6)' }} />
+                              </button>
+                              <button type="button" onClick={() => handleDeleteShop(s.id)} title="Borrar" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                <Trash2 className="h-3.5 w-3.5" style={{ color: '#f87171' }} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="flex items-center justify-between gap-2 px-5 py-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="text-[11px]" style={{ color: hasPendingCoop ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
-                {hasPendingCoop
-                  ? `${pendingGroups.length} ${pendingGroups.length === 1 ? 'cambio' : 'cambios'} sin guardar`
+              <div className="text-[11px]" style={{ color: hasPending ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
+                {hasPending
+                  ? `${pendingCount} ${pendingCount === 1 ? 'cambio' : 'cambios'} sin guardar`
                   : 'Sin cambios pendientes'}
               </div>
               <div className="flex items-center gap-2">
-                {hasPendingCoop && (
+                {hasPending && (
                   <button
                     type="button"
-                    onClick={discardCoopChanges}
+                    onClick={discardChanges}
                     className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors"
                     style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}
                   >
@@ -792,14 +1043,14 @@ function InventorySummaryButton({
                 )}
                 <button
                   type="button"
-                  onClick={saveCoopChanges}
-                  disabled={!hasPendingCoop}
+                  onClick={saveChanges}
+                  disabled={!hasPending}
                   className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
                   style={{
-                    background: hasPendingCoop ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
-                    color: hasPendingCoop ? '#34d399' : 'rgba(255,255,255,0.3)',
-                    border: `1px solid ${hasPendingCoop ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                    cursor: hasPendingCoop ? 'pointer' : 'not-allowed',
+                    background: hasPending ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)',
+                    color: hasPending ? '#34d399' : 'rgba(255,255,255,0.3)',
+                    border: `1px solid ${hasPending ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                    cursor: hasPending ? 'pointer' : 'not-allowed',
                   }}
                 >
                   Guardar cambios

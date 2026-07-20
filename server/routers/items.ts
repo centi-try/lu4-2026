@@ -1,4 +1,4 @@
-import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { router, protectedProcedure, publicProcedure, adminProcedure } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -8,6 +8,8 @@ import {
   markReservationPreSold, unmarkReservationPreSold,
   markReservationSold,
   getClanFundSettings,
+  // Tiendas (vendedores) — anotación de dónde quedó puesto a la venta un ítem.
+  getShops, createShop, renameShop, deleteShop,
 } from "../db";
 
 const CreateItemSchema = z.object({
@@ -242,6 +244,60 @@ export const itemsRouter = router({
 
       return { success: true, count: updated };
     }),
+
+  // Asigna (o quita) la TIENDA de varios ítems en LOTE. shopId=null quita la
+  // asignación. Una sola escritura a disco. Es solo una anotación de referencia:
+  // no cambia el estado del ítem ni afecta ciclos/montos. Solo Super Admin.
+  bulkSetShop: adminProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1), shopId: z.number().nullable() }))
+    .mutation(async ({ input }) => {
+      const idSet = new Set(input.ids.map(Number));
+      const shop = input.shopId != null
+        ? getShops().find((s: any) => Number(s.id) === Number(input.shopId))
+        : null;
+      if (input.shopId != null && !shop) throw new Error("Tienda no encontrada");
+      let updated = 0;
+      dbInstance.items = dbInstance.items.map((i: any) => {
+        if (idSet.has(Number(i.id))) {
+          updated += 1;
+          return { ...i, shopId: input.shopId, updatedAt: new Date() };
+        }
+        return i;
+      });
+      saveDbToDisk();
+
+      return { success: true, count: updated };
+    }),
+
+  // Tiendas (vendedores): CRUD de nombres reutilizables para anotar dónde quedó
+  // puesto a la venta un ítem. Solo referencia; no afecta estado ni ciclos.
+  // Solo Super Admin y sin registro en el Historial.
+  shops: router({
+    list: adminProcedure.query(async () => {
+      return getShops();
+    }),
+    create: adminProcedure
+      .input(z.object({ name: z.string().trim().min(1).max(60) }))
+      .mutation(async ({ input }) => {
+        const exists = getShops().some((s: any) => String(s.name).trim().toLowerCase() === input.name.trim().toLowerCase());
+        if (exists) throw new Error("Ya existe una tienda con ese nombre");
+        return createShop(input.name);
+      }),
+    rename: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60) }))
+      .mutation(async ({ input }) => {
+        const exists = getShops().some((s: any) => Number(s.id) !== Number(input.id) && String(s.name).trim().toLowerCase() === input.name.trim().toLowerCase());
+        if (exists) throw new Error("Ya existe una tienda con ese nombre");
+        renameShop(input.id, input.name);
+        return { success: true };
+      }),
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        deleteShop(input.id);
+        return { success: true };
+      }),
+  }),
 
   // Crea varios ítems en LOTE. Una sola escritura a disco y un solo log de
   // auditoría, para no gatillar N mutaciones al registrar muchas filas de una
