@@ -481,6 +481,17 @@ export const cpSplitRouter = router({
     list: adminProcedure.query(async () => getCpHistory()),
   }),
 
+  // -------- Reiniciar todo el módulo (Super Admin) --------
+  // Deja Reparticiones CP en cero: borra ítems, CPs, vendedores e historial.
+  resetAll: adminProcedure.mutation(async () => {
+    dbInstance.cpItems = [];
+    dbInstance.cpParticipants = [];
+    dbInstance.cpVendors = [];
+    dbInstance.cpHistory = [];
+    saveDbToDisk();
+    return { success: true };
+  }),
+
   // -------- Export Excel detallado --------
   exportExcel: adminProcedure
     .input(z.object({ onlyConfirmed: z.boolean().optional().default(false) }).optional())
@@ -568,8 +579,8 @@ export const cpSplitRouter = router({
       // ---- Sección 2: Por vender (pendientes + cada venta con su adena por CP) ----
       // Columnas por CP a partir de la 10ª posición (índice 9), para que "Total
       // por CP" quede alineado bajo el nombre de cada CP.
-      const cpStartIdx = 9;
-      const sellHeader = ["Fecha", "Ítem", "Categoría", "Unidades", "Tipo", "Precio normal", "Precio c/desc", "Vendedor", "Adena recaudada", ...cpCols];
+      const cpStartIdx = 10;
+      const sellHeader = ["Fecha", "Ítem", "Categoría", "Unidades", "Tipo", "Precio normal", "Precio c/desc", "Descuento", "Vendedor", "Adena recaudada", ...cpCols];
       ws.addRow([]);
       const t2 = ws.addRow(["Por vender"]);
       t2.font = { bold: true, size: 12 };
@@ -589,7 +600,8 @@ export const cpSplitRouter = router({
           anySell = true;
           const normal = it.price != null ? Number(it.price) : "";
           const withDisc = it.price != null ? discountedPrice(Number(it.price), it.discountPercent) : "";
-          const arr: any[] = [fmtDate(it.createdAt), it.name, it.category || "", v.available, "Pendiente", normal, withDisc, vendorName(it.vendorId), ""];
+          const pctPend = Math.min(100, Math.max(0, Number(it.discountPercent) || 0));
+          const arr: any[] = [fmtDate(it.createdAt), it.name, it.category || "", v.available, "Pendiente", normal, withDisc, `${pctPend}%`, vendorName(it.vendorId), ""];
           for (let i = 0; i < cpCols.length; i++) arr.push("");
           ws.addRow(arr);
         }
@@ -604,6 +616,7 @@ export const cpSplitRouter = router({
             s.discountApplied ? `Vendida (${Number(s.discountPercent) || 0}% desc.)` : "Vendida",
             Number(s.normalPrice) || 0,
             s.discountApplied ? Number(s.effectivePrice) || 0 : "",
+            s.discountApplied ? `${Number(s.discountPercent) || 0}%` : "0%",
             s.vendorName || "",
             Number(s.total) || 0,
           ];
@@ -622,7 +635,7 @@ export const cpSplitRouter = router({
       }
 
       if (anySell) {
-        const totalArr: any[] = ["Total por CP recibida", "", "", "", "", "", "", "", ""];
+        const totalArr: any[] = ["Total por CP recibida", "", "", "", "", "", "", "", "", ""];
         for (const n of cpCols) totalArr.push(totalPerCp[n] || 0);
         const totalRow = ws.addRow(totalArr);
         totalRow.font = { bold: true };

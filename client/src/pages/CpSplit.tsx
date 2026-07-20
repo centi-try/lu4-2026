@@ -348,6 +348,17 @@ export default function CpSplit() {
   const exportMut = trpc.cpSplit.exportExcel.useMutation({
     onError: (e) => toast.error(e.message),
   });
+  const resetAll = trpc.cpSplit.resetAll.useMutation({
+    onSuccess: () => {
+      utils.cpSplit.items.list.invalidate();
+      utils.cpSplit.participants.list.invalidate();
+      utils.cpSplit.vendors.list.invalidate();
+      utils.cpSplit.history.list.invalidate();
+      toast.success('Módulo reiniciado. Todo quedó en cero.');
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const [resetOpen, setResetOpen] = useState(false);
 
   const addItem = () => {
     const n = itemName.trim();
@@ -403,7 +414,21 @@ export default function CpSplit() {
             style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399' }}>
             <Download className="h-4 w-4" /> {exportMut.isPending ? 'Generando…' : 'Descargar Excel'}
           </button>
+          <button onClick={() => setResetOpen(true)} disabled={resetAll.isPending}
+            title="Borra ítems, CPs, vendedores e historial"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
+            style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+            <Trash2 className="h-4 w-4" /> Reiniciar todo
+          </button>
         </div>
+        <ConfirmModal
+          open={resetOpen}
+          title="Reiniciar Reparticiones CP"
+          message="Esto deja el módulo en cero: borra TODOS los ítems, las CPs participantes, los vendedores y el historial. No se puede deshacer. ¿Continuar?"
+          confirmLabel="Reiniciar todo"
+          onConfirm={() => { resetAll.mutate(); setResetOpen(false); }}
+          onCancel={() => setResetOpen(false)}
+        />
 
         {/* CPs + Vendedores */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -852,11 +877,18 @@ function ItemsTable({
       </div>
     );
   }
+  // Borradores arriba, entregados al final; dentro de cada grupo por fecha.
+  const sorted = [...items].sort((a, b) => {
+    const ra = a.status === 'CONFIRMED' ? 1 : 0;
+    const rb = b.status === 'CONFIRMED' ? 1 : 0;
+    if (ra !== rb) return ra - rb;
+    return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+  });
   return (
     <div style={cardStyle} className="p-4">
       <h3 className="mb-3 text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Ítems a repartir</h3>
       <div className="space-y-3">
-        {items.map((it) => (
+        {sorted.map((it) => (
           <ItemRow key={it.id} it={it} cpNames={cpNames} vendors={vendors}
             onUpdate={onUpdate} onConfirm={onConfirm} onDelete={onDelete}
             onSell={onSell} onRevertSale={onRevertSale} />
