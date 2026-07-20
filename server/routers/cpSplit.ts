@@ -70,10 +70,11 @@ export function computeAllocation(
   return { perCp, remainder, alloc, toSell };
 }
 
-// CPs efectivas de un ítem: los ítems confirmados usan el snapshot congelado al
-// confirmar; los borradores usan la lista actual de CPs participantes.
+// CPs efectivas de un ítem: los ítems confirmados/vendidos usan el snapshot
+// congelado al confirmar (para que el reparto histórico no cambie si luego se
+// editan las CPs); los borradores usan la lista actual de CPs participantes.
 function effectiveCpNames(item: any): string[] {
-  if (item.status === "CONFIRMED" && Array.isArray(item.cpNamesSnapshot)) {
+  if ((item.status === "CONFIRMED" || item.status === "SOLD") && Array.isArray(item.cpNamesSnapshot)) {
     return item.cpNamesSnapshot.map((s: any) => String(s));
   }
   return getCpParticipants().map((c: any) => String(c.name));
@@ -220,12 +221,13 @@ export const cpSplitRouter = router({
         const participants = getCpParticipants().map((c: any) => String(c.name));
         const name = input.name.trim();
 
-        // #6c — Agrupar: si ya existe un ítem NO vendido con el mismo nombre y
-        // las mismas CPs participantes, sumamos la cantidad y re-repartimos en
-        // vez de crear un duplicado. Los ítems vendidos nunca se agrupan.
+        // #6c — Agrupar: solo se agrupa con BORRADORES (aún en tu poder, sin
+        // entregar) del mismo nombre y mismas CPs. Los confirmados ya se
+        // entregaron/repartieron, así que NO se re-suman ni re-reparten (eso
+        // descuadraba las métricas al registrar más unidades al día siguiente).
         const match = getCpItems().find(
           (it: any) =>
-            it.status !== "SOLD" &&
+            it.status === "DRAFT" &&
             normName(it.name) === normName(name) &&
             cpSetEqual(effectiveCpNames(it), participants),
         );
@@ -316,8 +318,8 @@ export const cpSplitRouter = router({
       );
       const repartoTxt = participants.map((n) => `${n}: ${alloc[n] ?? 0}`).join(" · ");
       pushCpHistory(
-        "ITEM_CONFIRMADO",
-        `Confirmó "${item.name}" (${item.quantity} u.) → ${repartoTxt}${toSell > 0 ? ` · A vender: ${toSell}` : ""}`,
+        "ITEM_ENTREGADO",
+        `Entregó "${item.name}" (${item.quantity} u.) → ${repartoTxt}${toSell > 0 ? ` · A vender: ${toSell}` : ""}`,
         actor(ctx),
       );
       saveDbToDisk();
@@ -410,38 +412,52 @@ export const cpSplitRouter = router({
       wb.created = new Date();
       const ws = wb.addWorksheet("Reparticiones CP");
 
-      const columns: Partial<ExcelJS.Column>[] = [
+      const fmtDate = (iso: any) => {
+        if (!iso) return "";
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? "" : d.toLocaleString("es-CL");
+      };
+      const statusLabel = (it: any) =>
+        it.status === "SOLD" ? "Vendido" : it.status === "CONFIRMED" ? "Entregado" : "Borrador";
+
+      // Orden estable: por nombre (agrupa visualmente los ítems iguales) y luego
+      // por fecha de registro.
+      const sorted = [...allItems].sort((a: any, b: any) => {
+        const byName = normName(a.name).localeCompare(normName(b.name));
+        if (byName !== 0) return byName;
+        return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+      });
+
+      // Columnas sin `header` para que ExcelJS no cree una fila de encabezado
+      // automática (queremos un título propio arriba de cada sección).
+      const columns: { header: string; key: string; width: number }[] = [
         { header: "Imagen", key: "img", width: 12 },
+        { header: "Fecha registro", key: "createdAt", width: 20 },
         { header: "Ítem", key: "name", width: 28 },
         { header: "Categoría", key: "category", width: 18 },
         { header: "Cantidad total", key: "quantity", width: 14 },
         ...cpCols.map((n) => ({ header: n, key: `cp_${n}`, width: 12 })),
-        { header: "A vender", key: "toSell", width: 12 },
-        { header: "Precio", key: "price", width: 14 },
-        { header: "Vendedor", key: "vendor", width: 20 },
         { header: "Estado", key: "status", width: 14 },
-        { header: "Adena vendida", key: "saleTotal", width: 16 },
-        { header: "Adena por CP", key: "saledPerCp", width: 16 },
       ];
-      ws.columns = columns;
-      ws.getRow(1).font = { bold: true };
-      ws.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
+      ws.columns = columns.map((c) => ({ key: c.key, width: c.width }));
 
-      let rowIdx = 2;
-      for (const it of allItems) {
+      // ---- Sección 1: Reparto por CP (todos los ítems, divididos) ----
+      const titleRow = ws.addRow(["Reparto por CP"]);
+      titleRow.font = { bold: true, size: 12 };
+      const headerRow = ws.addRow(columns.map((c) => c.header));
+      headerRow.font = { bold: true };
+      headerRow.alignment = { vertical: "middle", horizontal: "center" };
+      let rowIdx = headerRow.number + 1;
+      for (const it of sorted) {
         const cpNames = effectiveCpNames(it);
-        const { alloc, toSell } = computeAllocation(it.quantity, cpNames, remainderAllocOf(it));
+        const { alloc } = computeAllocation(it.quantity, cpNames, remainderAllocOf(it));
         const rowData: Record<string, any> = {
           img: "",
+          createdAt: fmtDate(it.createdAt),
           name: it.name,
           category: it.category || "",
           quantity: it.quantity,
-          toSell: toSell,
-          price: toSell > 0 && it.price != null ? Number(it.price) : "",
-          vendor: toSell > 0 ? vendorName(it.vendorId) : "",
-          status: it.status === "SOLD" ? "Vendido" : it.status === "CONFIRMED" ? "Confirmado" : "Borrador",
-          saleTotal: it.status === "SOLD" && it.sale ? Number(it.sale.total) : "",
-          saledPerCp: it.status === "SOLD" && it.sale ? Number(it.sale.adenaPerCp) : "",
+          status: statusLabel(it),
         };
         for (const n of cpCols) rowData[`cp_${n}`] = alloc[n] != null ? alloc[n] : "";
         const row = ws.addRow(rowData);
@@ -460,6 +476,33 @@ export const cpSplitRouter = router({
           ws.getCell(`A${rowIdx}`).value = { text: "ver", hyperlink: it.imageUrl } as any;
         }
         rowIdx += 1;
+      }
+
+      // ---- Sección 2: Por vender (solo ítems con unidades a vender) ----
+      const toSellItems = sorted
+        .map((it: any) => ({ it, calc: computeAllocation(it.quantity, effectiveCpNames(it), remainderAllocOf(it)) }))
+        .filter((x) => x.calc.toSell > 0);
+      if (toSellItems.length > 0) {
+        ws.addRow([]);
+        const t2 = ws.addRow(["Por vender"]);
+        t2.font = { bold: true, size: 12 };
+        const sellHeaders = ["Fecha registro", "Ítem", "Categoría", "A vender", "Precio", "Vendedor", "Estado", "Adena vendida", "Adena por CP"];
+        const h2 = ws.addRow(sellHeaders);
+        h2.font = { bold: true };
+        h2.alignment = { vertical: "middle", horizontal: "center" };
+        for (const { it, calc } of toSellItems) {
+          ws.addRow([
+            fmtDate(it.createdAt),
+            it.name,
+            it.category || "",
+            calc.toSell,
+            it.price != null ? Number(it.price) : "",
+            vendorName(it.vendorId),
+            statusLabel(it),
+            it.status === "SOLD" && it.sale ? Number(it.sale.total) : "",
+            it.status === "SOLD" && it.sale ? Number(it.sale.adenaPerCp) : "",
+          ]);
+        }
       }
 
       const buffer = await wb.xlsx.writeBuffer();

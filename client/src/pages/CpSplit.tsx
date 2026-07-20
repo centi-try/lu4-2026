@@ -270,7 +270,7 @@ export default function CpSplit() {
           : '';
         toast.success(`Se agrupó con "${res.name}" (total ${res.quantity} u.) y se re-repartió.${pend}`);
       } else {
-        toast.success('Ítem agregado (borrador). Confírmalo para guardarlo.');
+        toast.success('Ítem agregado (borrador). Entrégalo para repartir y bloquear el lote.');
       }
     },
     onError: (e) => toast.error(e.message),
@@ -280,7 +280,7 @@ export default function CpSplit() {
     onError: (e) => toast.error(e.message),
   });
   const iConfirm = trpc.cpSplit.items.confirm.useMutation({
-    onSuccess: () => { invAll(); toast.success('Ítem confirmado y guardado.'); },
+    onSuccess: () => { invAll(); toast.success('Lote entregado y bloqueado. Reparto fijo.'); },
     onError: (e) => toast.error(e.message),
   });
   const iDelete = trpc.cpSplit.items.delete.useMutation({
@@ -574,10 +574,10 @@ function ItemRow({
       />
       <ConfirmModal
         open={modal === 'confirm'}
-        title="Confirmar ítem"
+        title="Entregar ítem"
         danger={false}
-        message={`Confirmar "${it.name}" congela las CPs participantes actuales. Podrás seguir editando precio/vendedor y el reparto con el lápiz.`}
-        confirmLabel="Confirmar"
+        message={`Entregar "${it.name}" reparte las unidades entre las CPs de inmediato y bloquea el lote (el reparto queda fijo y no se vuelve a agrupar).${toSell > 0 ? ' Las unidades "A vender" siguen en tu poder: podrás cambiar su precio/vendedor y marcarlas como vendidas.' : ''}`}
+        confirmLabel="Entregar"
         onConfirm={() => { onConfirm(it.id); setModal(null); }}
         onCancel={() => setModal(null)}
       />
@@ -607,16 +607,19 @@ function ItemRow({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{it.name}</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{meta.emoji} {meta.label} · {it.quantity} u.</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {meta.emoji} {meta.label} · {it.quantity} u.
+            {it.createdAt ? ` · ${new Date(it.createdAt).toLocaleDateString('es-CL')}` : ''}
+          </p>
         </div>
         <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
           style={{ background: sold ? 'rgba(96,165,250,0.14)' : confirmed ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)', color: sold ? '#60a5fa' : confirmed ? '#34d399' : '#fbbf24' }}>
-          {sold ? 'Vendido' : confirmed ? 'Confirmado' : 'Borrador'}
+          {sold ? 'Vendido' : confirmed ? 'Entregado' : 'Borrador'}
         </span>
         {!confirmed && !sold && (
-          <button onClick={() => setModal('confirm')} disabled={effCpNames.length === 0} title="Confirmar y guardar"
+          <button onClick={() => setModal('confirm')} disabled={effCpNames.length === 0} title="Entregar y bloquear el lote"
             className={`${btnBase} px-2.5 py-1.5`} style={btnGreen}>
-            <Check className="h-3.5 w-3.5" /> Confirmar
+            <Check className="h-3.5 w-3.5" /> Entregar
           </button>
         )}
         {confirmed && toSell > 0 && (
@@ -625,8 +628,8 @@ function ItemRow({
             <ShoppingCart className="h-3.5 w-3.5" /> Vendido
           </button>
         )}
-        {confirmed && (
-          <button onClick={() => setEditing((e) => !e)} title={editing ? 'Terminar edición' : 'Editar'}
+        {confirmed && toSell > 0 && (
+          <button onClick={() => setEditing((e) => !e)} title={editing ? 'Terminar edición' : 'Editar precio/vendedor'}
             className={`${btnBase} px-2.5 py-1.5`} style={editing ? btnGreen : btnGhost}>
             {editing ? <><Check className="h-3.5 w-3.5" /> Listo</> : <><Pencil className="h-3.5 w-3.5" /> Editar</>}
           </button>
@@ -659,8 +662,8 @@ function ItemRow({
         )}
       </div>
 
-      {/* Editor del sobrante */}
-      {editable && remainder > 0 && (
+      {/* Editor del sobrante — solo en borrador: al entregar, el reparto queda fijo. */}
+      {!confirmed && !sold && remainder > 0 && (
         <RemainderEditor
           cpNames={effCpNames}
           remainder={remainder}
