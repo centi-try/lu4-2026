@@ -1763,6 +1763,7 @@ export const addClanFundTransaction = async (tx: {
   relatedItemId?: string;
   relatedCycleId?: string;
   settled?: boolean;
+  source?: 'cycle' | 'manual';
   createdBy: string;
   createdByUserId?: number;
 }) => {

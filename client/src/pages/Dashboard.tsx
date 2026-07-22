@@ -19,6 +19,8 @@ export default function Dashboard() {
   const { items, auditLogs, characters, salesCycles, cycleNumber, effectiveIsSuperAdmin } = useApp();
   const { user: authUser } = useAuth();
   const isSuperAdmin = effectiveIsSuperAdmin;
+  // Super Admin o Admin pueden añadir saldo/gastos; el resto solo lee.
+  const canManageFunds = isSuperAdmin || String(authUser?.role || '').toLowerCase() === 'admin';
 
   const { data: registeredUsers } = trpc.adminUsers.listUsers.useQuery(undefined, { enabled: !!authUser && isSuperAdmin, retry: false });
   const { data: clanSummary } = trpc.clanFund.getSummary.useQuery(undefined, { enabled: !!authUser });
@@ -38,6 +40,22 @@ export default function Dashboard() {
     onError: (err) => toast.error(err.message || 'Error al registrar gasto'),
   });
 
+  const addIncomeMutation = trpc.clanFund.addIncome.useMutation({
+    onSuccess: () => {
+      utils.clanFund.getSummary.invalidate();
+      utils.clanFund.listTransactions.invalidate();
+      utils.auditLogs.list.invalidate();
+      toast.success('Saldo añadido al fondo del clan');
+      setShowIncomeForm(false);
+      setIncomeAmount('');
+      setIncomeDesc('');
+    },
+    onError: (err) => toast.error(err.message || 'Error al añadir saldo'),
+  });
+
+  const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeDesc, setIncomeDesc] = useState('');
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
@@ -216,6 +234,20 @@ export default function Dashboard() {
     });
   };
 
+  const handleIncomeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(incomeAmount);
+    if (isNaN(amt) || amt <= 0) { toast.error('Monto inválido'); return; }
+    if (!incomeDesc.trim()) { toast.error('Descripción requerida'); return; }
+    showConfirm({
+      title: 'Añadir saldo al clan',
+      message: `¿Añadir $${amt.toLocaleString()} al fondo del clan — "${incomeDesc.trim()}"?`,
+      confirmLabel: 'Añadir',
+      danger: false,
+      onConfirm: () => addIncomeMutation.mutate({ amount: amt, description: incomeDesc.trim() }),
+    });
+  };
+
   const totalEarnings = characters.reduce((sum, c) => sum + c.totalEarnings, 0);
   const currentCycleEarnings = characters.reduce((sum, c) => sum + c.currentCycleEarnings, 0);
   const soldItems = items.filter(i => i.status === 'VENDIDO').length;
@@ -290,7 +322,7 @@ export default function Dashboard() {
       </div>
 
       {/* Fondo del Clan KPIs */}
-      {clanSummary && (clanSummary.totalIncome > 0 || clanSummary.totalExpense > 0 || (clanSummary as any).pendingIncome > 0) && (
+      {clanSummary && (clanSummary.totalIncome > 0 || clanSummary.totalExpense > 0 || (clanSummary as any).pendingIncome > 0 || canManageFunds) && (
         <div className="grid gap-4 sm:grid-cols-4 mb-6">
           <KpiCard title="Clan: Recaudado" value={`$${(clanSummary.totalIncome ?? 0).toLocaleString()}`}
             subtitle="Ciclos pagados" icon={Coins} accentColor="#fbbf24" />
@@ -300,19 +332,27 @@ export default function Dashboard() {
           )}
           <KpiCard title="Clan: Gastado" value={`$${(clanSummary.totalExpense ?? 0).toLocaleString()}`}
             subtitle="Total de gastos registrados" icon={Receipt} accentColor="#f87171" />
-          <KpiCard title="Clan: Saldo" value={`$${(clanSummary.balance ?? 0).toLocaleString()}`}
-            subtitle="Disponible en el fondo" icon={CircleDollarSign} accentColor="#34d399" />
+          <KpiCard title="Clan: Fondos disponibles" value={`$${(clanSummary.balance ?? 0).toLocaleString()}`}
+            subtitle="Ingresos − gastos" icon={CircleDollarSign} accentColor="#34d399" />
         </div>
       )}
 
       {/* Movimientos del Fondo del Clan — con tabs */}
-      {clanTransactions && clanTransactions.length > 0 && (
+      {clanTransactions && (clanTransactions.length > 0 || canManageFunds) && (
         <div className="card-glass rounded-2xl p-5 mb-6" style={{ border: '1px solid rgba(251,191,36,0.15)' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Coins className="h-5 w-5" style={{ color: '#fbbf24' }} />
               <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>Movimientos del Fondo del Clan</h3>
             </div>
+            {canManageFunds && clanMovTab === 'retenciones' && (
+              <button onClick={() => setShowIncomeForm(!showIncomeForm)}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold"
+                style={{ background: 'rgba(16,185,129,0.14)', color: '#34d399' }}>
+                {showIncomeForm ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                {showIncomeForm ? 'Cancelar' : 'Añadir Saldo'}
+              </button>
+            )}
             {isSuperAdmin && clanMovTab === 'gastos' && (
               <button onClick={() => setShowExpenseForm(!showExpenseForm)}
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold"
@@ -326,17 +366,35 @@ export default function Dashboard() {
           {/* Tabs */}
           <div className="flex gap-1 mb-4 rounded-lg p-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
             {(['retenciones', 'gastos'] as const).map(tab => (
-              <button key={tab} onClick={() => { setClanMovTab(tab); if (tab !== 'gastos') setShowExpenseForm(false); }}
+              <button key={tab} onClick={() => { setClanMovTab(tab); if (tab !== 'gastos') setShowExpenseForm(false); if (tab !== 'retenciones') setShowIncomeForm(false); }}
                 className="flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition-all"
                 style={{
                   background: clanMovTab === tab ? 'rgba(251,191,36,0.15)' : 'transparent',
                   color: clanMovTab === tab ? '#fbbf24' : 'rgba(255,255,255,0.4)',
                   border: clanMovTab === tab ? '1px solid rgba(251,191,36,0.25)' : '1px solid transparent',
                 }}>
-                {tab === 'retenciones' ? '▲ Retenciones' : '▼ Registro de Gastos'}
+                {tab === 'retenciones' ? '▲ Ingresos' : '▼ Registro de Gastos'}
               </button>
             ))}
           </div>
+
+          {/* Income form (retenciones/ingresos tab only) */}
+          {showIncomeForm && canManageFunds && clanMovTab === 'retenciones' && (
+            <form onSubmit={handleIncomeSubmit} className="mb-4 p-3 rounded-xl space-y-3" style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.18)' }}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input type="text" inputMode="numeric" value={formatThousands(incomeAmount)} onChange={e => setIncomeAmount(String(parseThousands(e.target.value) ?? ''))}
+                  placeholder="Monto (adena)" className="rounded-lg border bg-transparent px-3 py-2 text-sm font-mono outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
+                <input type="text" value={incomeDesc} onChange={e => setIncomeDesc(e.target.value)}
+                  placeholder="Descripción (origen del ingreso)" className="rounded-lg border bg-transparent px-3 py-2 text-sm outline-none"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.9)' }} />
+              </div>
+              <button type="submit" disabled={addIncomeMutation.isPending}
+                className="rounded-lg px-4 py-2 text-sm font-bold disabled:opacity-50" style={{ background: '#34d399', color: '#000' }}>
+                {addIncomeMutation.isPending ? 'Guardando...' : 'Añadir Saldo'}
+              </button>
+            </form>
+          )}
 
           {/* Expense form (gastos tab only) */}
           {showExpenseForm && isSuperAdmin && clanMovTab === 'gastos' && (
@@ -382,7 +440,7 @@ export default function Dashboard() {
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
               if (filtered.length === 0) return (
                 <p className="text-xs text-center py-4" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                  {clanMovTab === 'retenciones' ? 'No hay retenciones registradas' : 'No hay gastos registrados'}
+                  {clanMovTab === 'retenciones' ? 'No hay ingresos registrados' : 'No hay gastos registrados'}
                 </p>
               );
               return filtered.slice(0, 30).map((tx: any) => (
@@ -444,10 +502,10 @@ export default function Dashboard() {
                         {tx.type === 'income' && (
                           <span className="text-[10px] font-semibold rounded px-1.5 py-0.5"
                             style={{
-                              background: tx.settled ? 'rgba(16,185,129,0.15)' : 'rgba(251,191,36,0.15)',
-                              color: tx.settled ? '#10b981' : '#f59e0b',
+                              background: tx.source === 'manual' ? 'rgba(52,211,153,0.15)' : (tx.settled ? 'rgba(16,185,129,0.15)' : 'rgba(251,191,36,0.15)'),
+                              color: tx.source === 'manual' ? '#34d399' : (tx.settled ? '#10b981' : '#f59e0b'),
                             }}>
-                            {tx.settled ? '✓ PAGADO' : 'PENDIENTE'}
+                            {tx.source === 'manual' ? 'SALDO' : (tx.settled ? '✓ PAGADO' : 'PENDIENTE')}
                           </span>
                         )}
                         <span className="text-xs font-mono font-semibold" style={{ color: tx.type === 'income' ? '#10b981' : '#f87171' }}>

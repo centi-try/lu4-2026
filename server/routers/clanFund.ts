@@ -80,6 +80,30 @@ export const clanFundRouter = router({
       });
     }),
 
+  // Añadir saldo/ingreso manual al fondo del clan. Cuenta de inmediato en el
+  // balance (settled=true), a diferencia de las retenciones de ciclo que quedan
+  // pendientes hasta que se marcan como pagadas. Solo super_admin o admin.
+  addIncome: protectedProcedure
+    .input(z.object({
+      amount: z.number().positive(),
+      description: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const role = String(ctx.user?.role || '').toLowerCase();
+      if (role !== 'super_admin' && role !== 'admin') {
+        throw new Error('Solo el Administrador del Sistema o un Admin puede añadir saldo al clan.');
+      }
+      return await addClanFundTransaction({
+        type: 'income',
+        amount: input.amount,
+        description: input.description,
+        settled: true,
+        source: 'manual',
+        createdBy: ctx.user?.characterName || ctx.user?.name || 'Administrador',
+        createdByUserId: ctx.user?.id,
+      });
+    }),
+
   getSummary: protectedProcedure.query(async () => {
     return getClanFundSummary();
   }),

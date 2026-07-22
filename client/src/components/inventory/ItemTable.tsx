@@ -1117,9 +1117,14 @@ function InventorySummaryButton({
                 )}
 
                 {resetConfirm && (
-                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setResetConfirm(false)}>
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
                     <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
-                      <h3 className="text-sm font-bold mb-2" style={{ color: 'rgba(255,255,255,0.95)' }}>Resetear vendedores</h3>
+                      <div className="mb-2 flex items-center gap-2">
+                        <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Resetear vendedores</h3>
+                        <button type="button" onClick={() => setResetConfirm(false)} title="Cerrar" className="ml-auto rounded-lg p-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                       <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
                         Esto deja todas las tiendas en 0: quita la asignación de tienda de todos los ítems y desvincula las ventas ya registradas de sus vendedores. No borra las compras ni afecta montos ni ciclos. Podrás empezar a asignar de nuevo.
                       </p>
