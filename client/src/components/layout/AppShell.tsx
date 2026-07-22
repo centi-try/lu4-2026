@@ -94,6 +94,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
   const effectiveLegacyAccess = isImpersonating ? !!(currentUser as any)?.legacyAccess : (isAuthSuperAdmin || authUser?.legacyAccess === true);
   const effectiveIsSuper = effectiveRole === 'super_admin';
+  // Rol dedicado de Reparticiones CP: tiene acceso propio (solo a /cp-split),
+  // no pasa por legacyAccess ni por el módulo de raids.
+  const effectiveIsCp = effectiveRole === 'rol_reparticion';
   const impersonatedRaidLevel = isImpersonating ? (currentUser as any)?.raidAccessLevel : null;
   const effectiveRaidAccess = isImpersonating ? !!impersonatedRaidLevel : canSeeRaidModule;
   const effectiveRaidCanInteract = isImpersonating
@@ -368,7 +371,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Banner de verificación de email oculto: el envío (RESEND_API_KEY)
               no está configurado, así que no funcionaba y generaba ruido (#7). */}
           {false && <EmailVerificationBanner />}
-          {!effectiveLegacyAccess && !effectiveIsSuper && !(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) ? (
+          {!effectiveLegacyAccess && !effectiveIsSuper && !effectiveIsCp && !(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) ? (
             <div className="flex flex-1 items-center justify-center min-h-[60vh]">
               <div className="text-center max-w-md mx-auto px-6 py-12 rounded-2xl"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
