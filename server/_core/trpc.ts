@@ -45,14 +45,15 @@ export const adminProcedure = t.procedure.use(
   }),
 );
 
-// Acceso al módulo Reparticiones CP: Super Admin o el rol dedicado
-// `rol_reparticion` (que solo puede operar este módulo, nada más).
+// Acceso al módulo Reparticiones CP: Super Admin o cualquier usuario con el
+// toggle `cpAccess` activado (que solo puede operar este módulo, nada más).
 export const cpProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
     const role = String(ctx.user?.role || '').toLowerCase();
-    if (!ctx.user || (role !== 'super_admin' && role !== 'rol_reparticion')) {
+    const hasCpAccess = (ctx.user as any)?.cpAccess === true;
+    if (!ctx.user || (role !== 'super_admin' && !hasCpAccess)) {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 

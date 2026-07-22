@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-type LegacyRole = 'super_admin' | 'mapper' | 'user' | 'rol_reparticion';
+type LegacyRole = 'super_admin' | 'mapper' | 'user';
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -14,9 +14,14 @@ interface ProtectedRouteProps {
    * con botón para volver al dashboard. El match es case-insensitive.
    */
   allowedRoles?: LegacyRole[];
+  /**
+   * Si true, los usuarios con el toggle `cpAccess` pueden entrar a esta ruta
+   * (usado por /cp-split). El resto de rutas los redirige a /cp-split.
+   */
+  allowCpAccess?: boolean;
 }
 
-export default function ProtectedRoute({ component: Component, allowedRoles }: ProtectedRouteProps) {
+export default function ProtectedRoute({ component: Component, allowedRoles, allowCpAccess }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -24,14 +29,15 @@ export default function ProtectedRoute({ component: Component, allowedRoles }: P
     if (!loading && !isAuthenticated) setLocation('/login');
   }, [loading, isAuthenticated, setLocation]);
 
-  // El rol `rol_reparticion` solo puede operar el módulo Reparticiones CP.
-  // En cualquier otra ruta lo mandamos automáticamente a /cp-split.
+  // Toggle `cpAccess`: el usuario solo puede operar el módulo Reparticiones CP.
+  // En cualquier otra ruta lo mandamos automáticamente a /cp-split. El Super
+  // Admin no se considera "solo CP".
   const roleLc = String((user as any)?.role || '').toLowerCase();
-  const routeAllowsCp = (allowedRoles || []).map((r) => r.toLowerCase()).includes('rol_reparticion');
+  const isCpOnly = roleLc !== 'super_admin' && (user as any)?.cpAccess === true;
   useEffect(() => {
     if (loading || !isAuthenticated) return;
-    if (roleLc === 'rol_reparticion' && !routeAllowsCp) setLocation('/cp-split');
-  }, [loading, isAuthenticated, roleLc, routeAllowsCp, setLocation]);
+    if (isCpOnly && !allowCpAccess) setLocation('/cp-split');
+  }, [loading, isAuthenticated, isCpOnly, allowCpAccess, setLocation]);
 
   if (loading) {
     return (
@@ -46,9 +52,13 @@ export default function ProtectedRoute({ component: Component, allowedRoles }: P
 
   if (!isAuthenticated) return null;
 
-  // rol_reparticion fuera de /cp-split: no renderizamos nada mientras el
-  // efecto de arriba lo redirige a su único módulo (evita el flash de otra vista).
-  if (roleLc === 'rol_reparticion' && !routeAllowsCp) return null;
+  // cpAccess fuera de /cp-split: no renderizamos nada mientras el efecto de
+  // arriba lo redirige a su único módulo (evita el flash de otra vista).
+  if (isCpOnly && !allowCpAccess) return null;
+
+  // Ruta que permite cpAccess (/cp-split): el usuario con el toggle entra aunque
+  // su rol no esté en allowedRoles.
+  if (allowCpAccess && isCpOnly) return <Component />;
 
   if (allowedRoles && allowedRoles.length > 0) {
     const role = String((user as any)?.role || '').toLowerCase() as LegacyRole;

@@ -429,6 +429,12 @@ function normalizeUser(rawUser: any, index: number) {
     ? rawUser.twoFactorBackupCodeHashes.filter((h: any) => typeof h === 'string')
     : [];
 
+  // Acceso exclusivo a Reparticiones CP (toggle por usuario, como el "menú
+  // antiguo"). Migración: los usuarios que tenían el rol antiguo
+  // `rol_reparticion` pasan a rol 'user' con este flag activado.
+  const rawRole = String(rawUser?.role || '').trim().toLowerCase();
+  const cpAccess = rawUser?.cpAccess === true || rawRole === 'rol_reparticion';
+
   return {
     ...rawUser,
     id: Number(rawUser?.id) || Math.floor(Math.random() * 1000000),
@@ -437,6 +443,7 @@ function normalizeUser(rawUser: any, index: number) {
     name: rawUser?.name || characterName,
     characterName,
     role,
+    cpAccess,
     loginMethod: rawUser?.loginMethod || 'local',
     isActive: rawUser?.isActive !== false,
     passwordHash,
@@ -1917,6 +1924,7 @@ export const getAllUsers = async () => {
     role: u.role || 'user',
     isActive: u.isActive !== undefined ? u.isActive : true,
     legacyAccess: u.legacyAccess === true,
+    cpAccess: u.cpAccess === true,
     loginMethod: u.loginMethod,
     createdAt: u.createdAt,
     lastSignedIn: u.lastSignedIn,
@@ -1990,6 +1998,16 @@ export const setUserLegacyAccess = async (userId: number, legacyAccess: boolean)
   const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
   if (userIndex === -1) return null;
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], legacyAccess, updatedAt: new Date().toISOString() };
+  saveDb(dbInstance);
+  return dbInstance.users[userIndex];
+};
+
+// Acceso exclusivo al módulo Reparticiones CP (toggle por usuario). Al activarlo
+// el usuario solo verá/entrará a Reparticiones CP y nada más.
+export const setUserCpAccess = async (userId: number, cpAccess: boolean) => {
+  const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
+  if (userIndex === -1) return null;
+  dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], cpAccess, updatedAt: new Date().toISOString() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
 };

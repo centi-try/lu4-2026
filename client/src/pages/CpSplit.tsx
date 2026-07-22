@@ -190,7 +190,7 @@ function ConfirmModal({
 }
 
 function NameManager({
-  title, icon, items, onCreate, onRename, onDelete, placeholder,
+  title, icon, items, onCreate, onRename, onDelete, placeholder, deleteTitle, getDeleteMessage,
 }: {
   title: string;
   icon: React.ReactNode;
@@ -199,18 +199,25 @@ function NameManager({
   onRename: (id: number, name: string) => void;
   onDelete: (id: number) => void;
   placeholder: string;
+  deleteTitle?: string;
+  getDeleteMessage?: (id: number, name: string) => string;
 }) {
   const [name, setName] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [delItem, setDelItem] = useState<{ id: number; name: string } | null>(null);
 
+  const defaultMsg = `¿Seguro que quieres eliminar "${delItem?.name ?? ''}"? Se quitará de las asignaciones de sobrante de los ítems en borrador.`;
+  const delMsg = delItem
+    ? (getDeleteMessage ? getDeleteMessage(delItem.id, delItem.name) : defaultMsg)
+    : '';
+
   return (
     <div style={cardStyle} className="p-4">
       <ConfirmModal
         open={!!delItem}
-        title="Eliminar registro"
-        message={`¿Seguro que quieres eliminar "${delItem?.name ?? ''}"? Se quitará de las asignaciones de sobrante de los ítems en borrador.`}
+        title={deleteTitle ?? 'Eliminar registro'}
+        message={delMsg}
         confirmLabel="Eliminar"
         onConfirm={() => { if (delItem) onDelete(delItem.id); setDelItem(null); }}
         onCancel={() => setDelItem(null)}
@@ -241,16 +248,16 @@ function NameManager({
                 <>
                   <input style={{ ...inputStyle, padding: '2px 6px', width: 120 }} value={editName}
                     onChange={(e) => setEditName(e.target.value)} autoFocus maxLength={60} />
-                  <button onClick={() => { const n = editName.trim(); if (n) onRename(it.id, n); setEditId(null); }}
+                  <button type="button" onClick={() => { const n = editName.trim(); if (n) onRename(it.id, n); setEditId(null); }}
                     title="Guardar"><Check className="h-3.5 w-3.5" style={{ color: '#34d399' }} /></button>
-                  <button onClick={() => setEditId(null)} title="Cancelar"><X className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.5)' }} /></button>
+                  <button type="button" onClick={() => setEditId(null)} title="Cancelar"><X className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.5)' }} /></button>
                 </>
               ) : (
                 <>
                   <span className="text-xs" style={{ color: 'rgba(255,255,255,0.85)' }}>{it.name}</span>
-                  <button onClick={() => { setEditId(it.id); setEditName(it.name); }} title="Renombrar">
+                  <button type="button" onClick={() => { setEditId(it.id); setEditName(it.name); }} title="Renombrar">
                     <Pencil className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.45)' }} /></button>
-                  <button onClick={() => setDelItem({ id: it.id, name: it.name })} title="Eliminar">
+                  <button type="button" onClick={() => setDelItem({ id: it.id, name: it.name })} title="Eliminar">
                     <Trash2 className="h-3 w-3" style={{ color: '#f87171' }} /></button>
                 </>
               )}
@@ -264,9 +271,9 @@ function NameManager({
 
 export default function CpSplit() {
   const { user } = useAuth();
-  // Acceso al módulo: Super Admin o el rol dedicado `rol_reparticion`.
+  // Acceso al módulo: Super Admin o usuario con el toggle `cpAccess`.
   const roleLc = String(user?.role || '').toLowerCase();
-  const isSA = roleLc === 'super_admin' || roleLc === 'rol_reparticion';
+  const isSA = roleLc === 'super_admin' || (user as any)?.cpAccess === true;
 
   const utils = trpc.useUtils();
   const enabled = !!user && isSA;
@@ -277,6 +284,18 @@ export default function CpSplit() {
   const { data: history = [] } = trpc.cpSplit.history.list.useQuery(undefined, { enabled });
 
   const cpNames = useMemo(() => (participants as any[]).map((c) => String(c.name)), [participants]);
+
+  // Cuántos ítems tiene asignado cada vendedor (para el aviso al eliminar).
+  const vendorItemCount = useMemo(() => {
+    const m: Record<number, number> = {};
+    for (const it of items as any[]) {
+      if (it?.vendorId != null) {
+        const k = Number(it.vendorId);
+        m[k] = (m[k] || 0) + 1;
+      }
+    }
+    return m;
+  }, [items]);
 
   // ---- registro de ítem ----
   const [itemName, setItemName] = useState('');
@@ -299,7 +318,7 @@ export default function CpSplit() {
     onError: (e) => toast.error(e.message),
   });
   const pDelete = trpc.cpSplit.participants.delete.useMutation({
-    onSuccess: () => { utils.cpSplit.participants.list.invalidate(); invAll(); },
+    onSuccess: () => { utils.cpSplit.participants.list.invalidate(); invAll(); toast.success('CP eliminada.'); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -312,7 +331,7 @@ export default function CpSplit() {
     onError: (e) => toast.error(e.message),
   });
   const vDelete = trpc.cpSplit.vendors.delete.useMutation({
-    onSuccess: () => { utils.cpSplit.vendors.list.invalidate(); invAll(); },
+    onSuccess: () => { utils.cpSplit.vendors.list.invalidate(); invAll(); toast.success('Vendedor eliminado.'); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -447,6 +466,13 @@ export default function CpSplit() {
           <NameManager
             title="Vendedores" icon={<Store className="h-4 w-4" style={{ color: '#e879f9' }} />}
             items={vendors as any[]} placeholder="Nombre del vendedor"
+            deleteTitle="Eliminar vendedor"
+            getDeleteMessage={(id, name) => {
+              const c = vendorItemCount[Number(id)] || 0;
+              return c > 0
+                ? `El vendedor "${name}" tiene ${c} ítem(s) asignado(s). Al eliminarlo, esos ítems quedarán sin vendedor (podrás reasignarlos). ¿Continuar?`
+                : `El vendedor "${name}" no tiene ítems asignados. ¿Eliminarlo?`;
+            }}
             onCreate={(name) => vCreate.mutate({ name })}
             onRename={(id, name) => vRename.mutate({ id, name })}
             onDelete={(id) => vDelete.mutate({ id })}

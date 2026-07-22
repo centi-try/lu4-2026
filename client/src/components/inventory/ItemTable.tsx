@@ -1124,28 +1124,6 @@ function InventorySummaryButton({
                   </div>
                 )}
 
-                {deleteShopTarget && (
-                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                    <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
-                      <div className="mb-2 flex items-center gap-2">
-                        <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Borrar tienda</h3>
-                        <button type="button" onClick={() => setDeleteShopTarget(null)} title="Cerrar" className="ml-auto rounded-lg p-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                        {deleteShopTarget.used > 0
-                          ? <>La tienda <b style={{ color: 'rgba(255,255,255,0.9)' }}>"{deleteShopTarget.name}"</b> está asignada a <b>{deleteShopTarget.used}</b> ítem(s). Al borrarla esos ítems quedarán <b>sin tienda</b>. Si tiene ventas registradas, el sistema no permitirá borrarla (usa "Resetear vendedores"). ¿Continuar?</>
-                          : <>¿Borrar la tienda <b style={{ color: 'rgba(255,255,255,0.9)' }}>"{deleteShopTarget.name}"</b>?</>}
-                      </p>
-                      <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => setDeleteShopTarget(null)} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}>Cancelar</button>
-                        <button type="button" onClick={confirmDeleteShop} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>Borrar</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {resetConfirm && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
                     <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -1167,6 +1145,29 @@ function InventorySummaryButton({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Modal borrar tienda (fuera de los tabs para que se muestre en cualquier pestaña) */}
+            {deleteShopTarget && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Borrar tienda</h3>
+                    <button type="button" onClick={() => setDeleteShopTarget(null)} title="Cerrar" className="ml-auto rounded-lg p-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {deleteShopTarget.used > 0
+                      ? <>La tienda <b style={{ color: 'rgba(255,255,255,0.9)' }}>"{deleteShopTarget.name}"</b> está asignada a <b>{deleteShopTarget.used}</b> ítem(s). Al borrarla esos ítems quedarán <b>sin tienda</b>. Si tiene ventas registradas, el sistema no permitirá borrarla (usa "Resetear vendedores"). ¿Continuar?</>
+                      : <>¿Borrar la tienda <b style={{ color: 'rgba(255,255,255,0.9)' }}>"{deleteShopTarget.name}"</b>?</>}
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setDeleteShopTarget(null)} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}>Cancelar</button>
+                    <button type="button" onClick={confirmDeleteShop} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>Borrar</button>
+                  </div>
+                </div>
               </div>
             )}
 

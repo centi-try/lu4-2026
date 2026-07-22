@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts, getInvitationCode, setInvitationCode, generateRandomInvitationCode } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, setUserCpAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts, getInvitationCode, setInvitationCode, generateRandomInvitationCode } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -15,7 +15,7 @@ const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-const VALID_ROLES = ['user', 'mapper', 'admin', 'super_admin', 'rol_reparticion'] as const;
+const VALID_ROLES = ['user', 'mapper', 'admin', 'super_admin'] as const;
 
 export const adminUsersRouter = router({
   // Listar todos los usuarios registrados
@@ -275,6 +275,55 @@ export const adminUsersRouter = router({
           role: updatedUser.role,
           isActive: updatedUser.isActive,
           legacyAccess: updatedUser.legacyAccess,
+        },
+      };
+    }),
+
+  // Acceso exclusivo a Reparticiones CP (toggle por usuario). Al activarlo, el
+  // usuario solo verá/entrará a ese módulo. Reemplaza al antiguo rol dedicado.
+  toggleCpAccess: superAdminProcedure
+    .input(z.object({
+      userId: z.number(),
+      cpAccess: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const targetUser = await getUserById(input.userId);
+      if (!targetUser) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+      }
+
+      if (targetUser.role === 'super_admin') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'El Administrador del Sistema ya tiene acceso a todos los módulos.',
+        });
+      }
+
+      const updatedUser = await setUserCpAccess(input.userId, input.cpAccess);
+
+      const targetLabel = targetUser.characterName || targetUser.name || targetUser.email;
+      await createAuditLog({
+        userId: ctx.user.id,
+        action: input.cpAccess ? 'CP_ACCESS_ENABLED' : 'CP_ACCESS_DISABLED',
+        detail: input.cpAccess
+          ? `Activó acceso exclusivo a Reparticiones CP para ${targetLabel}.`
+          : `Desactivó acceso a Reparticiones CP para ${targetLabel}.`,
+        details: {
+          targetUserId: input.userId,
+          targetEmail: targetUser.email,
+          performedBy: ctx.user.email || ctx.user.openId,
+        },
+      });
+
+      return {
+        success: true,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.characterName || updatedUser.name || 'Usuario',
+          role: updatedUser.role,
+          isActive: updatedUser.isActive,
+          cpAccess: updatedUser.cpAccess,
         },
       };
     }),

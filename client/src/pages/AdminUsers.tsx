@@ -4,7 +4,7 @@ import { trpc } from '../lib/trpc';
 import { toast } from 'sonner';
 import { Shield, Users, UserCheck, UserX, ChevronDown, Search, RefreshCw, Crown, Trash2, Key, X, AlertTriangle, Pencil, Lock, Ticket, Copy, RotateCw, Clock } from 'lucide-react';
 
-type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin' | 'rol_reparticion';
+type UserRole = 'user' | 'mapper' | 'admin' | 'super_admin';
 
 interface AdminUser {
   id: number;
@@ -14,6 +14,7 @@ interface AdminUser {
   role: string;
   isActive: boolean;
   legacyAccess?: boolean;
+  cpAccess?: boolean;
   loginMethod?: string;
   createdAt?: string;
   lastSignedIn?: string;
@@ -28,7 +29,6 @@ const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
   { value: 'user', label: 'Usuario', color: '#8b5cf6' },
   { value: 'mapper', label: 'Mapper', color: '#fbbf24' },
   { value: 'admin', label: 'Admin', color: '#3b82f6' },
-  { value: 'rol_reparticion', label: 'Reparticiones CP', color: '#34d399' },
   { value: 'super_admin', label: 'Administrador del Sistema', color: '#7bf1d6' },
 ];
 
@@ -417,6 +417,20 @@ export default function AdminUsers() {
     },
   });
 
+  const toggleCpMutation = trpc.adminUsers.toggleCpAccess.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        data.user.cpAccess
+          ? `Acceso exclusivo a Reparticiones CP activado para ${data.user.name}.`
+          : `Acceso a Reparticiones CP desactivado para ${data.user.name}.`
+      );
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al cambiar acceso a Reparticiones CP.');
+    },
+  });
+
   const handleToggleActive = (userId: number, _nextState: boolean) => {
     const user = (users || []).find(u => u.id === userId);
     if (user) setToggleModalUser(user);
@@ -664,7 +678,7 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
@@ -672,6 +686,7 @@ export default function AdminUsers() {
                 <span className="text-center">Último acceso</span>
                 <span className="text-center">Estado</span>
                 <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
+                <span className="text-center" style={{ fontSize: '9px' }}>Repartición CP</span>
                 <span className="text-center">Bloqueo</span>
                 <span className="text-center">Acciones</span>
               </div>
@@ -689,7 +704,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -773,6 +788,25 @@ export default function AdminUsers() {
                             />
                             <span className="text-xs md:hidden" style={{ color: user.legacyAccess === true ? '#fbbf24' : 'rgba(255,255,255,0.35)' }}>
                               {user.legacyAccess === true ? 'Sí' : 'No'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* CP Access Toggle */}
+                      <div className="flex items-center gap-3 justify-start md:justify-center">
+                        {isCurrentUserSuperAdmin ? (
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Siempre</span>
+                        ) : (
+                          <>
+                            <ActiveToggle
+                              userId={user.id}
+                              isActive={user.cpAccess === true}
+                              onToggle={(uid) => toggleCpMutation.mutate({ userId: uid, cpAccess: !(user.cpAccess === true) })}
+                              disabled={isPending}
+                            />
+                            <span className="text-xs md:hidden" style={{ color: user.cpAccess === true ? '#34d399' : 'rgba(255,255,255,0.35)' }}>
+                              {user.cpAccess === true ? 'Sí' : 'No'}
                             </span>
                           </>
                         )}
