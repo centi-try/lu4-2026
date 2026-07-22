@@ -467,6 +467,14 @@ export const cpSplitRouter = router({
       }),
     delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+      // No permitir borrar un ítem con ventas registradas: perderíamos su adena
+      // recaudada del Excel. Para deshacer una venta usa "Revertir".
+      const salesCount = Array.isArray(item?.sales) ? item.sales.length : 0;
+      if (salesCount > 0) {
+        throw new Error(
+          `No puedes borrar este ítem: tiene ${salesCount} venta(s) registrada(s). Revierte las ventas primero si necesitas eliminarlo.`,
+        );
+      }
       dbInstance.cpItems = getCpItems().filter((it: any) => Number(it.id) !== Number(input.id));
       if (item?.status === "CONFIRMED") {
         pushCpHistory("ITEM_ELIMINADO", `Eliminó el ítem confirmado "${item?.name ?? input.id}"`, actor(ctx));

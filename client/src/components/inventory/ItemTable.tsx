@@ -689,29 +689,34 @@ function InventorySummaryButton({
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
         >
           <div
-            className="w-full max-w-lg rounded-2xl shadow-2xl flex flex-col"
-            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '85vh' }}
+            className="w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col"
+            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', height: '90vh', maxHeight: '90vh' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" style={{ color: '#7bf1d6' }} />
-                <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Resumen de Inventario</h3>
+            <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(123,241,214,0.1)', border: '1px solid rgba(123,241,214,0.25)' }}>
+                  <ClipboardList className="h-4 w-4" style={{ color: '#7bf1d6' }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold leading-tight" style={{ color: 'rgba(255,255,255,0.95)' }}>Resumen de Inventario</h3>
+                  <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Stock, tiendas y ventas por vendedor</p>
+                </div>
               </div>
-              <button type="button" onClick={closeModal} className="rounded p-1 transition-colors hover:bg-white/5">
+              <button type="button" onClick={closeModal} title="Cerrar" className="rounded-lg p-1.5 transition-colors hover:bg-white/10">
                 <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
               </button>
             </div>
 
             {/* Tabs: Resumen / Tiendas */}
-            <div className="flex items-center gap-1 px-5 pt-3 shrink-0">
+            <div className="flex items-center gap-1.5 px-6 pt-4 shrink-0">
               {([['resumen', '📋 Resumen'], ['tiendas', '🏪 Tiendas'], ['porVendedor', '💰 Por vendedor']] as const).map(([tab, label]) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                  className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
                   style={{
                     background: activeTab === tab ? 'rgba(123,241,214,0.12)' : 'rgba(255,255,255,0.03)',
                     color: activeTab === tab ? '#7bf1d6' : 'rgba(255,255,255,0.55)',
