@@ -28,7 +28,6 @@ interface AdminUser {
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
   { value: 'user', label: 'Usuario', color: '#8b5cf6' },
   { value: 'mapper', label: 'Mapper', color: '#fbbf24' },
-  { value: 'admin', label: 'Admin', color: '#3b82f6' },
   { value: 'super_admin', label: 'Administrador del Sistema', color: '#7bf1d6' },
 ];
 
