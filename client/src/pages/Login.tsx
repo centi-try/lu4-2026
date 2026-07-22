@@ -5,25 +5,13 @@ import { ArrowLeft, Eye, EyeOff, Loader2, Package, ShieldCheck, Play, ChevronLef
 import { useAuth } from '../contexts/AuthContext';
 import { trpc } from '../lib/trpc';
 import L2Splash from '../components/L2Splash';
+import { getVideoInfo, embedUrl, youtubeThumb } from '../lib/video';
 
 const DEFAULT_CAROUSEL_IMAGES = ['/raptor-1.png', '/raptor-2.png', '/raptor-3.png'];
 const CAROUSEL_INTERVAL = 10000;
 
 // Regex de validación mínima de formato de email. El backend ya re-valida.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Helper: extract YouTube video ID from various URL formats
-function extractYoutubeId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
-  return null;
-}
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -358,17 +346,23 @@ export default function Login() {
                         <img src={item.content} alt={item.title || ''} className="w-full rounded-t-xl object-cover" style={{ maxHeight: '320px' }} />
                       )}
                       {item.type === 'video' && (() => {
-                        const vid = extractYoutubeId(item.content);
-                        if (!vid) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
+                        const info = getVideoInfo(item.content);
+                        if (!info) return <p className="text-xs p-4" style={{ color: 'rgba(255,255,255,0.3)' }}>Video no válido</p>;
                         return (
                           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                            <img
-                              src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`}
-                              alt={item.title || 'Video'}
-                              className="absolute inset-0 w-full h-full object-cover rounded-t-xl"
-                            />
+                            {info.provider === 'youtube' ? (
+                              <img
+                                src={youtubeThumb(info.id, 'hq')}
+                                alt={item.title || 'Video'}
+                                className="absolute inset-0 w-full h-full object-cover rounded-t-xl"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-t-xl" style={{ background: 'linear-gradient(135deg, #010101, #25f4ee22 60%, #fe2c5522)' }}>
+                                <span className="text-lg font-black tracking-wide" style={{ color: '#fff' }}>TikTok</span>
+                              </div>
+                            )}
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,0,0,0.85)' }}>
+                              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: info.provider === 'tiktok' ? 'rgba(254,44,85,0.9)' : 'rgba(255,0,0,0.85)' }}>
                                 <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><polygon points="5,3 19,12 5,21" /></svg>
                               </div>
                             </div>
@@ -697,12 +691,26 @@ export default function Login() {
               style={{ background: '#ef4444', color: '#fff', border: '2px solid rgba(255,255,255,0.3)' }}
             >✕</button>
             {modalItem.type === 'video' && (() => {
-              const vid = extractYoutubeId(modalItem.content);
-              if (!vid) return null;
+              const info = getVideoInfo(modalItem.content);
+              if (!info) return null;
+              if (info.provider === 'tiktok') {
+                // TikTok es vertical (9:16): limitamos ancho y damos alto cómodo.
+                return (
+                  <div className="mx-auto rounded-2xl overflow-hidden" style={{ width: 'min(340px, 90vw)', height: 'min(76vh, 720px)' }}>
+                    <iframe
+                      src={embedUrl(info)}
+                      title={modalItem.title || 'Video'}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                      allowFullScreen
+                      className="w-full h-full"
+                    />
+                  </div>
+                );
+              }
               return (
                 <div className="relative w-full rounded-2xl overflow-hidden" style={{ paddingBottom: '56.25%' }}>
                   <iframe
-                    src={`https://www.youtube.com/embed/${vid}?autoplay=1`}
+                    src={embedUrl(info, true)}
                     title={modalItem.title || 'Video'}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen

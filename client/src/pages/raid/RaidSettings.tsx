@@ -7,6 +7,7 @@ import type { RaidAccessInfo } from '../../components/RaidProtectedRoute';
 import { CATEGORIES, categoryMeta } from '../../lib/category-meta';
 import { FancySelect } from '../../components/ui/FancySelect';
 import { ImageHoverPreview } from '../../components/ui/ImageHoverPreview';
+import { getVideoInfo, youtubeThumb } from '../../lib/video';
 
 // Límite para imágenes de iconos (base64 data URL). 2 MB alcanza para un ícono.
 const ICON_MAX_BYTES = 2 * 1024 * 1024;
@@ -2253,8 +2254,8 @@ function PresentationSection() {
 
     if (formType === 'video') {
       const lines = formContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const validLinks = lines.filter(l => extractYoutubeId(l));
-      if (validLinks.length === 0) { setDuplicateError('No se detectaron links de YouTube válidos'); return; }
+      const validLinks = lines.filter(l => getVideoInfo(l));
+      if (validLinks.length === 0) { setDuplicateError('No se detectaron links de YouTube o TikTok válidos'); return; }
 
       // Deduplicate within the batch itself
       const uniqueLinks = Array.from(new Set(validLinks));
@@ -2454,24 +2455,31 @@ function PresentationSection() {
               <textarea
                 value={formContent}
                 onChange={e => setFormContent(e.target.value)}
-                placeholder="Pega links de YouTube (uno por línea para subir múltiples)&#10;https://www.youtube.com/watch?v=XXXXX&#10;https://www.youtube.com/watch?v=YYYYY"
+                placeholder="Pega links de YouTube o TikTok (uno por línea para subir múltiples)&#10;https://www.youtube.com/watch?v=XXXXX&#10;https://www.tiktok.com/@usuario/video/1234567890"
                 rows={3}
                 className="w-full rounded-lg px-3 py-2 text-sm resize-none"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega uno o varios links de YouTube (uno por línea). Se subirán todos al hacer clic en Agregar.</p>
-              {formContent && extractYoutubeId(formContent.split('\n')[0]) && (
-                <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <img
-                    src={`https://img.youtube.com/vi/${extractYoutubeId(formContent.split('\n')[0])}/mqdefault.jpg`}
-                    alt="Preview"
-                    className="w-full h-28 object-cover"
-                  />
-                  <p className="text-xs px-2 py-1" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.3)' }}>
-                    ✓ {formContent.split('\n').filter(l => extractYoutubeId(l.trim())).length} video(s) detectado(s)
-                  </p>
-                </div>
-              )}
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>Pega uno o varios links de YouTube o TikTok (uno por línea). Se subirán todos al hacer clic en Agregar. TikTok: usa el link completo del video (con /video/).</p>
+              {formContent && (() => {
+                const info = getVideoInfo(formContent.split('\n')[0]);
+                if (!info) return null;
+                const count = formContent.split('\n').filter(l => getVideoInfo(l.trim())).length;
+                return (
+                  <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                    {info.provider === 'youtube' ? (
+                      <img src={youtubeThumb(info.id)} alt="Preview" className="w-full h-28 object-cover" />
+                    ) : (
+                      <div className="w-full h-28 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #010101, #25f4ee22 60%, #fe2c5522)' }}>
+                        <span className="text-base font-black" style={{ color: '#fff' }}>TikTok</span>
+                      </div>
+                    )}
+                    <p className="text-xs px-2 py-1" style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.3)' }}>
+                      ✓ {count} video(s) detectado(s)
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -2530,14 +2538,15 @@ function PresentationSection() {
           </div>
           <div className="space-y-2">
             {finalItems.map((item: any) => {
-              const ytId = item.type === 'video' ? extractYoutubeId(item.content) : null;
+              const vInfo = item.type === 'video' ? getVideoInfo(item.content) : null;
               return (
                 <div key={item.id} className="flex items-center gap-3 rounded-xl p-3 group" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   {/* Preview thumbnail */}
                   <div className="w-20 h-14 flex-shrink-0 rounded-lg overflow-hidden" style={{ background: 'rgba(0,0,0,0.3)' }}>
                     {item.type === 'image' && <img src={item.content} alt="" className="w-full h-full object-cover" />}
-                    {item.type === 'video' && ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="w-full h-full object-cover" />}
-                    {item.type === 'video' && !ytId && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
+                    {item.type === 'video' && vInfo?.provider === 'youtube' && <img src={youtubeThumb(vInfo.id)} alt="" className="w-full h-full object-cover" />}
+                    {item.type === 'video' && vInfo?.provider === 'tiktok' && <div className="w-full h-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #010101, #25f4ee22 60%, #fe2c5522)' }}><span className="text-[9px] font-black" style={{ color: '#fff' }}>TikTok</span></div>}
+                    {item.type === 'video' && !vInfo && <div className="w-full h-full flex items-center justify-center"><Video className="h-5 w-5" style={{ color: '#ef4444' }} /></div>}
                     {item.type === 'text' && <div className="w-full h-full flex items-center justify-center"><Type className="h-5 w-5" style={{ color: '#60a5fa' }} /></div>}
                   </div>
 
@@ -2582,7 +2591,7 @@ function PresentationSection() {
           description="¿Estás seguro de eliminar este item de la presentación? Esta acción no se puede deshacer."
           itemLabel={presItemToDelete.title || '(Sin título)'}
           itemDetail={presItemToDelete.type === 'video' ? 'Video' : presItemToDelete.type === 'image' ? 'Imagen' : 'Texto'}
-          itemImage={presItemToDelete.type === 'image' ? presItemToDelete.content : presItemToDelete.type === 'video' ? `https://img.youtube.com/vi/${extractYoutubeId(presItemToDelete.content) || ''}/mqdefault.jpg` : null}
+          itemImage={presItemToDelete.type === 'image' ? presItemToDelete.content : (presItemToDelete.type === 'video' && getVideoInfo(presItemToDelete.content)?.provider === 'youtube') ? youtubeThumb(getVideoInfo(presItemToDelete.content)!.id) : null}
           isPending={deleteMut.isPending}
           onCancel={() => { if (!deleteMut.isPending) setPresItemToDelete(null); }}
           onConfirm={() => deleteMut.mutate({ id: presItemToDelete.id }, { onSuccess: () => setPresItemToDelete(null) })}
@@ -2604,16 +2613,4 @@ function PresentationSection() {
       )}
     </div>
   );
-}
-
-function extractYoutubeId(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /^([a-zA-Z0-9_-]{11})$/,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
-  return null;
 }
