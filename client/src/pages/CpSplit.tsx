@@ -163,8 +163,7 @@ function ConfirmModal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
       <div className="w-full max-w-sm rounded-2xl p-5" onClick={(e) => e.stopPropagation()}
         style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
         <div className="mb-3 flex items-center gap-2">
@@ -173,6 +172,10 @@ function ConfirmModal({
             <AlertTriangle className="h-4 w-4" style={{ color: danger ? '#f87171' : '#7bf1d6' }} />
           </div>
           <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>{title}</h3>
+          <button onClick={onCancel} title="Cerrar" className="ml-auto rounded-lg p-1"
+            style={{ color: 'rgba(255,255,255,0.5)' }}>
+            <X className="h-4 w-4" />
+          </button>
         </div>
         <p className="mb-4 text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>{message}</p>
         <div className="flex justify-end gap-2">
@@ -695,8 +698,7 @@ function ItemRow({
 
       {/* Modal de venta con unidades parciales + toggle descuento */}
       {sellOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
-          onClick={() => setSellOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
           <div className="w-full max-w-sm rounded-2xl p-5" onClick={(e) => e.stopPropagation()}
             style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
             <div className="mb-3 flex items-center gap-2">
@@ -704,6 +706,10 @@ function ItemRow({
                 <ShoppingCart className="h-4 w-4" style={{ color: '#7bf1d6' }} />
               </div>
               <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Registrar venta</h3>
+              <button onClick={() => setSellOpen(false)} title="Cerrar" className="ml-auto rounded-lg p-1"
+                style={{ color: 'rgba(255,255,255,0.5)' }}>
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <p className="mb-3 text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
               "{it.name}" — {available} u. a vender. Indica cuántas se vendieron; el resto sigue a la venta.
@@ -877,12 +883,13 @@ function ItemsTable({
       </div>
     );
   }
-  // Borradores arriba, entregados al final; dentro de cada grupo por fecha.
+  // Borradores arriba, entregados al final; dentro de cada grupo, el más
+  // reciente primero y los más antiguos van quedando abajo.
   const sorted = [...items].sort((a, b) => {
     const ra = a.status === 'CONFIRMED' ? 1 : 0;
     const rb = b.status === 'CONFIRMED' ? 1 : 0;
     if (ra !== rb) return ra - rb;
-    return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+    return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
   });
   return (
     <div style={cardStyle} className="p-4">

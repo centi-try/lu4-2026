@@ -597,6 +597,7 @@ export const cpSplitRouter = router({
 
       const totalPerCp: Record<string, number> = {};
       for (const n of cpCols) totalPerCp[n] = 0;
+      let adenaTotal = 0;
       let anySell = false;
 
       for (const it of sorted) {
@@ -627,6 +628,7 @@ export const cpSplitRouter = router({
             s.vendorName || "",
             Number(s.total) || 0,
           ];
+          adenaTotal += Number(s.total) || 0;
           const perCp = Number(s.adenaPerCp) || 0;
           const saleCps: string[] = Array.isArray(s.cpNames) ? s.cpNames.map(String) : [];
           for (const n of cpCols) {
@@ -642,10 +644,11 @@ export const cpSplitRouter = router({
       }
 
       if (anySell) {
-        const totalArr: any[] = ["Total por CP recibida", "", "", "", "", "", "", "", "", ""];
+        const totalArr: any[] = ["Total recaudado / por CP", "", "", "", "", "", "", "", "", adenaTotal];
         for (const n of cpCols) totalArr.push(totalPerCp[n] || 0);
         const totalRow = ws.addRow(totalArr);
         totalRow.font = { bold: true };
+        totalRow.getCell(cpStartIdx).font = { bold: true };
         for (let c = cpStartIdx + 1; c <= cpStartIdx + cpCols.length; c++) {
           totalRow.getCell(c).font = { bold: true };
         }
