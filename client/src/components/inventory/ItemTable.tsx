@@ -652,15 +652,19 @@ function InventorySummaryButton({
     setRenameShopDraft('');
   };
   const shopUsageCount = (id: string) => items.filter(it => String(it.shopId || '') === String(id)).length;
-  const handleDeleteShop = (id: string) => {
+  const handleDeleteShop = async (id: string) => {
     const used = shopUsageCount(id);
     const s = shops.find(x => x.id === id);
     const msg = used > 0
       ? `La tienda "${s?.name}" está asignada a ${used} ítem(s). Al borrarla esos ítems quedarán SIN tienda. ¿Continuar?`
       : `¿Borrar la tienda "${s?.name}"?`;
     if (!window.confirm(msg)) return;
-    deleteShop(id);
-    toast.success('Tienda borrada.');
+    try {
+      await deleteShop(id);
+      toast.success('Tienda borrada.');
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo borrar la tienda.');
+    }
   };
 
   return (

@@ -294,6 +294,17 @@ export const itemsRouter = router({
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
+        // No permitir borrar una tienda con ventas registradas: perderíamos el
+        // histórico (las ventas quedarían huérfanas y no se podrían cuadrar).
+        // Para dejar la tienda en 0 usar "Resetear vendedores".
+        const sales = (await getPurchases()).filter(
+          (p: any) => Number(p.shopId) === Number(input.id)
+        ).length;
+        if (sales > 0) {
+          throw new Error(
+            `No puedes borrar esta tienda: tiene ${sales} venta(s) registrada(s). Usa "Resetear vendedores" para dejarla en 0 sin perder el histórico.`
+          );
+        }
         deleteShop(input.id);
         return { success: true };
       }),

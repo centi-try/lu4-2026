@@ -40,7 +40,7 @@ interface AppContextType {
   shops: Shop[];
   createShop: (name: string) => void;
   renameShop: (id: string, name: string) => void;
-  deleteShop: (id: string) => void;
+  deleteShop: (id: string) => Promise<void>;
   confirmItem: (id: string) => void;
   deleteItem: (id: string) => void;
   sellItem: (opts: SellItemOptions) => void;
@@ -514,11 +514,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     shopRenameMutation.mutate({ id: numericId, name: trimmed });
   }, [currentUser, shopRenameMutation]);
 
-  const deleteShop = useCallback((id: string) => {
+  const deleteShop = useCallback(async (id: string) => {
     if (currentUser.role !== 'SUPER_ADMIN') return;
     const numericId = parseInt(String(id), 10);
     if (isNaN(numericId)) return;
-    shopDeleteMutation.mutate({ id: numericId });
+    await shopDeleteMutation.mutateAsync({ id: numericId });
   }, [currentUser, shopDeleteMutation]);
 
   // Asigna (o quita, shopId=null) la tienda a varios ítems con UNA sola llamada
