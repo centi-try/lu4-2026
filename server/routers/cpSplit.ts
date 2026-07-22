@@ -501,10 +501,17 @@ export const cpSplitRouter = router({
       const vendors = getCpVendors();
       const vendorName = (id: any) => vendors.find((v: any) => Number(v.id) === Number(id))?.name || "";
 
-      // Columnas dinámicas por CP: unión de todas las CPs usadas en los ítems
-      // exportados (snapshot para confirmados, lista actual para borradores).
+      // Columnas dinámicas por CP: unión de las CPs del reparto (snapshot para
+      // entregados, lista actual para borradores) MÁS las CPs registradas en
+      // cada venta (por si una CP se renombró/borró después de vender, para no
+      // perder su adena en el Excel).
       const cpSet = new Set<string>();
-      for (const it of allItems) for (const n of effectiveCpNames(it)) cpSet.add(n);
+      for (const it of allItems) {
+        for (const n of effectiveCpNames(it)) cpSet.add(n);
+        for (const s of Array.isArray(it.sales) ? it.sales : []) {
+          for (const n of Array.isArray(s.cpNames) ? s.cpNames : []) cpSet.add(String(n));
+        }
+      }
       const cpCols = Array.from(cpSet);
 
       const wb = new ExcelJS.Workbook();
