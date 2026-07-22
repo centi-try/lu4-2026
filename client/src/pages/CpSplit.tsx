@@ -264,7 +264,9 @@ function NameManager({
 
 export default function CpSplit() {
   const { user } = useAuth();
-  const isSA = String(user?.role || '').toLowerCase() === 'super_admin';
+  // Acceso al módulo: Super Admin o el rol dedicado `rol_reparticion`.
+  const roleLc = String(user?.role || '').toLowerCase();
+  const isSA = roleLc === 'super_admin' || roleLc === 'rol_reparticion';
 
   const utils = trpc.useUtils();
   const enabled = !!user && isSA;

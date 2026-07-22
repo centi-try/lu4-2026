@@ -15,7 +15,7 @@ const navItems: Array<{
   label: string;
   icon: any;
   desc: string;
-  allowedRoles?: Array<'super_admin' | 'mapper' | 'user'>;
+  allowedRoles?: Array<'super_admin' | 'mapper' | 'user' | 'rol_reparticion'>;
 }> = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, desc: 'Vista general y KPIs' },
   // /inventory: solo SUPER_ADMIN y MAPPER (los que pueden crear/vender ítems).
@@ -29,7 +29,7 @@ const navItems: Array<{
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
   { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
-  { href: '/cp-split', label: 'Reparticiones CP', icon: Split, desc: 'Reparto equitativo entre CPs', allowedRoles: ['super_admin'] },
+  { href: '/cp-split', label: 'Reparticiones CP', icon: Split, desc: 'Reparto equitativo entre CPs', allowedRoles: ['super_admin', 'rol_reparticion'] },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
@@ -134,7 +134,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {effectiveLegacyAccess && navItems.filter(item => {
+          {navItems.filter(item => {
+            // rol_reparticion: solo ve el menú Reparticiones CP, nada más.
+            if (effectiveRole === 'rol_reparticion') return item.href === '/cp-split';
+            if (!effectiveLegacyAccess) return false;
             if (!item.allowedRoles) return true;
             return item.allowedRoles.includes(effectiveRole as any);
           }).map(item => {

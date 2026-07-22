@@ -15,7 +15,7 @@ const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next({ ctx });
 });
 
-const VALID_ROLES = ['user', 'mapper', 'admin', 'super_admin'] as const;
+const VALID_ROLES = ['user', 'mapper', 'admin', 'super_admin', 'rol_reparticion'] as const;
 
 export const adminUsersRouter = router({
   // Listar todos los usuarios registrados

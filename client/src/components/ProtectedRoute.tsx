@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { Lock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-type LegacyRole = 'super_admin' | 'mapper' | 'user';
+type LegacyRole = 'super_admin' | 'mapper' | 'user' | 'rol_reparticion';
 
 interface ProtectedRouteProps {
   component: React.ComponentType;
@@ -24,6 +24,15 @@ export default function ProtectedRoute({ component: Component, allowedRoles }: P
     if (!loading && !isAuthenticated) setLocation('/login');
   }, [loading, isAuthenticated, setLocation]);
 
+  // El rol `rol_reparticion` solo puede operar el módulo Reparticiones CP.
+  // En cualquier otra ruta lo mandamos automáticamente a /cp-split.
+  const roleLc = String((user as any)?.role || '').toLowerCase();
+  const routeAllowsCp = (allowedRoles || []).map((r) => r.toLowerCase()).includes('rol_reparticion');
+  useEffect(() => {
+    if (loading || !isAuthenticated) return;
+    if (roleLc === 'rol_reparticion' && !routeAllowsCp) setLocation('/cp-split');
+  }, [loading, isAuthenticated, roleLc, routeAllowsCp, setLocation]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -36,6 +45,10 @@ export default function ProtectedRoute({ component: Component, allowedRoles }: P
   }
 
   if (!isAuthenticated) return null;
+
+  // rol_reparticion fuera de /cp-split: no renderizamos nada mientras el
+  // efecto de arriba lo redirige a su único módulo (evita el flash de otra vista).
+  if (roleLc === 'rol_reparticion' && !routeAllowsCp) return null;
 
   if (allowedRoles && allowedRoles.length > 0) {
     const role = String((user as any)?.role || '').toLowerCase() as LegacyRole;

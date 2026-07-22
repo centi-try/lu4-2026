@@ -1,6 +1,6 @@
 import { z } from "zod";
 import ExcelJS from "exceljs";
-import { router, adminProcedure } from "../_core/trpc";
+import { router, cpProcedure } from "../_core/trpc";
 import {
   dbInstance,
   saveDbToDisk,
@@ -13,7 +13,7 @@ import {
 
 // ============================================================================
 // Reparticiones CP — módulo 100% independiente del inventario. Solo Super
-// Admin (adminProcedure). No toca ítems del inventario, personajes, ciclos ni
+// Admin (cpProcedure). No toca ítems del inventario, personajes, ciclos ni
 // montos: tiene su propia data persistente (CPs, vendedores, ítems a repartir)
 // y su propio historial de trazabilidad.
 // ============================================================================
@@ -159,8 +159,8 @@ async function fetchImageBuffer(url: string): Promise<{ buffer: Buffer; ext: "pn
 export const cpSplitRouter = router({
   // -------- CPs participantes (nombres persistentes) --------
   participants: router({
-    list: adminProcedure.query(async () => getCpParticipants()),
-    create: adminProcedure.input(nameInput).mutation(async ({ input, ctx }) => {
+    list: cpProcedure.query(async () => getCpParticipants()),
+    create: cpProcedure.input(nameInput).mutation(async ({ input, ctx }) => {
       assertUniqueName(getCpParticipants(), input.name);
       if (!dbInstance.cpParticipants) dbInstance.cpParticipants = [];
       const cp = { id: newId(), name: input.name.trim(), createdAt: new Date().toISOString() };
@@ -169,7 +169,7 @@ export const cpSplitRouter = router({
       saveDbToDisk();
       return cp;
     }),
-    rename: adminProcedure
+    rename: cpProcedure
       .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60) }))
       .mutation(async ({ input, ctx }) => {
         assertUniqueName(getCpParticipants(), input.name, input.id);
@@ -181,7 +181,7 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
-    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const prev = getCpParticipants().find((c: any) => Number(c.id) === Number(input.id));
       dbInstance.cpParticipants = getCpParticipants().filter((c: any) => Number(c.id) !== Number(input.id));
       // Si alguna CP borrada tenía asignado sobrante en un ítem borrador, se
@@ -201,8 +201,8 @@ export const cpSplitRouter = router({
 
   // -------- Vendedores (lista propia del módulo) --------
   vendors: router({
-    list: adminProcedure.query(async () => getCpVendors()),
-    create: adminProcedure.input(nameInput).mutation(async ({ input, ctx }) => {
+    list: cpProcedure.query(async () => getCpVendors()),
+    create: cpProcedure.input(nameInput).mutation(async ({ input, ctx }) => {
       assertUniqueName(getCpVendors(), input.name);
       if (!dbInstance.cpVendors) dbInstance.cpVendors = [];
       const v = { id: newId(), name: input.name.trim(), createdAt: new Date().toISOString() };
@@ -211,7 +211,7 @@ export const cpSplitRouter = router({
       saveDbToDisk();
       return v;
     }),
-    rename: adminProcedure
+    rename: cpProcedure
       .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60) }))
       .mutation(async ({ input, ctx }) => {
         assertUniqueName(getCpVendors(), input.name, input.id);
@@ -223,7 +223,7 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
-    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const prev = getCpVendors().find((v: any) => Number(v.id) === Number(input.id));
       dbInstance.cpVendors = getCpVendors().filter((v: any) => Number(v.id) !== Number(input.id));
       // Ítems que apuntaban a ese vendedor quedan sin vendedor asignado.
@@ -238,8 +238,8 @@ export const cpSplitRouter = router({
 
   // -------- Ítems a repartir --------
   items: router({
-    list: adminProcedure.query(async () => getCpItems()),
-    create: adminProcedure
+    list: cpProcedure.query(async () => getCpItems()),
+    create: cpProcedure
       .input(
         z.object({
           name: z.string().trim().min(1).max(120),
@@ -309,7 +309,7 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return item;
       }),
-    update: adminProcedure
+    update: cpProcedure
       .input(
         z.object({
           id: z.number(),
@@ -343,7 +343,7 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
-    confirm: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    confirm: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const participants = getCpParticipants().map((c: any) => String(c.name));
       if (participants.length === 0) {
         throw new Error("Registra al menos una CP participante antes de confirmar");
@@ -388,7 +388,7 @@ export const cpSplitRouter = router({
     // divide en partes iguales entre las CPs del ítem (snapshot si está
     // entregado). Las unidades vendidas salen del total en mano (quantity) y de
     // sellRemaining si el lote ya fue entregado.
-    sell: adminProcedure
+    sell: cpProcedure
       .input(z.object({ id: z.number(), units: z.number().int().min(1), applyDiscount: z.boolean().optional().default(false) }))
       .mutation(async ({ input, ctx }) => {
         const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
@@ -444,7 +444,7 @@ export const cpSplitRouter = router({
       }),
     // Revertir una venta puntual (por si te equivocaste): devuelve sus unidades
     // al total en mano y a sellRemaining si el lote estaba entregado.
-    revertSale: adminProcedure
+    revertSale: cpProcedure
       .input(z.object({ id: z.number(), saleId: z.number() }))
       .mutation(async ({ input, ctx }) => {
         const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
@@ -465,7 +465,7 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
-    delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
       dbInstance.cpItems = getCpItems().filter((it: any) => Number(it.id) !== Number(input.id));
       if (item?.status === "CONFIRMED") {
@@ -478,12 +478,12 @@ export const cpSplitRouter = router({
 
   // -------- Historial (solo lectura, Super Admin) --------
   history: router({
-    list: adminProcedure.query(async () => getCpHistory()),
+    list: cpProcedure.query(async () => getCpHistory()),
   }),
 
   // -------- Reiniciar todo el módulo (Super Admin) --------
   // Deja Reparticiones CP en cero: borra ítems, CPs, vendedores e historial.
-  resetAll: adminProcedure.mutation(async () => {
+  resetAll: cpProcedure.mutation(async () => {
     dbInstance.cpItems = [];
     dbInstance.cpParticipants = [];
     dbInstance.cpVendors = [];
@@ -493,7 +493,7 @@ export const cpSplitRouter = router({
   }),
 
   // -------- Export Excel detallado --------
-  exportExcel: adminProcedure
+  exportExcel: cpProcedure
     .input(z.object({ onlyConfirmed: z.boolean().optional().default(false) }).optional())
     .mutation(async ({ input }) => {
       const onlyConfirmed = input?.onlyConfirmed ?? false;
