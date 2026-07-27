@@ -1254,6 +1254,15 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     }
     return m;
   }, [purchasesData]);
+  // Impuesto del clan cobrado por ítem (retención que va al Fondo del Clan).
+  const clanTaxByItem = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of ((purchasesData as any[]) || [])) {
+      const k = String(p.itemId);
+      m.set(k, (m.get(k) || 0) + (Number(p.clanTax) || 0));
+    }
+    return m;
+  }, [purchasesData]);
 
   // #12: mapa categoría → ícono global (mismo catálogo que /raids/settings y que
   // usa Registro de ítem). Al cambiar categoría o elegir sugerencia en el modal
@@ -1434,6 +1443,9 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       0
     );
     const totalRevenue = soldRevenue + potentialRevenue;
+    // Impuesto del clan retenido sobre lo vendido y neto que queda a personajes.
+    const clanTax = filtered.reduce((s, i) => s + (clanTaxByItem.get(String(i.id)) || 0), 0);
+    const soldNet = soldRevenue - clanTax;
     // Reservas: ítems distintos con al menos una reserva viva + total unidades
     // reservadas (suma de quantity). Solo cuenta ítems dentro de `filtered`
     // para que el contador respete los filtros actuales.
@@ -1450,9 +1462,10 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     return {
       totalUnits, soldUnits, remainingUnits,
       soldRevenue, potentialRevenue, totalRevenue,
+      clanTax, soldNet,
       itemsWithReservations, reservedUnitsTotal,
     };
-  }, [filtered, reservationsByItem, realRevenueByItem]);
+  }, [filtered, reservationsByItem, realRevenueByItem, clanTaxByItem]);
 
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1649,8 +1662,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <span>
                 Vendidas: <span style={{ color: '#fbbf24' }}>{totals.soldUnits}</span>
               </span>
-              <span>
+              <span
+                className="cursor-help"
+                title={
+                  `Vendido = adena real cobrada (histórico de ventas).\n` +
+                  `Bruto: $${totals.soldRevenue.toLocaleString()}\n` +
+                  `− Impuesto del clan: $${totals.clanTax.toLocaleString()}\n` +
+                  `= Neto para personajes: $${totals.soldNet.toLocaleString()}\n` +
+                  `(el impuesto va al Fondo del Clan)`
+                }
+              >
                 Vendido: <span style={{ color: '#fbbf24' }}>${totals.soldRevenue.toLocaleString()}</span>
+                {totals.clanTax > 0 && (
+                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {' '}(neto ${totals.soldNet.toLocaleString()})
+                  </span>
+                )}
               </span>
               <span>
                 Restante: <span style={{ color: '#a78bfa' }}>${totals.potentialRevenue.toLocaleString()}</span>
