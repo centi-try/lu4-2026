@@ -1242,6 +1242,19 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const legacyBuyers = (legacyBuyersData as any[]) || [];
 
+  // Ventas reales por ítem: adena efectivamente cobrada (histórico de purchases),
+  // no el estimado a precio actual. Se usa para que "Vendido" cuadre con la
+  // adena real recaudada aunque se haya editado el precio del ítem tras vender.
+  const { data: purchasesData } = trpc.items.listPurchases.useQuery(undefined, { enabled: !!authUser });
+  const realRevenueByItem = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of ((purchasesData as any[]) || [])) {
+      const k = String(p.itemId);
+      m.set(k, (m.get(k) || 0) + (Number(p.total) || 0));
+    }
+    return m;
+  }, [purchasesData]);
+
   // #12: mapa categoría → ícono global (mismo catálogo que /raids/settings y que
   // usa Registro de ítem). Al cambiar categoría o elegir sugerencia en el modal
   // de edición, se asigna la imagen de la categoría cuando corresponde.
@@ -1400,16 +1413,21 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
   // Totales agregados de los ítems filtrados. Mismo orden/semántica que la
   // tabla de drops del menú raid: Unid (restante/total), Vendidas, Vendido
-  // (adena cobrada = price*sold), Restante (potencial = price*remaining),
-  // Total (sticker price del subset filtrado).
+  // (adena REAL cobrada del histórico de ventas), Restante (potencial =
+  // price*remaining), Total (Vendido real + Restante potencial).
   const totals = useMemo(() => {
     const totalUnits = filtered.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
     const soldUnits = filtered.reduce((s, i) => s + (Number(i.quantitySold) || 0), 0);
     const remainingUnits = totalUnits - soldUnits;
-    const soldRevenue = filtered.reduce(
-      (s, i) => s + (Number(i.price) || 0) * (Number(i.quantitySold) || 0),
-      0
-    );
+    // Vendido = adena REAL cobrada (histórico de purchases). Si un ítem tiene
+    // unidades vendidas pero no hay registro de venta (data legacy), caemos al
+    // estimado precio_actual × vendidas para no subestimar.
+    const soldRevenue = filtered.reduce((s, i) => {
+      const key = String(i.id);
+      const real = realRevenueByItem.get(key);
+      if (real != null) return s + real;
+      return s + (Number(i.price) || 0) * (Number(i.quantitySold) || 0);
+    }, 0);
     const potentialRevenue = filtered.reduce(
       (s, i) =>
         s + (Number(i.price) || 0) * ((Number(i.quantity) || 0) - (Number(i.quantitySold) || 0)),
@@ -1434,7 +1452,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       soldRevenue, potentialRevenue, totalRevenue,
       itemsWithReservations, reservedUnitsTotal,
     };
-  }, [filtered, reservationsByItem]);
+  }, [filtered, reservationsByItem, realRevenueByItem]);
 
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
