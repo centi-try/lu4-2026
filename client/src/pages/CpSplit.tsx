@@ -59,6 +59,12 @@ function cpViewOf(it: any, cpNamesLive: string[]) {
   const soldUnits = sales.reduce((s, x) => s + (Number(x?.units) || 0), 0);
   const confirmed = it.status === 'CONFIRMED';
   const cps = confirmed && Array.isArray(it.cpNamesSnapshot) ? it.cpNamesSnapshot.map(String) : cpNamesLive;
+  // Ítem SIN dividir: registrado con su cantidad pero sin reparto ni "a vender".
+  if (it.divide === false) {
+    const alloc: Record<string, number> = {};
+    for (const n of cps) alloc[n] = 0;
+    return { cps, alloc, available: 0, remainder: 0, soldUnits, sales, confirmed };
+  }
   if (confirmed && it.deliveredAlloc && typeof it.deliveredAlloc === 'object') {
     const alloc: Record<string, number> = {};
     for (const n of cps) alloc[n] = Number(it.deliveredAlloc[n]) || 0;
@@ -303,6 +309,7 @@ export default function CpSplit() {
   const [itemImg, setItemImg] = useState('');
   const [itemQty, setItemQty] = useState<string>('1');
   const [itemDisc, setItemDisc] = useState<string>('20');
+  const [itemDivide, setItemDivide] = useState<boolean>(true);
 
   const invAll = () => {
     utils.cpSplit.items.list.invalidate();
@@ -390,7 +397,7 @@ export default function CpSplit() {
     const qty = Math.floor(Number(itemQty));
     if (!qty || qty < 1) { toast.error('La cantidad debe ser al menos 1.'); return; }
     const disc = Math.min(100, Math.max(0, Math.floor(Number(itemDisc) || 0)));
-    iCreate.mutate({ name: n, category: itemCat, imageUrl: itemImg, quantity: qty, discountPercent: disc });
+    iCreate.mutate({ name: n, category: itemCat, imageUrl: itemImg, quantity: qty, discountPercent: disc, divide: itemDivide });
     setItemName(''); setItemCat(''); setItemImg(''); setItemQty('1'); setItemDisc('20');
   };
 
@@ -525,10 +532,17 @@ export default function CpSplit() {
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Imagen recuperada del catálogo</span>
             </div>
           )}
+          <label className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.7)', cursor: 'pointer', width: 'fit-content' }}
+            title="Activo: reparte el ítem entre las CPs. Desactivado: queda registrado con su cantidad pero NO se reparte (A vender = 0).">
+            <input type="checkbox" checked={itemDivide} onChange={(e) => setItemDivide(e.target.checked)} />
+            Dividir entre CPs {itemDivide ? '(activo)' : '(desactivado — solo registrar, no repartir)'}
+          </label>
           <p className="mt-3 text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
             {cpNames.length === 0
               ? '⚠️ Registra al menos una CP participante para poder confirmar ítems.'
-              : `Reparto entre ${cpNames.length} CP. Lo que no divide se marca "a vender" (o se asigna a una CP).`}
+              : itemDivide
+                ? `Reparto entre ${cpNames.length} CP. Lo que no divide se marca "a vender" (o se asigna a una CP).`
+                : 'Sin dividir: el ítem queda registrado con su cantidad, sin reparto entre CPs y sin unidades a vender.'}
           </p>
         </div>
 
@@ -807,8 +821,20 @@ function ItemRow({
       </div>
 
       {/* Reparto */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {effCpNames.length === 0 ? (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {it.divide === false ? (
+          <>
+            <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(148,163,184,0.15)', color: 'rgba(255,255,255,0.7)' }}>
+              Sin dividir · {it.quantity} u. registradas · A vender: <b>0</b>
+            </span>
+            {!confirmed && (
+              <button onClick={() => onUpdate(it.id, { divide: true })} title="Activar la división entre CPs"
+                className={`${btnBase} px-2 py-1`} style={btnGhost}>
+                <Split className="h-3 w-3" /> Dividir entre CPs
+              </button>
+            )}
+          </>
+        ) : effCpNames.length === 0 ? (
           <span className="text-xs" style={{ color: '#fbbf24' }}>Sin CPs participantes.</span>
         ) : effCpNames.map((n: string) => (
           <span key={n} className="rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(123,241,214,0.08)', color: '#7bf1d6' }}>
@@ -824,6 +850,12 @@ function ItemRow({
           <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
             Vendidas: <b>{view.soldUnits}</b>
           </span>
+        )}
+        {!confirmed && it.divide !== false && view.soldUnits === 0 && (
+          <button onClick={() => onUpdate(it.id, { divide: false })} title="Registrar sin repartir entre CPs (A vender = 0)"
+            className={`${btnBase} px-2 py-1`} style={btnGhost}>
+            No dividir
+          </button>
         )}
       </div>
 

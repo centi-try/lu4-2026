@@ -103,6 +103,13 @@ function viewOf(item: any): {
   const sales: any[] = Array.isArray(item?.sales) ? item.sales : [];
   const soldUnits = sales.reduce((s, x) => s + (Number(x?.units) || 0), 0);
   const cpNames = effectiveCpNames(item);
+  // Ítems SIN dividir (divide === false): quedan registrados con su cantidad
+  // pero no se reparten entre CPs ni se marcan "a vender" (A vender = 0).
+  if (item?.divide === false) {
+    const alloc: Record<string, number> = {};
+    for (const n of cpNames) alloc[n] = 0;
+    return { cpNames, alloc, available: 0, deliveredTotal: 0, soldUnits };
+  }
   if (item?.status === "CONFIRMED" && item?.deliveredAlloc && typeof item.deliveredAlloc === "object") {
     const alloc: Record<string, number> = {};
     for (const n of cpNames) alloc[n] = Number(item.deliveredAlloc[n]) || 0;
@@ -247,12 +254,14 @@ export const cpSplitRouter = router({
           imageUrl: z.string().trim().max(1000).optional().default(""),
           quantity: z.number().int().min(1).max(100000),
           discountPercent: z.number().min(0).max(100).optional().default(20),
+          divide: z.boolean().optional().default(true),
         }),
       )
       .mutation(async ({ input, ctx }) => {
         if (!dbInstance.cpItems) dbInstance.cpItems = [];
         const participants = getCpParticipants().map((c: any) => String(c.name));
         const name = input.name.trim();
+        const divide = input.divide !== false;
 
         // #6c — Agrupar: solo se agrupa con BORRADORES (aún en tu poder, sin
         // entregar) del mismo nombre y mismas CPs. Los confirmados ya se
@@ -261,6 +270,7 @@ export const cpSplitRouter = router({
         const match = getCpItems().find(
           (it: any) =>
             it.status === "DRAFT" &&
+            (it.divide !== false) === divide &&
             normName(it.name) === normName(name) &&
             cpSetEqual(effectiveCpNames(it), participants),
         );
@@ -293,6 +303,7 @@ export const cpSplitRouter = router({
           category: input.category?.trim() || "",
           imageUrl: input.imageUrl?.trim() || "",
           quantity: input.quantity,
+          divide,
           remainderAlloc: {} as RemainderAlloc,
           price: null as number | null,
           discountPercent: input.discountPercent ?? 20,
@@ -321,6 +332,7 @@ export const cpSplitRouter = router({
           price: z.number().min(0).nullable().optional(),
           discountPercent: z.number().min(0).max(100).optional(),
           vendorId: z.number().nullable().optional(),
+          divide: z.boolean().optional(),
         }),
       )
       .mutation(async ({ input }) => {
@@ -330,10 +342,10 @@ export const cpSplitRouter = router({
           if (Number(it.id) !== Number(id)) return it;
           found = true;
           // En lotes ENTREGADOS el reparto está congelado: no se puede cambiar
-          // nombre, cantidad ni el reparto del sobrante. Sí se permite ajustar
-          // precio/descuento/vendedor de las unidades aún a vender.
+          // nombre, cantidad, el reparto del sobrante ni el modo de división.
+          // Sí se permite ajustar precio/descuento/vendedor de lo que queda a vender.
           if (it.status !== "DRAFT") {
-            if (patch.quantity != null || patch.remainderAlloc != null || patch.name != null || patch.category != null) {
+            if (patch.quantity != null || patch.remainderAlloc != null || patch.name != null || patch.category != null || patch.divide != null) {
               throw new Error("El lote ya fue entregado; solo puedes cambiar precio, descuento o vendedor");
             }
           }
@@ -351,6 +363,31 @@ export const cpSplitRouter = router({
       const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
       if (!item) throw new Error("Ítem no encontrado");
       if (item.status !== "DRAFT") throw new Error("El ítem ya fue entregado");
+      // Ítem SIN dividir: se marca como entregado como simple registro, sin
+      // reparto entre CPs ni unidades a vender.
+      if (item.divide === false) {
+        const emptyAlloc: Record<string, number> = {};
+        for (const n of participants) emptyAlloc[n] = 0;
+        dbInstance.cpItems = getCpItems().map((it: any) =>
+          Number(it.id) === Number(input.id)
+            ? {
+                ...it,
+                status: "CONFIRMED",
+                cpNamesSnapshot: participants,
+                deliveredAlloc: emptyAlloc,
+                sellRemaining: 0,
+                confirmedAt: new Date().toISOString(),
+              }
+            : it,
+        );
+        pushCpHistory(
+          "ITEM_ENTREGADO",
+          `Registró "${item.name}" (${item.quantity} u.) sin dividir entre CPs`,
+          actor(ctx),
+        );
+        saveDbToDisk();
+        return { success: true };
+      }
       // Congelamos el reparto en el momento de entregar: el reparto por CP
       // (deliveredAlloc) y las unidades que quedan a vender (sellRemaining) no
       // volverán a recalcularse aunque cambien las CPs o se registren más ítems.
@@ -563,14 +600,17 @@ export const cpSplitRouter = router({
       // ---- Sección 1: Reparto por CP (todos los ítems, divididos) ----
       const t1 = ws.addRow(["Reparto por CP"]);
       t1.font = { bold: true, size: 12 };
-      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Repartido", ...cpCols, "Estado"]);
+      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", ...cpCols, "Estado"]);
       header1.font = { bold: true };
       header1.alignment = { vertical: "middle", horizontal: "center" };
       let rowIdx = header1.number + 1;
       for (const it of sorted) {
-        const { alloc } = viewOf(it);
+        const { alloc, available } = viewOf(it);
         const repartidoTotal = cpCols.reduce((s, n) => s + (Number(alloc[n]) || 0), 0);
-        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", repartidoTotal];
+        // Cantidad ítem = total de unidades del ítem (repartidas + a vender).
+        // A vender = unidades pendientes de venta (0 si el ítem no se divide).
+        const cantidadItem = it.divide === false ? (Number(it.quantity) || 0) : repartidoTotal + available;
+        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal];
         for (const n of cpCols) rowArr.push(alloc[n] ? alloc[n] : "");
         rowArr.push(statusLabel(it));
         const row = ws.addRow(rowArr);

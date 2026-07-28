@@ -14,9 +14,64 @@
 //     verificar el dominio propio en Resend para no disparar spam filters.
 // ============================================================================
 import { Resend } from 'resend';
+import nodemailer, { type Transporter } from 'nodemailer';
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'RaptorSquad <onboarding@resend.dev>';
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+// ----------------------------------------------------------------------------
+// Proveedor SMTP (opción GRATIS: Gmail u otro SMTP). Si están seteadas las
+// variables SMTP_* (o GMAIL_USER + GMAIL_APP_PASSWORD como atajo para Gmail),
+// se usa SMTP para enviar a CUALQUIER destinatario, evitando el sandbox de
+// Resend que solo permite enviar al email de la cuenta. Prioridad:
+//   1) SMTP (si está configurado) → gratis y sin verificar dominio.
+//   2) Resend (si hay RESEND_API_KEY).
+//   3) Mock (log a consola) en dev.
+// ----------------------------------------------------------------------------
+function readSmtpConfig(): { host: string; port: number; secure: boolean; user: string; pass: string; from: string } | null {
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  if (gmailUser && gmailPass) {
+    return {
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      user: gmailUser,
+      pass: gmailPass,
+      from: process.env.EMAIL_FROM || `RaptorSquad <${gmailUser}>`,
+    };
+  }
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (host && user && pass) {
+    const port = Number(process.env.SMTP_PORT) || 587;
+    return {
+      host,
+      port,
+      secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
+      user,
+      pass,
+      from: process.env.EMAIL_FROM || `RaptorSquad <${user}>`,
+    };
+  }
+  return null;
+}
+
+let smtpTransport: Transporter | null = null;
+function getSmtpTransport(): { transport: Transporter; from: string } | null {
+  const cfg = readSmtpConfig();
+  if (!cfg) return null;
+  if (!smtpTransport) {
+    smtpTransport = nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      auth: { user: cfg.user, pass: cfg.pass },
+    });
+  }
+  return { transport: smtpTransport, from: cfg.from };
+}
 
 let resendClient: Resend | null = null;
 function getResendClient(): Resend | null {
@@ -33,7 +88,7 @@ function getResendClient(): Resend | null {
 }
 
 export function isEmailEnabled(): boolean {
-  return Boolean(process.env.RESEND_API_KEY);
+  return Boolean(readSmtpConfig()) || Boolean(process.env.RESEND_API_KEY);
 }
 
 export function getAppBaseUrl(): string {
@@ -48,6 +103,24 @@ interface SendEmailParams {
 }
 
 async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean; error?: string }> {
+  // 1) SMTP (Gmail u otro) — opción gratis que envía a cualquier destinatario.
+  const smtp = getSmtpTransport();
+  if (smtp) {
+    try {
+      await smtp.transport.sendMail({
+        from: smtp.from,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
+      return { ok: true };
+    } catch (err: any) {
+      console.error('[email] Error enviando por SMTP:', err);
+      return { ok: false, error: String(err?.message || err) };
+    }
+  }
+  // 2) Resend.
   const client = getResendClient();
   if (!client) {
     // Modo mock: loguea en consola. El link de acción es lo único realmente

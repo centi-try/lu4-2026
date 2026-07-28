@@ -854,11 +854,29 @@ export function importDbContent(jsonString: string): boolean {
   }
 }
 
-// Reset database to initial empty state (factory reset)
+// Reset database to initial empty state (factory reset).
+// PRESERVA deliberadamente:
+//   - los usuarios Super Admin (no se pueden perder las cuentas de admin),
+//   - el catálogo de materiales (Config → Catálogo de materiales),
+//   - las clases de personajes (Config → Clases),
+//   - el catálogo de Raid Bosses (Config → Bosses & Clanes).
+// Todo lo demás (ítems, ventas, ciclos, warehouse, CP, etc.) se limpia.
 export function resetDatabase(): boolean {
   try {
     createBackup('pre-reset');
-    const fresh = { ...initialSchema };
+    const prev = dbInstance || ({} as any);
+    // Conservamos únicamente los Super Admin (con sus credenciales intactas).
+    const preservedSuperAdmins = ensureArray(prev.users)
+      .map(normalizeUser)
+      .filter((u: any) => normalizeRole(u.role) === 'super_admin');
+    const fresh: DatabaseSchema = JSON.parse(JSON.stringify(initialSchema));
+    fresh.users = preservedSuperAdmins;
+    // Catálogos persistentes que NO deben borrarse en el reset.
+    fresh.materialCatalog = ensureArray(prev.materialCatalog);
+    fresh.raidAvailableClasses = ensureArray(prev.raidAvailableClasses);
+    fresh.raidBosses = ensureArray(prev.raidBosses);
+    // ensureDefaultSuperAdmin garantiza que siempre exista al menos un super
+    // admin por defecto si no quedó ninguno preservado.
     const withAdmin = ensureDefaultSuperAdmin(fresh);
     dbInstance = withAdmin;
     writeDbAtomic(withAdmin);
