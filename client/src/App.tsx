@@ -1,36 +1,43 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch } from "wouter";
+import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
+import L2Splash from "./components/L2Splash";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AppProvider } from "./contexts/AppContext";
-import Dashboard from "./pages/Dashboard";
-import Inventory from "./pages/Inventory";
-import Characters from "./pages/Characters";
-import History from "./pages/History";
-import Purchases from "./pages/Purchases";
-import SalesCycles from "./pages/SalesCycles";
-import Settings from "./pages/Settings";
-import AdminUsers from "./pages/AdminUsers";
-import Backups from "./pages/Backups";
-import NotFound from "./pages/NotFound";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import VerifyEmail from "./pages/VerifyEmail";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RaidProtectedRoute from "./components/RaidProtectedRoute";
-import RaidDashboard from "./pages/raid/RaidDashboard";
-import RaidInventory from "./pages/raid/RaidInventory";
-import RaidClans from "./pages/raid/RaidClans";
-import RaidCycles from "./pages/raid/RaidCycles";
-import RaidSettings from "./pages/raid/RaidSettings";
-import RaidPurchases from "./pages/raid/RaidPurchases";
-import RaidHistory from "./pages/raid/RaidHistory";
-import WarehouseClan from "./pages/WarehouseClan";
-import ClansAndCps from "./pages/ClansAndCps";
-import CpSplit from "./pages/CpSplit";
+
+// Login se carga de inmediato (es la pantalla de entrada para no logueados);
+// el resto de páginas se cargan bajo demanda (code-splitting) para que la
+// primera carga sea mucho más liviana.
+import Login from "./pages/Login";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Characters = lazy(() => import("./pages/Characters"));
+const History = lazy(() => import("./pages/History"));
+const Purchases = lazy(() => import("./pages/Purchases"));
+const SalesCycles = lazy(() => import("./pages/SalesCycles"));
+const Settings = lazy(() => import("./pages/Settings"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const Backups = lazy(() => import("./pages/Backups"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Register = lazy(() => import("./pages/Register"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const RaidDashboard = lazy(() => import("./pages/raid/RaidDashboard"));
+const RaidInventory = lazy(() => import("./pages/raid/RaidInventory"));
+const RaidClans = lazy(() => import("./pages/raid/RaidClans"));
+const RaidCycles = lazy(() => import("./pages/raid/RaidCycles"));
+const RaidSettings = lazy(() => import("./pages/raid/RaidSettings"));
+const RaidPurchases = lazy(() => import("./pages/raid/RaidPurchases"));
+const RaidHistory = lazy(() => import("./pages/raid/RaidHistory"));
+const WarehouseClan = lazy(() => import("./pages/WarehouseClan"));
+const ClansAndCps = lazy(() => import("./pages/ClansAndCps"));
+const CpSplit = lazy(() => import("./pages/CpSplit"));
 
 function Router() {
   return (
@@ -81,7 +88,9 @@ function App() {
                 },
               }}
             />
-            <Router />
+            <Suspense fallback={<L2Splash />}>
+              <Router />
+            </Suspense>
           </TooltipProvider>
         </AppProvider>
       </ThemeProvider>

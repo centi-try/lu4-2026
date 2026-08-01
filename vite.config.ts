@@ -150,10 +150,21 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
-
-export default defineConfig({
-  plugins,
+export default defineConfig(({ command }) => ({
+  // Los plugins de la plataforma Manus (runtime + colector de debug) solo son
+  // útiles en desarrollo dentro de Manus. En producción inflan el index.html
+  // con ~366KB de JS inline (no cacheable) que ralentiza la primera carga, así
+  // que los excluimos del build de producción.
+  plugins:
+    command === "build"
+      ? [react(), tailwindcss(), jsxLocPlugin()]
+      : [
+          react(),
+          tailwindcss(),
+          jsxLocPlugin(),
+          vitePluginManusRuntime(),
+          vitePluginManusDebugCollector(),
+        ],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -167,6 +178,16 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Separar librerías pesadas en su propio chunk para que se cacheen
+        // aparte y no engorden el bundle de la primera carga.
+        manualChunks: {
+          "vendor-charts": ["recharts"],
+          "vendor-react": ["react", "react-dom", "wouter"],
+        },
+      },
+    },
   },
   server: {
     host: true,
@@ -184,4 +205,4 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
-});
+}));
