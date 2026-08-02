@@ -4,6 +4,7 @@ import type {
   SalesCycle, CycleCharacterEarning, CycleSoldItem, Purchase, Shop
 } from '../lib/types';
 import { nanoid } from 'nanoid';
+import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { trpc } from '../lib/trpc';
 
@@ -14,6 +15,7 @@ interface SellItemOptions {
   buyerName: string;
   isInternalSale?: boolean;
   isExternalSale?: boolean;
+  payWithClanFund?: boolean;
 }
 
 interface AppContextType {
@@ -237,7 +239,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       refetchCharacters();
       refetchAuditLogs();
       trpcUtils.items.reservations.list.invalidate();
-    }
+      trpcUtils.clanFund.getSummary.invalidate();
+      trpcUtils.clanFund.listTransactions.invalidate();
+    },
+    onError: (err) => {
+      // Revertir el estado optimista y avisar (ej. Compra del Clan sin fondos).
+      refetchPurchases();
+      refetchItems();
+      refetchCharacters();
+      toast.error(err?.message || 'No se pudo completar la venta.');
+    },
   });
 
   const closeCycleMutation = trpc.salesCycles.close.useMutation({
@@ -574,7 +585,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [currentUser, addLog, deleteItemMutation]);
 
-  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale, isExternalSale }: SellItemOptions) => {
+  const sellItem = useCallback(({ itemId, quantityToSell, buyerId, buyerName, isInternalSale, isExternalSale, payWithClanFund }: SellItemOptions) => {
     // #4: SUPER_ADMIN y MAPPER pueden vender. USER no.
     if (currentUser.role !== 'SUPER_ADMIN' && currentUser.role !== 'MAPPER') return;
 
@@ -586,6 +597,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       buyerName,
       isInternalSale: isInternalSale || false,
       isExternalSale: isExternalSale || false,
+      payWithClanFund: payWithClanFund || false,
     });
 
     setItems(prevItems => {

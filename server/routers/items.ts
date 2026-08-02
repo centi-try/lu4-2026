@@ -8,6 +8,8 @@ import {
   markReservationPreSold, unmarkReservationPreSold,
   markReservationSold,
   getClanFundSettings,
+  getClanFundSummary,
+  addClanFundTransaction,
   // Tiendas (vendedores) — anotación de dónde quedó puesto a la venta un ítem.
   getShops, createShop, renameShop, deleteShop,
 } from "../db";
@@ -54,6 +56,12 @@ const SellItemSchema = z.object({
   buyerName: z.string(),
   isInternalSale: z.boolean().optional(),
   isExternalSale: z.boolean().optional(),
+  // Compra del Clan: el propio clan compra el ítem pagando con la adena de su
+  // fondo. Los personajes asociados reciben su parte igual que en una venta
+  // normal, pero el costo se descuenta del fondo (gasto persistente) y se OMITE
+  // el impuesto del clan (el clan no se cobra impuesto a sí mismo). Sí respeta
+  // el descuento interno si isInternalSale=true.
+  payWithClanFund: z.boolean().optional(),
 });
 
 export const itemsRouter = router({
@@ -470,6 +478,21 @@ export const itemsRouter = router({
       const available = (item.quantity || 0) - (item.quantitySold || 0);
       if (input.quantity > available) throw new Error("Not enough quantity available");
 
+      // Compra del Clan: validar ANTES de mutar nada que el fondo alcance para
+      // cubrir el costo total. Si no alcanza, se bloquea la operación completa.
+      const clanSettingsPre = getClanFundSettings();
+      const discountPctPre = input.isInternalSale ? (Number(clanSettingsPre.internalDiscountPercent) || 0) : 0;
+      const effectivePricePre = Math.floor((Number(item.price) || 0) * (1 - discountPctPre / 100));
+      const totalCostPre = effectivePricePre * input.quantity;
+      if (input.payWithClanFund) {
+        const balance = getClanFundSummary().balance;
+        if (totalCostPre > balance) {
+          throw new Error(
+            `Fondos insuficientes: la compra cuesta $${totalCostPre.toLocaleString()} y el fondo del clan solo tiene $${balance.toLocaleString()}.`,
+          );
+        }
+      }
+
       const newQuantitySold = (item.quantitySold || 0) + input.quantity;
       const newQuantitySoldInCycle = (item.quantitySoldInCycle || 0) + input.quantity;
       const isFullySold = newQuantitySold >= (item.quantity || 0);
@@ -494,7 +517,9 @@ export const itemsRouter = router({
       const discountPct = input.isInternalSale ? (Number(clanSettings.internalDiscountPercent) || 0) : 0;
       const effectivePrice = Math.floor(basePrice * (1 - discountPct / 100));
       const totalRevenue = effectivePrice * input.quantity;
-      const clanTaxPct = Number(clanSettings.clanTaxPercent) || 0;
+      // Compra del Clan: se OMITE el impuesto del clan (no se cobra a sí mismo),
+      // así el gasto del fondo = lo que reciben los personajes y todo cuadra.
+      const clanTaxPct = input.payWithClanFund ? 0 : (Number(clanSettings.clanTaxPercent) || 0);
       const clanTaxAmount = Math.floor(totalRevenue * clanTaxPct / 100);
       const revenueAfterTax = totalRevenue - clanTaxAmount;
       // FIX #14: repartir el sobrante del redondeo. Math.floor por personaje
@@ -606,6 +631,19 @@ export const itemsRouter = router({
           discountPct,
         },
       });
+
+      // Compra del Clan: descontar el costo del fondo del clan como GASTO
+      // persistente (reconstruible/auditable), no modificando el saldo a mano.
+      if (input.payWithClanFund) {
+        await addClanFundTransaction({
+          type: 'expense',
+          amount: totalRevenue,
+          description: `Compra del clan: ${input.quantity}× ${item.name}`,
+          relatedItemId: String(item.id),
+          createdBy: ctx.user?.characterName || ctx.user?.name || 'Administrador',
+          createdByUserId: ctx.user?.id,
+        });
+      }
 
       // Auto-mark matching reservations as 'sold' — sequentially (oldest first),
       // only enough to cover the quantity being sold in THIS transaction.

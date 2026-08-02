@@ -1369,6 +1369,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
   const [isInternalSale, setIsInternalSale] = useState(false);
   const [isExternalSale, setIsExternalSale] = useState(false);
+  // Compra del Clan: el clan compra el ítem pagando con su fondo recaudado.
+  const [payWithClanFund, setPayWithClanFund] = useState(false);
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
   const [sellReservsOpen, setSellReservsOpen] = useState(false);
@@ -1563,6 +1565,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   };
 
   const { data: clanFundSettings } = trpc.clanFund.getSettings.useQuery(undefined, { staleTime: 30_000 });
+  const { data: clanFundSummary } = trpc.clanFund.getSummary.useQuery(undefined, { staleTime: 10_000 });
+  const clanFundBalance = Number(clanFundSummary?.balance) || 0;
 
   const openSellModal = (item: Item) => {
     setSellModalItem(item);
@@ -1570,6 +1574,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setSelectedBuyerId('');
     setIsInternalSale(false);
     setIsExternalSale(false);
+    setPayWithClanFund(false);
     setSellReservsOpen(false);
     setSellDistribOpen(false);
   };
@@ -1583,7 +1588,32 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       return;
     }
 
-    if (isExternalSale) {
+    if (payWithClanFund) {
+      // Compra del Clan: el clan paga con su fondo. Validar saldo en el cliente
+      // (el backend vuelve a validar como fuente de verdad y bloquea si falta).
+      const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+      const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+      const totalCost = effPrice * qty;
+      if (totalCost > clanFundBalance) {
+        toast.error(`Fondos insuficientes: la compra cuesta $${totalCost.toLocaleString()} y el fondo tiene $${clanFundBalance.toLocaleString()}.`);
+        return;
+      }
+      sellItem({
+        itemId: sellModalItem.id,
+        quantityToSell: qty,
+        buyerId: 'clan-fund',
+        buyerName: 'Compra del Clan (Fondos)',
+        isInternalSale,
+        isExternalSale: false,
+        payWithClanFund: true,
+      });
+      const newRemaining = remaining - qty;
+      toast.success(
+        newRemaining === 0
+          ? `El clan compró "${sellModalItem.name}" con sus fondos ($${totalCost.toLocaleString()}).`
+          : `El clan compró ${qty} unidad(es) de "${sellModalItem.name}" ($${totalCost.toLocaleString()}). Quedan ${newRemaining}.`,
+      );
+    } else if (isExternalSale) {
       sellItem({ 
         itemId: sellModalItem.id, 
         quantityToSell: qty,
@@ -2467,7 +2497,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       const discPctCalc = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
                       const effPriceCalc = Math.floor(basePriceCalc * (1 - discPctCalc / 100));
                       const totalRev = effPriceCalc * qty;
-                      const clanTaxCalc = Math.floor(totalRev * (Number(clanFundSettings?.clanTaxPercent) || 0) / 100);
+                      const clanTaxPctCalc = payWithClanFund ? 0 : (Number(clanFundSettings?.clanTaxPercent) || 0);
+                      const clanTaxCalc = Math.floor(totalRev * clanTaxPctCalc / 100);
                       const perChar = Math.floor((totalRev - clanTaxCalc) / sellModalItem.associatedCharacterIds.length);
                       return (
                         <div key={cid} className="flex items-center justify-between">
@@ -2489,24 +2520,24 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               </div>
             )}
 
-            {/* Tipo de venta: toggle entre Interna y Externa (City) */}
-            <div className="mb-3 rounded-xl p-3" style={{ background: isExternalSale ? 'rgba(56,189,248,0.06)' : 'rgba(251,191,36,0.06)', border: `1px solid ${isExternalSale ? 'rgba(56,189,248,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
-              <div className="flex items-center gap-3">
+            {/* Tipo de venta: Interna · Externa (City) · Compra del Clan (Fondos) */}
+            <div className="mb-3 rounded-xl p-3" style={{ background: payWithClanFund ? 'rgba(167,139,250,0.06)' : isExternalSale ? 'rgba(56,189,248,0.06)' : 'rgba(251,191,36,0.06)', border: `1px solid ${payWithClanFund ? 'rgba(167,139,250,0.25)' : isExternalSale ? 'rgba(56,189,248,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setIsExternalSale(false); }}
+                  onClick={() => { setIsExternalSale(false); setPayWithClanFund(false); }}
                   className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
                   style={{
-                    background: !isExternalSale ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)',
-                    color: !isExternalSale ? '#fbbf24' : 'rgba(255,255,255,0.4)',
-                    border: !isExternalSale ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                    background: (!isExternalSale && !payWithClanFund) ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: (!isExternalSale && !payWithClanFund) ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                    border: (!isExternalSale && !payWithClanFund) ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  🏠 Venta Interna (Clan)
+                  🏠 Interna (Clan)
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setIsExternalSale(true); setIsInternalSale(false); setSelectedBuyerId(''); }}
+                  onClick={() => { setIsExternalSale(true); setIsInternalSale(false); setSelectedBuyerId(''); setPayWithClanFund(false); }}
                   className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
                   style={{
                     background: isExternalSale ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
@@ -2514,7 +2545,19 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     border: isExternalSale ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  🏙️ Venta Externa (City)
+                  🏙️ Externa (City)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPayWithClanFund(true); setIsExternalSale(false); setSelectedBuyerId(''); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: payWithClanFund ? 'rgba(167,139,250,0.18)' : 'rgba(255,255,255,0.03)',
+                    color: payWithClanFund ? '#a78bfa' : 'rgba(255,255,255,0.4)',
+                    border: payWithClanFund ? '1px solid rgba(167,139,250,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  🏰 Compra del Clan
                 </button>
               </div>
               {isExternalSale && (
@@ -2522,10 +2565,47 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   Venta a jugadores fuera del clan. Sin descuento interno. Solo aplica retención del clan.
                 </p>
               )}
+              {payWithClanFund && (
+                <p className="text-xs mt-2" style={{ color: 'rgba(167,139,250,0.75)' }}>
+                  El clan compra el ítem pagando con su fondo recaudado. Los personajes asociados reciben su adena. Se omite el impuesto del clan.
+                </p>
+              )}
             </div>
 
-            {/* Selector de Comprador — solo para venta interna */}
-            {!isExternalSale && (
+            {/* Saldo del fondo del clan — solo para Compra del Clan */}
+            {payWithClanFund && (() => {
+              const qty = parseInt(sellQty) || 0;
+              const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+              const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+              const totalCost = effPrice * qty;
+              const enough = totalCost <= clanFundBalance;
+              return (
+                <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(167,139,250,0.06)', border: `1px solid ${enough ? 'rgba(167,139,250,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Fondo disponible del clan</span>
+                    <span className="text-sm font-mono font-bold" style={{ color: '#a78bfa' }}>${clanFundBalance.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Costo de la compra</span>
+                    <span className="text-sm font-mono font-bold" style={{ color: enough ? '#7bf1d6' : '#ef4444' }}>${totalCost.toLocaleString()}</span>
+                  </div>
+                  {qty > 0 && (
+                    <div className="flex items-center justify-between mt-1 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Saldo tras la compra</span>
+                      <span className="text-sm font-mono" style={{ color: enough ? 'rgba(255,255,255,0.75)' : '#ef4444' }}>${(clanFundBalance - totalCost).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {!enough && qty > 0 && (
+                    <p className="text-xs mt-2" style={{ color: '#ef4444' }}>
+                      ⚠️ Fondos insuficientes. No se puede realizar la compra.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Selector de Comprador — solo para venta interna (no aplica en Compra del Clan) */}
+            {!isExternalSale && !payWithClanFund && (
               <div className="mb-3">
                 <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   Asignar a Comprador/Cuenta
@@ -2564,9 +2644,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     </span>
                   </label>
                 )}
-                {Number(clanFundSettings.clanTaxPercent) > 0 && (
+                {Number(clanFundSettings.clanTaxPercent) > 0 && !payWithClanFund && (
                   <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
                     🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
+                  </p>
+                )}
+                {payWithClanFund && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(167,139,250,0.6)' }}>
+                    🏰 Compra del Clan: impuesto del clan omitido.
                   </p>
                 )}
               </div>
@@ -2603,13 +2688,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
                 const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
                 const totalAfterDiscount = effPrice * qty;
-                const clanPct = Number(clanFundSettings?.clanTaxPercent) || 0;
+                // Compra del Clan omite el impuesto del clan.
+                const clanPct = payWithClanFund ? 0 : (Number(clanFundSettings?.clanTaxPercent) || 0);
                 const clanAmt = Math.floor(totalAfterDiscount * clanPct / 100);
                 const netAmount = totalAfterDiscount - clanAmt;
 
                 return (
                   <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar {isExternalSale ? '(Venta Externa)' : ''}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{payWithClanFund ? 'Costo de la compra (del Fondo)' : `Total a recaudar ${isExternalSale ? '(Venta Externa)' : ''}`}</p>
                     <p className="text-xl font-bold font-mono" style={{ color: isExternalSale ? '#38bdf8' : '#a78bfa' }}>
                       ${totalAfterDiscount.toLocaleString()}
                     </p>
@@ -2634,15 +2720,29 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-3">
-              <button onClick={() => setSellModalItem(null)} className="btn-ghost flex-1 py-2.5">
-                Cancelar
-              </button>
-              <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
-                <ShoppingCart className="h-4 w-4" />
-                Confirmar Venta
-              </button>
-            </div>
+            {(() => {
+              const qtyBtn = parseInt(sellQty) || 0;
+              const discPctBtn = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+              const effPriceBtn = Math.floor((sellModalItem.price ?? 0) * (1 - discPctBtn / 100));
+              const totalCostBtn = effPriceBtn * qtyBtn;
+              const clanFundBlocked = payWithClanFund && (qtyBtn < 1 || totalCostBtn > clanFundBalance);
+              return (
+                <div className="flex gap-3">
+                  <button onClick={() => setSellModalItem(null)} className="btn-ghost flex-1 py-2.5">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSell}
+                    disabled={clanFundBlocked}
+                    className="btn-primary flex-1 py-2.5"
+                    style={clanFundBlocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    {payWithClanFund ? 'Confirmar Compra del Clan' : 'Confirmar Venta'}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
