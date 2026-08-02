@@ -485,6 +485,15 @@ export const itemsRouter = router({
       const effectivePricePre = Math.floor((Number(item.price) || 0) * (1 - discountPctPre / 100));
       const totalCostPre = effectivePricePre * input.quantity;
       if (input.payWithClanFund) {
+        // El fondo paga y los personajes asociados reciben esa misma adena.
+        // Sin personajes asociados la adena saldría del fondo sin destinatario
+        // (descuadre), así que se bloquea la compra.
+        const hasOwners = Array.isArray(item.associatedCharacterIds) && item.associatedCharacterIds.length > 0;
+        if (!hasOwners) {
+          throw new Error(
+            'No se puede comprar con el fondo del clan: el ítem no tiene personajes asociados que reciban la adena.',
+          );
+        }
         const balance = getClanFundSummary().balance;
         if (totalCostPre > balance) {
           throw new Error(

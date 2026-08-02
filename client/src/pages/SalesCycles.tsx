@@ -589,6 +589,28 @@ export default function SalesCyclesPage() {
     return new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  // Duración del ciclo (inicio → ahora) en formato compacto.
+  const formatDuration = (iso: string | null) => {
+    if (!iso) return '—';
+    const ms = Date.now() - new Date(iso).getTime();
+    if (!isFinite(ms) || ms < 0) return '—';
+    const mins = Math.floor(ms / 60000);
+    const d = Math.floor(mins / 1440);
+    const h = Math.floor((mins % 1440) / 60);
+    const m = mins % 60;
+    if (d > 0) return `${d}d ${h}h`;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
+  };
+
+  // Bruto estimado (precio actual, = lo que se persiste como totalRevenue del
+  // ciclo), neto real a repartir (suma de currentCycleEarnings) y su diferencia
+  // (retención del clan + ajustes por precios editados). Neto + diferencia =
+  // bruto por construcción, así el desglose siempre cuadra visualmente.
+  const netoTotal = preview.totalPayout;
+  const brutoEstimado = totalCycleRevenue;
+  const diferencia = brutoEstimado - netoTotal;
+
   return (
     <AppShell>
       <div className="mb-6">
@@ -721,12 +743,45 @@ export default function SalesCyclesPage() {
               </div>
 
               <div className="space-y-3 text-sm">
+                {/* Hero: neto total a repartir — el número que más importa */}
+                <div className="rounded-xl p-4 text-center" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(16,185,129,0.05))', border: '1px solid rgba(16,185,129,0.25)' }}>
+                  <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>Neto a repartir a personajes</div>
+                  <div className="text-3xl font-bold font-mono" style={{ color: '#10b981' }}>${netoTotal.toLocaleString()}</div>
+                  <div className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    entre {preview.chars.length} personaje(s)
+                  </div>
+                </div>
+
                 {/* Info del ciclo */}
                 <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Ciclo</div>
-                  <div className="font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Ciclo #{cycleNumber}</div>
-                  <div className="text-xs mt-1 font-mono" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Ciclo</div>
+                      <div className="font-semibold" style={{ color: 'rgba(255,255,255,0.95)' }}>Ciclo #{cycleNumber}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Duración</div>
+                      <div className="font-semibold font-mono" style={{ color: '#7bf1d6' }}>{formatDuration(currentCycleStartedAt)}</div>
+                    </div>
+                  </div>
+                  <div className="text-xs mt-2 font-mono" style={{ color: 'rgba(255,255,255,0.45)' }}>
                     Iniciado el {formatDate(currentCycleStartedAt)}
+                  </div>
+                </div>
+
+                {/* Desglose Bruto → Retención → Neto (siempre cuadra) */}
+                <div className="rounded-xl p-3 space-y-1.5" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Bruto recaudado (precio actual)</span>
+                    <span className="text-xs font-mono font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>${brutoEstimado.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>− Retención del clan / ajustes</span>
+                    <span className="text-xs font-mono font-semibold" style={{ color: '#fbbf24' }}>${diferencia.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t pt-1.5" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.75)' }}>= Neto a personajes</span>
+                    <span className="text-xs font-mono font-bold" style={{ color: '#10b981' }}>${netoTotal.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -772,19 +827,32 @@ export default function SalesCyclesPage() {
                         maxHeight: '180px',
                       }}
                     >
-                      {preview.chars.map(c => (
-                        <div key={c.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
-                          style={{ background: 'rgba(255,255,255,0.02)' }}>
-                          <span className="text-xs font-medium flex items-center gap-1.5"
-                            style={{ color: 'rgba(255,255,255,0.85)' }}>
-                            <UserIcon className="h-3 w-3" style={{ color: '#7bf1d6' }} />
-                            {c.name}
-                          </span>
-                          <span className="text-xs font-mono font-bold" style={{ color: '#10b981' }}>
-                            ${c.earnings.toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
+                      {preview.chars.map(c => {
+                        const pct = netoTotal > 0 ? (c.earnings / netoTotal) * 100 : 0;
+                        return (
+                          <div key={c.id} className="flex items-center justify-between rounded-lg px-2 py-1.5"
+                            style={{ background: 'rgba(255,255,255,0.02)' }}>
+                            <span className="text-xs font-medium flex items-center gap-1.5"
+                              style={{ color: 'rgba(255,255,255,0.85)' }}>
+                              <UserIcon className="h-3 w-3" style={{ color: '#7bf1d6' }} />
+                              {c.name}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                                {pct.toFixed(1)}%
+                              </span>
+                              <span className="text-xs font-mono font-bold" style={{ color: '#10b981' }}>
+                                ${c.earnings.toLocaleString()}
+                              </span>
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Total del reparto */}
+                    <div className="flex items-center justify-between mt-2 px-2">
+                      <span className="text-xs font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Total a repartir</span>
+                      <span className="text-sm font-mono font-bold" style={{ color: '#10b981' }}>${netoTotal.toLocaleString()}</span>
                     </div>
                   </div>
                 )}
