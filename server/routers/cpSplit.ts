@@ -22,6 +22,21 @@ const newId = () => Math.floor(Math.random() * 1000000);
 const actor = (ctx: any) =>
   String(ctx?.user?.characterName || ctx?.user?.name || ctx?.user?.email || "Super Admin");
 
+// ----------------------------------------------------------------------------
+// Scope: el módulo tiene DOS espacios de trabajo independientes con la misma
+// funcionalidad. "control" = pestaña "Ítems de la CP" (contiene la data ya
+// existente); "reparto" = pestaña "A repartir". Cada registro (CP, vendedor,
+// ítem, historial) lleva su scope. Los registros antiguos sin scope se tratan
+// como "control" para no mover la data que ya estaba.
+// ----------------------------------------------------------------------------
+type CpScope = "control" | "reparto";
+const scopeSchema = z.enum(["control", "reparto"]).optional().default("control");
+const scopeOf = (rec: any): CpScope => (rec?.scope === "reparto" ? "reparto" : "control");
+
+const partsOf = (scope: CpScope) => getCpParticipants().filter((c: any) => scopeOf(c) === scope);
+const vendorsOf = (scope: CpScope) => getCpVendors().filter((v: any) => scopeOf(v) === scope);
+const itemsOf = (scope: CpScope) => getCpItems().filter((it: any) => scopeOf(it) === scope);
+
 // remainderAlloc: mapa CP → unidades EXTRA del sobrante que se le asignan a esa
 // CP. Lo que no se asigne del sobrante queda "a vender". Ej.: 5 ítems / 4 CP →
 // base 1·1·1·1, sobrante 1; { "CP Oeste": 1 } → 1·1·1·2. Con sobrante 2 se
@@ -73,11 +88,11 @@ export function computeAllocation(
 // CPs efectivas de un ítem: los ítems confirmados/vendidos usan el snapshot
 // congelado al confirmar (para que el reparto histórico no cambie si luego se
 // editan las CPs); los borradores usan la lista actual de CPs participantes.
-function effectiveCpNames(item: any): string[] {
+function effectiveCpNames(item: any, scope: CpScope): string[] {
   if ((item.status === "CONFIRMED" || item.status === "SOLD") && Array.isArray(item.cpNamesSnapshot)) {
     return item.cpNamesSnapshot.map((s: any) => String(s));
   }
-  return getCpParticipants().map((c: any) => String(c.name));
+  return partsOf(scope).map((c: any) => String(c.name));
 }
 
 const normName = (s: any) => String(s ?? "").trim().toLowerCase();
@@ -93,7 +108,7 @@ function discountedPrice(normal: number, pct: number): number {
 // cantidad en mano (quantity, que ya excluye lo vendido). Los ENTREGADOS
 // (CONFIRMED) usan el reparto congelado al entregar (deliveredAlloc) y su
 // sellRemaining, para que vender después no altere lo ya repartido/entregado.
-function viewOf(item: any): {
+function viewOf(item: any, scope: CpScope): {
   cpNames: string[];
   alloc: Record<string, number>;
   available: number;
@@ -102,7 +117,7 @@ function viewOf(item: any): {
 } {
   const sales: any[] = Array.isArray(item?.sales) ? item.sales : [];
   const soldUnits = sales.reduce((s, x) => s + (Number(x?.units) || 0), 0);
-  const cpNames = effectiveCpNames(item);
+  const cpNames = effectiveCpNames(item, scope);
   // Ítems SIN dividir (divide === false): quedan registrados con su cantidad
   // pero no se reparten entre CPs ni se marcan "a vender" (A vender = 0).
   if (item?.divide === false) {
@@ -166,41 +181,45 @@ async function fetchImageBuffer(url: string): Promise<{ buffer: Buffer; ext: "pn
 export const cpSplitRouter = router({
   // -------- CPs participantes (nombres persistentes) --------
   participants: router({
-    list: cpProcedure.query(async () => getCpParticipants()),
-    create: cpProcedure.input(nameInput).mutation(async ({ input, ctx }) => {
-      assertUniqueName(getCpParticipants(), input.name);
+    list: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => partsOf(input?.scope ?? "control")),
+    create: cpProcedure.input(nameInput.extend({ scope: scopeSchema })).mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
+      assertUniqueName(partsOf(scope), input.name);
       if (!dbInstance.cpParticipants) dbInstance.cpParticipants = [];
-      const cp = { id: newId(), name: input.name.trim(), createdAt: new Date().toISOString() };
+      const cp = { id: newId(), name: input.name.trim(), scope, createdAt: new Date().toISOString() };
       dbInstance.cpParticipants.push(cp);
-      pushCpHistory("CP_CREADA", `Registró la CP "${cp.name}"`, actor(ctx));
+      pushCpHistory("CP_CREADA", `Registró la CP "${cp.name}"`, actor(ctx), scope);
       saveDbToDisk();
       return cp;
     }),
     rename: cpProcedure
-      .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60) }))
+      .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60), scope: scopeSchema }))
       .mutation(async ({ input, ctx }) => {
-        assertUniqueName(getCpParticipants(), input.name, input.id);
+        const scope = input.scope ?? "control";
+        assertUniqueName(partsOf(scope), input.name, input.id);
         const prev = getCpParticipants().find((c: any) => Number(c.id) === Number(input.id));
         dbInstance.cpParticipants = getCpParticipants().map((c: any) =>
           Number(c.id) === Number(input.id) ? { ...c, name: input.name.trim() } : c,
         );
-        pushCpHistory("CP_RENOMBRADA", `Renombró CP "${prev?.name ?? input.id}" → "${input.name.trim()}"`, actor(ctx));
+        pushCpHistory("CP_RENOMBRADA", `Renombró CP "${prev?.name ?? input.id}" → "${input.name.trim()}"`, actor(ctx), scope);
         saveDbToDisk();
         return { success: true };
       }),
-    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpProcedure.input(z.object({ id: z.number(), scope: scopeSchema })).mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
       const prev = getCpParticipants().find((c: any) => Number(c.id) === Number(input.id));
       dbInstance.cpParticipants = getCpParticipants().filter((c: any) => Number(c.id) !== Number(input.id));
       // Si alguna CP borrada tenía asignado sobrante en un ítem borrador, se
       // quita ese extra (vuelve a "a vender") para no apuntar a una CP muerta.
+      // Solo afecta a los ítems del MISMO scope.
       dbInstance.cpItems = getCpItems().map((it: any) => {
-        if (it.status === "CONFIRMED" || !it.remainderAlloc || !prev?.name) return it;
+        if (scopeOf(it) !== scope || it.status === "CONFIRMED" || !it.remainderAlloc || !prev?.name) return it;
         if (it.remainderAlloc[prev.name] == null) return it;
         const next = { ...it.remainderAlloc };
         delete next[prev.name];
         return { ...it, remainderAlloc: next };
       });
-      pushCpHistory("CP_ELIMINADA", `Eliminó la CP "${prev?.name ?? input.id}"`, actor(ctx));
+      pushCpHistory("CP_ELIMINADA", `Eliminó la CP "${prev?.name ?? input.id}"`, actor(ctx), scope);
       saveDbToDisk();
       return { success: true };
     }),
@@ -208,36 +227,39 @@ export const cpSplitRouter = router({
 
   // -------- Vendedores (lista propia del módulo) --------
   vendors: router({
-    list: cpProcedure.query(async () => getCpVendors()),
-    create: cpProcedure.input(nameInput).mutation(async ({ input, ctx }) => {
-      assertUniqueName(getCpVendors(), input.name);
+    list: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => vendorsOf(input?.scope ?? "control")),
+    create: cpProcedure.input(nameInput.extend({ scope: scopeSchema })).mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
+      assertUniqueName(vendorsOf(scope), input.name);
       if (!dbInstance.cpVendors) dbInstance.cpVendors = [];
-      const v = { id: newId(), name: input.name.trim(), createdAt: new Date().toISOString() };
+      const v = { id: newId(), name: input.name.trim(), scope, createdAt: new Date().toISOString() };
       dbInstance.cpVendors.push(v);
-      pushCpHistory("VENDEDOR_CREADO", `Registró el vendedor "${v.name}"`, actor(ctx));
+      pushCpHistory("VENDEDOR_CREADO", `Registró el vendedor "${v.name}"`, actor(ctx), scope);
       saveDbToDisk();
       return v;
     }),
     rename: cpProcedure
-      .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60) }))
+      .input(z.object({ id: z.number(), name: z.string().trim().min(1).max(60), scope: scopeSchema }))
       .mutation(async ({ input, ctx }) => {
-        assertUniqueName(getCpVendors(), input.name, input.id);
+        const scope = input.scope ?? "control";
+        assertUniqueName(vendorsOf(scope), input.name, input.id);
         const prev = getCpVendors().find((v: any) => Number(v.id) === Number(input.id));
         dbInstance.cpVendors = getCpVendors().map((v: any) =>
           Number(v.id) === Number(input.id) ? { ...v, name: input.name.trim() } : v,
         );
-        pushCpHistory("VENDEDOR_RENOMBRADO", `Renombró vendedor "${prev?.name ?? input.id}" → "${input.name.trim()}"`, actor(ctx));
+        pushCpHistory("VENDEDOR_RENOMBRADO", `Renombró vendedor "${prev?.name ?? input.id}" → "${input.name.trim()}"`, actor(ctx), scope);
         saveDbToDisk();
         return { success: true };
       }),
-    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpProcedure.input(z.object({ id: z.number(), scope: scopeSchema })).mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
       const prev = getCpVendors().find((v: any) => Number(v.id) === Number(input.id));
       dbInstance.cpVendors = getCpVendors().filter((v: any) => Number(v.id) !== Number(input.id));
-      // Ítems que apuntaban a ese vendedor quedan sin vendedor asignado.
+      // Ítems (del mismo scope) que apuntaban a ese vendedor quedan sin vendedor.
       dbInstance.cpItems = getCpItems().map((it: any) =>
-        Number(it.vendorId) === Number(input.id) ? { ...it, vendorId: null } : it,
+        scopeOf(it) === scope && Number(it.vendorId) === Number(input.id) ? { ...it, vendorId: null } : it,
       );
-      pushCpHistory("VENDEDOR_ELIMINADO", `Eliminó el vendedor "${prev?.name ?? input.id}"`, actor(ctx));
+      pushCpHistory("VENDEDOR_ELIMINADO", `Eliminó el vendedor "${prev?.name ?? input.id}"`, actor(ctx), scope);
       saveDbToDisk();
       return { success: true };
     }),
@@ -245,7 +267,7 @@ export const cpSplitRouter = router({
 
   // -------- Ítems a repartir --------
   items: router({
-    list: cpProcedure.query(async () => getCpItems()),
+    list: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => itemsOf(input?.scope ?? "control")),
     create: cpProcedure
       .input(
         z.object({
@@ -255,24 +277,26 @@ export const cpSplitRouter = router({
           quantity: z.number().int().min(1).max(100000),
           discountPercent: z.number().min(0).max(100).optional().default(20),
           divide: z.boolean().optional().default(true),
+          scope: scopeSchema,
         }),
       )
       .mutation(async ({ input, ctx }) => {
+        const scope = input.scope ?? "control";
         if (!dbInstance.cpItems) dbInstance.cpItems = [];
-        const participants = getCpParticipants().map((c: any) => String(c.name));
+        const participants = partsOf(scope).map((c: any) => String(c.name));
         const name = input.name.trim();
         const divide = input.divide !== false;
 
         // #6c — Agrupar: solo se agrupa con BORRADORES (aún en tu poder, sin
-        // entregar) del mismo nombre y mismas CPs. Los confirmados ya se
-        // entregaron/repartieron, así que NO se re-suman ni re-reparten (eso
-        // descuadraba las métricas al registrar más unidades al día siguiente).
-        const match = getCpItems().find(
+        // entregar) del mismo nombre y mismas CPs, DENTRO del mismo scope. Los
+        // confirmados ya se entregaron/repartieron, así que NO se re-suman ni
+        // re-reparten (eso descuadraba las métricas al registrar más unidades).
+        const match = itemsOf(scope).find(
           (it: any) =>
             it.status === "DRAFT" &&
             (it.divide !== false) === divide &&
             normName(it.name) === normName(name) &&
-            cpSetEqual(effectiveCpNames(it), participants),
+            cpSetEqual(effectiveCpNames(it, scope), participants),
         );
         if (match) {
           const newQty = Number(match.quantity) + input.quantity;
@@ -280,7 +304,7 @@ export const cpSplitRouter = router({
             Number(it.id) === Number(match.id) ? { ...it, quantity: newQty } : it,
           );
           const merged = getCpItems().find((it: any) => Number(it.id) === Number(match.id));
-          const { toSell } = computeAllocation(newQty, effectiveCpNames(merged), remainderAllocOf(merged));
+          const { toSell } = computeAllocation(newQty, effectiveCpNames(merged, scope), remainderAllocOf(merged));
           const vName = merged.vendorId
             ? getCpVendors().find((v: any) => Number(v.id) === Number(merged.vendorId))?.name
             : null;
@@ -292,6 +316,7 @@ export const cpSplitRouter = router({
             "ITEM_AGRUPADO",
             `Agrupó "${name}" +${input.quantity} u. (total ${newQty} u.) y re-repartió${pend}`,
             actor(ctx),
+            scope,
           );
           saveDbToDisk();
           return { ...merged, _merged: true, _toSell: toSell, _vendorName: vName ?? null };
@@ -304,6 +329,7 @@ export const cpSplitRouter = router({
           imageUrl: input.imageUrl?.trim() || "",
           quantity: input.quantity,
           divide,
+          scope,
           remainderAlloc: {} as RemainderAlloc,
           price: null as number | null,
           discountPercent: input.discountPercent ?? 20,
@@ -355,8 +381,9 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
-    confirm: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
-      const participants = getCpParticipants().map((c: any) => String(c.name));
+    confirm: cpProcedure.input(z.object({ id: z.number(), scope: scopeSchema })).mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
+      const participants = partsOf(scope).map((c: any) => String(c.name));
       if (participants.length === 0) {
         throw new Error("Registra al menos una CP participante antes de confirmar");
       }
@@ -384,6 +411,7 @@ export const cpSplitRouter = router({
           "ITEM_ENTREGADO",
           `Registró "${item.name}" (${item.quantity} u.) sin dividir entre CPs`,
           actor(ctx),
+          scope,
         );
         saveDbToDisk();
         return { success: true };
@@ -415,6 +443,7 @@ export const cpSplitRouter = router({
         "ITEM_ENTREGADO",
         `Entregó "${item.name}" (${item.quantity} u.) → ${repartoTxt}${toSell > 0 ? ` · A vender: ${toSell}` : ""}`,
         actor(ctx),
+        scope,
       );
       saveDbToDisk();
       return { success: true };
@@ -426,11 +455,12 @@ export const cpSplitRouter = router({
     // entregado). Las unidades vendidas salen del total en mano (quantity) y de
     // sellRemaining si el lote ya fue entregado.
     sell: cpProcedure
-      .input(z.object({ id: z.number(), units: z.number().int().min(1), applyDiscount: z.boolean().optional().default(false) }))
+      .input(z.object({ id: z.number(), units: z.number().int().min(1), applyDiscount: z.boolean().optional().default(false), scope: scopeSchema }))
       .mutation(async ({ input, ctx }) => {
+        const scope = input.scope ?? "control";
         const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
         if (!item) throw new Error("Ítem no encontrado");
-        const v = viewOf(item);
+        const v = viewOf(item, scope);
         if (v.available <= 0) throw new Error("Este ítem no tiene unidades a vender");
         if (input.units > v.available) throw new Error(`Solo hay ${v.available} u. a vender`);
         if (item.price == null || Number(item.price) <= 0) throw new Error("Asigna un precio antes de vender");
@@ -475,6 +505,7 @@ export const cpSplitRouter = router({
           "ITEM_VENDIDO",
           `Vendió ${input.units} u. de "${item.name}" a ${effectivePrice.toLocaleString("es-CL")}${input.applyDiscount ? ` (con ${pct}% desc.)` : ""} = ${total.toLocaleString("es-CL")} adena → ${adenaPerCp.toLocaleString("es-CL")} por CP entre ${nCp} CPs${adenaRemainder > 0 ? ` (sobran ${adenaRemainder})` : ""}`,
           actor(ctx),
+          scope,
         );
         saveDbToDisk();
         return { success: true };
@@ -482,8 +513,9 @@ export const cpSplitRouter = router({
     // Revertir una venta puntual (por si te equivocaste): devuelve sus unidades
     // al total en mano y a sellRemaining si el lote estaba entregado.
     revertSale: cpProcedure
-      .input(z.object({ id: z.number(), saleId: z.number() }))
+      .input(z.object({ id: z.number(), saleId: z.number(), scope: scopeSchema }))
       .mutation(async ({ input, ctx }) => {
+        const scope = input.scope ?? "control";
         const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
         if (!item) throw new Error("Ítem no encontrado");
         const sale = (Array.isArray(item.sales) ? item.sales : []).find((s: any) => Number(s.id) === Number(input.saleId));
@@ -498,11 +530,12 @@ export const cpSplitRouter = router({
           if (it.status === "CONFIRMED") next.sellRemaining = (Number(it.sellRemaining) || 0) + Number(sale.units);
           return next;
         });
-        pushCpHistory("VENTA_REVERTIDA", `Revirtió una venta de ${sale.units} u. de "${item.name}"`, actor(ctx));
+        pushCpHistory("VENTA_REVERTIDA", `Revirtió una venta de ${sale.units} u. de "${item.name}"`, actor(ctx), scope);
         saveDbToDisk();
         return { success: true };
       }),
-    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpProcedure.input(z.object({ id: z.number(), scope: scopeSchema })).mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
       const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
       // No permitir borrar un ítem con ventas registradas: perderíamos su adena
       // recaudada del Excel. Para deshacer una venta usa "Revertir".
@@ -514,7 +547,7 @@ export const cpSplitRouter = router({
       }
       dbInstance.cpItems = getCpItems().filter((it: any) => Number(it.id) !== Number(input.id));
       if (item?.status === "CONFIRMED") {
-        pushCpHistory("ITEM_ELIMINADO", `Eliminó el ítem confirmado "${item?.name ?? input.id}"`, actor(ctx));
+        pushCpHistory("ITEM_ELIMINADO", `Eliminó el ítem confirmado "${item?.name ?? input.id}"`, actor(ctx), scope);
       }
       saveDbToDisk();
       return { success: true };
@@ -523,27 +556,96 @@ export const cpSplitRouter = router({
 
   // -------- Historial (solo lectura, Super Admin) --------
   history: router({
-    list: cpProcedure.query(async () => getCpHistory()),
+    list: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => {
+      const scope = input?.scope ?? "control";
+      return getCpHistory().filter((h: any) => scopeOf(h) === scope);
+    }),
   }),
 
   // -------- Reiniciar todo el módulo (Super Admin) --------
-  // Deja Reparticiones CP en cero: borra ítems, CPs, vendedores e historial.
-  resetAll: cpProcedure.mutation(async () => {
-    dbInstance.cpItems = [];
-    dbInstance.cpParticipants = [];
-    dbInstance.cpVendors = [];
-    dbInstance.cpHistory = [];
+  // Deja el scope indicado en cero: borra ítems, CPs, vendedores e historial de
+  // ESE scope. Antes de borrar guarda un snapshot (cpResetBackup[scope]) para
+  // poder deshacer el reinicio si fue por accidente (rollback).
+  resetAll: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).mutation(async ({ input, ctx }) => {
+    const scope = input?.scope ?? "control";
+    const snapshot = {
+      items: itemsOf(scope),
+      participants: partsOf(scope),
+      vendors: vendorsOf(scope),
+      history: getCpHistory().filter((h: any) => scopeOf(h) === scope),
+      savedAt: new Date().toISOString(),
+      savedBy: actor(ctx),
+    };
+    if (!dbInstance.cpResetBackup || typeof dbInstance.cpResetBackup !== "object") dbInstance.cpResetBackup = {};
+    dbInstance.cpResetBackup[scope] = snapshot;
+    // Borramos SOLO los registros de este scope; el otro scope queda intacto.
+    dbInstance.cpItems = getCpItems().filter((it: any) => scopeOf(it) !== scope);
+    dbInstance.cpParticipants = getCpParticipants().filter((c: any) => scopeOf(c) !== scope);
+    dbInstance.cpVendors = getCpVendors().filter((v: any) => scopeOf(v) !== scope);
+    dbInstance.cpHistory = getCpHistory().filter((h: any) => scopeOf(h) !== scope);
+    // El historial del reinicio se guarda ya en el scope reiniciado para dejar
+    // rastro (queda como primer registro tras vaciar).
+    pushCpHistory(
+      "MODULO_REINICIADO",
+      `Reinició la pestaña "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" (ítems: ${snapshot.items.length}, CPs: ${snapshot.participants.length}, vendedores: ${snapshot.vendors.length}). Se guardó un respaldo para deshacer.`,
+      actor(ctx),
+      scope,
+    );
+    saveDbToDisk();
+    return { success: true, backup: { items: snapshot.items.length, participants: snapshot.participants.length, vendors: snapshot.vendors.length } };
+  }),
+
+  // Info del respaldo disponible por scope (para habilitar "Deshacer reinicio").
+  resetBackupInfo: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => {
+    const scope = input?.scope ?? "control";
+    const b = dbInstance.cpResetBackup?.[scope];
+    if (!b) return { available: false as const };
+    return {
+      available: true as const,
+      savedAt: b.savedAt ?? null,
+      savedBy: b.savedBy ?? null,
+      counts: {
+        items: Array.isArray(b.items) ? b.items.length : 0,
+        participants: Array.isArray(b.participants) ? b.participants.length : 0,
+        vendors: Array.isArray(b.vendors) ? b.vendors.length : 0,
+      },
+    };
+  }),
+
+  // Deshacer el último reinicio de un scope: restaura ítems, CPs, vendedores e
+  // historial guardados en el snapshot. Reemplaza la data actual de ESE scope
+  // (que tras un reinicio está vacía) por la respaldada. No toca el otro scope.
+  restoreLastReset: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).mutation(async ({ input, ctx }) => {
+    const scope = input?.scope ?? "control";
+    const b = dbInstance.cpResetBackup?.[scope];
+    if (!b) throw new Error("No hay un respaldo disponible para restaurar en esta pestaña.");
+    // Aseguramos que cada registro restaurado conserve su scope correcto.
+    const stampScope = (arr: any[]) => (Array.isArray(arr) ? arr.map((r) => ({ ...r, scope })) : []);
+    // Quitamos lo que hubiera del scope actual y volvemos a poner lo respaldado.
+    dbInstance.cpItems = [...getCpItems().filter((it: any) => scopeOf(it) !== scope), ...stampScope(b.items)];
+    dbInstance.cpParticipants = [...getCpParticipants().filter((c: any) => scopeOf(c) !== scope), ...stampScope(b.participants)];
+    dbInstance.cpVendors = [...getCpVendors().filter((v: any) => scopeOf(v) !== scope), ...stampScope(b.vendors)];
+    dbInstance.cpHistory = [...getCpHistory().filter((h: any) => scopeOf(h) !== scope), ...stampScope(b.history)];
+    // Consumimos el respaldo: ya se usó.
+    delete dbInstance.cpResetBackup[scope];
+    pushCpHistory(
+      "MODULO_RESTAURADO",
+      `Restauró la pestaña "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" desde el respaldo (ítems: ${Array.isArray(b.items) ? b.items.length : 0}).`,
+      actor(ctx),
+      scope,
+    );
     saveDbToDisk();
     return { success: true };
   }),
 
   // -------- Export Excel detallado --------
   exportExcel: cpProcedure
-    .input(z.object({ onlyConfirmed: z.boolean().optional().default(false) }).optional())
+    .input(z.object({ onlyConfirmed: z.boolean().optional().default(false), scope: scopeSchema }).optional())
     .mutation(async ({ input }) => {
+      const scope = input?.scope ?? "control";
       const onlyConfirmed = input?.onlyConfirmed ?? false;
-      const allItems = getCpItems().filter((it: any) => (onlyConfirmed ? it.status === "CONFIRMED" : true));
-      const vendors = getCpVendors();
+      const allItems = itemsOf(scope).filter((it: any) => (onlyConfirmed ? it.status === "CONFIRMED" : true));
+      const vendors = vendorsOf(scope);
       const vendorName = (id: any) => vendors.find((v: any) => Number(v.id) === Number(id))?.name || "";
 
       // Columnas dinámicas por CP: unión de las CPs del reparto (snapshot para
@@ -552,7 +654,7 @@ export const cpSplitRouter = router({
       // perder su adena en el Excel).
       const cpSet = new Set<string>();
       for (const it of allItems) {
-        for (const n of effectiveCpNames(it)) cpSet.add(n);
+        for (const n of effectiveCpNames(it, scope)) cpSet.add(n);
         for (const s of Array.isArray(it.sales) ? it.sales : []) {
           for (const n of Array.isArray(s.cpNames) ? s.cpNames : []) cpSet.add(String(n));
         }
@@ -605,7 +707,7 @@ export const cpSplitRouter = router({
       header1.alignment = { vertical: "middle", horizontal: "center" };
       let rowIdx = header1.number + 1;
       for (const it of sorted) {
-        const { alloc, available } = viewOf(it);
+        const { alloc, available } = viewOf(it, scope);
         const repartidoTotal = cpCols.reduce((s, n) => s + (Number(alloc[n]) || 0), 0);
         // Cantidad ítem = total de unidades del ítem (repartidas + a vender).
         // A vender = unidades pendientes de venta (0 si el ítem no se divide).
@@ -649,7 +751,7 @@ export const cpSplitRouter = router({
       let anySell = false;
 
       for (const it of sorted) {
-        const v = viewOf(it);
+        const v = viewOf(it, scope);
         const sales: any[] = Array.isArray(it.sales) ? it.sales : [];
         // Unidades aún pendientes de vender.
         if (v.available > 0) {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Split, Plus, Trash2, Check, Store, Users, Download, Pencil, X, Clock, ShoppingCart, AlertTriangle,
+  Split, Plus, Trash2, Check, Store, Users, Download, Pencil, X, Clock, ShoppingCart, AlertTriangle, RotateCcw,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { ItemTypeahead } from '../components/inventory/ItemTypeahead';
@@ -284,10 +284,17 @@ export default function CpSplit() {
   const utils = trpc.useUtils();
   const enabled = !!user && isSA;
 
-  const { data: participants = [] } = trpc.cpSplit.participants.list.useQuery(undefined, { enabled });
-  const { data: vendors = [] } = trpc.cpSplit.vendors.list.useQuery(undefined, { enabled });
-  const { data: items = [] } = trpc.cpSplit.items.list.useQuery(undefined, { enabled });
-  const { data: history = [] } = trpc.cpSplit.history.list.useQuery(undefined, { enabled });
+  // Dos espacios de trabajo independientes con la MISMA funcionalidad:
+  // "control" = pestaña "Ítems de la CP" (data ya existente); "reparto" =
+  // pestaña "A repartir". Cada pestaña tiene sus propias CPs, vendedores,
+  // ítems e historial.
+  const [scope, setScope] = useState<'control' | 'reparto'>('control');
+
+  const { data: participants = [] } = trpc.cpSplit.participants.list.useQuery({ scope }, { enabled });
+  const { data: vendors = [] } = trpc.cpSplit.vendors.list.useQuery({ scope }, { enabled });
+  const { data: items = [] } = trpc.cpSplit.items.list.useQuery({ scope }, { enabled });
+  const { data: history = [] } = trpc.cpSplit.history.list.useQuery({ scope }, { enabled });
+  const { data: backupInfo } = trpc.cpSplit.resetBackupInfo.useQuery({ scope }, { enabled });
 
   const cpNames = useMemo(() => (participants as any[]).map((c) => String(c.name)), [participants]);
 
@@ -315,6 +322,7 @@ export default function CpSplit() {
     utils.cpSplit.items.list.invalidate();
     utils.cpSplit.history.list.invalidate();
   };
+  const invBackup = () => utils.cpSplit.resetBackupInfo.invalidate();
 
   const pCreate = trpc.cpSplit.participants.create.useMutation({
     onSuccess: () => { utils.cpSplit.participants.list.invalidate(); utils.cpSplit.history.list.invalidate(); },
@@ -379,17 +387,29 @@ export default function CpSplit() {
   const exportMut = trpc.cpSplit.exportExcel.useMutation({
     onError: (e) => toast.error(e.message),
   });
+  const invEverything = () => {
+    utils.cpSplit.items.list.invalidate();
+    utils.cpSplit.participants.list.invalidate();
+    utils.cpSplit.vendors.list.invalidate();
+    utils.cpSplit.history.list.invalidate();
+    invBackup();
+  };
   const resetAll = trpc.cpSplit.resetAll.useMutation({
     onSuccess: () => {
-      utils.cpSplit.items.list.invalidate();
-      utils.cpSplit.participants.list.invalidate();
-      utils.cpSplit.vendors.list.invalidate();
-      utils.cpSplit.history.list.invalidate();
-      toast.success('Módulo reiniciado. Todo quedó en cero.');
+      invEverything();
+      toast.success('Pestaña reiniciada. Guardamos un respaldo: puedes deshacerlo con "Deshacer reinicio".');
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const restoreReset = trpc.cpSplit.restoreLastReset.useMutation({
+    onSuccess: () => {
+      invEverything();
+      toast.success('Datos restaurados desde el respaldo.');
     },
     onError: (e) => toast.error(e.message),
   });
   const [resetOpen, setResetOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const addItem = () => {
     const n = itemName.trim();
@@ -397,13 +417,13 @@ export default function CpSplit() {
     const qty = Math.floor(Number(itemQty));
     if (!qty || qty < 1) { toast.error('La cantidad debe ser al menos 1.'); return; }
     const disc = Math.min(100, Math.max(0, Math.floor(Number(itemDisc) || 0)));
-    iCreate.mutate({ name: n, category: itemCat, imageUrl: itemImg, quantity: qty, discountPercent: disc, divide: itemDivide });
+    iCreate.mutate({ name: n, category: itemCat, imageUrl: itemImg, quantity: qty, discountPercent: disc, divide: itemDivide, scope });
     setItemName(''); setItemCat(''); setItemImg(''); setItemQty('1'); setItemDisc('20');
   };
 
   const downloadExcel = async () => {
     try {
-      const res = await exportMut.mutateAsync({ onlyConfirmed: false });
+      const res = await exportMut.mutateAsync({ onlyConfirmed: false, scope });
       const bin = atob(res.base64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -440,25 +460,66 @@ export default function CpSplit() {
               Reparto equitativo de ítems entre Command Parties. Independiente del inventario.
             </p>
           </div>
+          {backupInfo?.available && (
+            <button onClick={() => setRestoreOpen(true)} disabled={restoreReset.isPending}
+              title={`Restaura los datos guardados antes del último reinicio de esta pestaña`}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
+              style={{ background: 'rgba(251,191,36,0.14)', color: '#fbbf24' }}>
+              <RotateCcw className="h-4 w-4" /> Deshacer reinicio
+            </button>
+          )}
           <button onClick={downloadExcel} disabled={exportMut.isPending || items.length === 0}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
             style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399' }}>
             <Download className="h-4 w-4" /> {exportMut.isPending ? 'Generando…' : 'Descargar Excel'}
           </button>
           <button onClick={() => setResetOpen(true)} disabled={resetAll.isPending}
-            title="Borra ítems, CPs, vendedores e historial"
+            title="Borra ítems, CPs, vendedores e historial de esta pestaña (con respaldo para deshacer)"
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
             style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
             <Trash2 className="h-4 w-4" /> Reiniciar todo
           </button>
         </div>
+
+        {/* Pestañas: dos espacios de trabajo independientes con la misma lógica */}
+        <div className="flex gap-2">
+          {([
+            { key: 'control', label: 'Ítems de la CP', hint: 'Control / referencia' },
+            { key: 'reparto', label: 'A repartir', hint: 'Reparto operativo' },
+          ] as const).map((t) => {
+            const active = scope === t.key;
+            return (
+              <button key={t.key} onClick={() => setScope(t.key)}
+                className="flex flex-col items-start rounded-xl px-4 py-2 text-left transition-colors"
+                style={{
+                  background: active ? 'rgba(123,241,214,0.14)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${active ? 'rgba(123,241,214,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                }}>
+                <span className="text-sm font-semibold" style={{ color: active ? '#7bf1d6' : 'rgba(255,255,255,0.8)' }}>{t.label}</span>
+                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{t.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <ConfirmModal
           open={resetOpen}
-          title="Reiniciar Reparticiones CP"
-          message="Esto deja el módulo en cero: borra TODOS los ítems, las CPs participantes, los vendedores y el historial. No se puede deshacer. ¿Continuar?"
+          title={`Reiniciar "${scope === 'reparto' ? 'A repartir' : 'Ítems de la CP'}"`}
+          message={`Esto deja en cero SOLO esta pestaña ("${scope === 'reparto' ? 'A repartir' : 'Ítems de la CP'}"): borra sus ítems, CPs, vendedores e historial. La otra pestaña no se toca. Se guarda un respaldo, así que podrás deshacerlo con "Deshacer reinicio". ¿Continuar?`}
           confirmLabel="Reiniciar todo"
-          onConfirm={() => { resetAll.mutate(); setResetOpen(false); }}
+          onConfirm={() => { resetAll.mutate({ scope }); setResetOpen(false); }}
           onCancel={() => setResetOpen(false)}
+        />
+        <ConfirmModal
+          open={restoreOpen}
+          title="Deshacer reinicio"
+          danger={false}
+          message={backupInfo?.available
+            ? `Restaurar los datos guardados antes del último reinicio de esta pestaña (ítems: ${backupInfo.counts.items}, CPs: ${backupInfo.counts.participants}, vendedores: ${backupInfo.counts.vendors}). Reemplaza lo que haya ahora en esta pestaña. ¿Continuar?`
+            : 'No hay respaldo disponible.'}
+          confirmLabel="Restaurar"
+          onConfirm={() => { restoreReset.mutate({ scope }); setRestoreOpen(false); }}
+          onCancel={() => setRestoreOpen(false)}
         />
 
         {/* CPs + Vendedores */}
@@ -466,9 +527,9 @@ export default function CpSplit() {
           <NameManager
             title="CPs participantes" icon={<Users className="h-4 w-4" style={{ color: '#7bf1d6' }} />}
             items={participants as any[]} placeholder="Nombre de la CP (ej. CP Norte)"
-            onCreate={(name) => pCreate.mutate({ name })}
-            onRename={(id, name) => pRename.mutate({ id, name })}
-            onDelete={(id) => pDelete.mutate({ id })}
+            onCreate={(name) => pCreate.mutate({ name, scope })}
+            onRename={(id, name) => pRename.mutate({ id, name, scope })}
+            onDelete={(id) => pDelete.mutate({ id, scope })}
           />
           <NameManager
             title="Vendedores" icon={<Store className="h-4 w-4" style={{ color: '#e879f9' }} />}
@@ -480,9 +541,9 @@ export default function CpSplit() {
                 ? `El vendedor "${name}" tiene ${c} ítem(s) asignado(s). Al eliminarlo, esos ítems quedarán sin vendedor (podrás reasignarlos). ¿Continuar?`
                 : `El vendedor "${name}" no tiene ítems asignados. ¿Eliminarlo?`;
             }}
-            onCreate={(name) => vCreate.mutate({ name })}
-            onRename={(id, name) => vRename.mutate({ id, name })}
-            onDelete={(id) => vDelete.mutate({ id })}
+            onCreate={(name) => vCreate.mutate({ name, scope })}
+            onRename={(id, name) => vRename.mutate({ id, name, scope })}
+            onDelete={(id) => vDelete.mutate({ id, scope })}
           />
         </div>
 
@@ -552,10 +613,10 @@ export default function CpSplit() {
           cpNames={cpNames}
           vendors={vendors as any[]}
           onUpdate={(id, patch) => iUpdate.mutate({ id, ...patch })}
-          onConfirm={(id) => iConfirm.mutate({ id })}
-          onDelete={(id) => iDelete.mutate({ id })}
-          onSell={(id, units, applyDiscount) => iSell.mutate({ id, units, applyDiscount })}
-          onRevertSale={(id, saleId) => iRevertSale.mutate({ id, saleId })}
+          onConfirm={(id) => iConfirm.mutate({ id, scope })}
+          onDelete={(id) => iDelete.mutate({ id, scope })}
+          onSell={(id, units, applyDiscount) => iSell.mutate({ id, units, applyDiscount, scope })}
+          onRevertSale={(id, saleId) => iRevertSale.mutate({ id, saleId, scope })}
         />
 
         {/* Historial */}

@@ -207,10 +207,11 @@ interface DatabaseSchema {
   // Reparto equitativo de ítems entre Command Parties. NO comparte data con
   // el inventario: tiene sus propios ítems, CPs y vendedores persistentes, y
   // su propio historial de trazabilidad (visible solo para el Super Admin).
-  cpParticipants: any[];  // CPs nombradas (id, name, createdAt)
-  cpVendors: any[];       // vendedores propios de este módulo (id, name, createdAt)
-  cpItems: any[];         // ítems registrados (borrador/confirmado) + su reparto
-  cpHistory: any[];       // historial de acciones del módulo (trazabilidad)
+  cpParticipants: any[];  // CPs nombradas (id, name, createdAt, scope)
+  cpVendors: any[];       // vendedores propios de este módulo (id, name, createdAt, scope)
+  cpItems: any[];         // ítems registrados (borrador/confirmado) + su reparto (scope)
+  cpHistory: any[];       // historial de acciones del módulo (trazabilidad, scope)
+  cpResetBackup: any;     // último snapshot por scope para deshacer "Reiniciar todo"
   // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
@@ -295,6 +296,7 @@ const initialSchema: DatabaseSchema = {
   cpVendors: [],
   cpItems: [],
   cpHistory: [],
+  cpResetBackup: {},
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -511,6 +513,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     cpVendors: ensureArray(data?.cpVendors),
     cpItems: ensureArray(data?.cpItems),
     cpHistory: ensureArray(data?.cpHistory),
+    cpResetBackup: (data?.cpResetBackup && typeof data.cpResetBackup === "object") ? data.cpResetBackup : {},
     // ============================================================
     // Raid module collections
     // ============================================================
@@ -1120,13 +1123,19 @@ export const getCpVendors = () => dbInstance.cpVendors || [];
 export const getCpItems = () => dbInstance.cpItems || [];
 export const getCpHistory = () => dbInstance.cpHistory || [];
 
-export const pushCpHistory = (action: string, detail: string, actorName: string) => {
+export const pushCpHistory = (
+  action: string,
+  detail: string,
+  actorName: string,
+  scope: 'control' | 'reparto' = 'control',
+) => {
   if (!dbInstance.cpHistory) dbInstance.cpHistory = [];
   dbInstance.cpHistory.unshift({
     id: cpId(),
     action,
     detail,
     actorName: actorName || 'Super Admin',
+    scope: scope === 'reparto' ? 'reparto' : 'control',
     createdAt: new Date().toISOString(),
   });
   // Acotamos el historial para no crecer sin límite en la máquina de 256 MB.
