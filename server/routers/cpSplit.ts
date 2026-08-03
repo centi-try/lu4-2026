@@ -694,15 +694,18 @@ export const cpSplitRouter = router({
         { key: "quantity", width: 14 },
         { key: "extra1", width: 16 },
         { key: "extra2", width: 16 },
-        { key: "extra3", width: 16 },
-        { key: "extra4", width: 16 },
+        { key: "extra3", width: 12 },
+        { key: "extra4", width: 10 },
+        { key: "extra5", width: 10 },
       ];
       ws.columns = [...baseCols, ...cpCols.map((n) => ({ key: `cp_${n}`, width: 14 }))];
 
       // ---- Sección 1: Reparto por CP (todos los ítems, divididos) ----
+      // Precio / % Desc. / Dividir se incluyen para que el Excel se pueda VOLVER
+      // A SUBIR (Importar) y reconstruir los ítems con su precio y descuento.
       const t1 = ws.addRow(["Reparto por CP"]);
       t1.font = { bold: true, size: 12 };
-      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", ...cpCols, "Estado"]);
+      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", "Precio", "% Desc.", "Dividir", ...cpCols, "Estado"]);
       header1.font = { bold: true };
       header1.alignment = { vertical: "middle", horizontal: "center" };
       let rowIdx = header1.number + 1;
@@ -712,7 +715,8 @@ export const cpSplitRouter = router({
         // Cantidad ítem = total de unidades del ítem (repartidas + a vender).
         // A vender = unidades pendientes de venta (0 si el ítem no se divide).
         const cantidadItem = it.divide === false ? (Number(it.quantity) || 0) : repartidoTotal + available;
-        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal];
+        const pctItem = Math.min(100, Math.max(0, Number(it.discountPercent) || 0));
+        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal, it.price != null ? Number(it.price) : "", `${pctItem}%`, it.divide === false ? "No" : "Sí"];
         for (const n of cpCols) rowArr.push(alloc[n] ? alloc[n] : "");
         rowArr.push(statusLabel(it));
         const row = ws.addRow(rowArr);
@@ -808,5 +812,136 @@ export const cpSplitRouter = router({
       const base64 = Buffer.from(buffer).toString("base64");
       const stamp = new Date().toISOString().slice(0, 10);
       return { filename: `reparticiones_cp_${stamp}.xlsx`, base64 };
+    }),
+
+  // -------- Importar Excel (mismo formato que exporta la página) --------
+  // Lee la sección "Reparto por CP" y crea los ítems como BORRADORES en la
+  // pestaña indicada, reconstruyendo nombre, categoría, cantidad, precio y
+  // % descuento. Es NO destructivo: agrega los ítems del Excel (no borra los
+  // existentes); para partir de cero usa "Reiniciar todo" (tiene respaldo).
+  importExcel: cpProcedure
+    .input(z.object({ base64: z.string().min(1), scope: scopeSchema }))
+    .mutation(async ({ input, ctx }) => {
+      const scope = input.scope ?? "control";
+      // Normaliza texto de encabezado: minúsculas, sin acentos ni espacios extra.
+      const norm = (v: any) =>
+        String(v ?? "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .toLowerCase();
+      // Extrae el valor "plano" de una celda (soporta texto enriquecido,
+      // hipervínculos y fórmulas).
+      const cellText = (cell: any): string => {
+        const v = cell?.value;
+        if (v == null) return "";
+        if (typeof v === "object") {
+          if (typeof v.text === "string") return v.text;
+          if (typeof v.result !== "undefined") return String(v.result);
+          if (typeof v.richText !== "undefined" && Array.isArray(v.richText)) return v.richText.map((r: any) => r.text).join("");
+          return "";
+        }
+        return String(v);
+      };
+      const toNum = (s: string): number => {
+        const n = Number(String(s).replace(/[^0-9.-]/g, ""));
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      let buf: Buffer;
+      try {
+        buf = Buffer.from(input.base64, "base64");
+      } catch {
+        throw new Error("Archivo inválido.");
+      }
+      const wb = new ExcelJS.Workbook();
+      try {
+        await wb.xlsx.load(buf as any);
+      } catch {
+        throw new Error("No se pudo leer el Excel. Sube el archivo .xlsx que descargaste de esta página.");
+      }
+      const ws = wb.worksheets[0];
+      if (!ws) throw new Error("El Excel no tiene hojas.");
+
+      // Localiza la fila de encabezado de la sección "Reparto por CP": aquella
+      // que contenga una celda "Ítem".
+      let headerRowNum = -1;
+      const colOf: Record<string, number> = {};
+      ws.eachRow((row, rn) => {
+        if (headerRowNum !== -1) return;
+        let hasItem = false;
+        row.eachCell((cell, cn) => {
+          const key = norm(cellText(cell));
+          if (key === "item") hasItem = true;
+          if (key) colOf[key] = cn;
+        });
+        if (hasItem) headerRowNum = rn;
+        else for (const k of Object.keys(colOf)) delete colOf[k];
+      });
+      if (headerRowNum === -1) {
+        throw new Error('No se encontró la sección "Reparto por CP". Sube el Excel descargado de esta página.');
+      }
+
+      const cName = colOf["item"];
+      const cCat = colOf["categoria"];
+      const cQty = colOf["cantidad item"] ?? colOf["cantidad"];
+      const cPrice = colOf["precio"];
+      const cDisc = colOf["% desc."] ?? colOf["% desc"] ?? colOf["descuento"];
+      const cDivide = colOf["dividir"];
+      if (!cName || !cQty) {
+        throw new Error('El Excel no tiene las columnas esperadas ("Ítem" y "Cantidad ítem").');
+      }
+
+      if (!dbInstance.cpItems) dbInstance.cpItems = [];
+      const created: any[] = [];
+      const total = ws.rowCount;
+      for (let rn = headerRowNum + 1; rn <= total; rn++) {
+        const row = ws.getRow(rn);
+        const name = cellText(row.getCell(cName)).trim();
+        // Fila vacía o inicio de otra sección ("Por vender") → terminamos.
+        if (!name) break;
+        const low = norm(name);
+        if (low === "por vender" || low === "reparto por cp" || low === "total recaudado / por cp") break;
+        const qty = Math.floor(toNum(cellText(row.getCell(cQty))));
+        if (!qty || qty < 1) continue;
+        const price = cPrice ? toNum(cellText(row.getCell(cPrice))) : 0;
+        const disc = cDisc ? Math.min(100, Math.max(0, Math.floor(toNum(cellText(row.getCell(cDisc)))))) : 20;
+        const divide = cDivide ? norm(cellText(row.getCell(cDivide))) !== "no" : true;
+        const category = cCat ? cellText(row.getCell(cCat)).trim() : "";
+        const item = {
+          id: newId(),
+          name: name.slice(0, 120),
+          category: category.slice(0, 80),
+          imageUrl: "",
+          quantity: qty,
+          divide,
+          scope,
+          remainderAlloc: {} as RemainderAlloc,
+          price: price > 0 ? price : null,
+          discountPercent: disc,
+          vendorId: null as number | null,
+          status: "DRAFT" as const,
+          cpNamesSnapshot: null as string[] | null,
+          deliveredAlloc: null as Record<string, number> | null,
+          sellRemaining: null as number | null,
+          sales: [] as any[],
+          createdAt: new Date().toISOString(),
+          confirmedAt: null as string | null,
+        };
+        dbInstance.cpItems.push(item);
+        created.push(item);
+      }
+
+      if (created.length === 0) {
+        throw new Error("No se encontraron ítems para importar en el Excel.");
+      }
+      pushCpHistory(
+        "ITEMS_IMPORTADOS",
+        `Importó ${created.length} ítem(s) desde Excel a la pestaña "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}".`,
+        actor(ctx),
+        scope,
+      );
+      saveDbToDisk();
+      return { imported: created.length };
     }),
 });

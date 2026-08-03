@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Split, Plus, Trash2, Check, Store, Users, Download, Pencil, X, Clock, ShoppingCart, AlertTriangle, RotateCcw,
+  Split, Plus, Trash2, Check, Store, Users, Download, Upload, Pencil, X, Clock, ShoppingCart, AlertTriangle, RotateCcw,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { ItemTypeahead } from '../components/inventory/ItemTypeahead';
@@ -387,6 +387,10 @@ export default function CpSplit() {
   const exportMut = trpc.cpSplit.exportExcel.useMutation({
     onError: (e) => toast.error(e.message),
   });
+  const importMut = trpc.cpSplit.importExcel.useMutation({
+    onSuccess: (r) => { invAll(); toast.success(`Se importaron ${r.imported} ítem(s) del Excel.`); },
+    onError: (e) => toast.error(e.message),
+  });
   const invEverything = () => {
     utils.cpSplit.items.list.invalidate();
     utils.cpSplit.participants.list.invalidate();
@@ -436,6 +440,21 @@ export default function CpSplit() {
     } catch { /* onError ya notifica */ }
   };
 
+  const onImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite volver a subir el mismo archivo
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result;
+      if (typeof res !== 'string') { toast.error('No se pudo leer el archivo.'); return; }
+      const base64 = res.includes(',') ? res.split(',')[1] : res;
+      importMut.mutate({ base64, scope });
+    };
+    reader.onerror = () => toast.error('No se pudo leer el archivo.');
+    reader.readAsDataURL(file);
+  };
+
   if (!isSA) {
     return (
       <AppShell>
@@ -468,6 +487,14 @@ export default function CpSplit() {
               <RotateCcw className="h-4 w-4" /> Deshacer reinicio
             </button>
           )}
+          <label
+            className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${importMut.isPending ? 'opacity-40' : 'cursor-pointer'}`}
+            style={{ background: 'rgba(96,165,250,0.15)', color: '#60a5fa' }}
+            title="Sube el Excel descargado para reconstruir los ítems (nombre, cantidad, precio, % desc.) en esta pestaña">
+            <Upload className="h-4 w-4" /> {importMut.isPending ? 'Importando…' : 'Importar Excel'}
+            <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden" onChange={onImportFile} disabled={importMut.isPending} />
+          </label>
           <button onClick={downloadExcel} disabled={exportMut.isPending || items.length === 0}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
             style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399' }}>
@@ -482,21 +509,25 @@ export default function CpSplit() {
         </div>
 
         {/* Pestañas: dos espacios de trabajo independientes con la misma lógica */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {([
-            { key: 'control', label: 'Ítems de la CP', hint: 'Control / referencia' },
-            { key: 'reparto', label: 'A repartir', hint: 'Reparto operativo' },
+            { key: 'control', label: 'Ítems de la CP', hint: 'Control / referencia', icon: <Split className="h-6 w-6" /> },
+            { key: 'reparto', label: 'A repartir', hint: 'Reparto operativo', icon: <ShoppingCart className="h-6 w-6" /> },
           ] as const).map((t) => {
             const active = scope === t.key;
             return (
               <button key={t.key} onClick={() => setScope(t.key)}
-                className="flex flex-col items-start rounded-xl px-4 py-2 text-left transition-colors"
+                className="flex items-center gap-3 rounded-2xl px-6 py-4 text-left transition-colors"
                 style={{
-                  background: active ? 'rgba(123,241,214,0.14)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${active ? 'rgba(123,241,214,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                  background: active ? 'rgba(123,241,214,0.16)' : 'rgba(255,255,255,0.04)',
+                  border: `2px solid ${active ? 'rgba(123,241,214,0.55)' : 'rgba(255,255,255,0.1)'}`,
+                  boxShadow: active ? '0 0 0 1px rgba(123,241,214,0.2)' : 'none',
                 }}>
-                <span className="text-sm font-semibold" style={{ color: active ? '#7bf1d6' : 'rgba(255,255,255,0.8)' }}>{t.label}</span>
-                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{t.hint}</span>
+                <span style={{ color: active ? '#7bf1d6' : 'rgba(255,255,255,0.55)' }}>{t.icon}</span>
+                <span className="flex flex-col">
+                  <span className="text-lg font-bold leading-tight" style={{ color: active ? '#7bf1d6' : 'rgba(255,255,255,0.9)' }}>{t.label}</span>
+                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{t.hint}</span>
+                </span>
               </button>
             );
           })}
