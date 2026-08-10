@@ -388,7 +388,12 @@ export default function CpSplit() {
     onError: (e) => toast.error(e.message),
   });
   const importMut = trpc.cpSplit.importExcel.useMutation({
-    onSuccess: (r) => { invAll(); toast.success(`Se importaron ${r.imported} ítem(s) del Excel.`); },
+    onSuccess: (r) => {
+      invEverything();
+      toast.success(
+        `Se importaron ${r.imported} ítem(s). CPs recuperadas: ${r.cpsCreated} · vendedores: ${r.vendorsCreated} · imágenes: ${r.imagesRecovered}.`,
+      );
+    },
     onError: (e) => toast.error(e.message),
   });
   const invEverything = () => {

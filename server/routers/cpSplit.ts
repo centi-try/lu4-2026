@@ -697,6 +697,7 @@ export const cpSplitRouter = router({
         { key: "extra3", width: 12 },
         { key: "extra4", width: 10 },
         { key: "extra5", width: 10 },
+        { key: "extra6", width: 18 },
       ];
       ws.columns = [...baseCols, ...cpCols.map((n) => ({ key: `cp_${n}`, width: 14 }))];
 
@@ -705,7 +706,7 @@ export const cpSplitRouter = router({
       // A SUBIR (Importar) y reconstruir los ítems con su precio y descuento.
       const t1 = ws.addRow(["Reparto por CP"]);
       t1.font = { bold: true, size: 12 };
-      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", "Precio", "% Desc.", "Dividir", ...cpCols, "Estado"]);
+      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", "Precio", "% Desc.", "Dividir", "Vendedor", ...cpCols, "Estado"]);
       header1.font = { bold: true };
       header1.alignment = { vertical: "middle", horizontal: "center" };
       let rowIdx = header1.number + 1;
@@ -716,7 +717,7 @@ export const cpSplitRouter = router({
         // A vender = unidades pendientes de venta (0 si el ítem no se divide).
         const cantidadItem = it.divide === false ? (Number(it.quantity) || 0) : repartidoTotal + available;
         const pctItem = Math.min(100, Math.max(0, Number(it.discountPercent) || 0));
-        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal, it.price != null ? Number(it.price) : "", `${pctItem}%`, it.divide === false ? "No" : "Sí"];
+        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal, it.price != null ? Number(it.price) : "", `${pctItem}%`, it.divide === false ? "No" : "Sí", vendorName(it.vendorId)];
         for (const n of cpCols) rowArr.push(alloc[n] ? alloc[n] : "");
         rowArr.push(statusLabel(it));
         const row = ws.addRow(rowArr);
@@ -864,19 +865,24 @@ export const cpSplitRouter = router({
       if (!ws) throw new Error("El Excel no tiene hojas.");
 
       // Localiza la fila de encabezado de la sección "Reparto por CP": aquella
-      // que contenga una celda "Ítem".
+      // que contenga una celda "Ítem". Guardamos también el texto CRUDO por
+      // columna para poder detectar las columnas dinámicas por CP.
       let headerRowNum = -1;
-      const colOf: Record<string, number> = {};
+      let colOf: Record<string, number> = {};
+      let headerCells: { col: number; raw: string; key: string }[] = [];
       ws.eachRow((row, rn) => {
         if (headerRowNum !== -1) return;
+        const map: Record<string, number> = {};
+        const cells: { col: number; raw: string; key: string }[] = [];
         let hasItem = false;
         row.eachCell((cell, cn) => {
-          const key = norm(cellText(cell));
+          const raw = cellText(cell).trim();
+          const key = norm(raw);
           if (key === "item") hasItem = true;
-          if (key) colOf[key] = cn;
+          if (key) map[key] = cn;
+          cells.push({ col: cn, raw, key });
         });
-        if (hasItem) headerRowNum = rn;
-        else for (const k of Object.keys(colOf)) delete colOf[k];
+        if (hasItem) { headerRowNum = rn; colOf = map; headerCells = cells; }
       });
       if (headerRowNum === -1) {
         throw new Error('No se encontró la sección "Reparto por CP". Sube el Excel descargado de esta página.');
@@ -888,12 +894,76 @@ export const cpSplitRouter = router({
       const cPrice = colOf["precio"];
       const cDisc = colOf["% desc."] ?? colOf["% desc"] ?? colOf["descuento"];
       const cDivide = colOf["dividir"];
+      const cVendor = colOf["vendedor"];
+      const cImg = colOf["imagen"];
       if (!cName || !cQty) {
         throw new Error('El Excel no tiene las columnas esperadas ("Ítem" y "Cantidad ítem").');
       }
 
+      // Columnas dinámicas por CP: las que no son ninguno de los encabezados
+      // fijos y están antes de "Estado". Su texto crudo es el nombre de la CP.
+      const fixedKeys = new Set([
+        "imagen", "fecha registro", "item", "categoria", "cantidad item", "cantidad",
+        "a vender", "repartido", "precio", "% desc.", "% desc", "descuento", "dividir",
+        "vendedor", "estado", "",
+      ]);
+      const estadoCol = colOf["estado"] ?? Number.MAX_SAFE_INTEGER;
+      const cpCols: { col: number; name: string }[] = headerCells
+        .filter((h) => h.col < estadoCol && h.col > (cVendor ?? cDivide ?? cQty) && !fixedKeys.has(h.key) && h.raw)
+        .map((h) => ({ col: h.col, name: h.raw }));
+
+      // Recupera imagen por nombre desde el catálogo de materiales (misma
+      // lógica que el resto del sitio: el nombre manda). No guardamos la imagen
+      // embebida del Excel como base64 para no inflar el JSON de datos.
+      const catalog: any[] = Array.isArray(dbInstance.materialCatalog) ? dbInstance.materialCatalog : [];
+      const imageFromCatalog = (name: string): string => {
+        const nl = norm(name);
+        const hit = catalog.find((m: any) => norm(m?.nameLower ?? m?.name) === nl);
+        return hit?.imageUrl ? String(hit.imageUrl) : "";
+      };
+      // Fallback: la celda "Imagen" del export guarda un hipervínculo a la URL
+      // original cuando la imagen no se pudo embeber.
+      const linkOf = (cell: any): string => {
+        const v = cell?.value;
+        const link = (v && typeof v === "object" && v.hyperlink) || cell?.hyperlink;
+        return typeof link === "string" ? link : "";
+      };
+
       if (!dbInstance.cpItems) dbInstance.cpItems = [];
+      if (!dbInstance.cpParticipants) dbInstance.cpParticipants = [];
+      if (!dbInstance.cpVendors) dbInstance.cpVendors = [];
+
+      // Asegura que exista una CP participante con ese nombre en el scope.
+      const ensureParticipant = (name: string) => {
+        const nm = String(name).trim();
+        if (!nm) return;
+        const exists = partsOf(scope).some((c: any) => normName(c.name) === normName(nm));
+        if (!exists) dbInstance.cpParticipants.push({ id: newId(), name: nm.slice(0, 80), scope, createdAt: new Date().toISOString() });
+      };
+      // Asegura que exista un vendedor con ese nombre en el scope; devuelve su id.
+      const ensureVendor = (name: string): number | null => {
+        const nm = String(name).trim();
+        if (!nm) return null;
+        const found = vendorsOf(scope).find((v: any) => normName(v.name) === normName(nm));
+        if (found) return Number(found.id);
+        const v = { id: newId(), name: nm.slice(0, 80), scope, createdAt: new Date().toISOString() };
+        dbInstance.cpVendors.push(v);
+        return v.id;
+      };
+
+      // Primero recreamos las CPs participantes del Excel (para que el reparto
+      // se calcule igual y las columnas por CP tengan sentido).
+      let cpsCreated = 0;
+      for (const c of cpCols) {
+        const before = partsOf(scope).length;
+        ensureParticipant(c.name);
+        if (partsOf(scope).length > before) cpsCreated += 1;
+      }
+      const nCp = partsOf(scope).length;
+
       const created: any[] = [];
+      let imagesRecovered = 0;
+      let vendorsCreated = 0;
       const total = ws.rowCount;
       for (let rn = headerRowNum + 1; rn <= total; rn++) {
         const row = ws.getRow(rn);
@@ -908,18 +978,43 @@ export const cpSplitRouter = router({
         const disc = cDisc ? Math.min(100, Math.max(0, Math.floor(toNum(cellText(row.getCell(cDisc)))))) : 20;
         const divide = cDivide ? norm(cellText(row.getCell(cDivide))) !== "no" : true;
         const category = cCat ? cellText(row.getCell(cCat)).trim() : "";
+
+        // Vendedor: lo recreamos y guardamos su id.
+        const vendorName2 = cVendor ? cellText(row.getCell(cVendor)).trim() : "";
+        const beforeV = vendorsOf(scope).length;
+        const vendorId = vendorName2 ? ensureVendor(vendorName2) : null;
+        if (vendorName2 && vendorsOf(scope).length > beforeV) vendorsCreated += 1;
+
+        // Imagen: catálogo por nombre; si no está, el enlace de la celda Imagen.
+        let imageUrl = imageFromCatalog(name);
+        if (!imageUrl && cImg) imageUrl = linkOf(row.getCell(cImg));
+        if (imageUrl) imagesRecovered += 1;
+
+        // Reparto: reconstruimos remainderAlloc a partir de las columnas por CP
+        // (lo que exceda del reparto base floor(qty/nCP) es asignación manual
+        // del sobrante) para que el reparto quede idéntico al del Excel.
+        const remainderAlloc: RemainderAlloc = {};
+        if (divide && nCp > 0) {
+          const perCp = Math.floor(qty / nCp);
+          for (const c of cpCols) {
+            const val = Math.floor(toNum(cellText(row.getCell(c.col))));
+            const extra = val - perCp;
+            if (extra > 0) remainderAlloc[c.name] = extra;
+          }
+        }
+
         const item = {
           id: newId(),
           name: name.slice(0, 120),
           category: category.slice(0, 80),
-          imageUrl: "",
+          imageUrl,
           quantity: qty,
           divide,
           scope,
-          remainderAlloc: {} as RemainderAlloc,
+          remainderAlloc,
           price: price > 0 ? price : null,
           discountPercent: disc,
-          vendorId: null as number | null,
+          vendorId,
           status: "DRAFT" as const,
           cpNamesSnapshot: null as string[] | null,
           deliveredAlloc: null as Record<string, number> | null,
@@ -937,11 +1032,11 @@ export const cpSplitRouter = router({
       }
       pushCpHistory(
         "ITEMS_IMPORTADOS",
-        `Importó ${created.length} ítem(s) desde Excel a la pestaña "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}".`,
+        `Importó ${created.length} ítem(s) desde Excel a "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" (CPs nuevas: ${cpsCreated}, vendedores nuevos: ${vendorsCreated}, imágenes: ${imagesRecovered}).`,
         actor(ctx),
         scope,
       );
       saveDbToDisk();
-      return { imported: created.length };
+      return { imported: created.length, cpsCreated, vendorsCreated, imagesRecovered };
     }),
 });
