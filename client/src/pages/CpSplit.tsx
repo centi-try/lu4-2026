@@ -391,7 +391,7 @@ export default function CpSplit() {
     onSuccess: (r) => {
       invEverything();
       toast.success(
-        `Se importaron ${r.imported} ítem(s). CPs recuperadas: ${r.cpsCreated} · vendedores: ${r.vendorsCreated} · imágenes: ${r.imagesRecovered}.`,
+        `Se importaron ${r.imported} ítem(s) · ${r.salesRecovered} venta(s) · CPs: ${r.cpsCreated} · vendedores: ${r.vendorsCreated} · precios: ${r.pricesRecovered} · imágenes: ${r.imagesRecovered}.`,
       );
     },
     onError: (e) => toast.error(e.message),

@@ -896,6 +896,17 @@ export const cpSplitRouter = router({
       const cDivide = colOf["dividir"];
       const cVendor = colOf["vendedor"];
       const cImg = colOf["imagen"];
+      const cDate = colOf["fecha registro"];
+      // "28/07/2026" → ISO. Si no se puede interpretar, usamos la fecha dada.
+      const parseDate = (txt: string, fallback: string): string => {
+        const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(txt).trim());
+        if (m) {
+          const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12, 0, 0);
+          if (!isNaN(d.getTime())) return d.toISOString();
+        }
+        const d2 = new Date(txt);
+        return isNaN(d2.getTime()) ? fallback : d2.toISOString();
+      };
       if (!cName || !cQty) {
         throw new Error('El Excel no tiene las columnas esperadas ("Ítem" y "Cantidad ítem").');
       }
@@ -972,10 +983,11 @@ export const cpSplitRouter = router({
         if (!name) break;
         const low = norm(name);
         if (low === "por vender" || low === "reparto por cp" || low === "total recaudado / por cp") break;
-        const qty = Math.floor(toNum(cellText(row.getCell(cQty))));
-        if (!qty || qty < 1) continue;
+        // Cantidad 0 es válida: son ítems cuyas unidades ya se vendieron por
+        // completo (sus ventas se recuperan desde la sección "Por vender").
+        const qty = Math.max(0, Math.floor(toNum(cellText(row.getCell(cQty)))));
         const price = cPrice ? toNum(cellText(row.getCell(cPrice))) : 0;
-        const disc = cDisc ? Math.min(100, Math.max(0, Math.floor(toNum(cellText(row.getCell(cDisc)))))) : 20;
+        const disc = cDisc ? Math.min(100, Math.max(0, Math.floor(toNum(cellText(row.getCell(cDisc)))))) : null;
         const divide = cDivide ? norm(cellText(row.getCell(cDivide))) !== "no" : true;
         const category = cCat ? cellText(row.getCell(cCat)).trim() : "";
 
@@ -1013,14 +1025,19 @@ export const cpSplitRouter = router({
           scope,
           remainderAlloc,
           price: price > 0 ? price : null,
-          discountPercent: disc,
+          discountPercent: disc ?? 20,
+          // Marcamos qué campos NO venían en la hoja 1 (formato antiguo) para
+          // poder completarlos desde la sección "Por vender".
+          _needPrice: !(price > 0),
+          _needDisc: disc == null,
           vendorId,
           status: "DRAFT" as const,
           cpNamesSnapshot: null as string[] | null,
           deliveredAlloc: null as Record<string, number> | null,
           sellRemaining: null as number | null,
           sales: [] as any[],
-          createdAt: new Date().toISOString(),
+          // Conservamos la fecha de registro original que trae el Excel.
+          createdAt: cDate ? parseDate(cellText(row.getCell(cDate)), new Date().toISOString()) : new Date().toISOString(),
           confirmedAt: null as string | null,
         };
         dbInstance.cpItems.push(item);
@@ -1030,13 +1047,124 @@ export const cpSplitRouter = router({
       if (created.length === 0) {
         throw new Error("No se encontraron ítems para importar en el Excel.");
       }
+
+      // ------------------------------------------------------------------
+      // Sección "Por vender": recupera el precio normal, el % de descuento y
+      // el vendedor de cada ítem (única fuente en el formato antiguo, donde la
+      // hoja 1 no traía esas columnas) y reconstruye cada VENTA con su precio
+      // real, descuento, adena recaudada y el desglose por CP.
+      // ------------------------------------------------------------------
+      const byName = new Map<string, any>();
+      for (const it of created) if (!byName.has(normName(it.name))) byName.set(normName(it.name), it);
+
+      let sellHdr = -1;
+      let sellCells: { col: number; raw: string; key: string }[] = [];
+      ws.eachRow((row, rn) => {
+        if (sellHdr !== -1 || rn <= headerRowNum) return;
+        const cells: { col: number; raw: string; key: string }[] = [];
+        let hasItem = false;
+        let hasUnits = false;
+        row.eachCell((cell, cn) => {
+          const raw = cellText(cell).trim();
+          const key = norm(raw);
+          if (key === "item") hasItem = true;
+          if (key === "unidades") hasUnits = true;
+          cells.push({ col: cn, raw, key });
+        });
+        if (hasItem && hasUnits) { sellHdr = rn; sellCells = cells; }
+      });
+
+      let salesRecovered = 0;
+      let pricesRecovered = 0;
+      if (sellHdr !== -1) {
+        const s = (k: string) => sellCells.find((h) => h.key === k)?.col;
+        const sDate = s("fecha");
+        const sName = s("item");
+        const sUnits = s("unidades");
+        const sType = s("tipo");
+        const sNormal = s("precio normal");
+        const sEff = s("precio c/desc");
+        const sDisc = s("descuento");
+        const sVendor = s("vendedor");
+        const sTotal = s("adena recaudada");
+        const sellFixed = new Set(["fecha", "item", "categoria", "unidades", "tipo", "precio normal", "precio c/desc", "descuento", "vendedor", "adena recaudada", ""]);
+        const sellCpCols = sellCells.filter((h) => !sellFixed.has(h.key) && h.raw).map((h) => ({ col: h.col, name: h.raw }));
+        if (sName && sUnits) {
+          for (let rn = sellHdr + 1; rn <= total; rn++) {
+            const row = ws.getRow(rn);
+            const nm = cellText(row.getCell(sName)).trim();
+            if (!nm) break;
+            if (norm(nm).startsWith("total recaudado")) break;
+            const it = byName.get(normName(nm));
+            if (!it) continue;
+
+            const typeTxt = sType ? norm(cellText(row.getCell(sType))) : "";
+            const normalPrice = sNormal ? toNum(cellText(row.getCell(sNormal))) : 0;
+            const pct = sDisc ? Math.min(100, Math.max(0, Math.floor(toNum(cellText(row.getCell(sDisc)))))) : 0;
+            const vName = sVendor ? cellText(row.getCell(sVendor)).trim() : "";
+
+            // Precio / descuento / vendedor del ítem (los rellena la primera
+            // fila que los traiga; la hoja 1 tiene prioridad si ya los tenía).
+            if (it._needPrice && normalPrice > 0) { it.price = normalPrice; it._needPrice = false; pricesRecovered += 1; }
+            if (it._needDisc && (typeTxt === "pendiente" || pct > 0)) { it.discountPercent = pct; it._needDisc = false; }
+            if (vName && it.vendorId == null) {
+              const beforeV2 = vendorsOf(scope).length;
+              it.vendorId = ensureVendor(vName);
+              if (vendorsOf(scope).length > beforeV2) vendorsCreated += 1;
+            }
+
+            if (!typeTxt.startsWith("vendida")) continue;
+
+            // --- Venta: reconstruimos el registro histórico completo ---
+            const discountApplied = typeTxt.includes("desc");
+            const units = Math.max(1, Math.floor(toNum(cellText(row.getCell(sUnits)))));
+            const effFromCell = sEff ? toNum(cellText(row.getCell(sEff))) : 0;
+            const effectivePrice = discountApplied
+              ? (effFromCell > 0 ? effFromCell : discountedPrice(normalPrice, pct))
+              : normalPrice;
+            const totalCell = sTotal ? toNum(cellText(row.getCell(sTotal))) : 0;
+            const saleTotal = totalCell > 0 ? totalCell : effectivePrice * units;
+            const saleCps: string[] = [];
+            let perCpVal = 0;
+            for (const c of sellCpCols) {
+              const v = toNum(cellText(row.getCell(c.col)));
+              if (v > 0) { saleCps.push(c.name); perCpVal = v; }
+            }
+            const cpsForSale = saleCps.length > 0 ? saleCps : cpCols.map((c) => c.name);
+            const adenaPerCp = perCpVal > 0 ? perCpVal : (cpsForSale.length ? Math.floor(saleTotal / cpsForSale.length) : 0);
+            const vendorIdForSale = vName ? ensureVendor(vName) : (it.vendorId ?? null);
+            it.sales.push({
+              id: newId(),
+              units,
+              normalPrice,
+              // Cuando la venta no aplicó descuento el Excel escribe "0%", así
+              // que heredamos el % del ítem (no afecta montos, es informativo).
+              discountPercent: discountApplied ? pct : (Number(it.discountPercent) || pct),
+              discountApplied,
+              effectivePrice,
+              total: saleTotal,
+              cpNames: cpsForSale,
+              adenaPerCp,
+              adenaRemainder: Math.max(0, saleTotal - adenaPerCp * cpsForSale.length),
+              vendorId: vendorIdForSale,
+              vendorName: vName || null,
+              soldAt: sDate ? parseDate(cellText(row.getCell(sDate)), new Date().toISOString()) : new Date().toISOString(),
+            });
+            salesRecovered += 1;
+          }
+        }
+      }
+
+      // Limpiamos las marcas auxiliares antes de persistir.
+      for (const it of created) { delete it._needPrice; delete it._needDisc; }
+
       pushCpHistory(
         "ITEMS_IMPORTADOS",
-        `Importó ${created.length} ítem(s) desde Excel a "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" (CPs nuevas: ${cpsCreated}, vendedores nuevos: ${vendorsCreated}, imágenes: ${imagesRecovered}).`,
+        `Importó ${created.length} ítem(s) desde Excel a "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" (CPs: ${cpsCreated}, vendedores: ${vendorsCreated}, imágenes: ${imagesRecovered}, precios: ${pricesRecovered}, ventas: ${salesRecovered}).`,
         actor(ctx),
         scope,
       );
       saveDbToDisk();
-      return { imported: created.length, cpsCreated, vendorsCreated, imagesRecovered };
+      return { imported: created.length, cpsCreated, vendorsCreated, imagesRecovered, pricesRecovered, salesRecovered };
     }),
 });
