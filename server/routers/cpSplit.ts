@@ -695,18 +695,20 @@ export const cpSplitRouter = router({
         { key: "extra1", width: 16 },
         { key: "extra2", width: 16 },
         { key: "extra3", width: 12 },
-        { key: "extra4", width: 10 },
-        { key: "extra5", width: 10 },
-        { key: "extra6", width: 18 },
+        { key: "extra4", width: 12 },
+        { key: "extra5", width: 18 },
+        { key: "extra6", width: 14 },
       ];
       ws.columns = [...baseCols, ...cpCols.map((n) => ({ key: `cp_${n}`, width: 14 }))];
 
       // ---- Sección 1: Reparto por CP (todos los ítems, divididos) ----
-      // Precio / % Desc. / Dividir se incluyen para que el Excel se pueda VOLVER
-      // A SUBIR (Importar) y reconstruir los ítems con su precio y descuento.
+      // Precio y Vendedor se incluyen para que el Excel se pueda VOLVER A SUBIR
+      // (Importar) y reconstruir los ítems. El % de descuento se recupera desde
+      // la columna "Descuento" de "Por vender", y si el ítem se divide o no se
+      // deduce de "Repartido" / "A vender".
       const t1 = ws.addRow(["Reparto por CP"]);
       t1.font = { bold: true, size: 12 };
-      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", "Precio", "% Desc.", "Dividir", "Vendedor", ...cpCols, "Estado"]);
+      const header1 = ws.addRow(["Imagen", "Fecha registro", "Ítem", "Categoría", "Cantidad ítem", "A vender", "Repartido", "Precio", "Vendedor", ...cpCols, "Estado"]);
       header1.font = { bold: true };
       header1.alignment = { vertical: "middle", horizontal: "center" };
       let rowIdx = header1.number + 1;
@@ -716,8 +718,7 @@ export const cpSplitRouter = router({
         // Cantidad ítem = total de unidades del ítem (repartidas + a vender).
         // A vender = unidades pendientes de venta (0 si el ítem no se divide).
         const cantidadItem = it.divide === false ? (Number(it.quantity) || 0) : repartidoTotal + available;
-        const pctItem = Math.min(100, Math.max(0, Number(it.discountPercent) || 0));
-        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal, it.price != null ? Number(it.price) : "", `${pctItem}%`, it.divide === false ? "No" : "Sí", vendorName(it.vendorId)];
+        const rowArr: any[] = ["", fmtDate(it.createdAt), it.name, it.category || "", cantidadItem, available, repartidoTotal, it.price != null ? Number(it.price) : "", vendorName(it.vendorId)];
         for (const n of cpCols) rowArr.push(alloc[n] ? alloc[n] : "");
         rowArr.push(statusLabel(it));
         const row = ws.addRow(rowArr);
@@ -894,6 +895,8 @@ export const cpSplitRouter = router({
       const cPrice = colOf["precio"];
       const cDisc = colOf["% desc."] ?? colOf["% desc"] ?? colOf["descuento"];
       const cDivide = colOf["dividir"];
+      const cSell = colOf["a vender"];
+      const cGiven = colOf["repartido"];
       const cVendor = colOf["vendedor"];
       const cImg = colOf["imagen"];
       const cDate = colOf["fecha registro"];
@@ -988,7 +991,19 @@ export const cpSplitRouter = router({
         const qty = Math.max(0, Math.floor(toNum(cellText(row.getCell(cQty)))));
         const price = cPrice ? toNum(cellText(row.getCell(cPrice))) : 0;
         const disc = cDisc ? Math.min(100, Math.max(0, Math.floor(toNum(cellText(row.getCell(cDisc)))))) : null;
-        const divide = cDivide ? norm(cellText(row.getCell(cDivide))) !== "no" : true;
+        // Si el Excel no trae la columna "Dividir" lo deducimos: un ítem NO
+        // dividido es el único con unidades en mano pero nada repartido ni a
+        // vender (si se dividiera, esas unidades irían a las CPs o a "A vender").
+        // Los ítems ya vendidos por completo (cantidad 0) se toman como divididos,
+        // porque un ítem sin dividir no tiene unidades que vender.
+        let divide = true;
+        if (cDivide) {
+          divide = norm(cellText(row.getCell(cDivide))) !== "no";
+        } else if (qty > 0 && cSell && cGiven) {
+          const aVender = Math.floor(toNum(cellText(row.getCell(cSell))));
+          const repartido = Math.floor(toNum(cellText(row.getCell(cGiven))));
+          divide = !(aVender === 0 && repartido === 0);
+        }
         const category = cCat ? cellText(row.getCell(cCat)).trim() : "";
 
         // Vendedor: lo recreamos y guardamos su id.
