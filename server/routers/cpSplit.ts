@@ -1,6 +1,7 @@
 import { z } from "zod";
 import ExcelJS from "exceljs";
-import { router, cpProcedure } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
+import { router, cpProcedure as cpBaseProcedure } from "../_core/trpc";
 import {
   dbInstance,
   saveDbToDisk,
@@ -33,6 +34,25 @@ const actor = (ctx: any) =>
 type CpScope = "control" | "reparto";
 const scopeSchema = z.enum(["control", "reparto"]).optional().default("control");
 const scopeOf = (rec: any): CpScope => (rec?.scope === "reparto" ? "reparto" : "control");
+
+// La pestaña "Ítems de la CP" (scope "control") es exclusiva del Super Admin:
+// los usuarios con `cpAccess` solo pueden operar "A repartir". Se valida en el
+// backend (no solo en la UI) leyendo el scope del input de cada llamada; si no
+// viene, el default es "control", así que igual queda protegido.
+const isSuperAdmin = (ctx: any) => String(ctx?.user?.role || "").toLowerCase() === "super_admin";
+const assertScopeAccess = (ctx: any, scope: CpScope) => {
+  if (scope === "control" && !isSuperAdmin(ctx)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: 'La pestaña "Ítems de la CP" es exclusiva del Administrador del Sistema.',
+    });
+  }
+};
+const cpProcedure = cpBaseProcedure.use(async (opts) => {
+  const raw: any = await opts.getRawInput();
+  assertScopeAccess(opts.ctx, raw?.scope === "reparto" ? "reparto" : "control");
+  return opts.next();
+});
 
 const partsOf = (scope: CpScope) => getCpParticipants().filter((c: any) => scopeOf(c) === scope);
 const vendorsOf = (scope: CpScope) => getCpVendors().filter((v: any) => scopeOf(v) === scope);
@@ -367,7 +387,7 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return item;
       }),
-    update: cpProcedure
+    update: cpBaseProcedure
       .input(
         z.object({
           id: z.number(),
@@ -383,8 +403,12 @@ export const cpSplitRouter = router({
           divide: z.boolean().optional(),
         }),
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const { id, ...patch } = input;
+        // El input no trae scope: la pestaña se deduce del ítem que se edita.
+        const target = getCpItems().find((it: any) => Number(it.id) === Number(id));
+        if (!target) throw new Error("Ítem no encontrado");
+        assertScopeAccess(ctx, scopeOf(target));
         let found = false;
         dbInstance.cpItems = getCpItems().map((it: any) => {
           if (Number(it.id) !== Number(id)) return it;
@@ -625,12 +649,13 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return exp;
       }),
-    update: cpProcedure
+    update: cpBaseProcedure
       .input(z.object({ id: z.number(), amount: z.number().min(1).optional(), description: z.string().trim().min(1).max(300).optional() }))
       .mutation(async ({ input, ctx }) => {
         const { id, ...patch } = input;
         const prev = getCpExpenses().find((e: any) => Number(e.id) === Number(id));
         if (!prev) throw new Error("Gasto no encontrado");
+        assertScopeAccess(ctx, scopeOf(prev));
         dbInstance.cpExpenses = getCpExpenses().map((e: any) =>
           Number(e.id) !== Number(id)
             ? e
@@ -644,9 +669,10 @@ export const cpSplitRouter = router({
         saveDbToDisk();
         return { success: true };
       }),
-    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+    delete: cpBaseProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
       const prev = getCpExpenses().find((e: any) => Number(e.id) === Number(input.id));
       if (!prev) throw new Error("Gasto no encontrado");
+      assertScopeAccess(ctx, scopeOf(prev));
       dbInstance.cpExpenses = getCpExpenses().filter((e: any) => Number(e.id) !== Number(input.id));
       pushCpHistory(
         "GASTO_ELIMINADO",

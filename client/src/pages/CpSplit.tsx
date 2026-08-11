@@ -286,7 +286,8 @@ export default function CpSplit() {
   const { user } = useAuth();
   // Acceso al módulo: Super Admin o usuario con el toggle `cpAccess`.
   const roleLc = String(user?.role || '').toLowerCase();
-  const isSA = roleLc === 'super_admin' || (user as any)?.cpAccess === true;
+  const isSuperAdmin = roleLc === 'super_admin';
+  const isSA = isSuperAdmin || (user as any)?.cpAccess === true;
 
   const utils = trpc.useUtils();
   const enabled = !!user && isSA;
@@ -295,7 +296,11 @@ export default function CpSplit() {
   // "control" = pestaña "Ítems de la CP" (data ya existente); "reparto" =
   // pestaña "A repartir". Cada pestaña tiene sus propias CPs, vendedores,
   // ítems e historial.
-  const [scope, setScope] = useState<'control' | 'reparto'>('control');
+  // La pestaña "Ítems de la CP" es exclusiva del Super Admin; el resto de los
+  // usuarios con acceso al módulo solo ven/operan "A repartir" (el backend
+  // también lo valida, no basta con ocultar el botón).
+  const [scopeSel, setScope] = useState<'control' | 'reparto'>('control');
+  const scope: 'control' | 'reparto' = isSuperAdmin ? scopeSel : 'reparto';
 
   const { data: participants = [] } = trpc.cpSplit.participants.list.useQuery({ scope }, { enabled });
   const { data: vendors = [] } = trpc.cpSplit.vendors.list.useQuery({ scope }, { enabled });
@@ -562,11 +567,11 @@ export default function CpSplit() {
         </div>
 
         {/* Pestañas: dos espacios de trabajo independientes con la misma lógica */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${isSuperAdmin ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {([
             { key: 'control', label: 'Ítems de la CP', hint: 'Control / referencia', icon: <Split className="h-6 w-6" /> },
             { key: 'reparto', label: 'A repartir', hint: 'Reparto operativo', icon: <ShoppingCart className="h-6 w-6" /> },
-          ] as const).map((t) => {
+          ] as const).filter((t) => isSuperAdmin || t.key !== 'control').map((t) => {
             const active = scope === t.key;
             return (
               <button key={t.key} onClick={() => setScope(t.key)}
