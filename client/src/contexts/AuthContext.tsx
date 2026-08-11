@@ -9,6 +9,7 @@ interface User {
   role: string;
   isActive?: boolean;
   legacyAccess?: boolean;
+  cpAccess?: boolean;
   emailVerified?: boolean;
   twoFactorEnabled?: boolean;
 }

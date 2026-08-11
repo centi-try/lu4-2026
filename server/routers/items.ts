@@ -8,6 +8,8 @@ import {
   markReservationPreSold, unmarkReservationPreSold,
   markReservationSold,
   getClanFundSettings,
+  getClanFundSummary,
+  addClanFundTransaction,
   // Tiendas (vendedores) — anotación de dónde quedó puesto a la venta un ítem.
   getShops, createShop, renameShop, deleteShop,
 } from "../db";
@@ -54,6 +56,12 @@ const SellItemSchema = z.object({
   buyerName: z.string(),
   isInternalSale: z.boolean().optional(),
   isExternalSale: z.boolean().optional(),
+  // Compra del Clan: el propio clan compra el ítem pagando con la adena de su
+  // fondo. Los personajes asociados reciben su parte igual que en una venta
+  // normal, pero el costo se descuenta del fondo (gasto persistente) y se OMITE
+  // el impuesto del clan (el clan no se cobra impuesto a sí mismo). Sí respeta
+  // el descuento interno si isInternalSale=true.
+  payWithClanFund: z.boolean().optional(),
 });
 
 export const itemsRouter = router({
@@ -294,9 +302,91 @@ export const itemsRouter = router({
     delete: adminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
+        // No permitir borrar una tienda con ventas registradas: perderíamos el
+        // histórico (las ventas quedarían huérfanas y no se podrían cuadrar).
+        // Para dejar la tienda en 0 usar "Resetear vendedores".
+        const sales = (await getPurchases()).filter(
+          (p: any) => Number(p.shopId) === Number(input.id)
+        ).length;
+        if (sales > 0) {
+          throw new Error(
+            `No puedes borrar esta tienda: tiene ${sales} venta(s) registrada(s). Usa "Resetear vendedores" para dejarla en 0 sin perder el histórico.`
+          );
+        }
         deleteShop(input.id);
         return { success: true };
       }),
+
+    // Resumen por vendedor/tienda: agrupa por tienda los ítems asignados con
+    // stock (referencia de lo que "tiene" el enano) y las ventas ya realizadas
+    // (precio real + interna/externa, persistente vía purchases). Devuelve la
+    // adena esperada como referencia para cuadrar montos. Solo Super Admin.
+    summary: adminProcedure.query(async () => {
+      const shops = getShops();
+      const items = await getItems();
+      const purchases = await getPurchases();
+
+      return shops.map((shop: any) => {
+        const sid = Number(shop.id);
+        const activeItems = items
+          .filter((i: any) => Number(i.shopId) === sid && ((Number(i.quantity) || 0) - (Number(i.quantitySold) || 0)) > 0)
+          .map((i: any) => {
+            const remaining = (Number(i.quantity) || 0) - (Number(i.quantitySold) || 0);
+            return {
+              id: i.id,
+              name: i.name,
+              category: i.category || "",
+              imageUrl: i.imageUrl || "",
+              remaining,
+              price: Number(i.price) || 0,
+              expected: (Number(i.price) || 0) * remaining,
+            };
+          });
+        const sales = purchases
+          .filter((p: any) => Number(p.shopId) === sid)
+          .map((p: any) => ({
+            itemName: p.itemName,
+            quantity: Number(p.quantity) || 0,
+            price: Number(p.price) || 0,
+            total: Number(p.total) || 0,
+            isInternalSale: !!p.isInternalSale,
+            isExternalSale: !!p.isExternalSale,
+            createdAt: p.createdAt,
+          }))
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        const expectedActive = activeItems.reduce((s: number, i: any) => s + i.expected, 0);
+        const soldTotal = sales.reduce((s: number, x: any) => s + x.total, 0);
+        return {
+          shopId: shop.id,
+          shopName: shop.name,
+          activeItems,
+          sales,
+          expectedActive,
+          soldTotal,
+          expectedTotal: expectedActive + soldTotal,
+        };
+      });
+    }),
+
+    // Resetear vendedores: deja todas las tiendas "en 0" — quita la asignación
+    // de tienda de todos los ítems y limpia la referencia de tienda de las
+    // ventas ya registradas (sin borrar las compras ni tocar montos/ciclos).
+    // Se usa cuando ya se cuadraron los montos y se quiere empezar de nuevo.
+    reset: adminProcedure.mutation(async () => {
+      let items = 0;
+      dbInstance.items = (dbInstance.items || []).map((i: any) => {
+        if (i.shopId != null) { items += 1; return { ...i, shopId: null }; }
+        return i;
+      });
+      let sales = 0;
+      dbInstance.purchases = (dbInstance.purchases || []).map((p: any) => {
+        if (p.shopId != null) { sales += 1; return { ...p, shopId: null, shopName: null }; }
+        return p;
+      });
+      saveDbToDisk();
+      return { success: true, items, sales };
+    }),
   }),
 
   // Crea varios ítems en LOTE. Una sola escritura a disco y un solo log de
@@ -388,6 +478,30 @@ export const itemsRouter = router({
       const available = (item.quantity || 0) - (item.quantitySold || 0);
       if (input.quantity > available) throw new Error("Not enough quantity available");
 
+      // Compra del Clan: validar ANTES de mutar nada que el fondo alcance para
+      // cubrir el costo total. Si no alcanza, se bloquea la operación completa.
+      const clanSettingsPre = getClanFundSettings();
+      const discountPctPre = input.isInternalSale ? (Number(clanSettingsPre.internalDiscountPercent) || 0) : 0;
+      const effectivePricePre = Math.floor((Number(item.price) || 0) * (1 - discountPctPre / 100));
+      const totalCostPre = effectivePricePre * input.quantity;
+      if (input.payWithClanFund) {
+        // El fondo paga y los personajes asociados reciben esa misma adena.
+        // Sin personajes asociados la adena saldría del fondo sin destinatario
+        // (descuadre), así que se bloquea la compra.
+        const hasOwners = Array.isArray(item.associatedCharacterIds) && item.associatedCharacterIds.length > 0;
+        if (!hasOwners) {
+          throw new Error(
+            'No se puede comprar con el fondo del clan: el ítem no tiene personajes asociados que reciban la adena.',
+          );
+        }
+        const balance = getClanFundSummary().balance;
+        if (totalCostPre > balance) {
+          throw new Error(
+            `Fondos insuficientes: la compra cuesta $${totalCostPre.toLocaleString()} y el fondo del clan solo tiene $${balance.toLocaleString()}.`,
+          );
+        }
+      }
+
       const newQuantitySold = (item.quantitySold || 0) + input.quantity;
       const newQuantitySoldInCycle = (item.quantitySoldInCycle || 0) + input.quantity;
       const isFullySold = newQuantitySold >= (item.quantity || 0);
@@ -412,7 +526,9 @@ export const itemsRouter = router({
       const discountPct = input.isInternalSale ? (Number(clanSettings.internalDiscountPercent) || 0) : 0;
       const effectivePrice = Math.floor(basePrice * (1 - discountPct / 100));
       const totalRevenue = effectivePrice * input.quantity;
-      const clanTaxPct = Number(clanSettings.clanTaxPercent) || 0;
+      // Compra del Clan: se OMITE el impuesto del clan (no se cobra a sí mismo),
+      // así el gasto del fondo = lo que reciben los personajes y todo cuadra.
+      const clanTaxPct = input.payWithClanFund ? 0 : (Number(clanSettings.clanTaxPercent) || 0);
       const clanTaxAmount = Math.floor(totalRevenue * clanTaxPct / 100);
       const revenueAfterTax = totalRevenue - clanTaxAmount;
       // FIX #14: repartir el sobrante del redondeo. Math.floor por personaje
@@ -480,6 +596,13 @@ export const itemsRouter = router({
         saveDbToDisk();
       }
 
+      // Tienda (vendedor) asignada al ítem al momento de la venta. Se persiste
+      // en la compra para que el resumen por vendedor conserve la referencia y
+      // el valor real aunque el ítem se venda por completo. Solo referencia.
+      const saleShop = item.shopId != null
+        ? getShops().find((s: any) => Number(s.id) === Number(item.shopId))
+        : null;
+
       // Crear registro de compra persistente
       await createPurchase({
         itemId: String(item.id),
@@ -494,6 +617,8 @@ export const itemsRouter = router({
         isExternalSale: input.isExternalSale || false,
         discountPct: discountPct || 0,
         clanTax: clanTaxAmount,
+        shopId: item.shopId ?? null,
+        shopName: saleShop?.name ?? null,
       });
 
       await createAuditLog({
@@ -515,6 +640,19 @@ export const itemsRouter = router({
           discountPct,
         },
       });
+
+      // Compra del Clan: descontar el costo del fondo del clan como GASTO
+      // persistente (reconstruible/auditable), no modificando el saldo a mano.
+      if (input.payWithClanFund) {
+        await addClanFundTransaction({
+          type: 'expense',
+          amount: totalRevenue,
+          description: `Compra del clan: ${input.quantity}× ${item.name}`,
+          relatedItemId: String(item.id),
+          createdBy: ctx.user?.characterName || ctx.user?.name || 'Administrador',
+          createdByUserId: ctx.user?.id,
+        });
+      }
 
       // Auto-mark matching reservations as 'sold' — sequentially (oldest first),
       // only enough to cover the quantity being sold in THIS transaction.

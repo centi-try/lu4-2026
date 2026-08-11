@@ -14,15 +14,30 @@ interface ProtectedRouteProps {
    * con botón para volver al dashboard. El match es case-insensitive.
    */
   allowedRoles?: LegacyRole[];
+  /**
+   * Si true, los usuarios con el toggle `cpAccess` pueden entrar a esta ruta
+   * (usado por /cp-split). El resto de rutas los redirige a /cp-split.
+   */
+  allowCpAccess?: boolean;
 }
 
-export default function ProtectedRoute({ component: Component, allowedRoles }: ProtectedRouteProps) {
+export default function ProtectedRoute({ component: Component, allowedRoles, allowCpAccess }: ProtectedRouteProps) {
   const { isAuthenticated, loading, user } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) setLocation('/login');
   }, [loading, isAuthenticated, setLocation]);
+
+  // Toggle `cpAccess`: el usuario solo puede operar el módulo Reparticiones CP.
+  // En cualquier otra ruta lo mandamos automáticamente a /cp-split. El Super
+  // Admin no se considera "solo CP".
+  const roleLc = String((user as any)?.role || '').toLowerCase();
+  const isCpOnly = roleLc !== 'super_admin' && (user as any)?.cpAccess === true;
+  useEffect(() => {
+    if (loading || !isAuthenticated) return;
+    if (isCpOnly && !allowCpAccess) setLocation('/cp-split');
+  }, [loading, isAuthenticated, isCpOnly, allowCpAccess, setLocation]);
 
   if (loading) {
     return (
@@ -36,6 +51,14 @@ export default function ProtectedRoute({ component: Component, allowedRoles }: P
   }
 
   if (!isAuthenticated) return null;
+
+  // cpAccess fuera de /cp-split: no renderizamos nada mientras el efecto de
+  // arriba lo redirige a su único módulo (evita el flash de otra vista).
+  if (isCpOnly && !allowCpAccess) return null;
+
+  // Ruta que permite cpAccess (/cp-split): el usuario con el toggle entra aunque
+  // su rol no esté en allowedRoles.
+  if (allowCpAccess && isCpOnly) return <Component />;
 
   if (allowedRoles && allowedRoles.length > 0) {
     const role = String((user as any)?.role || '').toLowerCase() as LegacyRole;

@@ -264,7 +264,7 @@ export function Backups() {
             </div>
             <div className="text-left">
               <p className="text-sm font-semibold" style={{ color: '#ef4444' }}>Resetear sitio</p>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Elimina todo y deja como nuevo</p>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Conserva Super Admin y catálogos</p>
             </div>
           </button>
         </div>
@@ -552,15 +552,19 @@ export function Backups() {
                 Esta acción <strong>eliminará TODA la información</strong> del sitio y lo dejará como nuevo:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                <li>Usuarios, personajes, clanes, CPs</li>
+                <li>Usuarios (excepto Super Admin), personajes, clanes, CPs</li>
                 <li>Inventario, compras, ciclos de ventas</li>
-                <li>Warehouse, recetas, catálogo, crafteo</li>
-                <li>Raid (bosses, drops, eventos, historial)</li>
-                <li>Config, reglas, iconos, auditoría</li>
+                <li>Warehouse, recetas, crafteo</li>
+                <li>Raid (drops, eventos, historial)</li>
+                <li>Reglas, iconos, auditoría</li>
               </ul>
+              <p className="text-xs" style={{ color: '#34d399' }}>
+                <strong>Se conserva:</strong> las cuentas <strong>Super Admin</strong>, el
+                <strong> Catálogo de materiales</strong>, las <strong>Clases de personajes</strong> y el
+                <strong> Catálogo de Raid Bosses</strong> (Config).
+              </p>
               <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 Se creará automáticamente un backup <code>pre-reset</code> antes de eliminar.
-                Solo quedará la cuenta de Administrador del Sistema por defecto.
               </p>
               <p className="text-xs pt-2 font-semibold" style={{ color: '#ef4444' }}>
                 Escribí <strong>RESETEAR</strong> para confirmar:

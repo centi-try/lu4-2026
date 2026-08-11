@@ -362,10 +362,25 @@ function InventorySummaryButton({
   const [editingPriceKey, setEditingPriceKey] = useState<string | null>(null);
   const [priceDraft, setPriceDraft] = useState('');
   // Tab activo del modal y gestión de nombres de tienda.
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tiendas'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tiendas' | 'porVendedor'>('resumen');
   const [newShopName, setNewShopName] = useState('');
+  // Resumen por vendedor + reset. Solo lectura del backend (persistente).
+  const summaryUtils = trpc.useUtils();
+  const shopSummaryQ = trpc.items.shops.summary.useQuery(undefined, { enabled: open && activeTab === 'porVendedor' });
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const resetShopsMut = trpc.items.shops.reset.useMutation({
+    onSuccess: (r: any) => {
+      summaryUtils.items.shops.summary.invalidate();
+      summaryUtils.items.list.invalidate();
+      summaryUtils.items.listPurchases.invalidate();
+      setResetConfirm(false);
+      toast.success(`Tiendas reseteadas: ${r?.items ?? 0} ítem(s) sin tienda, ${r?.sales ?? 0} venta(s) desvinculada(s).`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const [renamingShopId, setRenamingShopId] = useState<string | null>(null);
   const [renameShopDraft, setRenameShopDraft] = useState('');
+  const [deleteShopTarget, setDeleteShopTarget] = useState<{ id: string; name: string; used: number } | null>(null);
   const shopName = (id: string | null | undefined) =>
     id ? (shops.find(s => s.id === String(id))?.name || 'Tienda') : 'Sin tienda';
 
@@ -638,15 +653,17 @@ function InventorySummaryButton({
     setRenameShopDraft('');
   };
   const shopUsageCount = (id: string) => items.filter(it => String(it.shopId || '') === String(id)).length;
-  const handleDeleteShop = (id: string) => {
-    const used = shopUsageCount(id);
-    const s = shops.find(x => x.id === id);
-    const msg = used > 0
-      ? `La tienda "${s?.name}" está asignada a ${used} ítem(s). Al borrarla esos ítems quedarán SIN tienda. ¿Continuar?`
-      : `¿Borrar la tienda "${s?.name}"?`;
-    if (!window.confirm(msg)) return;
-    deleteShop(id);
-    toast.success('Tienda borrada.');
+  const confirmDeleteShop = async () => {
+    if (!deleteShopTarget) return;
+    const { id } = deleteShopTarget;
+    try {
+      await deleteShop(id);
+      toast.success('Tienda borrada.');
+      setDeleteShopTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || 'No se pudo borrar la tienda.');
+      setDeleteShopTarget(null);
+    }
   };
 
   return (
@@ -672,29 +689,34 @@ function InventorySummaryButton({
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
         >
           <div
-            className="w-full max-w-lg rounded-2xl shadow-2xl flex flex-col"
-            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '85vh' }}
+            className="w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col"
+            style={{ background: '#0d1117', border: '1px solid rgba(255,255,255,0.08)', height: '90vh', maxHeight: '90vh' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4" style={{ color: '#7bf1d6' }} />
-                <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>Resumen de Inventario</h3>
+            <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: 'rgba(123,241,214,0.1)', border: '1px solid rgba(123,241,214,0.25)' }}>
+                  <ClipboardList className="h-4 w-4" style={{ color: '#7bf1d6' }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold leading-tight" style={{ color: 'rgba(255,255,255,0.95)' }}>Resumen de Inventario</h3>
+                  <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.4)' }}>Stock, tiendas y ventas por vendedor</p>
+                </div>
               </div>
-              <button type="button" onClick={closeModal} className="rounded p-1 transition-colors hover:bg-white/5">
+              <button type="button" onClick={closeModal} title="Cerrar" className="rounded-lg p-1.5 transition-colors hover:bg-white/10">
                 <X className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.4)' }} />
               </button>
             </div>
 
             {/* Tabs: Resumen / Tiendas */}
-            <div className="flex items-center gap-1 px-5 pt-3 shrink-0">
-              {([['resumen', '📋 Resumen'], ['tiendas', '🏪 Tiendas']] as const).map(([tab, label]) => (
+            <div className="flex items-center gap-1.5 px-6 pt-4 shrink-0">
+              {([['resumen', '📋 Resumen'], ['tiendas', '🏪 Tiendas'], ['porVendedor', '💰 Por vendedor']] as const).map(([tab, label]) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                  className="rounded-lg px-4 py-2 text-xs font-semibold transition-colors"
                   style={{
                     background: activeTab === tab ? 'rgba(123,241,214,0.12)' : 'rgba(255,255,255,0.03)',
                     color: activeTab === tab ? '#7bf1d6' : 'rgba(255,255,255,0.55)',
@@ -1010,7 +1032,7 @@ function InventorySummaryButton({
                               <button type="button" onClick={() => startRenameShop(s.id, s.name)} title="Renombrar" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)' }}>
                                 <Pencil className="h-3.5 w-3.5" style={{ color: 'rgba(255,255,255,0.6)' }} />
                               </button>
-                              <button type="button" onClick={() => handleDeleteShop(s.id)} title="Borrar" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                              <button type="button" onClick={() => setDeleteShopTarget({ id: s.id, name: s.name, used })} title="Borrar" className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
                                 <Trash2 className="h-3.5 w-3.5" style={{ color: '#f87171' }} />
                               </button>
                             </>
@@ -1020,6 +1042,132 @@ function InventorySummaryButton({
                     })}
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'porVendedor' && (
+              <div className="overflow-y-auto px-5 py-3 flex-1">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Agrupa por vendedor los ítems asignados con stock y las ventas ya realizadas (precio real + interna/externa). La adena esperada es solo referencia para cuadrar montos.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setResetConfirm(true)}
+                    disabled={resetShopsMut.isPending}
+                    className="shrink-0 h-8 rounded-lg px-3 text-xs font-semibold transition-colors disabled:opacity-40"
+                    style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}
+                  >
+                    Resetear vendedores
+                  </button>
+                </div>
+
+                {shopSummaryQ.isLoading ? (
+                  <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.35)' }}>Cargando…</p>
+                ) : !shopSummaryQ.data || shopSummaryQ.data.length === 0 ? (
+                  <p className="text-center text-xs py-6" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                    No hay tiendas registradas todavía.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {shopSummaryQ.data.map((sm: any) => (
+                      <div key={sm.shopId} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.9)' }}>🏪 {sm.shopName}</p>
+                          <span className="text-xs font-mono font-bold" style={{ color: '#34d399' }}>
+                            Adena esperada: ${formatThousands(sm.expectedTotal)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-[11px] mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <span>En stock: <b style={{ color: '#a78bfa' }}>${formatThousands(sm.expectedActive)}</b></span>
+                          <span>Vendido: <b style={{ color: '#7bf1d6' }}>${formatThousands(sm.soldTotal)}</b></span>
+                        </div>
+
+                        {sm.activeItems.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.55)' }}>A la venta ({sm.activeItems.length})</p>
+                            <div className="space-y-1">
+                              {sm.activeItems.map((ai: any) => (
+                                <div key={ai.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                  <span className="truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>{ai.name} · {ai.remaining} u.</span>
+                                  <span className="shrink-0 font-mono" style={{ color: 'rgba(255,255,255,0.6)' }}>${formatThousands(ai.expected)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {sm.sales.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold mb-1" style={{ color: 'rgba(255,255,255,0.55)' }}>Vendidos ({sm.sales.length})</p>
+                            <div className="space-y-1">
+                              {sm.sales.map((s: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs" style={{ background: 'rgba(96,165,250,0.06)' }}>
+                                  <span className="truncate" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                    {s.itemName} · {s.quantity} u.
+                                    <span className="ml-1 rounded px-1 py-0.5 text-[10px]" style={{ background: s.isExternalSale ? 'rgba(251,191,36,0.14)' : 'rgba(52,211,153,0.14)', color: s.isExternalSale ? '#fbbf24' : '#34d399' }}>
+                                      {s.isExternalSale ? 'Externa' : s.isInternalSale ? 'Interna' : 'Normal'}
+                                    </span>
+                                  </span>
+                                  <span className="shrink-0 font-mono" style={{ color: '#7bf1d6' }}>${formatThousands(s.total)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {sm.activeItems.length === 0 && sm.sales.length === 0 && (
+                          <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.3)' }}>Sin ítems asignados ni ventas.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {resetConfirm && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                    <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Resetear vendedores</h3>
+                        <button type="button" onClick={() => setResetConfirm(false)} title="Cerrar" className="ml-auto rounded-lg p-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                        Esto deja todas las tiendas en 0: quita la asignación de tienda de todos los ítems y desvincula las ventas ya registradas de sus vendedores. No borra las compras ni afecta montos ni ciclos. Podrás empezar a asignar de nuevo.
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => setResetConfirm(false)} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}>Cancelar</button>
+                        <button type="button" onClick={() => resetShopsMut.mutate()} disabled={resetShopsMut.isPending} className="rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                          {resetShopsMut.isPending ? 'Reseteando…' : 'Resetear'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal borrar tienda (fuera de los tabs para que se muestre en cualquier pestaña) */}
+            {deleteShopTarget && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                <div className="w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()} style={{ background: '#141821', border: '1px solid rgba(255,255,255,0.12)' }}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <h3 className="text-sm font-bold" style={{ color: 'rgba(255,255,255,0.95)' }}>Borrar tienda</h3>
+                    <button type="button" onClick={() => setDeleteShopTarget(null)} title="Cerrar" className="ml-auto rounded-lg p-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {deleteShopTarget.used > 0
+                      ? <>La tienda <b style={{ color: 'rgba(255,255,255,0.9)' }}>"{deleteShopTarget.name}"</b> está asignada a <b>{deleteShopTarget.used}</b> ítem(s). Al borrarla esos ítems quedarán <b>sin tienda</b>. Si tiene ventas registradas, el sistema no permitirá borrarla (usa "Resetear vendedores"). ¿Continuar?</>
+                      : <>¿Borrar la tienda <b style={{ color: 'rgba(255,255,255,0.9)' }}>"{deleteShopTarget.name}"</b>?</>}
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => setDeleteShopTarget(null)} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}>Cancelar</button>
+                    <button type="button" onClick={confirmDeleteShop} className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>Borrar</button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1093,6 +1241,28 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
   const { data: legacyBuyersData } = trpc.items.legacyBuyers.useQuery(undefined, { enabled: !!authUser });
   const legacyBuyers = (legacyBuyersData as any[]) || [];
+
+  // Ventas reales por ítem: adena efectivamente cobrada (histórico de purchases),
+  // no el estimado a precio actual. Se usa para que "Vendido" cuadre con la
+  // adena real recaudada aunque se haya editado el precio del ítem tras vender.
+  const { data: purchasesData } = trpc.items.listPurchases.useQuery(undefined, { enabled: !!authUser });
+  const realRevenueByItem = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of ((purchasesData as any[]) || [])) {
+      const k = String(p.itemId);
+      m.set(k, (m.get(k) || 0) + (Number(p.total) || 0));
+    }
+    return m;
+  }, [purchasesData]);
+  // Impuesto del clan cobrado por ítem (retención que va al Fondo del Clan).
+  const clanTaxByItem = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of ((purchasesData as any[]) || [])) {
+      const k = String(p.itemId);
+      m.set(k, (m.get(k) || 0) + (Number(p.clanTax) || 0));
+    }
+    return m;
+  }, [purchasesData]);
 
   // #12: mapa categoría → ícono global (mismo catálogo que /raids/settings y que
   // usa Registro de ítem). Al cambiar categoría o elegir sugerencia en el modal
@@ -1199,6 +1369,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   const [selectedBuyerId, setSelectedBuyerId] = useState<string>('');
   const [isInternalSale, setIsInternalSale] = useState(false);
   const [isExternalSale, setIsExternalSale] = useState(false);
+  // Compra del Clan: el clan compra el ítem pagando con su fondo recaudado.
+  const [payWithClanFund, setPayWithClanFund] = useState(false);
   // Confirmación de borrado
   const [deleteModalItem, setDeleteModalItem] = useState<Item | null>(null);
   const [sellReservsOpen, setSellReservsOpen] = useState(false);
@@ -1226,7 +1398,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       let matchesStatus = true;
       if (statusStr === 'WITH_RESERVATIONS') {
         const rs = reservationsByItem.get(String(i.id));
-        matchesStatus = !!(rs && rs.length > 0);
+        const remaining = (Number(i.quantity) || 0) - (Number(i.quantitySold) || 0);
+        matchesStatus = !!(rs && rs.length > 0) && remaining > 0;
       } else if (statusStr === 'STALE_7D') {
         const daysOld = Math.floor((Date.now() - new Date(i.createdAt).getTime()) / 86400000);
         matchesStatus = daysOld >= 7 && i.status !== 'VENDIDO' && i.quantitySold < i.quantity;
@@ -1251,22 +1424,30 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
 
   // Totales agregados de los ítems filtrados. Mismo orden/semántica que la
   // tabla de drops del menú raid: Unid (restante/total), Vendidas, Vendido
-  // (adena cobrada = price*sold), Restante (potencial = price*remaining),
-  // Total (sticker price del subset filtrado).
+  // (adena REAL cobrada del histórico de ventas), Restante (potencial =
+  // price*remaining), Total (Vendido real + Restante potencial).
   const totals = useMemo(() => {
     const totalUnits = filtered.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
     const soldUnits = filtered.reduce((s, i) => s + (Number(i.quantitySold) || 0), 0);
     const remainingUnits = totalUnits - soldUnits;
-    const soldRevenue = filtered.reduce(
-      (s, i) => s + (Number(i.price) || 0) * (Number(i.quantitySold) || 0),
-      0
-    );
+    // Vendido = adena REAL cobrada (histórico de purchases). Si un ítem tiene
+    // unidades vendidas pero no hay registro de venta (data legacy), caemos al
+    // estimado precio_actual × vendidas para no subestimar.
+    const soldRevenue = filtered.reduce((s, i) => {
+      const key = String(i.id);
+      const real = realRevenueByItem.get(key);
+      if (real != null) return s + real;
+      return s + (Number(i.price) || 0) * (Number(i.quantitySold) || 0);
+    }, 0);
     const potentialRevenue = filtered.reduce(
       (s, i) =>
         s + (Number(i.price) || 0) * ((Number(i.quantity) || 0) - (Number(i.quantitySold) || 0)),
       0
     );
     const totalRevenue = soldRevenue + potentialRevenue;
+    // Impuesto del clan retenido sobre lo vendido y neto que queda a personajes.
+    const clanTax = filtered.reduce((s, i) => s + (clanTaxByItem.get(String(i.id)) || 0), 0);
+    const soldNet = soldRevenue - clanTax;
     // Reservas: ítems distintos con al menos una reserva viva + total unidades
     // reservadas (suma de quantity). Solo cuenta ítems dentro de `filtered`
     // para que el contador respete los filtros actuales.
@@ -1274,7 +1455,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     let reservedUnitsTotal = 0;
     for (const it of filtered) {
       const rs = reservationsByItem.get(String(it.id));
-      if (rs && rs.length > 0) {
+      const remaining = (Number(it.quantity) || 0) - (Number(it.quantitySold) || 0);
+      if (rs && rs.length > 0 && remaining > 0) {
         itemsWithReservations += 1;
         for (const r of rs) reservedUnitsTotal += Number(r.quantity) || 0;
       }
@@ -1282,9 +1464,10 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     return {
       totalUnits, soldUnits, remainingUnits,
       soldRevenue, potentialRevenue, totalRevenue,
+      clanTax, soldNet,
       itemsWithReservations, reservedUnitsTotal,
     };
-  }, [filtered, reservationsByItem]);
+  }, [filtered, reservationsByItem, realRevenueByItem, clanTaxByItem]);
 
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1382,6 +1565,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
   };
 
   const { data: clanFundSettings } = trpc.clanFund.getSettings.useQuery(undefined, { staleTime: 30_000 });
+  const { data: clanFundSummary } = trpc.clanFund.getSummary.useQuery(undefined, { staleTime: 10_000 });
+  const clanFundBalance = Number(clanFundSummary?.balance) || 0;
 
   const openSellModal = (item: Item) => {
     setSellModalItem(item);
@@ -1389,6 +1574,7 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
     setSelectedBuyerId('');
     setIsInternalSale(false);
     setIsExternalSale(false);
+    setPayWithClanFund(false);
     setSellReservsOpen(false);
     setSellDistribOpen(false);
   };
@@ -1402,7 +1588,32 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
       return;
     }
 
-    if (isExternalSale) {
+    if (payWithClanFund) {
+      // Compra del Clan: el clan paga con su fondo. Validar saldo en el cliente
+      // (el backend vuelve a validar como fuente de verdad y bloquea si falta).
+      const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+      const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+      const totalCost = effPrice * qty;
+      if (totalCost > clanFundBalance) {
+        toast.error(`Fondos insuficientes: la compra cuesta $${totalCost.toLocaleString()} y el fondo tiene $${clanFundBalance.toLocaleString()}.`);
+        return;
+      }
+      sellItem({
+        itemId: sellModalItem.id,
+        quantityToSell: qty,
+        buyerId: 'clan-fund',
+        buyerName: 'Compra del Clan (Fondos)',
+        isInternalSale,
+        isExternalSale: false,
+        payWithClanFund: true,
+      });
+      const newRemaining = remaining - qty;
+      toast.success(
+        newRemaining === 0
+          ? `El clan compró "${sellModalItem.name}" con sus fondos ($${totalCost.toLocaleString()}).`
+          : `El clan compró ${qty} unidad(es) de "${sellModalItem.name}" ($${totalCost.toLocaleString()}). Quedan ${newRemaining}.`,
+      );
+    } else if (isExternalSale) {
       sellItem({ 
         itemId: sellModalItem.id, 
         quantityToSell: qty,
@@ -1481,8 +1692,22 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               <span>
                 Vendidas: <span style={{ color: '#fbbf24' }}>{totals.soldUnits}</span>
               </span>
-              <span>
+              <span
+                className="cursor-help"
+                title={
+                  `Vendido = adena real cobrada (histórico de ventas).\n` +
+                  `Bruto: $${totals.soldRevenue.toLocaleString()}\n` +
+                  `− Impuesto del clan: $${totals.clanTax.toLocaleString()}\n` +
+                  `= Neto para personajes: $${totals.soldNet.toLocaleString()}\n` +
+                  `(el impuesto va al Fondo del Clan)`
+                }
+              >
                 Vendido: <span style={{ color: '#fbbf24' }}>${totals.soldRevenue.toLocaleString()}</span>
+                {totals.clanTax > 0 && (
+                  <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {' '}(neto ${totals.soldNet.toLocaleString()})
+                  </span>
+                )}
               </span>
               <span>
                 Restante: <span style={{ color: '#a78bfa' }}>${totals.potentialRevenue.toLocaleString()}</span>
@@ -2272,7 +2497,8 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                       const discPctCalc = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
                       const effPriceCalc = Math.floor(basePriceCalc * (1 - discPctCalc / 100));
                       const totalRev = effPriceCalc * qty;
-                      const clanTaxCalc = Math.floor(totalRev * (Number(clanFundSettings?.clanTaxPercent) || 0) / 100);
+                      const clanTaxPctCalc = payWithClanFund ? 0 : (Number(clanFundSettings?.clanTaxPercent) || 0);
+                      const clanTaxCalc = Math.floor(totalRev * clanTaxPctCalc / 100);
                       const perChar = Math.floor((totalRev - clanTaxCalc) / sellModalItem.associatedCharacterIds.length);
                       return (
                         <div key={cid} className="flex items-center justify-between">
@@ -2294,24 +2520,24 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
               </div>
             )}
 
-            {/* Tipo de venta: toggle entre Interna y Externa (City) */}
-            <div className="mb-3 rounded-xl p-3" style={{ background: isExternalSale ? 'rgba(56,189,248,0.06)' : 'rgba(251,191,36,0.06)', border: `1px solid ${isExternalSale ? 'rgba(56,189,248,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
-              <div className="flex items-center gap-3">
+            {/* Tipo de venta: Interna · Externa (City) · Compra del Clan (Fondos) */}
+            <div className="mb-3 rounded-xl p-3" style={{ background: payWithClanFund ? 'rgba(167,139,250,0.06)' : isExternalSale ? 'rgba(56,189,248,0.06)' : 'rgba(251,191,36,0.06)', border: `1px solid ${payWithClanFund ? 'rgba(167,139,250,0.25)' : isExternalSale ? 'rgba(56,189,248,0.2)' : 'rgba(251,191,36,0.15)'}` }}>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setIsExternalSale(false); }}
+                  onClick={() => { setIsExternalSale(false); setPayWithClanFund(false); }}
                   className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
                   style={{
-                    background: !isExternalSale ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)',
-                    color: !isExternalSale ? '#fbbf24' : 'rgba(255,255,255,0.4)',
-                    border: !isExternalSale ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                    background: (!isExternalSale && !payWithClanFund) ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.03)',
+                    color: (!isExternalSale && !payWithClanFund) ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                    border: (!isExternalSale && !payWithClanFund) ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  🏠 Venta Interna (Clan)
+                  🏠 Interna (Clan)
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setIsExternalSale(true); setIsInternalSale(false); setSelectedBuyerId(''); }}
+                  onClick={() => { setIsExternalSale(true); setIsInternalSale(false); setSelectedBuyerId(''); setPayWithClanFund(false); }}
                   className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
                   style={{
                     background: isExternalSale ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.03)',
@@ -2319,7 +2545,19 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     border: isExternalSale ? '1px solid rgba(56,189,248,0.3)' : '1px solid rgba(255,255,255,0.06)',
                   }}
                 >
-                  🏙️ Venta Externa (City)
+                  🏙️ Externa (City)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPayWithClanFund(true); setIsExternalSale(false); setSelectedBuyerId(''); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-all"
+                  style={{
+                    background: payWithClanFund ? 'rgba(167,139,250,0.18)' : 'rgba(255,255,255,0.03)',
+                    color: payWithClanFund ? '#a78bfa' : 'rgba(255,255,255,0.4)',
+                    border: payWithClanFund ? '1px solid rgba(167,139,250,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  🏰 Compra del Clan
                 </button>
               </div>
               {isExternalSale && (
@@ -2327,10 +2565,47 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                   Venta a jugadores fuera del clan. Sin descuento interno. Solo aplica retención del clan.
                 </p>
               )}
+              {payWithClanFund && (
+                <p className="text-xs mt-2" style={{ color: 'rgba(167,139,250,0.75)' }}>
+                  El clan compra el ítem pagando con su fondo recaudado. Los personajes asociados reciben su adena. Se omite el impuesto del clan.
+                </p>
+              )}
             </div>
 
-            {/* Selector de Comprador — solo para venta interna */}
-            {!isExternalSale && (
+            {/* Saldo del fondo del clan — solo para Compra del Clan */}
+            {payWithClanFund && (() => {
+              const qty = parseInt(sellQty) || 0;
+              const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+              const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
+              const totalCost = effPrice * qty;
+              const enough = totalCost <= clanFundBalance;
+              return (
+                <div className="mb-3 rounded-xl p-3" style={{ background: 'rgba(167,139,250,0.06)', border: `1px solid ${enough ? 'rgba(167,139,250,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Fondo disponible del clan</span>
+                    <span className="text-sm font-mono font-bold" style={{ color: '#a78bfa' }}>${clanFundBalance.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Costo de la compra</span>
+                    <span className="text-sm font-mono font-bold" style={{ color: enough ? '#7bf1d6' : '#ef4444' }}>${totalCost.toLocaleString()}</span>
+                  </div>
+                  {qty > 0 && (
+                    <div className="flex items-center justify-between mt-1 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>Saldo tras la compra</span>
+                      <span className="text-sm font-mono" style={{ color: enough ? 'rgba(255,255,255,0.75)' : '#ef4444' }}>${(clanFundBalance - totalCost).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {!enough && qty > 0 && (
+                    <p className="text-xs mt-2" style={{ color: '#ef4444' }}>
+                      ⚠️ Fondos insuficientes. No se puede realizar la compra.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Selector de Comprador — solo para venta interna (no aplica en Compra del Clan) */}
+            {!isExternalSale && !payWithClanFund && (
               <div className="mb-3">
                 <label className="mb-2 block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.7)' }}>
                   Asignar a Comprador/Cuenta
@@ -2369,9 +2644,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                     </span>
                   </label>
                 )}
-                {Number(clanFundSettings.clanTaxPercent) > 0 && (
+                {Number(clanFundSettings.clanTaxPercent) > 0 && !payWithClanFund && (
                   <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
                     🏰 Retención del clan: {clanFundSettings.clanTaxPercent}% del precio final
+                  </p>
+                )}
+                {payWithClanFund && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(167,139,250,0.6)' }}>
+                    🏰 Compra del Clan: impuesto del clan omitido.
                   </p>
                 )}
               </div>
@@ -2408,13 +2688,14 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
                 const discPct = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
                 const effPrice = Math.floor((sellModalItem.price ?? 0) * (1 - discPct / 100));
                 const totalAfterDiscount = effPrice * qty;
-                const clanPct = Number(clanFundSettings?.clanTaxPercent) || 0;
+                // Compra del Clan omite el impuesto del clan.
+                const clanPct = payWithClanFund ? 0 : (Number(clanFundSettings?.clanTaxPercent) || 0);
                 const clanAmt = Math.floor(totalAfterDiscount * clanPct / 100);
                 const netAmount = totalAfterDiscount - clanAmt;
 
                 return (
                   <div className="mt-3 rounded-xl p-3 text-center" style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Total a recaudar {isExternalSale ? '(Venta Externa)' : ''}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{payWithClanFund ? 'Costo de la compra (del Fondo)' : `Total a recaudar ${isExternalSale ? '(Venta Externa)' : ''}`}</p>
                     <p className="text-xl font-bold font-mono" style={{ color: isExternalSale ? '#38bdf8' : '#a78bfa' }}>
                       ${totalAfterDiscount.toLocaleString()}
                     </p>
@@ -2439,15 +2720,29 @@ export function ItemTable({ items: propItems, compact = false }: Props) {
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-3">
-              <button onClick={() => setSellModalItem(null)} className="btn-ghost flex-1 py-2.5">
-                Cancelar
-              </button>
-              <button onClick={handleSell} className="btn-primary flex-1 py-2.5">
-                <ShoppingCart className="h-4 w-4" />
-                Confirmar Venta
-              </button>
-            </div>
+            {(() => {
+              const qtyBtn = parseInt(sellQty) || 0;
+              const discPctBtn = isInternalSale ? (Number(clanFundSettings?.internalDiscountPercent) || 0) : 0;
+              const effPriceBtn = Math.floor((sellModalItem.price ?? 0) * (1 - discPctBtn / 100));
+              const totalCostBtn = effPriceBtn * qtyBtn;
+              const clanFundBlocked = payWithClanFund && (qtyBtn < 1 || totalCostBtn > clanFundBalance);
+              return (
+                <div className="flex gap-3">
+                  <button onClick={() => setSellModalItem(null)} className="btn-ghost flex-1 py-2.5">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSell}
+                    disabled={clanFundBlocked}
+                    className="btn-primary flex-1 py-2.5"
+                    style={clanFundBlocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    {payWithClanFund ? 'Confirmar Compra del Clan' : 'Confirmar Venta'}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

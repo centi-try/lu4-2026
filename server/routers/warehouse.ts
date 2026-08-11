@@ -974,18 +974,26 @@ export const warehouseRouter = router({
           createdBy: ctx.user?.characterName || ctx.user?.name || 'Sistema',
         };
         db.materialCatalog.push(entry);
-        // #6a: al registrar el ítem en el catálogo, propagar su imagen a los
-        // ítems de inventario con el mismo nombre que quedaron SIN imagen
-        // (registrados antes de existir en el catálogo).
+        // #6a: al registrar el ítem en el catálogo, propagar su imagen a TODAS
+        // las tablas del sitio donde el mismo ítem quedó registrado SIN imagen
+        // (antes de existir en el catálogo): inventario, warehouse (bodega +
+        // pendientes) y Reparticiones CP. Así la imagen se recupera en todas
+        // igual que en la tabla "Inventario de ítems".
         let syncedItems = 0;
         if (entry.imageUrl) {
+          const matchByName = (n: any) => String(n || '').toLowerCase() === nameLower;
+          const hasNoImage = (u: any) => !String(u || '').trim();
           for (const it of (db.items || [])) {
-            const itNameLower = String(it.name || '').toLowerCase();
-            const hasImage = !!String(it.imageUrl || '').trim();
-            if (itNameLower === nameLower && !hasImage) {
-              it.imageUrl = entry.imageUrl;
-              syncedItems++;
-            }
+            if (matchByName(it.name) && hasNoImage(it.imageUrl)) { it.imageUrl = entry.imageUrl; syncedItems++; }
+          }
+          for (const wi of (db.warehouseItems || [])) {
+            if (matchByName(wi.nameLower || wi.name) && hasNoImage(wi.imageUrl)) { wi.imageUrl = entry.imageUrl; syncedItems++; }
+          }
+          for (const inc of (db.warehouseIncoming || [])) {
+            if (matchByName(inc.name) && hasNoImage(inc.imageUrl)) { inc.imageUrl = entry.imageUrl; syncedItems++; }
+          }
+          for (const cp of (db.cpItems || [])) {
+            if (matchByName(cp.name) && hasNoImage(cp.imageUrl)) { cp.imageUrl = entry.imageUrl; syncedItems++; }
           }
         }
         saveDbToDisk();
@@ -1048,6 +1056,13 @@ export const warehouseRouter = router({
           } else if (String(it.name || '').toLowerCase() === newNameLower) {
             const hasImage = !!String(it.imageUrl || '').trim();
             if (updatedImg && !hasImage) it.imageUrl = updatedImg;
+          }
+        }
+        // Reparticiones CP: mismo criterio (rellenar imagen que falte).
+        for (const cp of (db.cpItems || [])) {
+          const nl = String(cp.name || '').toLowerCase();
+          if ((nl === oldNameLower || nl === newNameLower) && updatedImg && !String(cp.imageUrl || '').trim()) {
+            cp.imageUrl = updatedImg;
           }
         }
         saveDbToDisk();

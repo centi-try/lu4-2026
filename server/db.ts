@@ -202,6 +202,18 @@ interface DatabaseSchema {
   // una referencia (no cambia estado del ítem ni afecta ciclos/montos).
   shops: any[];
   // ============================================================
+  // Reparticiones CP (módulo independiente, solo Super Admin)
+  // ============================================================
+  // Reparto equitativo de ítems entre Command Parties. NO comparte data con
+  // el inventario: tiene sus propios ítems, CPs y vendedores persistentes, y
+  // su propio historial de trazabilidad (visible solo para el Super Admin).
+  cpParticipants: any[];  // CPs nombradas (id, name, createdAt, scope)
+  cpVendors: any[];       // vendedores propios de este módulo (id, name, createdAt, scope)
+  cpItems: any[];         // ítems registrados (borrador/confirmado) + su reparto (scope)
+  cpHistory: any[];       // historial de acciones del módulo (trazabilidad, scope)
+  cpExpenses: any[];      // gastos anotados del módulo (id, amount, description, scope)
+  cpResetBackup: any;     // último snapshot por scope para deshacer "Reiniciar todo"
+  // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
   raidBosses: any[];
@@ -281,6 +293,12 @@ const initialSchema: DatabaseSchema = {
   settings: [],
   itemReservations: [],
   shops: [],
+  cpParticipants: [],
+  cpVendors: [],
+  cpItems: [],
+  cpHistory: [],
+  cpExpenses: [],
+  cpResetBackup: {},
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -415,6 +433,12 @@ function normalizeUser(rawUser: any, index: number) {
     ? rawUser.twoFactorBackupCodeHashes.filter((h: any) => typeof h === 'string')
     : [];
 
+  // Acceso exclusivo a Reparticiones CP (toggle por usuario, como el "menú
+  // antiguo"). Migración: los usuarios que tenían el rol antiguo
+  // `rol_reparticion` pasan a rol 'user' con este flag activado.
+  const rawRole = String(rawUser?.role || '').trim().toLowerCase();
+  const cpAccess = rawUser?.cpAccess === true || rawRole === 'rol_reparticion';
+
   return {
     ...rawUser,
     id: Number(rawUser?.id) || Math.floor(Math.random() * 1000000),
@@ -423,6 +447,7 @@ function normalizeUser(rawUser: any, index: number) {
     name: rawUser?.name || characterName,
     characterName,
     role,
+    cpAccess,
     loginMethod: rawUser?.loginMethod || 'local',
     isActive: rawUser?.isActive !== false,
     passwordHash,
@@ -486,6 +511,12 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     settings: Array.isArray(data?.settings) ? data.settings : (data?.settings ? [data.settings] : []),
     itemReservations: ensureArray(data?.itemReservations),
     shops: ensureArray(data?.shops),
+    cpParticipants: ensureArray(data?.cpParticipants),
+    cpVendors: ensureArray(data?.cpVendors),
+    cpItems: ensureArray(data?.cpItems),
+    cpHistory: ensureArray(data?.cpHistory),
+    cpExpenses: ensureArray(data?.cpExpenses),
+    cpResetBackup: (data?.cpResetBackup && typeof data.cpResetBackup === "object") ? data.cpResetBackup : {},
     // ============================================================
     // Raid module collections
     // ============================================================
@@ -829,11 +860,29 @@ export function importDbContent(jsonString: string): boolean {
   }
 }
 
-// Reset database to initial empty state (factory reset)
+// Reset database to initial empty state (factory reset).
+// PRESERVA deliberadamente:
+//   - los usuarios Super Admin (no se pueden perder las cuentas de admin),
+//   - el catálogo de materiales (Config → Catálogo de materiales),
+//   - las clases de personajes (Config → Clases),
+//   - el catálogo de Raid Bosses (Config → Bosses & Clanes).
+// Todo lo demás (ítems, ventas, ciclos, warehouse, CP, etc.) se limpia.
 export function resetDatabase(): boolean {
   try {
     createBackup('pre-reset');
-    const fresh = { ...initialSchema };
+    const prev = dbInstance || ({} as any);
+    // Conservamos únicamente los Super Admin (con sus credenciales intactas).
+    const preservedSuperAdmins = ensureArray(prev.users)
+      .map(normalizeUser)
+      .filter((u: any) => normalizeRole(u.role) === 'super_admin');
+    const fresh: DatabaseSchema = JSON.parse(JSON.stringify(initialSchema));
+    fresh.users = preservedSuperAdmins;
+    // Catálogos persistentes que NO deben borrarse en el reset.
+    fresh.materialCatalog = ensureArray(prev.materialCatalog);
+    fresh.raidAvailableClasses = ensureArray(prev.raidAvailableClasses);
+    fresh.raidBosses = ensureArray(prev.raidBosses);
+    // ensureDefaultSuperAdmin garantiza que siempre exista al menos un super
+    // admin por defecto si no quedó ninguno preservado.
     const withAdmin = ensureDefaultSuperAdmin(fresh);
     dbInstance = withAdmin;
     writeDbAtomic(withAdmin);
@@ -1063,6 +1112,38 @@ export const deleteShop = (id: number) => {
     Number(i.shopId) === Number(id) ? { ...i, shopId: null } : i
   );
   saveDb(dbInstance);
+};
+
+// ============================================================================
+// Reparticiones CP — accesores del módulo independiente. No tocan inventario,
+// personajes, ciclos ni montos: es data propia (CPs, vendedores, ítems a
+// repartir) con su propio historial de trazabilidad para el Super Admin.
+// ============================================================================
+const cpId = () => Math.floor(Math.random() * 1000000);
+
+export const getCpParticipants = () => dbInstance.cpParticipants || [];
+export const getCpVendors = () => dbInstance.cpVendors || [];
+export const getCpItems = () => dbInstance.cpItems || [];
+export const getCpHistory = () => dbInstance.cpHistory || [];
+export const getCpExpenses = () => dbInstance.cpExpenses || [];
+
+export const pushCpHistory = (
+  action: string,
+  detail: string,
+  actorName: string,
+  scope: 'control' | 'reparto' = 'control',
+) => {
+  if (!dbInstance.cpHistory) dbInstance.cpHistory = [];
+  dbInstance.cpHistory.unshift({
+    id: cpId(),
+    action,
+    detail,
+    actorName: actorName || 'Super Admin',
+    scope: scope === 'reparto' ? 'reparto' : 'control',
+    createdAt: new Date().toISOString(),
+  });
+  // Acotamos el historial para no crecer sin límite en la máquina de 256 MB.
+  if (dbInstance.cpHistory.length > 1000) dbInstance.cpHistory.length = 1000;
 };
 
 export const getCharacters = async (userId?: number) => {
@@ -1720,6 +1801,7 @@ export const addClanFundTransaction = async (tx: {
   relatedItemId?: string;
   relatedCycleId?: string;
   settled?: boolean;
+  source?: 'cycle' | 'manual';
   createdBy: string;
   createdByUserId?: number;
 }) => {
@@ -1873,6 +1955,7 @@ export const getAllUsers = async () => {
     role: u.role || 'user',
     isActive: u.isActive !== undefined ? u.isActive : true,
     legacyAccess: u.legacyAccess === true,
+    cpAccess: u.cpAccess === true,
     loginMethod: u.loginMethod,
     createdAt: u.createdAt,
     lastSignedIn: u.lastSignedIn,
@@ -1946,6 +2029,16 @@ export const setUserLegacyAccess = async (userId: number, legacyAccess: boolean)
   const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
   if (userIndex === -1) return null;
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], legacyAccess, updatedAt: new Date().toISOString() };
+  saveDb(dbInstance);
+  return dbInstance.users[userIndex];
+};
+
+// Acceso exclusivo al módulo Reparticiones CP (toggle por usuario). Al activarlo
+// el usuario solo verá/entrará a Reparticiones CP y nada más.
+export const setUserCpAccess = async (userId: number, cpAccess: boolean) => {
+  const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
+  if (userIndex === -1) return null;
+  dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], cpAccess, updatedAt: new Date().toISOString() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
 };

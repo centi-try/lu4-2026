@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import L2Splash from '../L2Splash';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse, Split } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
@@ -29,6 +29,7 @@ const navItems: Array<{
   { href: '/history', label: 'Historial', icon: Clock, desc: 'Registro de acciones' },
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
   { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
+  { href: '/cp-split', label: 'Reparticiones CP', icon: Split, desc: 'Reparto equitativo entre CPs', allowedRoles: ['super_admin'] },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
@@ -93,6 +94,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const effectiveRole = isImpersonating ? String(currentUser?.role || '').toLowerCase() : String(authUser?.role || '').toLowerCase();
   const effectiveLegacyAccess = isImpersonating ? !!(currentUser as any)?.legacyAccess : (isAuthSuperAdmin || authUser?.legacyAccess === true);
   const effectiveIsSuper = effectiveRole === 'super_admin';
+  // Toggle "Acceso Reparticiones CP": el usuario solo ve/entra a /cp-split,
+  // no pasa por legacyAccess ni por el módulo de raids. El Super Admin no se
+  // considera "solo CP" (ve todo).
+  const effectiveIsCp = !effectiveIsSuper && (isImpersonating
+    ? !!(currentUser as any)?.cpAccess
+    : authUser?.cpAccess === true);
   const impersonatedRaidLevel = isImpersonating ? (currentUser as any)?.raidAccessLevel : null;
   const effectiveRaidAccess = isImpersonating ? !!impersonatedRaidLevel : canSeeRaidModule;
   const effectiveRaidCanInteract = isImpersonating
@@ -133,7 +140,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {effectiveLegacyAccess && navItems.filter(item => {
+          {navItems.filter(item => {
+            // Toggle cpAccess: solo ve el menú Reparticiones CP, nada más.
+            if (effectiveIsCp) return item.href === '/cp-split';
+            if (!effectiveLegacyAccess) return false;
             if (!item.allowedRoles) return true;
             return item.allowedRoles.includes(effectiveRole as any);
           }).map(item => {
@@ -301,6 +311,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           const hasLegacy = u.legacyAccess;
                           const accessDesc = [
                             hasLegacy ? 'Menú Antiguo' : null,
+                            u.cpAccess ? 'Reparticiones CP' : null,
                             u.raidAccessLevel ? 'Raid' : null,
                           ].filter(Boolean).join(' + ') || 'Sin acceso';
                           return (
@@ -317,6 +328,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                   totalEarnings: 0,
                                   currentCycleEarnings: 0,
                                   legacyAccess: !!u.legacyAccess,
+                                  cpAccess: !!u.cpAccess,
                                   raidAccessLevel: u.raidAccessLevel || null,
                                   raidCpId: u.raidCpId || null,
                                 } as any);
@@ -364,7 +376,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {/* Banner de verificación de email oculto: el envío (RESEND_API_KEY)
               no está configurado, así que no funcionaba y generaba ruido (#7). */}
           {false && <EmailVerificationBanner />}
-          {!effectiveLegacyAccess && !effectiveIsSuper && !(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) ? (
+          {!effectiveLegacyAccess && !effectiveIsSuper && !effectiveIsCp && !(isImpersonating ? effectiveRaidAccess : canSeeRaidModule) ? (
             <div className="flex flex-1 items-center justify-center min-h-[60vh]">
               <div className="text-center max-w-md mx-auto px-6 py-12 rounded-2xl"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
