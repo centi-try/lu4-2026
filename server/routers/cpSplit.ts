@@ -8,6 +8,7 @@ import {
   getCpVendors,
   getCpItems,
   getCpHistory,
+  getCpExpenses,
   pushCpHistory,
 } from "../db";
 
@@ -36,6 +37,7 @@ const scopeOf = (rec: any): CpScope => (rec?.scope === "reparto" ? "reparto" : "
 const partsOf = (scope: CpScope) => getCpParticipants().filter((c: any) => scopeOf(c) === scope);
 const vendorsOf = (scope: CpScope) => getCpVendors().filter((v: any) => scopeOf(v) === scope);
 const itemsOf = (scope: CpScope) => getCpItems().filter((it: any) => scopeOf(it) === scope);
+const expensesOf = (scope: CpScope) => getCpExpenses().filter((e: any) => scopeOf(e) === scope);
 
 // remainderAlloc: mapa CP → unidades EXTRA del sobrante que se le asignan a esa
 // CP. Lo que no se asigne del sobrante queda "a vender". Ej.: 5 ítems / 4 CP →
@@ -53,6 +55,15 @@ function remainderAllocOf(item: any): RemainderAlloc {
     return { [String(item.assignedCp)]: Number.MAX_SAFE_INTEGER };
   }
   return {};
+}
+
+// sellReserved: unidades que el Super Admin aparta a mano para vender. Se
+// descuentan de la cantidad ANTES de repartir entre las CPs, así se puede
+// vender aunque haya una sola CP (donde el reparto se llevaría todo).
+function sellReservedOf(item: any): number {
+  const qty = Math.max(0, Number(item?.quantity) || 0);
+  const r = Math.max(0, Math.floor(Number(item?.sellReserved) || 0));
+  return Math.min(qty, r);
 }
 
 // Reparto equitativo por ítem: cada CP recibe floor(cantidad / nCP). El
@@ -132,8 +143,13 @@ function viewOf(item: any, scope: CpScope): {
     const available = Math.max(0, Number(item.sellRemaining) || 0);
     return { cpNames, alloc, available, deliveredTotal, soldUnits };
   }
-  const { alloc, toSell } = computeAllocation(item.quantity, cpNames, remainderAllocOf(item));
-  return { cpNames, alloc, available: toSell, deliveredTotal: 0, soldUnits };
+  const reserved = sellReservedOf(item);
+  const { alloc, toSell } = computeAllocation(
+    Math.max(0, (Number(item.quantity) || 0) - reserved),
+    cpNames,
+    remainderAllocOf(item),
+  );
+  return { cpNames, alloc, available: toSell + reserved, deliveredTotal: 0, soldUnits };
 }
 
 // Dos conjuntos de CPs son "iguales" si tienen los mismos nombres (sin importar
@@ -304,7 +320,11 @@ export const cpSplitRouter = router({
             Number(it.id) === Number(match.id) ? { ...it, quantity: newQty } : it,
           );
           const merged = getCpItems().find((it: any) => Number(it.id) === Number(match.id));
-          const { toSell } = computeAllocation(newQty, effectiveCpNames(merged, scope), remainderAllocOf(merged));
+          const { toSell } = computeAllocation(
+            Math.max(0, newQty - sellReservedOf(merged)),
+            effectiveCpNames(merged, scope),
+            remainderAllocOf(merged),
+          );
           const vName = merged.vendorId
             ? getCpVendors().find((v: any) => Number(v.id) === Number(merged.vendorId))?.name
             : null;
@@ -331,6 +351,7 @@ export const cpSplitRouter = router({
           divide,
           scope,
           remainderAlloc: {} as RemainderAlloc,
+          sellReserved: 0,
           price: null as number | null,
           discountPercent: input.discountPercent ?? 20,
           vendorId: null as number | null,
@@ -355,6 +376,7 @@ export const cpSplitRouter = router({
           imageUrl: z.string().trim().max(1000).optional(),
           quantity: z.number().int().min(1).max(100000).optional(),
           remainderAlloc: z.record(z.string(), z.number().int().min(0)).optional(),
+          sellReserved: z.number().int().min(0).max(100000).optional(),
           price: z.number().min(0).nullable().optional(),
           discountPercent: z.number().min(0).max(100).optional(),
           vendorId: z.number().nullable().optional(),
@@ -371,11 +393,20 @@ export const cpSplitRouter = router({
           // nombre, cantidad, el reparto del sobrante ni el modo de división.
           // Sí se permite ajustar precio/descuento/vendedor de lo que queda a vender.
           if (it.status !== "DRAFT") {
-            if (patch.quantity != null || patch.remainderAlloc != null || patch.name != null || patch.category != null || patch.divide != null) {
+            if (patch.quantity != null || patch.remainderAlloc != null || patch.name != null || patch.category != null || patch.divide != null || patch.sellReserved != null) {
               throw new Error("El lote ya fue entregado; solo puedes cambiar precio, descuento o vendedor");
             }
           }
-          return { ...it, ...patch };
+          const next = { ...it, ...patch };
+          // Las unidades apartadas para vender nunca pueden superar la cantidad
+          // en mano (ni quedar colgadas si luego baja la cantidad).
+          if (next.sellReserved != null) {
+            next.sellReserved = Math.min(
+              Math.max(0, Number(next.quantity) || 0),
+              Math.max(0, Math.floor(Number(next.sellReserved) || 0)),
+            );
+          }
+          return next;
         });
         if (!found) throw new Error("Ítem no encontrado");
         saveDbToDisk();
@@ -419,11 +450,13 @@ export const cpSplitRouter = router({
       // Congelamos el reparto en el momento de entregar: el reparto por CP
       // (deliveredAlloc) y las unidades que quedan a vender (sellRemaining) no
       // volverán a recalcularse aunque cambien las CPs o se registren más ítems.
-      const { alloc, toSell } = computeAllocation(
-        item.quantity,
+      const reserved = sellReservedOf(item);
+      const { alloc, toSell: leftover } = computeAllocation(
+        Math.max(0, (Number(item.quantity) || 0) - reserved),
         participants,
         remainderAllocOf(item),
       );
+      const toSell = leftover + reserved;
       const deliveredAlloc: Record<string, number> = {};
       for (const n of participants) deliveredAlloc[n] = alloc[n] ?? 0;
       dbInstance.cpItems = getCpItems().map((it: any) =>
@@ -493,12 +526,15 @@ export const cpSplitRouter = router({
         };
         dbInstance.cpItems = getCpItems().map((it: any) => {
           if (Number(it.id) !== Number(input.id)) return it;
-          const next = {
+          const next: any = {
             ...it,
             sales: [...(Array.isArray(it.sales) ? it.sales : []), sale],
             quantity: Math.max(0, Number(it.quantity) - input.units),
           };
           if (it.status === "CONFIRMED") next.sellRemaining = Math.max(0, (Number(it.sellRemaining) || 0) - input.units);
+          // En borrador, las unidades vendidas salen primero de las apartadas a
+          // vender, para que el reparto por CP no se mueva al vender.
+          else next.sellReserved = Math.max(0, sellReservedOf(it) - input.units);
           return next;
         });
         pushCpHistory(
@@ -522,12 +558,16 @@ export const cpSplitRouter = router({
         if (!sale) throw new Error("Venta no encontrada");
         dbInstance.cpItems = getCpItems().map((it: any) => {
           if (Number(it.id) !== Number(input.id)) return it;
-          const next = {
+          const nextQty = Number(it.quantity) + Number(sale.units);
+          const next: any = {
             ...it,
             sales: (it.sales || []).filter((s: any) => Number(s.id) !== Number(input.saleId)),
-            quantity: Number(it.quantity) + Number(sale.units),
+            quantity: nextQty,
           };
           if (it.status === "CONFIRMED") next.sellRemaining = (Number(it.sellRemaining) || 0) + Number(sale.units);
+          // Al revertir en borrador, las unidades vuelven a "a vender" (no al
+          // reparto), que es de donde salieron.
+          else next.sellReserved = Math.min(nextQty, sellReservedOf(it) + Number(sale.units));
           return next;
         });
         pushCpHistory("VENTA_REVERTIDA", `Revirtió una venta de ${sale.units} u. de "${item.name}"`, actor(ctx), scope);
@@ -554,6 +594,71 @@ export const cpSplitRouter = router({
     }),
   }),
 
+  // -------- Gastos del módulo (monto + comentario, por pestaña) --------
+  // Solo son anotaciones de este módulo: NO tocan el Fondo del clan ni ninguna
+  // otra data del sitio. Sirven para descontar del total recaudado por las CPs.
+  expenses: router({
+    list: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => {
+      const scope = input?.scope ?? "control";
+      return expensesOf(scope);
+    }),
+    create: cpProcedure
+      .input(z.object({ amount: z.number().min(1), description: z.string().trim().min(1).max(300), scope: scopeSchema }))
+      .mutation(async ({ input, ctx }) => {
+        const scope = input.scope ?? "control";
+        if (!Array.isArray(dbInstance.cpExpenses)) dbInstance.cpExpenses = [];
+        const exp = {
+          id: newId(),
+          scope,
+          amount: Math.floor(input.amount),
+          description: input.description.trim(),
+          createdAt: new Date().toISOString(),
+          createdBy: actor(ctx),
+        };
+        dbInstance.cpExpenses.push(exp);
+        pushCpHistory(
+          "GASTO_REGISTRADO",
+          `Anotó un gasto de ${exp.amount.toLocaleString("es-CL")} adena: "${exp.description}"`,
+          actor(ctx),
+          scope,
+        );
+        saveDbToDisk();
+        return exp;
+      }),
+    update: cpProcedure
+      .input(z.object({ id: z.number(), amount: z.number().min(1).optional(), description: z.string().trim().min(1).max(300).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const { id, ...patch } = input;
+        const prev = getCpExpenses().find((e: any) => Number(e.id) === Number(id));
+        if (!prev) throw new Error("Gasto no encontrado");
+        dbInstance.cpExpenses = getCpExpenses().map((e: any) =>
+          Number(e.id) !== Number(id)
+            ? e
+            : {
+                ...e,
+                ...(patch.amount != null ? { amount: Math.floor(patch.amount) } : {}),
+                ...(patch.description != null ? { description: patch.description.trim() } : {}),
+              },
+        );
+        pushCpHistory("GASTO_EDITADO", `Editó el gasto "${prev.description}"`, actor(ctx), scopeOf(prev));
+        saveDbToDisk();
+        return { success: true };
+      }),
+    delete: cpProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
+      const prev = getCpExpenses().find((e: any) => Number(e.id) === Number(input.id));
+      if (!prev) throw new Error("Gasto no encontrado");
+      dbInstance.cpExpenses = getCpExpenses().filter((e: any) => Number(e.id) !== Number(input.id));
+      pushCpHistory(
+        "GASTO_ELIMINADO",
+        `Eliminó el gasto de ${Number(prev.amount).toLocaleString("es-CL")} adena: "${prev.description}"`,
+        actor(ctx),
+        scopeOf(prev),
+      );
+      saveDbToDisk();
+      return { success: true };
+    }),
+  }),
+
   // -------- Historial (solo lectura, Super Admin) --------
   history: router({
     list: cpProcedure.input(z.object({ scope: scopeSchema }).optional()).query(async ({ input }) => {
@@ -573,6 +678,7 @@ export const cpSplitRouter = router({
       participants: partsOf(scope),
       vendors: vendorsOf(scope),
       history: getCpHistory().filter((h: any) => scopeOf(h) === scope),
+      expenses: expensesOf(scope),
       savedAt: new Date().toISOString(),
       savedBy: actor(ctx),
     };
@@ -583,6 +689,7 @@ export const cpSplitRouter = router({
     dbInstance.cpParticipants = getCpParticipants().filter((c: any) => scopeOf(c) !== scope);
     dbInstance.cpVendors = getCpVendors().filter((v: any) => scopeOf(v) !== scope);
     dbInstance.cpHistory = getCpHistory().filter((h: any) => scopeOf(h) !== scope);
+    dbInstance.cpExpenses = getCpExpenses().filter((e: any) => scopeOf(e) !== scope);
     // El historial del reinicio se guarda ya en el scope reiniciado para dejar
     // rastro (queda como primer registro tras vaciar).
     pushCpHistory(
@@ -608,6 +715,7 @@ export const cpSplitRouter = router({
         items: Array.isArray(b.items) ? b.items.length : 0,
         participants: Array.isArray(b.participants) ? b.participants.length : 0,
         vendors: Array.isArray(b.vendors) ? b.vendors.length : 0,
+        expenses: Array.isArray(b.expenses) ? b.expenses.length : 0,
       },
     };
   }),
@@ -626,6 +734,7 @@ export const cpSplitRouter = router({
     dbInstance.cpParticipants = [...getCpParticipants().filter((c: any) => scopeOf(c) !== scope), ...stampScope(b.participants)];
     dbInstance.cpVendors = [...getCpVendors().filter((v: any) => scopeOf(v) !== scope), ...stampScope(b.vendors)];
     dbInstance.cpHistory = [...getCpHistory().filter((h: any) => scopeOf(h) !== scope), ...stampScope(b.history)];
+    dbInstance.cpExpenses = [...getCpExpenses().filter((e: any) => scopeOf(e) !== scope), ...stampScope(b.expenses)];
     // Consumimos el respaldo: ya se usó.
     delete dbInstance.cpResetBackup[scope];
     pushCpHistory(
@@ -810,10 +919,46 @@ export const cpSplitRouter = router({
         }
       }
 
+      // ---- Sección 3: Gastos (monto + comentario) y neto ----
+      // Son anotaciones propias del módulo; se restan del total recaudado para
+      // mostrar el neto (y el neto por CP, repartiendo el gasto en partes
+      // iguales entre las CPs).
+      const expenses = expensesOf(scope);
+      if (expenses.length > 0) {
+        ws.addRow([]);
+        const t3 = ws.addRow(["Gastos"]);
+        t3.font = { bold: true, size: 12 };
+        const header3 = ws.addRow(["Fecha", "Descripción", "Monto"]);
+        header3.font = { bold: true };
+        header3.alignment = { vertical: "middle", horizontal: "center" };
+        let gastosTotal = 0;
+        const ordered = [...expenses].sort((a: any, b: any) =>
+          String(a.createdAt || "").localeCompare(String(b.createdAt || "")),
+        );
+        for (const e of ordered) {
+          const amount = Math.max(0, Math.floor(Number(e.amount) || 0));
+          gastosTotal += amount;
+          ws.addRow([fmtDate(e.createdAt), String(e.description || ""), amount]);
+        }
+        const gTotalRow = ws.addRow(["Total gastos", "", gastosTotal]);
+        gTotalRow.font = { bold: true };
+
+        if (anySell) {
+          const nCpNeto = cpCols.length;
+          const gastoPorCp = nCpNeto > 0 ? Math.floor(gastosTotal / nCpNeto) : 0;
+          const netoArr: any[] = ["Neto (recaudado − gastos)", "", "", "", "", "", "", "", "", adenaTotal - gastosTotal];
+          for (const n of cpCols) netoArr.push((totalPerCp[n] || 0) - gastoPorCp);
+          const netoRow = ws.addRow(netoArr);
+          netoRow.font = { bold: true };
+        }
+      }
+
       const buffer = await wb.xlsx.writeBuffer();
       const base64 = Buffer.from(buffer).toString("base64");
       const stamp = new Date().toISOString().slice(0, 10);
-      return { filename: `reparticiones_cp_${stamp}.xlsx`, base64 };
+      // Nombre según la pestaña, para distinguir los archivos de cada una.
+      const base = scope === "reparto" ? "reparticiones_cp" : "items_de_la_cp";
+      return { filename: `${base}_${stamp}.xlsx`, base64 };
     }),
 
   // -------- Importar Excel (mismo formato que exporta la página) --------
@@ -1020,9 +1165,14 @@ export const cpSplitRouter = router({
         // Reparto: reconstruimos remainderAlloc a partir de las columnas por CP
         // (lo que exceda del reparto base floor(qty/nCP) es asignación manual
         // del sobrante) para que el reparto quede idéntico al del Excel.
+        // "A vender" del Excel son las unidades apartadas para vender
+        // (sellReserved): se descuentan de la cantidad antes de repartir, así
+        // el reparto por CP y las unidades a vender quedan idénticos al Excel.
+        const aVenderCol = cSell ? Math.max(0, Math.floor(toNum(cellText(row.getCell(cSell))))) : 0;
+        const sellReserved = divide ? Math.min(qty, aVenderCol) : 0;
         const remainderAlloc: RemainderAlloc = {};
         if (divide && nCp > 0) {
-          const perCp = Math.floor(qty / nCp);
+          const perCp = Math.floor(Math.max(0, qty - sellReserved) / nCp);
           for (const c of cpCols) {
             const val = Math.floor(toNum(cellText(row.getCell(c.col))));
             const extra = val - perCp;
@@ -1039,6 +1189,7 @@ export const cpSplitRouter = router({
           divide,
           scope,
           remainderAlloc,
+          sellReserved,
           price: price > 0 ? price : null,
           discountPercent: disc ?? 20,
           // Marcamos qué campos NO venían en la hoja 1 (formato antiguo) para
@@ -1170,16 +1321,60 @@ export const cpSplitRouter = router({
         }
       }
 
+      // ------------------------------------------------------------------
+      // Sección "Gastos": recupera las anotaciones (fecha, descripción, monto).
+      // Es aditiva, igual que los ítems, y no toca ninguna otra data.
+      // ------------------------------------------------------------------
+      let expensesRecovered = 0;
+      let gastosHdr = -1;
+      let gDate = 0;
+      let gDesc = 0;
+      let gAmount = 0;
+      ws.eachRow((row, rn) => {
+        if (gastosHdr !== -1 || rn <= headerRowNum) return;
+        let d = 0;
+        let de = 0;
+        let am = 0;
+        row.eachCell((cell, cn) => {
+          const key = norm(cellText(cell));
+          if (key === "fecha") d = cn;
+          if (key === "descripcion") de = cn;
+          if (key === "monto") am = cn;
+        });
+        if (de && am) { gastosHdr = rn; gDate = d; gDesc = de; gAmount = am; }
+      });
+      if (gastosHdr !== -1) {
+        if (!Array.isArray(dbInstance.cpExpenses)) dbInstance.cpExpenses = [];
+        for (let rn = gastosHdr + 1; rn <= total; rn++) {
+          const row = ws.getRow(rn);
+          const desc = cellText(row.getCell(gDesc)).trim();
+          const first = norm(cellText(row.getCell(1)));
+          if (!desc && !first) break;
+          if (first.startsWith("total gastos") || first.startsWith("neto")) break;
+          const amount = Math.floor(toNum(cellText(row.getCell(gAmount))));
+          if (!desc || amount <= 0) continue;
+          dbInstance.cpExpenses.push({
+            id: newId(),
+            scope,
+            amount,
+            description: desc.slice(0, 300),
+            createdAt: gDate ? parseDate(cellText(row.getCell(gDate)), new Date().toISOString()) : new Date().toISOString(),
+            createdBy: actor(ctx),
+          });
+          expensesRecovered += 1;
+        }
+      }
+
       // Limpiamos las marcas auxiliares antes de persistir.
       for (const it of created) { delete it._needPrice; delete it._needDisc; }
 
       pushCpHistory(
         "ITEMS_IMPORTADOS",
-        `Importó ${created.length} ítem(s) desde Excel a "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" (CPs: ${cpsCreated}, vendedores: ${vendorsCreated}, imágenes: ${imagesRecovered}, precios: ${pricesRecovered}, ventas: ${salesRecovered}).`,
+        `Importó ${created.length} ítem(s) desde Excel a "${scope === "reparto" ? "A repartir" : "Ítems de la CP"}" (CPs: ${cpsCreated}, vendedores: ${vendorsCreated}, imágenes: ${imagesRecovered}, precios: ${pricesRecovered}, ventas: ${salesRecovered}, gastos: ${expensesRecovered}).`,
         actor(ctx),
         scope,
       );
       saveDbToDisk();
-      return { imported: created.length, cpsCreated, vendorsCreated, imagesRecovered, pricesRecovered, salesRecovered };
+      return { imported: created.length, cpsCreated, vendorsCreated, imagesRecovered, pricesRecovered, salesRecovered, expensesRecovered };
     }),
 });

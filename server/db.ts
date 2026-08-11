@@ -211,6 +211,7 @@ interface DatabaseSchema {
   cpVendors: any[];       // vendedores propios de este módulo (id, name, createdAt, scope)
   cpItems: any[];         // ítems registrados (borrador/confirmado) + su reparto (scope)
   cpHistory: any[];       // historial de acciones del módulo (trazabilidad, scope)
+  cpExpenses: any[];      // gastos anotados del módulo (id, amount, description, scope)
   cpResetBackup: any;     // último snapshot por scope para deshacer "Reiniciar todo"
   // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
@@ -296,6 +297,7 @@ const initialSchema: DatabaseSchema = {
   cpVendors: [],
   cpItems: [],
   cpHistory: [],
+  cpExpenses: [],
   cpResetBackup: {},
   raidBosses: [],
   clans: [],
@@ -513,6 +515,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     cpVendors: ensureArray(data?.cpVendors),
     cpItems: ensureArray(data?.cpItems),
     cpHistory: ensureArray(data?.cpHistory),
+    cpExpenses: ensureArray(data?.cpExpenses),
     cpResetBackup: (data?.cpResetBackup && typeof data.cpResetBackup === "object") ? data.cpResetBackup : {},
     // ============================================================
     // Raid module collections
@@ -1122,6 +1125,7 @@ export const getCpParticipants = () => dbInstance.cpParticipants || [];
 export const getCpVendors = () => dbInstance.cpVendors || [];
 export const getCpItems = () => dbInstance.cpItems || [];
 export const getCpHistory = () => dbInstance.cpHistory || [];
+export const getCpExpenses = () => dbInstance.cpExpenses || [];
 
 export const pushCpHistory = (
   action: string,

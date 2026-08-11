@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Split, Plus, Trash2, Check, Store, Users, Download, Upload, Pencil, X, Clock, ShoppingCart, AlertTriangle, RotateCcw,
+  Split, Plus, Trash2, Check, Store, Users, Download, Upload, Pencil, X, Clock, ShoppingCart, AlertTriangle, RotateCcw, Wallet,
 } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { ItemTypeahead } from '../components/inventory/ItemTypeahead';
@@ -70,8 +70,15 @@ function cpViewOf(it: any, cpNamesLive: string[]) {
     for (const n of cps) alloc[n] = Number(it.deliveredAlloc[n]) || 0;
     return { cps, alloc, available: Math.max(0, Number(it.sellRemaining) || 0), remainder: 0, soldUnits, sales, confirmed };
   }
-  const { alloc, toSell, remainder } = computeAllocation(it.quantity, cps, remainderAllocOf(it));
-  return { cps, alloc, available: toSell, remainder, soldUnits, sales, confirmed };
+  const reserved = sellReservedOf(it);
+  const { alloc, toSell, remainder } = computeAllocation(Math.max(0, (Number(it.quantity) || 0) - reserved), cps, remainderAllocOf(it));
+  return { cps, alloc, available: toSell + reserved, remainder, reserved, soldUnits, sales, confirmed };
+}
+
+// Unidades apartadas a mano para vender (se descuentan antes de repartir).
+function sellReservedOf(it: any): number {
+  const qty = Math.max(0, Number(it?.quantity) || 0);
+  return Math.min(qty, Math.max(0, Math.floor(Number(it?.sellReserved) || 0)));
 }
 
 const cardStyle: React.CSSProperties = {
@@ -295,6 +302,7 @@ export default function CpSplit() {
   const { data: items = [] } = trpc.cpSplit.items.list.useQuery({ scope }, { enabled });
   const { data: history = [] } = trpc.cpSplit.history.list.useQuery({ scope }, { enabled });
   const { data: backupInfo } = trpc.cpSplit.resetBackupInfo.useQuery({ scope }, { enabled });
+  const { data: expenses = [] } = trpc.cpSplit.expenses.list.useQuery({ scope }, { enabled });
 
   const cpNames = useMemo(() => (participants as any[]).map((c) => String(c.name)), [participants]);
 
@@ -391,13 +399,27 @@ export default function CpSplit() {
     onSuccess: (r) => {
       invEverything();
       toast.success(
-        `Se importaron ${r.imported} ítem(s) · ${r.salesRecovered} venta(s) · CPs: ${r.cpsCreated} · vendedores: ${r.vendorsCreated} · precios: ${r.pricesRecovered} · imágenes: ${r.imagesRecovered}.`,
+        `Se importaron ${r.imported} ítem(s) · ${r.salesRecovered} venta(s) · CPs: ${r.cpsCreated} · vendedores: ${r.vendorsCreated} · precios: ${r.pricesRecovered} · imágenes: ${r.imagesRecovered} · gastos: ${r.expensesRecovered}.`,
       );
     },
     onError: (e) => toast.error(e.message),
   });
+  const invExpenses = () => { utils.cpSplit.expenses.list.invalidate(); utils.cpSplit.history.list.invalidate(); };
+  const eCreate = trpc.cpSplit.expenses.create.useMutation({
+    onSuccess: () => { invExpenses(); toast.success('Gasto anotado.'); },
+    onError: (e) => toast.error(e.message),
+  });
+  const eDelete = trpc.cpSplit.expenses.delete.useMutation({
+    onSuccess: () => { invExpenses(); toast.success('Gasto eliminado.'); },
+    onError: (e) => toast.error(e.message),
+  });
+  const [expAmount, setExpAmount] = useState('');
+  const [expDesc, setExpDesc] = useState('');
+  const [expDel, setExpDel] = useState<any | null>(null);
+
   const invEverything = () => {
     utils.cpSplit.items.list.invalidate();
+    utils.cpSplit.expenses.list.invalidate();
     utils.cpSplit.participants.list.invalidate();
     utils.cpSplit.vendors.list.invalidate();
     utils.cpSplit.history.list.invalidate();
@@ -419,6 +441,28 @@ export default function CpSplit() {
   });
   const [resetOpen, setResetOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
+
+  // Total gastado y total recaudado (suma de las ventas) de esta pestaña.
+  const gastosTotal = useMemo(
+    () => (expenses as any[]).reduce((s, e) => s + (Number(e?.amount) || 0), 0),
+    [expenses],
+  );
+  const adenaTotal = useMemo(
+    () => (items as any[]).reduce(
+      (s, it) => s + (Array.isArray(it?.sales) ? it.sales.reduce((a: number, v: any) => a + (Number(v?.total) || 0), 0) : 0),
+      0,
+    ),
+    [items],
+  );
+
+  const addExpense = () => {
+    const amount = parseThousands(expAmount) ?? 0;
+    if (!amount || amount < 1) { toast.error('Indica el monto del gasto.'); return; }
+    const desc = expDesc.trim();
+    if (!desc) { toast.error('Escribe en qué se gastó.'); return; }
+    eCreate.mutate({ amount, description: desc, scope });
+    setExpAmount(''); setExpDesc('');
+  };
 
   const addItem = () => {
     const n = itemName.trim();
@@ -500,7 +544,7 @@ export default function CpSplit() {
             <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="hidden" onChange={onImportFile} disabled={importMut.isPending} />
           </label>
-          <button onClick={downloadExcel} disabled={exportMut.isPending || items.length === 0}
+          <button onClick={downloadExcel} disabled={exportMut.isPending || (items.length === 0 && (expenses as any[]).length === 0)}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
             style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399' }}>
             <Download className="h-4 w-4" /> {exportMut.isPending ? 'Generando…' : 'Descargar Excel'}
@@ -541,7 +585,7 @@ export default function CpSplit() {
         <ConfirmModal
           open={resetOpen}
           title={`Reiniciar "${scope === 'reparto' ? 'A repartir' : 'Ítems de la CP'}"`}
-          message={`Esto deja en cero SOLO esta pestaña ("${scope === 'reparto' ? 'A repartir' : 'Ítems de la CP'}"): borra sus ítems, CPs, vendedores e historial. La otra pestaña no se toca. Se guarda un respaldo, así que podrás deshacerlo con "Deshacer reinicio". ¿Continuar?`}
+          message={`Esto deja en cero SOLO esta pestaña ("${scope === 'reparto' ? 'A repartir' : 'Ítems de la CP'}"): borra sus ítems, CPs, vendedores, gastos e historial. La otra pestaña no se toca. Se guarda un respaldo, así que podrás deshacerlo con "Deshacer reinicio". ¿Continuar?`}
           confirmLabel="Reiniciar todo"
           onConfirm={() => { resetAll.mutate({ scope }); setResetOpen(false); }}
           onCancel={() => setResetOpen(false)}
@@ -551,7 +595,7 @@ export default function CpSplit() {
           title="Deshacer reinicio"
           danger={false}
           message={backupInfo?.available
-            ? `Restaurar los datos guardados antes del último reinicio de esta pestaña (ítems: ${backupInfo.counts.items}, CPs: ${backupInfo.counts.participants}, vendedores: ${backupInfo.counts.vendors}). Reemplaza lo que haya ahora en esta pestaña. ¿Continuar?`
+            ? `Restaurar los datos guardados antes del último reinicio de esta pestaña (ítems: ${backupInfo.counts.items}, CPs: ${backupInfo.counts.participants}, vendedores: ${backupInfo.counts.vendors}, gastos: ${backupInfo.counts.expenses ?? 0}). Reemplaza lo que haya ahora en esta pestaña. ¿Continuar?`
             : 'No hay respaldo disponible.'}
           confirmLabel="Restaurar"
           onConfirm={() => { restoreReset.mutate({ scope }); setRestoreOpen(false); }}
@@ -654,6 +698,61 @@ export default function CpSplit() {
           onSell={(id, units, applyDiscount) => iSell.mutate({ id, units, applyDiscount, scope })}
           onRevertSale={(id, saleId) => iRevertSale.mutate({ id, saleId, scope })}
         />
+
+        {/* Gastos: anotaciones propias de esta pestaña (monto + comentario) */}
+        <div style={cardStyle} className="p-4">
+          <ConfirmModal
+            open={!!expDel}
+            title="Eliminar gasto"
+            message={expDel ? `¿Eliminar el gasto de $${formatThousands(Number(expDel.amount))} — "${expDel.description}"?` : ''}
+            confirmLabel="Eliminar"
+            onConfirm={() => { if (expDel) eDelete.mutate({ id: Number(expDel.id) }); setExpDel(null); }}
+            onCancel={() => setExpDel(null)}
+          />
+          <div className="mb-3 flex items-center gap-2">
+            <Wallet className="h-4 w-4" style={{ color: '#f87171' }} />
+            <h3 className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>Gastos</h3>
+            <span className="ml-auto text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Total: <b style={{ color: '#f87171' }}>${formatThousands(gastosTotal)}</b>
+              {adenaTotal > 0 ? ` · Recaudado $${formatThousands(adenaTotal)} · Neto $${formatThousands(adenaTotal - gastosTotal)}` : ''}
+            </span>
+          </div>
+          <div className="grid items-end gap-3" style={{ gridTemplateColumns: '140px 1fr auto' }}>
+            <div>
+              <label className="mb-1 block text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Monto</label>
+              <input type="text" inputMode="numeric" placeholder="0" style={{ ...inputStyle, width: '100%' }}
+                value={expAmount} onChange={(e) => setExpAmount(reformatWhileTyping(e.target.value))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>En qué se gastó</label>
+              <input type="text" placeholder="Comentario del gasto" style={{ ...inputStyle, width: '100%' }}
+                value={expDesc} onChange={(e) => setExpDesc(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') addExpense(); }} />
+            </div>
+            <button onClick={addExpense} disabled={eCreate.isPending} className={`${btnBase} h-[34px] px-4`} style={btnRed}>
+              <Plus className="h-4 w-4" /> Anotar gasto
+            </button>
+          </div>
+          {(expenses as any[]).length === 0 ? (
+            <p className="mt-3 text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Sin gastos anotados en esta pestaña.</p>
+          ) : (
+            <div className="mt-3 space-y-1.5" style={{ maxHeight: 260, overflowY: 'auto' }}>
+              {[...(expenses as any[])].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).map((e) => (
+                <div key={e.id} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                  style={{ background: 'rgba(248,113,113,0.06)', color: 'rgba(255,255,255,0.75)' }}>
+                  <span className="shrink-0 font-semibold" style={{ color: '#f87171' }}>−${formatThousands(Number(e.amount))}</span>
+                  <span className="flex-1 truncate">{e.description}</span>
+                  <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    {new Date(e.createdAt).toLocaleDateString('es-CL')}
+                  </span>
+                  <button onClick={() => setExpDel(e)} title="Eliminar gasto" className={`${btnBase} p-1.5`} style={btnGhost}>
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Historial */}
         <div style={cardStyle} className="p-4">
@@ -772,6 +871,9 @@ function ItemRow({
 }) {
   const view = cpViewOf(it, cpNames);
   const { cps: effCpNames, alloc, available, remainder, sales, confirmed } = view;
+  const reserved = sellReservedOf(it);
+  const [reservedInput, setReservedInput] = useState(String(reserved));
+  useEffect(() => { setReservedInput(String(sellReservedOf(it))); }, [it.sellReserved, it.quantity]);
   const [editing, setEditing] = useState(false);
   const [modal, setModal] = useState<null | 'confirm' | 'delete'>(null);
   const [sellOpen, setSellOpen] = useState(false);
@@ -955,6 +1057,24 @@ function ItemRow({
           </button>
         )}
       </div>
+
+      {/* Unidades apartadas para vender — solo en borrador. Se descuentan de la
+          cantidad antes de repartir, así se puede vender aunque haya una sola CP. */}
+      {!confirmed && it.divide !== false && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>Apartar para vender:</span>
+          <input type="text" inputMode="numeric" value={reservedInput}
+            title="Unidades que NO se reparten entre las CPs y quedan disponibles para vender"
+            style={{ ...inputStyle, width: 60, padding: '3px 6px', textAlign: 'center' }}
+            onChange={(e) => setReservedInput(e.target.value.replace(/\D/g, ''))}
+            onBlur={() => {
+              const v = Math.max(0, Math.min(Number(it.quantity) || 0, Math.floor(Number(reservedInput) || 0)));
+              setReservedInput(String(v));
+              if (v !== reserved) onUpdate(it.id, { sellReserved: v });
+            }} />
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>de {it.quantity} u. · el resto se reparte entre las CPs</span>
+        </div>
+      )}
 
       {/* Editor del sobrante — solo en borrador: al entregar, el reparto queda fijo. */}
       {!confirmed && remainder > 0 && (
