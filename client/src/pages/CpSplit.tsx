@@ -409,6 +409,10 @@ export default function CpSplit() {
     onSuccess: () => { invExpenses(); toast.success('Gasto anotado.'); },
     onError: (e) => toast.error(e.message),
   });
+  const eUpdate = trpc.cpSplit.expenses.update.useMutation({
+    onSuccess: () => { invExpenses(); toast.success('Gasto actualizado.'); },
+    onError: (e) => toast.error(e.message),
+  });
   const eDelete = trpc.cpSplit.expenses.delete.useMutation({
     onSuccess: () => { invExpenses(); toast.success('Gasto eliminado.'); },
     onError: (e) => toast.error(e.message),
@@ -738,17 +742,13 @@ export default function CpSplit() {
           ) : (
             <div className="mt-3 space-y-1.5" style={{ maxHeight: 260, overflowY: 'auto' }}>
               {[...(expenses as any[])].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).map((e) => (
-                <div key={e.id} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
-                  style={{ background: 'rgba(248,113,113,0.06)', color: 'rgba(255,255,255,0.75)' }}>
-                  <span className="shrink-0 font-semibold" style={{ color: '#f87171' }}>−${formatThousands(Number(e.amount))}</span>
-                  <span className="flex-1 truncate">{e.description}</span>
-                  <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    {new Date(e.createdAt).toLocaleDateString('es-CL')}
-                  </span>
-                  <button onClick={() => setExpDel(e)} title="Eliminar gasto" className={`${btnBase} p-1.5`} style={btnGhost}>
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
+                <ExpenseRow
+                  key={e.id}
+                  expense={e}
+                  saving={eUpdate.isPending}
+                  onSave={(amount, description) => eUpdate.mutate({ id: Number(e.id), amount, description })}
+                  onDelete={() => setExpDel(e)}
+                />
               ))}
             </div>
           )}
@@ -782,6 +782,83 @@ export default function CpSplit() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+// Fila de un gasto: se muestra en modo lectura y pasa a edición (monto +
+// comentario) con el lápiz. Guarda solo al confirmar, para no escribir al
+// backend por cada tecla.
+function ExpenseRow({
+  expense,
+  saving,
+  onSave,
+  onDelete,
+}: {
+  expense: any;
+  saving: boolean;
+  onSave: (amount: number, description: string) => void;
+  onDelete: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState(formatThousands(Number(expense.amount) || 0));
+  const [desc, setDesc] = useState(String(expense.description || ''));
+
+  useEffect(() => {
+    setAmount(formatThousands(Number(expense.amount) || 0));
+    setDesc(String(expense.description || ''));
+  }, [expense.amount, expense.description]);
+
+  const cancel = () => {
+    setAmount(formatThousands(Number(expense.amount) || 0));
+    setDesc(String(expense.description || ''));
+    setEditing(false);
+  };
+
+  const save = () => {
+    const amt = parseThousands(amount) ?? 0;
+    if (!amt || amt < 1) { toast.error('Indica el monto del gasto.'); return; }
+    const d = desc.trim();
+    if (!d) { toast.error('Escribe en qué se gastó.'); return; }
+    if (amt !== Number(expense.amount) || d !== String(expense.description || '')) onSave(amt, d);
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+      style={{ background: 'rgba(248,113,113,0.06)', color: 'rgba(255,255,255,0.75)' }}>
+      {editing ? (
+        <>
+          <input type="text" inputMode="numeric" value={amount} title="Monto del gasto"
+            style={{ ...inputStyle, width: 120, padding: '3px 8px' }}
+            onChange={(e) => setAmount(reformatWhileTyping(e.target.value))}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }} />
+          <input type="text" value={desc} title="En qué se gastó" className="flex-1"
+            style={{ ...inputStyle, padding: '3px 8px' }}
+            onChange={(e) => setDesc(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }} />
+          <button onClick={save} disabled={saving} title="Guardar" className={`${btnBase} p-1.5`} style={btnGreen}>
+            <Check className="h-3 w-3" />
+          </button>
+          <button onClick={cancel} title="Cancelar" className={`${btnBase} p-1.5`} style={btnGhost}>
+            <X className="h-3 w-3" />
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="shrink-0 font-semibold" style={{ color: '#f87171' }}>−${formatThousands(Number(expense.amount) || 0)}</span>
+          <span className="flex-1 truncate">{expense.description}</span>
+          <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            {new Date(expense.createdAt).toLocaleDateString('es-CL')}
+          </span>
+          <button onClick={() => setEditing(true)} title="Editar gasto" className={`${btnBase} p-1.5`} style={btnGhost}>
+            <Pencil className="h-3 w-3" />
+          </button>
+          <button onClick={onDelete} title="Eliminar gasto" className={`${btnBase} p-1.5`} style={btnGhost}>
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
