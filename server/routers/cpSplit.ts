@@ -20,7 +20,18 @@ import {
 // y su propio historial de trazabilidad.
 // ============================================================================
 
-const newId = () => Math.floor(Math.random() * 1000000);
+// Id aleatorio que no choque con ningún registro existente del módulo (en
+// ninguna de las dos pestañas), para que entregar/vender/eliminar nunca actúe
+// sobre otro ítem con el mismo id.
+const newId = () => {
+  const used = new Set(
+    [...getCpItems(), ...getCpParticipants(), ...getCpVendors(), ...getCpExpenses()].map((r: any) => Number(r?.id)),
+  );
+  let id: number;
+  do id = Math.floor(Math.random() * 1000000);
+  while (used.has(id));
+  return id;
+};
 const actor = (ctx: any) =>
   String(ctx?.user?.characterName || ctx?.user?.name || ctx?.user?.email || "Super Admin");
 
@@ -58,6 +69,8 @@ const partsOf = (scope: CpScope) => getCpParticipants().filter((c: any) => scope
 const vendorsOf = (scope: CpScope) => getCpVendors().filter((v: any) => scopeOf(v) === scope);
 const itemsOf = (scope: CpScope) => getCpItems().filter((it: any) => scopeOf(it) === scope);
 const expensesOf = (scope: CpScope) => getCpExpenses().filter((e: any) => scopeOf(e) === scope);
+const isItem = (it: any, id: number, scope: CpScope) => Number(it.id) === Number(id) && scopeOf(it) === scope;
+const findItem = (id: number, scope: CpScope) => getCpItems().find((it: any) => isItem(it, id, scope));
 
 // remainderAlloc: mapa CP → unidades EXTRA del sobrante que se le asignan a esa
 // CP. Lo que no se asigne del sobrante queda "a vender". Ej.: 5 ítems / 4 CP →
@@ -337,9 +350,9 @@ export const cpSplitRouter = router({
         if (match) {
           const newQty = Number(match.quantity) + input.quantity;
           dbInstance.cpItems = getCpItems().map((it: any) =>
-            Number(it.id) === Number(match.id) ? { ...it, quantity: newQty } : it,
+            isItem(it, match.id, scope) ? { ...it, quantity: newQty } : it,
           );
-          const merged = getCpItems().find((it: any) => Number(it.id) === Number(match.id));
+          const merged = findItem(match.id, scope);
           const { toSell } = computeAllocation(
             Math.max(0, newQty - sellReservedOf(merged)),
             effectiveCpNames(merged, scope),
@@ -408,10 +421,11 @@ export const cpSplitRouter = router({
         // El input no trae scope: la pestaña se deduce del ítem que se edita.
         const target = getCpItems().find((it: any) => Number(it.id) === Number(id));
         if (!target) throw new Error("Ítem no encontrado");
-        assertScopeAccess(ctx, scopeOf(target));
+        const scope = scopeOf(target);
+        assertScopeAccess(ctx, scope);
         let found = false;
         dbInstance.cpItems = getCpItems().map((it: any) => {
-          if (Number(it.id) !== Number(id)) return it;
+          if (!isItem(it, id, scope)) return it;
           found = true;
           // En lotes ENTREGADOS el reparto está congelado: no se puede cambiar
           // nombre, cantidad, el reparto del sobrante ni el modo de división.
@@ -442,7 +456,7 @@ export const cpSplitRouter = router({
       if (participants.length === 0) {
         throw new Error("Registra al menos una CP participante antes de confirmar");
       }
-      const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+      const item = findItem(input.id, scope);
       if (!item) throw new Error("Ítem no encontrado");
       if (item.status !== "DRAFT") throw new Error("El ítem ya fue entregado");
       // Ítem SIN dividir: se marca como entregado como simple registro, sin
@@ -451,7 +465,7 @@ export const cpSplitRouter = router({
         const emptyAlloc: Record<string, number> = {};
         for (const n of participants) emptyAlloc[n] = 0;
         dbInstance.cpItems = getCpItems().map((it: any) =>
-          Number(it.id) === Number(input.id)
+          isItem(it, input.id, scope)
             ? {
                 ...it,
                 status: "CONFIRMED",
@@ -484,7 +498,7 @@ export const cpSplitRouter = router({
       const deliveredAlloc: Record<string, number> = {};
       for (const n of participants) deliveredAlloc[n] = alloc[n] ?? 0;
       dbInstance.cpItems = getCpItems().map((it: any) =>
-        Number(it.id) === Number(input.id)
+        isItem(it, input.id, scope)
           ? {
               ...it,
               status: "CONFIRMED",
@@ -515,7 +529,7 @@ export const cpSplitRouter = router({
       .input(z.object({ id: z.number(), units: z.number().int().min(1), applyDiscount: z.boolean().optional().default(false), scope: scopeSchema }))
       .mutation(async ({ input, ctx }) => {
         const scope = input.scope ?? "control";
-        const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+        const item = findItem(input.id, scope);
         if (!item) throw new Error("Ítem no encontrado");
         const v = viewOf(item, scope);
         if (v.available <= 0) throw new Error("Este ítem no tiene unidades a vender");
@@ -549,7 +563,7 @@ export const cpSplitRouter = router({
           soldAt: new Date().toISOString(),
         };
         dbInstance.cpItems = getCpItems().map((it: any) => {
-          if (Number(it.id) !== Number(input.id)) return it;
+          if (!isItem(it, input.id, scope)) return it;
           const next: any = {
             ...it,
             sales: [...(Array.isArray(it.sales) ? it.sales : []), sale],
@@ -576,12 +590,12 @@ export const cpSplitRouter = router({
       .input(z.object({ id: z.number(), saleId: z.number(), scope: scopeSchema }))
       .mutation(async ({ input, ctx }) => {
         const scope = input.scope ?? "control";
-        const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+        const item = findItem(input.id, scope);
         if (!item) throw new Error("Ítem no encontrado");
         const sale = (Array.isArray(item.sales) ? item.sales : []).find((s: any) => Number(s.id) === Number(input.saleId));
         if (!sale) throw new Error("Venta no encontrada");
         dbInstance.cpItems = getCpItems().map((it: any) => {
-          if (Number(it.id) !== Number(input.id)) return it;
+          if (!isItem(it, input.id, scope)) return it;
           const nextQty = Number(it.quantity) + Number(sale.units);
           const next: any = {
             ...it,
@@ -600,7 +614,7 @@ export const cpSplitRouter = router({
       }),
     delete: cpProcedure.input(z.object({ id: z.number(), scope: scopeSchema })).mutation(async ({ input, ctx }) => {
       const scope = input.scope ?? "control";
-      const item = getCpItems().find((it: any) => Number(it.id) === Number(input.id));
+      const item = findItem(input.id, scope);
       // No permitir borrar un ítem con ventas registradas: perderíamos su adena
       // recaudada del Excel. Para deshacer una venta usa "Revertir".
       const salesCount = Array.isArray(item?.sales) ? item.sales.length : 0;
@@ -609,7 +623,7 @@ export const cpSplitRouter = router({
           `No puedes borrar este ítem: tiene ${salesCount} venta(s) registrada(s). Revierte las ventas primero si necesitas eliminarlo.`,
         );
       }
-      dbInstance.cpItems = getCpItems().filter((it: any) => Number(it.id) !== Number(input.id));
+      dbInstance.cpItems = getCpItems().filter((it: any) => !isItem(it, input.id, scope));
       if (item?.status === "CONFIRMED") {
         pushCpHistory("ITEM_ELIMINADO", `Eliminó el ítem confirmado "${item?.name ?? input.id}"`, actor(ctx), scope);
       }

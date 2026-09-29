@@ -57,7 +57,7 @@ function discountedPrice(normal: number, pct: number): number {
 function cpViewOf(it: any, cpNamesLive: string[]) {
   const sales: any[] = Array.isArray(it.sales) ? it.sales : [];
   const soldUnits = sales.reduce((s, x) => s + (Number(x?.units) || 0), 0);
-  const confirmed = it.status === 'CONFIRMED';
+  const confirmed = it.status !== 'DRAFT';
   const cps = confirmed && Array.isArray(it.cpNamesSnapshot) ? it.cpNamesSnapshot.map(String) : cpNamesLive;
   // Ítem SIN dividir: registrado con su cantidad pero sin reparto ni "a vender".
   if (it.divide === false) {
@@ -383,7 +383,7 @@ export default function CpSplit() {
   });
   const iConfirm = trpc.cpSplit.items.confirm.useMutation({
     onSuccess: () => { invAll(); toast.success('Lote entregado y bloqueado. Reparto fijo.'); },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => { invAll(); toast.error(e.message); },
   });
   const iDelete = trpc.cpSplit.items.delete.useMutation({
     onSuccess: () => { invAll(); toast.success('Ítem eliminado.'); },
@@ -1245,8 +1245,8 @@ function ItemsTable({
   // Borradores arriba, entregados al final; dentro de cada grupo, el más
   // reciente primero y los más antiguos van quedando abajo.
   const sorted = [...items].sort((a, b) => {
-    const ra = a.status === 'CONFIRMED' ? 1 : 0;
-    const rb = b.status === 'CONFIRMED' ? 1 : 0;
+    const ra = a.status !== 'DRAFT' ? 1 : 0;
+    const rb = b.status !== 'DRAFT' ? 1 : 0;
     if (ra !== rb) return ra - rb;
     return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
   });
