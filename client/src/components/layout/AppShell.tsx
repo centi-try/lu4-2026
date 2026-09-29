@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import L2Splash from '../L2Splash';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse, Split } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse, Split, Cctv } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
@@ -30,6 +30,7 @@ const navItems: Array<{
   { href: '/settings', label: 'Reglas', icon: Settings, desc: 'Configuración del sistema' },
   { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
   { href: '/cp-split', label: 'Reparticiones CP', icon: Split, desc: 'Reparto equitativo entre CPs', allowedRoles: ['super_admin'] },
+  { href: '/cameras', label: 'Cámaras', icon: Cctv, desc: 'Pantallas compartidas en vivo' },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
