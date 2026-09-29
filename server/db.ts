@@ -400,6 +400,26 @@ function ensureArray<T = any>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : [];
 }
 
+// Reasigna ids repetidos (el primero conserva el suyo) para que cada registro
+// pueda ubicarse sin ambigüedad por id.
+function withUniqueIds(records: any[]): any[] {
+  const used = new Set<number>(records.map((r) => Number(r?.id)));
+  const seen = new Set<number>();
+  return records.map((r) => {
+    const id = Number(r?.id);
+    if (!seen.has(id)) {
+      seen.add(id);
+      return r;
+    }
+    let next: number;
+    do next = Math.floor(Math.random() * 1000000);
+    while (used.has(next));
+    used.add(next);
+    seen.add(next);
+    return { ...r, id: next };
+  });
+}
+
 function normalizeUser(rawUser: any, index: number) {
   const role = normalizeRole(rawUser?.role);
   const fallbackEmail = role === 'super_admin'
@@ -513,7 +533,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     shops: ensureArray(data?.shops),
     cpParticipants: ensureArray(data?.cpParticipants),
     cpVendors: ensureArray(data?.cpVendors),
-    cpItems: ensureArray(data?.cpItems),
+    cpItems: withUniqueIds(ensureArray(data?.cpItems)),
     cpHistory: ensureArray(data?.cpHistory),
     cpExpenses: ensureArray(data?.cpExpenses),
     cpResetBackup: (data?.cpResetBackup && typeof data.cpResetBackup === "object") ? data.cpResetBackup : {},
