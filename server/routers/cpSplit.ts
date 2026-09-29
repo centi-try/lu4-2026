@@ -350,9 +350,9 @@ export const cpSplitRouter = router({
         if (match) {
           const newQty = Number(match.quantity) + input.quantity;
           dbInstance.cpItems = getCpItems().map((it: any) =>
-            Number(it.id) === Number(match.id) ? { ...it, quantity: newQty } : it,
+            isItem(it, match.id, scope) ? { ...it, quantity: newQty } : it,
           );
-          const merged = getCpItems().find((it: any) => Number(it.id) === Number(match.id));
+          const merged = findItem(match.id, scope);
           const { toSell } = computeAllocation(
             Math.max(0, newQty - sellReservedOf(merged)),
             effectiveCpNames(merged, scope),
@@ -421,10 +421,11 @@ export const cpSplitRouter = router({
         // El input no trae scope: la pestaña se deduce del ítem que se edita.
         const target = getCpItems().find((it: any) => Number(it.id) === Number(id));
         if (!target) throw new Error("Ítem no encontrado");
-        assertScopeAccess(ctx, scopeOf(target));
+        const scope = scopeOf(target);
+        assertScopeAccess(ctx, scope);
         let found = false;
         dbInstance.cpItems = getCpItems().map((it: any) => {
-          if (Number(it.id) !== Number(id)) return it;
+          if (!isItem(it, id, scope)) return it;
           found = true;
           // En lotes ENTREGADOS el reparto está congelado: no se puede cambiar
           // nombre, cantidad, el reparto del sobrante ni el modo de división.
