@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { toast } from 'sonner';
+import superjson from 'superjson';
 import { Cctv, Crop, Eye, Loader2, Maximize2, MonitorUp, RefreshCw, Square, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
@@ -78,6 +79,7 @@ export default function Cameras() {
   const api: CamerasApi = useMemo(() => ({
     createSession: () => utils.client.cameras.createSession.mutate(),
     publish: (i) => utils.client.cameras.publish.mutate(i),
+    publishReady: (i) => utils.client.cameras.publishReady.mutate(i),
     subscribe: (i) => utils.client.cameras.subscribe.mutate(i),
     renegotiate: (i) => utils.client.cameras.renegotiate.mutate(i),
     closeTracks: (i) => utils.client.cameras.closeTracks.mutate(i),
@@ -227,19 +229,19 @@ export default function Cameras() {
       if (!capture) return;
       const track = capture.getVideoTracks()[0];
       track.contentHint = 'detail';
-      await publisherRef.current.replaceTrack(track);
-      cropRef.current?.stop();
-      cropRef.current = null;
-      setCropped(false);
-      const old = captureRef.current;
+      teardownLocal();
+      slotRef.current = slot;
       captureRef.current = capture;
-      old?.getTracks().forEach((t) => t.stop());
       track.addEventListener('ended', () => {
         if (captureRef.current === capture) stopSharing(false);
       });
       setSentStream(new MediaStream([track]));
+      setSharing('starting');
+      await startPublisher(slot, track);
+      setSharing('live');
     } catch (e) {
       toast.error(errMsg(e));
+      await stopSharing(false);
     }
   };
 
@@ -290,6 +292,22 @@ export default function Cameras() {
     teardownLocal();
     if (slot !== null) utils.client.cameras.release.mutate({ slot }).catch(() => {});
   }, [teardownLocal, utils]);
+
+  useEffect(() => {
+    const releaseOnExit = () => {
+      const slot = slotRef.current;
+      if (slot === null) return;
+      fetch('/api/trpc/cameras.release', {
+        method: 'POST',
+        keepalive: true,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: superjson.stringify({ slot }),
+      }).catch(() => {});
+    };
+    window.addEventListener('pagehide', releaseOnExit);
+    return () => window.removeEventListener('pagehide', releaseOnExit);
+  }, []);
 
   useEffect(() => {
     if (sharing === 'idle') return;

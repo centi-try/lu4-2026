@@ -16,7 +16,7 @@ const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const SFU_TIMEOUT_MS = 10_000;
 const TURN_TTL_S = 24 * 60 * 60;
 
-type Publication = { sessionId: string; trackName: string; mid: string };
+type Publication = { sessionId: string; trackName: string; mid: string; ready: boolean };
 type Slot = {
   ownerId: number;
   ownerName: string;
@@ -53,7 +53,7 @@ type SfuResponse = {
   errorDescription?: string;
 };
 
-async function sfu(path: string, method: "POST" | "PUT", body?: unknown): Promise<SfuResponse> {
+async function sfu(path: string, method: "POST" | "PUT", body?: unknown, quiet = false): Promise<SfuResponse> {
   const cfg = sfuConfig();
   if (!cfg) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cámaras no está configurado en el servidor." });
   const controller = new AbortController();
@@ -73,14 +73,17 @@ async function sfu(path: string, method: "POST" | "PUT", body?: unknown): Promis
   }
   const data = (await res.json().catch(() => ({}))) as SfuResponse;
   if (!res.ok || data.errorCode) {
-    console.error(`[cameras] SFU ${method} ${path.replace(/sessions\/[^/]+/, "sessions/…")} -> ${res.status} ${data.errorCode ?? ""}`);
+    if (!quiet) {
+      const detail = String(data.errorDescription ?? "").slice(0, 120);
+      console.error(`[cameras] SFU ${method} ${path.replace(/sessions\/[^/]+/, "sessions/…")} -> ${res.status} ${data.errorCode ?? ""} ${detail}`);
+    }
     throw new TRPCError({ code: "BAD_GATEWAY", message: "El servidor de video rechazó la operación. Intenta de nuevo." });
   }
   return data;
 }
 
 const closeQuietly = (pub: Publication) =>
-  sfu(`/sessions/${encodeURIComponent(pub.sessionId)}/tracks/close`, "PUT", { force: true, tracks: [{ mid: pub.mid }] }).catch(() => {});
+  sfu(`/sessions/${encodeURIComponent(pub.sessionId)}/tracks/close`, "PUT", { force: true, tracks: [{ mid: pub.mid }] }, true).catch(() => {});
 
 const displayName = (u: any) => String(u?.characterName || u?.name || u?.email || "Usuario");
 const isModerator = (u: any) => String(u?.role || "").toLowerCase() === "super_admin";
@@ -136,8 +139,8 @@ export const camerasRouter = router({
         index,
         ownerId: s?.ownerId ?? null,
         ownerName: s?.ownerName ?? null,
-        live: !!s?.publication,
-        trackName: s?.publication?.trackName ?? null,
+        live: !!s?.publication?.ready,
+        trackName: s?.publication?.ready ? s.publication.trackName : null,
       })),
     };
   }),
@@ -230,8 +233,18 @@ export const camerasRouter = router({
       }
       const slot = ownSlot(userId, input.slot);
       if (slot.publication) closeQuietly(slot.publication);
-      slot.publication = { sessionId: input.sessionId, trackName, mid: input.mid };
+      slot.publication = { sessionId: input.sessionId, trackName, mid: input.mid, ready: false };
       return { answer: data.sessionDescription, trackName };
+    }),
+
+  /** El navegador avisa que su conexión con el SFU ya está activa; recién ahí otros pueden suscribirse. */
+  publishReady: cameraProcedure
+    .input(z.object({ slot: slotSchema, trackName: z.string().min(1).max(64) }))
+    .mutation(({ ctx, input }) => {
+      const s = ownSlot(Number(ctx.user.id), input.slot);
+      if (s.publication?.trackName !== input.trackName) return { ok: false };
+      s.publication.ready = true;
+      return { ok: true };
     }),
 
   unpublish: cameraProcedure.input(z.object({ slot: slotSchema })).mutation(({ ctx, input }) => {
@@ -249,7 +262,7 @@ export const camerasRouter = router({
       sweep();
       const wanted = Array.from(new Set(input.slots))
         .map((slot) => ({ slot, pub: slots[slot]?.publication }))
-        .filter((w): w is { slot: number; pub: Publication } => !!w.pub);
+        .filter((w): w is { slot: number; pub: Publication } => !!w.pub?.ready);
       if (wanted.length === 0) return { tracks: [], offer: null };
       const data = await sfu(`/sessions/${encodeURIComponent(input.sessionId)}/tracks/new`, "POST", {
         tracks: wanted.map((w) => ({ location: "remote", sessionId: w.pub.sessionId, trackName: w.pub.trackName })),

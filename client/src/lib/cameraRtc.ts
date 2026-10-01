@@ -8,6 +8,7 @@ type Sdp = { type: 'offer' | 'answer'; sdp: string };
 export interface CamerasApi {
   createSession(): Promise<{ sessionId: string }>;
   publish(input: { slot: number; sessionId: string; mid: string; offer: Sdp }): Promise<{ answer: Sdp; trackName: string }>;
+  publishReady(input: { slot: number; trackName: string }): Promise<unknown>;
   subscribe(input: { sessionId: string; slots: number[] }): Promise<{
     tracks: Array<{ slot: number; trackName: string; mid: string | null }>;
     offer: Sdp | null;
@@ -35,6 +36,26 @@ function newPeer(iceServers: RTCIceServer[]) {
 function toSdp(d: RTCSessionDescriptionInit | null, type: Sdp['type']): Sdp {
   if (!d?.sdp) throw new Error('El navegador no generó la negociación de video.');
   return { type, sdp: d.sdp };
+}
+
+const CONNECT_TIMEOUT_MS = 20_000;
+
+function waitConnected(pc: RTCPeerConnection) {
+  return new Promise<void>((resolve, reject) => {
+    if (pc.connectionState === 'connected') return resolve();
+    const timer = setTimeout(() => done(new Error('No se pudo conectar con el servidor de video. Revisa tu conexión.')), CONNECT_TIMEOUT_MS);
+    const onChange = () => {
+      if (pc.connectionState === 'connected') done();
+      else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') done(new Error('Se perdió la conexión de video.'));
+    };
+    const done = (err?: Error) => {
+      clearTimeout(timer);
+      pc.removeEventListener('connectionstatechange', onChange);
+      if (err) reject(err);
+      else resolve();
+    };
+    pc.addEventListener('connectionstatechange', onChange);
+  });
 }
 
 function watchConnection(pc: RTCPeerConnection, onLost: () => void) {
@@ -75,9 +96,12 @@ export class ScreenPublisher {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     if (!transceiver.mid) throw new Error('El navegador no asignó la pista de video.');
-    const { answer } = await this.api.publish({ slot, sessionId, mid: transceiver.mid, offer: toSdp(offer, 'offer') });
+    const { answer, trackName } = await this.api.publish({ slot, sessionId, mid: transceiver.mid, offer: toSdp(offer, 'offer') });
     if (this.closed) return;
     await pc.setRemoteDescription(answer);
+    await waitConnected(pc);
+    if (this.closed) return;
+    await this.api.publishReady({ slot, trackName });
   }
 
   /** Cambia la imagen enviada (p. ej. al recortar) sin renegociar. */
@@ -101,10 +125,11 @@ type Subscription = { trackName: string; mid: string; stream: MediaStream };
  */
 export class GridViewer {
   private pc: RTCPeerConnection;
-  private sessionId: Promise<string>;
+  private sessionId: string | null = null;
   private queue = new SerialQueue();
   private subs = new Map<number, Subscription>();
   private pendingTracks = new Map<string, MediaStreamTrack>();
+  private negotiated = false;
   private closed = false;
 
   constructor(
@@ -127,8 +152,6 @@ export class GridViewer {
         this.pendingTracks.set(mid, ev.track);
       }
     });
-    this.sessionId = api.createSession().then((r) => r.sessionId);
-    this.sessionId.catch(() => !this.closed && this.onLost());
   }
 
   private emit() {
@@ -143,13 +166,14 @@ export class GridViewer {
   sync(desired: Map<number, string>) {
     return this.queue.run(async () => {
       if (this.closed) return;
-      const sessionId = await this.sessionId;
+      if (this.negotiated) await waitConnected(this.pc);
 
       const stale: number[] = [];
       this.subs.forEach((s, slot) => {
         if (desired.get(slot) !== s.trackName) stale.push(slot);
       });
-      if (stale.length) {
+      if (stale.length && this.sessionId) {
+        const sessionId = this.sessionId;
         const mids = stale.map((slot) => this.subs.get(slot)!.mid);
         stale.forEach((slot) => this.subs.delete(slot));
         this.emit();
@@ -158,6 +182,10 @@ export class GridViewer {
 
       const missing = Array.from(desired.keys()).filter((slot) => !this.subs.has(slot));
       if (!missing.length || this.closed) return;
+      // Cloudflare da por desconectada una sesión que no conecta pronto: se abre recién al necesitarla.
+      this.sessionId ??= (await this.api.createSession()).sessionId;
+      const sessionId = this.sessionId;
+      if (this.closed) return;
       const res = await this.api.subscribe({ sessionId, slots: missing });
       for (const t of res.tracks) {
         if (!t.mid) continue;
@@ -174,6 +202,8 @@ export class GridViewer {
         const answer = await this.pc.createAnswer();
         await this.pc.setLocalDescription(answer);
         await this.api.renegotiate({ sessionId, answer: toSdp(answer, 'answer') });
+        this.negotiated = true;
+        await waitConnected(this.pc);
       }
       this.emit();
     });

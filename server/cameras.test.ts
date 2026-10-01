@@ -81,6 +81,9 @@ describe('cameras router', () => {
     const { sessionId } = await pub.createSession();
     const res = await pub.publish({ slot: 3, sessionId, mid: '0', offer });
     expect(res.answer.type).toBe('answer');
+    expect((await caller(user(2)).status()).slots[3]).toMatchObject({ live: false, trackName: null });
+    await expect(caller(user(2)).publishReady({ slot: 3, trackName: res.trackName })).rejects.toThrow();
+    await pub.publishReady({ slot: 3, trackName: res.trackName });
     const status = await caller(user(2)).status();
     expect(status.slots[3]).toMatchObject({ live: true, trackName: res.trackName });
 
