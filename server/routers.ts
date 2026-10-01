@@ -17,6 +17,7 @@ import { warehouseRouter } from "./routers/warehouse";
 import { presentationRouter } from "./routers/presentation";
 import { carouselRouter } from "./routers/carousel";
 import { cpSplitRouter } from "./routers/cpSplit";
+import { camerasRouter } from "./routers/cameras";
 
 export const appRouter = router({
   system: systemRouter,
@@ -45,6 +46,7 @@ export const appRouter = router({
   presentation: presentationRouter,
   carousel: carouselRouter,
   cpSplit: cpSplitRouter,
+  cameras: camerasRouter,
 });
 
 export type AppRouter = typeof appRouter;
