@@ -131,6 +131,7 @@ export class GridViewer {
   private pendingTracks = new Map<string, MediaStreamTrack>();
   private negotiated = false;
   private closed = false;
+  private countedBytes = new Map<string, number>();
 
   constructor(
     private api: CamerasApi,
@@ -207,6 +208,20 @@ export class GridViewer {
       }
       this.emit();
     });
+  }
+
+  /** Bytes de video recibidos (lo que factura Cloudflare) desde la llamada anterior. */
+  async takeReceivedBytes(): Promise<number> {
+    if (this.closed) return 0;
+    const report = await this.pc.getStats();
+    let delta = 0;
+    report.forEach((r) => {
+      if (r.type !== 'inbound-rtp') return;
+      const total = (r.bytesReceived ?? 0) + (r.headerBytesReceived ?? 0);
+      delta += Math.max(0, total - (this.countedBytes.get(r.id) ?? 0));
+      this.countedBytes.set(r.id, total);
+    });
+    return delta;
   }
 
   close() {

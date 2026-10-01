@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import superjson from 'superjson';
 import { Cctv, Crop, Eye, Loader2, Maximize2, MonitorUp, RefreshCw, Square, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { CameraBlockedPanel, CameraUsagePanel } from '../components/cameras/CameraUsagePanel';
 import { trpc } from '../lib/trpc';
 import { canCrop, cropTrack, GridViewer, MAX_FPS, ScreenPublisher } from '../lib/cameraRtc';
 import type { CamerasApi, CropRect } from '../lib/cameraRtc';
@@ -11,6 +12,7 @@ import type { CamerasApi, CropRect } from '../lib/cameraRtc';
 const HEARTBEAT_MS = 15_000;
 const HIDDEN_PAUSE_MS = 30_000;
 const RETRY_MS = 3_000;
+const USAGE_REPORT_MS = 20_000;
 
 const C = {
   panel: { background: 'rgba(10,14,22,0.85)', border: '1px solid rgba(255,255,255,0.08)' } as CSSProperties,
@@ -90,13 +92,16 @@ export default function Cameras() {
   const mySlot = slots.find((s) => s.ownerId !== null && s.ownerId === me)?.index ?? null;
   const liveCount = slots.filter((s) => s.live).length;
   const canShare = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia;
+  const usage = statusQ.data?.usage ?? null;
+  const blocked = !!usage?.blocked;
+  const sharingAllowed = !!usage?.sharingEnabled && !blocked;
 
   // ---------------------------------------------------------------- Mirar
   const visible = usePageVisible();
   const [streams, setStreams] = useState<Map<number, MediaStream>>(new Map());
   const [viewerGen, setViewerGen] = useState(0);
   const viewerRef = useRef<GridViewer | null>(null);
-  const watching = configured && !!iceServers && visible;
+  const watching = configured && !!iceServers && visible && !blocked;
 
   useEffect(() => {
     if (!watching || !iceServers) return;
@@ -105,13 +110,19 @@ export default function Cameras() {
       retry = setTimeout(() => setViewerGen((g) => g + 1), RETRY_MS);
     });
     viewerRef.current = viewer;
+    const report = setInterval(() => {
+      viewer.takeReceivedBytes().then((bytes) => {
+        if (bytes > 0) return utils.client.cameras.reportUsage.mutate({ bytes });
+      }).catch(() => {});
+    }, USAGE_REPORT_MS);
     return () => {
       clearTimeout(retry);
+      clearInterval(report);
       viewer.close();
       viewerRef.current = null;
       setStreams(new Map());
     };
-  }, [watching, iceServers, api, viewerGen]);
+  }, [watching, iceServers, api, viewerGen, utils]);
 
   const desiredKey = slots
     .filter((s) => s.live && s.trackName && s.ownerId !== me)
@@ -359,6 +370,11 @@ export default function Cameras() {
           </div>
         )}
 
+        {usage && <CameraUsagePanel usage={usage} canModerate={!!statusQ.data?.canModerate} />}
+
+        {usage && blocked ? (
+          <CameraBlockedPanel usage={usage} canModerate={!!statusQ.data?.canModerate} />
+        ) : (<>
         {mySlot !== null && sharing !== 'idle' && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl px-4 py-3" style={C.panel}>
             <span className="flex-1 text-xs" style={{ color: C.text }}>
@@ -397,7 +413,7 @@ export default function Cameras() {
                     {s.ownerId === null ? (
                       <>
                         <span className="text-xs" style={{ color: C.muted }}>Libre</span>
-                        {canShare && configured && mySlot === null && (
+                        {canShare && configured && sharingAllowed && mySlot === null && (
                           <button onClick={() => shareInto(s.index)} disabled={sharing !== 'idle' || !iceServers}
                             className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40"
                             style={{ background: 'rgba(123,241,214,0.15)', color: C.accent }}>
@@ -450,6 +466,7 @@ export default function Cameras() {
             );
           })}
         </div>
+        </>)}
       </div>
 
       {zoomSlot !== null && (

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { camerasRouter, resetCamerasState, STALE_MS } from './routers/cameras';
+import { BLOCK_BYTES, camerasRouter, GB, resetCamerasState, STALE_MS } from './routers/cameras';
+
+const db = vi.hoisted(() => ({
+  dbInstance: { settings: [] as any[] },
+  saveDbToDisk: vi.fn(),
+  createAuditLog: vi.fn(async () => {}),
+}));
+vi.mock('./db', () => db);
 
 const user = (id: number, extra: Record<string, unknown> = {}) => ({
   id, name: `U${id}`, characterName: `Char${id}`, role: 'user', legacyAccess: true, ...extra,
@@ -16,6 +23,9 @@ function json(body: unknown, status = 200) {
 
 beforeEach(() => {
   resetCamerasState();
+  db.dbInstance.settings = [];
+  db.saveDbToDisk.mockClear();
+  db.createAuditLog.mockClear();
   process.env.CF_REALTIME_APP_ID = 'app123';
   process.env.CF_REALTIME_APP_SECRET = 'secret123';
   delete process.env.CF_TURN_KEY_ID;
@@ -47,6 +57,67 @@ describe('cameras router', () => {
   it('bloquea a usuarios sin acceso al sistema', async () => {
     await expect(caller(user(1, { legacyAccess: false })).status()).rejects.toThrow('No tienes acceso');
     await expect(caller(null).status()).rejects.toThrow();
+  });
+
+  it('todos los roles con acceso pueden compartir (user, mapper, admin, solo CP)', async () => {
+    const users = [
+      user(1, { role: 'user' }),
+      user(2, { role: 'mapper' }),
+      user(3, { role: 'admin', legacyAccess: false }),
+      user(4, { role: 'user', legacyAccess: false, cpAccess: true }),
+    ];
+    for (const [i, u] of users.entries()) await expect(caller(u).claim({ slot: i })).resolves.toEqual({ slot: i });
+  });
+
+  it('suma el consumo del mes, lo guarda y limita reportes abusivos', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-15T12:00:00Z') });
+    const v = caller(user(1));
+    await v.reportUsage({ bytes: 5_000_000 });
+    expect((await v.reportUsage({ bytes: 5_000_000 })).ok).toBe(false);
+    vi.advanceTimersByTime(11_000);
+    await v.reportUsage({ bytes: 1_500_000_000 });
+    const { usage } = await v.status();
+    expect(usage).toMatchObject({ month: '2026-10', bytes: 205_000_000, blocked: false, sharingEnabled: true });
+    expect(db.saveDbToDisk).toHaveBeenCalled();
+
+    vi.setSystemTime(new Date('2026-11-01T00:00:01Z'));
+    expect((await v.status()).usage).toMatchObject({ month: '2026-11', bytes: 0 });
+  });
+
+  it('a los 950 GB bloquea Cámaras y libera los recuadros hasta que un admin acepte el costo', async () => {
+    const p = caller(user(1));
+    await p.claim({ slot: 2 });
+    await p.status();
+    db.dbInstance.settings[0].bytes = BLOCK_BYTES - 1000;
+    await caller(user(2)).reportUsage({ bytes: 5000 });
+
+    const st = await p.status();
+    expect(st.usage.blocked).toBe(true);
+    expect(st.slots[2].ownerId).toBeNull();
+    await expect(p.claim({ slot: 2 })).rejects.toThrow('bloqueado');
+    const v = await caller(user(2)).createSession();
+    await expect(caller(user(2)).subscribe({ sessionId: v.sessionId, slots: [2] })).rejects.toThrow('bloqueado');
+
+    await expect(p.unlockOverLimit({ acceptCost: true })).rejects.toThrow('Solo un Admin');
+    await expect(caller(user(9, { role: 'admin' })).unlockOverLimit({ acceptCost: false as true })).rejects.toThrow();
+    await caller(user(9, { role: 'admin' })).unlockOverLimit({ acceptCost: true });
+    expect((await p.status()).usage).toMatchObject({ blocked: false, overLimitUnlocked: true, unlockedBy: 'Char9' });
+    await expect(p.claim({ slot: 2 })).resolves.toEqual({ slot: 2 });
+    expect(db.createAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: 'CAMERAS_OVER_LIMIT_UNLOCKED' }));
+    expect(BLOCK_BYTES / GB).toBe(950);
+  });
+
+  it('admin o super admin pueden pausar y reanudar compartir; pausar libera los recuadros', async () => {
+    const p = caller(user(1));
+    await p.claim({ slot: 0 });
+    await expect(p.setSharingEnabled({ enabled: false })).rejects.toThrow('Solo un Admin');
+    await caller(user(9, { role: 'super_admin' })).setSharingEnabled({ enabled: false });
+    const st = await p.status();
+    expect(st.usage.sharingEnabled).toBe(false);
+    expect(st.slots[0].ownerId).toBeNull();
+    await expect(p.claim({ slot: 0 })).rejects.toThrow('pausado');
+    await caller(user(8, { role: 'admin' })).setSharingEnabled({ enabled: true });
+    await expect(p.claim({ slot: 0 })).resolves.toEqual({ slot: 0 });
   });
 
   it('un recuadro tiene un solo dueño y cada usuario tiene un solo recuadro', async () => {

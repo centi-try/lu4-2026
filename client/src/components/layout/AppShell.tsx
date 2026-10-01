@@ -143,7 +143,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {navItems.filter(item => {
             // Toggle cpAccess: solo ve el menú Reparticiones CP, nada más.
-            if (effectiveIsCp) return item.href === '/cp-split';
+            if (effectiveIsCp) return item.href === '/cp-split' || item.href === '/cameras';
             if (!effectiveLegacyAccess) return false;
             if (!item.allowedRoles) return true;
             return item.allowedRoles.includes(effectiveRole as any);
