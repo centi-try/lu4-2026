@@ -109,6 +109,24 @@ const nameOf = (u: any) => String(u?.characterName || u?.name || u?.email || "Us
 const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : null);
 
 const freshUser = (u: any) => (dbInstance.users || []).find((x: any) => Number(x.id) === Number(u?.id)) ?? u;
+/** Nombre para bitácoras; si un Super Admin está viendo DKP como otro usuario, deja constancia de ambos. */
+const actorName = (u: any) => (u?.viewAsBy ? `${nameOf(u)} (vía ${u.viewAsBy})` : nameOf(u));
+export const VIEW_AS_HEADER = "x-dkp-view-as";
+
+/**
+ * El Super Admin puede "cambiar de cuenta" en la app para ver lo que ve otro usuario.
+ * En DKP eso debe aplicar también los permisos de ese usuario, no los del Super Admin.
+ */
+export function effectiveDkpUser(authUser: any, headerValue: unknown) {
+  const real = freshUser(authUser);
+  const raw = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  const targetId = Number(raw);
+  if (!raw || !Number.isInteger(targetId) || targetId === Number(real?.id)) return real;
+  if (String(real?.role || "").toLowerCase() !== "super_admin") return real;
+  const target = (dbInstance.users || []).find((x: any) => Number(x.id) === targetId && x.isActive !== false);
+  if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "El usuario que estás viendo ya no existe." });
+  return { ...target, viewAsBy: nameOf(real), viewAsById: Number(real.id) };
+}
 export const isDkpAdmin = (u: any) => String(u?.role || "").toLowerCase() === "super_admin" || u?.dkpAdmin === true;
 
 type Cp = { id: number; name: string; clanId: number | null; leaderIds: number[] };
@@ -181,12 +199,16 @@ export function memberMonthStats(m: Member, month: string) {
 }
 
 function pushLog(ev: DkpEvent, user: any, action: string, detail: string) {
-  ev.log = [...(ev.log || []), { at: nowIso(), by: nameOf(user), action, detail }];
+  ev.log = [...(ev.log || []), { at: nowIso(), by: actorName(user), action, detail }];
   ev.updatedAt = nowIso();
 }
 
 async function audit(user: any, action: string, detail: string) {
-  await createAuditLog({ userId: user.id, action, detail });
+  await createAuditLog({
+    userId: user.viewAsById ?? user.id,
+    action,
+    detail: user.viewAsBy ? `[Como ${nameOf(user)}] ${detail}` : detail,
+  });
 }
 
 function requireAdmin(u: any) {
@@ -213,16 +235,30 @@ export function canViewPhoto(user: any, file: string) {
   return !!ev && !!cp && canSeeRecord(u, ev, cp);
 }
 
+/** Solo el líder carga su registro (foto y checks) mientras está en borrador y el evento abierto. */
+const isLeaderDraft = (u: any, ev: DkpEvent, cp: Cp, r: DkpRecord | undefined) =>
+  isLeader(u, cp) && ev.status === "open" && (!r || r.status === "draft");
+
+/** El Admin DKP no carga registros: solo corrige la asistencia de uno ya enviado (o tras el cierre). */
+const canCorrectRecord = (u: any, ev: DkpEvent, r: DkpRecord | undefined) =>
+  isDkpAdmin(u) && !!r && ev.status !== "cancelled" && (ev.status === "closed" || r.status !== "draft");
+
 function canEditRecord(u: any, ev: DkpEvent, cp: Cp, r: DkpRecord | undefined) {
   if (ev.status === "cancelled") return false;
-  if (isDkpAdmin(u)) return true;
-  return isLeader(u, cp) && ev.status === "open" && (!r || r.status === "draft");
+  return isLeaderDraft(u, ev, cp, r) || canCorrectRecord(u, ev, r);
 }
 
 function assertCanEdit(u: any, ev: DkpEvent, cp: Cp, r: DkpRecord | undefined) {
   if (canEditRecord(u, ev, cp, r)) return;
   if (ev.status === "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "El evento está anulado." });
-  if (!isLeader(u, cp)) throw new TRPCError({ code: "FORBIDDEN", message: "Solo el líder de esta CP puede registrar su asistencia." });
+  if (!isLeader(u, cp)) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: isDkpAdmin(u)
+        ? "Solo el líder de esta CP carga la foto y la asistencia. Podrás corregirla cuando envíe su registro."
+        : "Solo el líder de esta CP puede registrar su asistencia.",
+    });
+  }
   if (ev.status !== "open") throw new TRPCError({ code: "FORBIDDEN", message: "El evento ya está cerrado." });
   throw new TRPCError({ code: "FORBIDDEN", message: "Ya enviaste este registro; solo un Admin DKP puede corregirlo." });
 }
@@ -334,7 +370,7 @@ function findAuction(id: number) {
 }
 
 const dkpProcedure = protectedProcedure.use(({ ctx, next }) => {
-  const u = freshUser(ctx.user);
+  const u = effectiveDkpUser(ctx.user, ctx.req?.headers?.[VIEW_AS_HEADER]);
   if (!hasDkpAccess(u)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "No tienes acceso a DKP." });
   }
@@ -390,7 +426,7 @@ export const dkpRouter = router({
       .filter((e) => e.status === "open" || monthOf(e.date) === input.month)
       .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
       .map((ev) => eventSummary(ev, ctx.user));
-    return { month: input.month, canAdmin: isDkpAdmin(ctx.user), maxAttendees: MAX_ATTENDEES, cps, events: list, eventTypes: activeTypes() };
+    return { month: input.month, canAdmin: isDkpAdmin(ctx.user), viewingAs: ctx.user.viewAsBy ? nameOf(ctx.user) : null, maxAttendees: MAX_ATTENDEES, cps, events: list, eventTypes: activeTypes() };
   }),
 
   cpDetail: dkpProcedure.input(z.object({ cpId: z.number().int(), month: monthInput })).query(({ input }) => {
@@ -454,6 +490,7 @@ export const dkpRouter = router({
         leaders: cp.leaderIds.map((id) => users.get(id)).filter(Boolean) as string[],
         isMine: isLeader(ctx.user, cp),
         canEdit: canEditRecord(ctx.user, ev, cp, r),
+        canPhoto: isLeaderDraft(ctx.user, ev, cp, r),
         members: [
           ...current.map((m) => ({ userId: m.userId, name: m.name, className: m.className, former: false })),
           ...extra.map((a) => ({ userId: a.userId, name: a.name, className: null, former: true })),
@@ -525,7 +562,7 @@ export const dkpRouter = router({
         date: input.date,
         points,
         status: "open",
-        createdBy: nameOf(ctx.user),
+        createdBy: actorName(ctx.user),
         createdAt: nowIso(),
         updatedAt: nowIso(),
         log: [],
@@ -628,14 +665,14 @@ export const dkpRouter = router({
   }),
 
   setPhoto: dkpProcedure
-    .input(recordKey.extend({ dataBase64: z.string().min(10).max(Math.ceil((MAX_PHOTO_BYTES * 4) / 3) + 8), reason: reasonInput.optional() }))
+    .input(recordKey.extend({ dataBase64: z.string().min(10).max(Math.ceil((MAX_PHOTO_BYTES * 4) / 3) + 8) }))
     .mutation(async ({ ctx, input }) => {
       const ev = findEvent(input.eventId);
       const cp = findCp(input.cpId);
       const existing = recordOf(ev.id, cp.id);
-      assertCanEdit(ctx.user, ev, cp, existing);
-      if (existing && needsReason(ev, existing) && !input.reason) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Escribe el motivo de la corrección." });
+      if (!isLeaderDraft(ctx.user, ev, cp, existing)) {
+        assertCanEdit(ctx.user, ev, cp, existing);
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo el líder de esta CP sube la foto de evidencia, mientras su registro no esté enviado." });
       }
       const buf = Buffer.from(input.dataBase64, "base64");
       if (buf.length > MAX_PHOTO_BYTES) throw new TRPCError({ code: "BAD_REQUEST", message: "La foto pesa más de 8 MB." });
@@ -647,9 +684,6 @@ export const dkpRouter = router({
       fs.writeFileSync(path.join(dir, file), buf);
       const r = ensureRecord(ev, cp);
       const hadPhoto = !!r.photoUrl;
-      if (needsReason(ev, r) && input.reason) {
-        r.corrections.push({ at: nowIso(), by: nameOf(ctx.user), reason: `Cambió la foto: ${input.reason}`, before: [], after: [] });
-      }
       r.photoUrl = `${PHOTO_ROUTE}/${file}`;
       r.updatedAt = nowIso();
       pushLog(ev, ctx.user, "photo", `${hadPhoto ? "Cambió" : "Subió"} la foto de ${cp.name}.`);
@@ -677,7 +711,7 @@ export const dkpRouter = router({
       r.updatedAt = nowIso();
       if (correcting) {
         const after = r.attendees.map((a) => a.name);
-        r.corrections.push({ at: nowIso(), by: nameOf(ctx.user), reason: input.reason!, before, after });
+        r.corrections.push({ at: nowIso(), by: actorName(ctx.user), reason: input.reason!, before, after });
         pushLog(ev, ctx.user, "corrected", `Corrigió la asistencia de ${cp.name} (${before.length} → ${after.length}): ${input.reason}`);
         await audit(ctx.user, "DKP_RECORD_CORRECTED", `Corrigió la asistencia de ${cp.name} en "${ev.name}" (${before.length} → ${after.length}): ${input.reason}`);
       }
@@ -694,7 +728,7 @@ export const dkpRouter = router({
     assertCanEdit(ctx.user, ev, cp, r);
     if (!r?.photoUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "Sube la foto de evidencia antes de enviar." });
     r.status = "submitted";
-    r.submittedBy = nameOf(ctx.user);
+    r.submittedBy = actorName(ctx.user);
     r.submittedAt = nowIso();
     r.updatedAt = nowIso();
     pushLog(ev, ctx.user, "submitted", `Envió el registro de ${cp.name}: ${r.attendees.length} asistentes.`);
@@ -710,7 +744,7 @@ export const dkpRouter = router({
     const r = recordOf(ev.id, cp.id);
     if (!r || r.status === "draft") throw new TRPCError({ code: "BAD_REQUEST", message: "La CP todavía no envía su registro." });
     r.status = "validated";
-    r.validatedBy = nameOf(ctx.user);
+    r.validatedBy = actorName(ctx.user);
     r.validatedAt = nowIso();
     r.updatedAt = nowIso();
     pushLog(ev, ctx.user, "validated", `Validó el registro de ${cp.name}.`);
@@ -765,7 +799,7 @@ export const dkpRouter = router({
         itemName: input.itemName || null,
         comment: input.comment,
         date: input.date,
-        createdBy: nameOf(ctx.user),
+        createdBy: actorName(ctx.user),
         createdAt: nowIso(),
       };
       ledger().push(entry);
@@ -809,7 +843,7 @@ export const dkpRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "El ajuste no puede ser 0." });
       }
       const before = `${entry.points} pt${entry.itemName ? ` (${entry.itemName})` : ""}`;
-      Object.assign(entry, { points, itemName: input.itemName || null, comment: input.comment, date: input.date, updatedBy: nameOf(ctx.user), updatedAt: nowIso() });
+      Object.assign(entry, { points, itemName: input.itemName || null, comment: input.comment, date: input.date, updatedBy: actorName(ctx.user), updatedAt: nowIso() });
       saveDbToDisk();
       await audit(ctx.user, "DKP_LEDGER_UPDATED", `Editó el movimiento DKP de ${cp.name}: ${before} → ${points} pt${entry.itemName ? ` (${entry.itemName})` : ""}.`);
       return { ok: true, balance: cpBalance(cp.id) };
@@ -861,7 +895,7 @@ export const dkpRouter = router({
         winningBid: null,
         ledgerId: null,
         cancelReason: null,
-        createdBy: nameOf(ctx.user),
+        createdBy: actorName(ctx.user),
         createdAt: nowIso(),
         closedAt: null,
       };
@@ -882,7 +916,7 @@ export const dkpRouter = router({
       if (top && input.amount <= top.amount) throw new TRPCError({ code: "BAD_REQUEST", message: `La puja debe superar ${top.amount} pt.` });
       const available = cpBalance(cp.id) - committedPoints(cp.id, a.id);
       if (input.amount > available) throw new TRPCError({ code: "BAD_REQUEST", message: `Saldo insuficiente: ${cp.name} tiene ${available} pt disponibles.` });
-      a.bids.push({ id: nextId(a.bids), cpId: cp.id, cpName: cp.name, amount: input.amount, by: nameOf(ctx.user), byUserId: Number(ctx.user.id), at: nowIso() });
+      a.bids.push({ id: nextId(a.bids), cpId: cp.id, cpName: cp.name, amount: input.amount, by: actorName(ctx.user), byUserId: Number(ctx.user.id), at: nowIso() });
       saveDbToDisk();
       await audit(ctx.user, "DKP_AUCTION_BID", `Pujó ${input.amount} pt por ${cp.name} en la subasta #${a.id} (${a.itemName}).`);
       return { ok: true };

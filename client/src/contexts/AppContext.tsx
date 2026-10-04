@@ -7,6 +7,7 @@ import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { trpc } from '../lib/trpc';
+import { setViewAsUserId } from '../lib/viewAs';
 
 interface SellItemOptions {
   itemId: string;
@@ -93,6 +94,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [currentUser, setCurrentUserState] = useState<Character>(() => getAuthUserAsCharacter());
   const isImpersonatingRef = useRef(false);
+  const trpcUtils = trpc.useUtils();
 
   useEffect(() => {
     if (!isImpersonatingRef.current) {
@@ -106,19 +108,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (!authUser) {
       isImpersonatingRef.current = false;
+      setViewAsUserId(null);
       setCurrentUserState(defaultEmptyCharacter);
       return;
     }
 
     if (!isAuthSuperAdmin && !isOriginalAccount) {
       isImpersonatingRef.current = false;
+      setViewAsUserId(null);
       setCurrentUserState(originalUser);
       return;
     }
 
     isImpersonatingRef.current = !isOriginalAccount;
+    setViewAsUserId(isOriginalAccount ? null : Number(nextUser.id));
+    void trpcUtils.dkp.invalidate();
     setCurrentUserState(nextUser);
-  }, [authUser, getAuthUserAsCharacter, isAuthSuperAdmin]);
+  }, [authUser, getAuthUserAsCharacter, isAuthSuperAdmin, trpcUtils]);
 
   const [items, setItems] = useState<Item[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -231,7 +237,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (serverAuditLogs) setAuditLogs(serverAuditLogs as any[]);
   }, [serverAuditLogs]);
 
-  const trpcUtils = trpc.useUtils();
   const sellMutation = trpc.items.sell.useMutation({
     onSuccess: () => {
       refetchPurchases();

@@ -2,6 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { getViewAsUserId, VIEW_AS_HEADER } from "./lib/viewAs";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -77,6 +78,10 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       maxURLLength: 2048,
+      headers() {
+        const id = getViewAsUserId();
+        return id != null ? { [VIEW_AS_HEADER]: String(id) } : {};
+      },
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),

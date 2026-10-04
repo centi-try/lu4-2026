@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import { Maximize2 } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../../server/routers';
@@ -6,6 +7,8 @@ import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../ui/alert-dialog';
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
+import { ImageHoverPreview } from '../ui/ImageHoverPreview';
 
 type Out = inferRouterOutputs<AppRouter>['dkp'];
 export type Overview = Out['overview'];
@@ -103,35 +106,28 @@ export function Bar({ value }: { value: number | null }) {
   );
 }
 
-const ZOOM = 2.8;
-const LENS = 220;
-
-/** Foto con lupa: al pasar el cursor muestra esa zona ampliada; clic abre el original. */
+/** Miniatura de la evidencia: al pasar el cursor se ve la foto completa ampliada (como en Inventario); con clic, a pantalla completa. */
 export function ZoomImage({ src, alt }: { src: string; alt: string }) {
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [lens, setLens] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  function move(e: React.MouseEvent) {
-    const r = imgRef.current?.getBoundingClientRect();
-    if (!r) return;
-    setLens({ x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height });
-  }
+  const [full, setFull] = useState(false);
   return (
-    <a href={src} target="_blank" rel="noreferrer" title="Pasa el cursor para hacer zoom · clic para abrir en tamaño completo"
-      className="relative block cursor-zoom-in overflow-hidden rounded-lg" style={{ background: '#000' }}
-      onMouseMove={move} onMouseLeave={() => setLens(null)}>
-      <img ref={imgRef} src={src} alt={alt} className="max-h-[26rem] w-full object-contain" />
-      {lens && (
-        <span className="pointer-events-none absolute rounded-full shadow-2xl"
-          style={{
-            width: LENS, height: LENS, left: lens.x - LENS / 2, top: lens.y - LENS / 2,
-            border: `2px solid ${C.accent}`,
-            backgroundImage: `url("${src}")`, backgroundRepeat: 'no-repeat',
-            backgroundSize: `${lens.w * ZOOM}px ${lens.h * ZOOM}px`,
-            backgroundPosition: `${LENS / 2 - lens.x * ZOOM}px ${LENS / 2 - lens.y * ZOOM}px`,
-            backgroundColor: '#000',
-          }} />
-      )}
-    </a>
+    <>
+      <ImageHoverPreview src={src} caption="Clic para ver a pantalla completa" size={560} block>
+        <button type="button" onClick={() => setFull(true)} title="Ver foto ampliada"
+          className="group relative block w-full cursor-zoom-in overflow-hidden rounded-lg" style={{ background: '#000' }}>
+          <img src={src} alt={alt} className="max-h-[26rem] w-full object-contain" />
+          <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold opacity-80 group-hover:opacity-100"
+            style={{ background: 'rgba(0,0,0,0.65)', color: C.accent }}>
+            <Maximize2 className="h-3 w-3" /> Ampliar
+          </span>
+        </button>
+      </ImageHoverPreview>
+      <Dialog open={full} onOpenChange={setFull}>
+        <DialogContent className="max-w-[96vw] p-3 sm:max-w-[96vw]" style={C.modal}>
+          <DialogTitle className="sr-only">{alt}</DialogTitle>
+          <img src={src} alt={alt} className="mx-auto max-h-[86vh] w-auto max-w-full rounded-lg object-contain" />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -42,7 +42,7 @@ export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number;
         <span className="text-xs" style={{ color: C.muted }}>Movimiento de {monthLabel(month)}: <b style={{ color: d.monthPoints < 0 ? C.red : C.text }}>{fmtPts(d.monthPoints)}</b></span>
         {canAdmin && (
           <div className="ml-auto flex flex-wrap gap-2">
-            <Btn tone="gold" onClick={() => setAdding(true)}><Gift className="h-4 w-4" /> Ítem entregado</Btn>
+            <Btn tone="gold" className="h-10 w-44" onClick={() => setAdding(true)}><Gift className="h-4 w-4" /> Ítem entregado</Btn>
           </div>
         )}
       </div>
@@ -84,10 +84,10 @@ export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number;
                             <span className="flex-1">{h.comment}</span>
                             {canAdmin && h.ledger && (
                               <>
-                                <button onClick={() => setEditing(toEdit(h))} title="Editar movimiento" className="opacity-60 hover:opacity-100">
+                                <button onClick={() => setEditing(toEdit(h))} title="Editar movimiento" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:brightness-125" style={{ background: 'rgba(123,241,214,0.12)' }}>
                                   <Pencil className="h-3.5 w-3.5" style={{ color: C.accent }} />
                                 </button>
-                                <button onClick={() => setDeleting(h.ledger!.id)} title="Eliminar movimiento" className="opacity-60 hover:opacity-100">
+                                <button onClick={() => setDeleting(h.ledger!.id)} title="Eliminar movimiento" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:brightness-125" style={{ background: 'rgba(248,113,113,0.12)' }}>
                                   <Trash2 className="h-3.5 w-3.5" style={{ color: C.red }} />
                                 </button>
                               </>

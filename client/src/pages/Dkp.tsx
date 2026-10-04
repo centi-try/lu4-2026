@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Crown, Gavel, Plus, Search, Trophy, Users, Wallet, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Crown, Eye, Gavel, Plus, Search, Trophy, Users, Wallet, X } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
+import { useApp } from '../contexts/AppContext';
 import { trpc } from '../lib/trpc';
 import { CpDetail } from '../components/dkp/CpDetail';
 import { EventDialog } from '../components/dkp/EventDialog';
@@ -12,6 +13,7 @@ import type { Overview, OverviewCp, OverviewEvent } from '../components/dkp/shar
 
 export default function Dkp() {
   const [tab, setTab] = useState('points');
+  const { isImpersonating, currentUser } = useApp();
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl space-y-5 p-5">
@@ -24,6 +26,12 @@ export default function Dkp() {
             <p className="text-xs" style={{ color: C.muted }}>Puntos por asistencia de cada CP y subastas de ítems con esos puntos.</p>
           </div>
         </div>
+        {isImpersonating && (
+          <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', color: C.text }}>
+            <Eye className="h-4 w-4 shrink-0" style={{ color: C.gold }} />
+            <span>Estás viendo DKP como <b>{currentUser?.name}</b>, con sus permisos. Lo que hagas queda registrado a su nombre y al tuyo.</span>
+          </div>
+        )}
         <Tabs value={tab} onValueChange={setTab} className="gap-5">
           <TabsList className="h-11 w-full max-w-md p-1" style={{ background: 'rgba(255,255,255,0.05)' }}>
             <TabsTrigger value="points" className="gap-2 data-[state=active]:!bg-amber-300/15 data-[state=active]:!text-amber-300"><Coins className="h-4 w-4" /> Puntos DKP</TabsTrigger>
@@ -83,7 +91,7 @@ function PointsTab() {
               <div className="space-y-3 rounded-2xl p-5" style={{ ...C.panel, borderColor: 'rgba(123,241,214,0.25)' }}>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold" style={{ color: C.text }}>{data.cps.find((c) => c.id === openCp)!.name}</h2>
-                  <Btn tone="red" className="ml-auto" onClick={() => setOpenCp(null)}><X className="h-4 w-4" /> Cerrar detalle</Btn>
+                  <Btn tone="red" className="ml-auto h-10 w-44" onClick={() => setOpenCp(null)}><X className="h-4 w-4" /> Cerrar detalle</Btn>
                 </div>
                 <CpDetail cpId={openCp} month={month} canAdmin={data.canAdmin} onOpenEvent={setEventId} />
               </div>

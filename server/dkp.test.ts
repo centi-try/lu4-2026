@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { canViewPhoto, dkpRouter, settleAuctions } from './routers/dkp';
+import { VIEW_AS_HEADER, canViewPhoto, dkpRouter, settleAuctions } from './routers/dkp';
 
 const db = vi.hoisted(() => ({
   dbInstance: {} as any,
@@ -24,6 +24,8 @@ const dkpAdmin = { id: 2, characterName: 'Mod', role: 'mapper', legacyAccess: tr
 const leaderA = member(10, 100);
 const leaderB = member(20, 200);
 const caller = (u: any) => dkpRouter.createCaller({ user: u, req: {} as any, res: {} as any });
+const callerAs = (u: any, viewAsId: number) =>
+  dkpRouter.createCaller({ user: u, req: { headers: { [VIEW_AS_HEADER]: String(viewAsId) } } as any, res: {} as any });
 
 beforeEach(() => {
   db.dbInstance = {
@@ -296,5 +298,36 @@ describe('dkp router', () => {
     expect(list.finished.find((a) => a.id === other)).toMatchObject({ status: 'closed', winner: null });
     const ov = await caller(admin).overview({ month: MONTH });
     expect(ov.cps.map((c) => c.balance)).toEqual([1, 2]);
+  });
+
+  it('el Admin DKP no carga foto ni asistencia: solo corrige un registro ya enviado', async () => {
+    const ev = await newEvent();
+    await expect(caller(admin).setPhoto({ eventId: ev, cpId: 100, dataBase64: JPG })).rejects.toThrow('Solo el líder');
+    await expect(caller(dkpAdmin).saveAttendance({ eventId: ev, cpId: 100, userIds: [10] })).rejects.toThrow('Solo el líder');
+    await register(leaderA, ev, 100, [10, 11]);
+    await expect(caller(dkpAdmin).setPhoto({ eventId: ev, cpId: 100, dataBase64: JPG })).rejects.toThrow('Solo el líder');
+    await caller(dkpAdmin).saveAttendance({ eventId: ev, cpId: 100, userIds: [10], reason: 'P11 no aparece' });
+    const d = await caller(dkpAdmin).eventDetail({ eventId: ev });
+    expect(d.cps.find((c) => c.cpId === 100)).toMatchObject({ canEdit: true, canPhoto: false });
+    expect(d.cps.find((c) => c.cpId === 200)).toMatchObject({ canEdit: false, canPhoto: false });
+  });
+
+  it('el Super Admin que cambia de cuenta usa los permisos de ese usuario', async () => {
+    const ev = await newEvent();
+    const asMember = callerAs(admin, 11);
+    const ov = await asMember.overview({ month: MONTH });
+    expect(ov).toMatchObject({ canAdmin: false, viewingAs: 'P11' });
+    await expect(asMember.createEvent({ name: 'Boss', date: `${MONTH}-02`, points: 1 })).rejects.toThrow('Solo un Admin DKP');
+    await expect(asMember.setPhoto({ eventId: ev, cpId: 100, dataBase64: JPG })).rejects.toThrow('Solo el líder');
+    const asB = callerAs(admin, 20);
+    expect((await asB.eventDetail({ eventId: ev })).cps.map((c) => c.cpId)).toEqual([200]);
+    await expect(asB.saveAttendance({ eventId: ev, cpId: 100, userIds: [10] })).rejects.toThrow('Solo el líder');
+    await asB.setPhoto({ eventId: ev, cpId: 200, dataBase64: JPG });
+    await asB.saveAttendance({ eventId: ev, cpId: 200, userIds: [20] });
+    await asB.submitRecord({ eventId: ev, cpId: 200 });
+    const rec = (await caller(admin).eventDetail({ eventId: ev })).cps.find((c) => c.cpId === 200)!.record!;
+    expect(rec.submittedBy).toBe('P20 (vía Admin)');
+    await expect(callerAs(leaderA, 1).createEvent({ name: 'Boss', date: `${MONTH}-03`, points: 1 })).rejects.toThrow('Solo un Admin DKP');
+    expect((await callerAs(admin, 1).overview({ month: MONTH })).viewingAs).toBeNull();
   });
 });

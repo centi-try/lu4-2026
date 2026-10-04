@@ -230,14 +230,12 @@ function RecordPanel({ cp, data, defaultOpen }: { cp: EventCp; data: EventDetail
 
   async function onFile(file: File | undefined) {
     if (!file) return;
-    if (!reasonOk) { toast.error('Escribe primero el motivo de la corrección.'); return; }
     setUploading(true);
     try {
       const { base64, width } = await preparePhoto(file);
-      await setPhoto.mutateAsync({ ...key, dataBase64: base64, ...reasonArg });
+      await setPhoto.mutateAsync({ ...key, dataBase64: base64 });
       if (width < MIN_GOOD_WIDTH) toast.warning('La foto es pequeña: si no se leen los nombres, súbela en mejor calidad.');
       else toast.success('Foto subida.');
-      if (correcting) setReason('');
     } catch (e) {
       if (e instanceof Error && !setPhoto.error) toast.error(e.message || 'No se pudo leer la foto.');
     } finally {
@@ -282,7 +280,13 @@ function RecordPanel({ cp, data, defaultOpen }: { cp: EventCp; data: EventDetail
 
           {correcting && cp.canEdit && (
             <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} className={inputCls}
-              placeholder="Motivo de la corrección (obligatorio para cambiar asistencia o foto)" />
+              placeholder="Motivo de la corrección (obligatorio para cambiar la asistencia)" />
+          )}
+          {canAdmin && !cp.isMine && ev.status === 'open' && (!r || r.status === 'draft') && (
+            <p className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(123,241,214,0.06)', color: 'rgba(255,255,255,0.7)' }}>
+              <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: C.accent }} />
+              Esperando al líder: solo él sube la foto y marca la asistencia. Cuando envíe su registro podrás validarlo o corregirlo.
+            </p>
           )}
 
           <div className="grid gap-4 md:grid-cols-[minmax(0,420px)_1fr]">
@@ -294,10 +298,10 @@ function RecordPanel({ cp, data, defaultOpen }: { cp: EventCp; data: EventDetail
                   <ImageOff className="h-6 w-6" /> Sin foto de evidencia
                 </div>
               )}
-              {cp.canEdit && (
+              {cp.canPhoto && (
                 <>
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-                  <Btn tone="accent" className="w-full" disabled={uploading || !reasonOk} onClick={() => fileRef.current?.click()}>
+                  <Btn tone="accent" className="w-full" disabled={uploading} onClick={() => fileRef.current?.click()}>
                     <Camera className="h-4 w-4" /> {uploading ? 'Subiendo…' : r?.photoUrl ? 'Cambiar foto' : 'Subir foto'}
                   </Btn>
                   <p className="text-[11px]" style={{ color: C.muted }}>1 sola foto, de buena calidad. Desde el celular se ajusta sola.</p>
