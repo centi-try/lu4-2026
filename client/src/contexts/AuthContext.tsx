@@ -10,6 +10,7 @@ interface User {
   isActive?: boolean;
   legacyAccess?: boolean;
   cpAccess?: boolean;
+  dkpAdmin?: boolean;
   emailVerified?: boolean;
   twoFactorEnabled?: boolean;
 }

@@ -213,6 +213,11 @@ interface DatabaseSchema {
   cpHistory: any[];       // historial de acciones del módulo (trazabilidad, scope)
   cpExpenses: any[];      // gastos anotados del módulo (id, amount, description, scope)
   cpResetBackup: any;     // último snapshot por scope para deshacer "Reiniciar todo"
+  // DKP: eventos con asistencia por CP (registrada por el líder con foto) y
+  // movimientos manuales de puntos (compras / entregas / ajustes).
+  dkpEvents: any[];
+  dkpRecords: any[];
+  dkpLedger: any[];
   // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
@@ -299,6 +304,9 @@ const initialSchema: DatabaseSchema = {
   cpHistory: [],
   cpExpenses: [],
   cpResetBackup: {},
+  dkpEvents: [],
+  dkpRecords: [],
+  dkpLedger: [],
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -534,6 +542,9 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     cpParticipants: ensureArray(data?.cpParticipants),
     cpVendors: ensureArray(data?.cpVendors),
     cpItems: withUniqueIds(ensureArray(data?.cpItems)),
+    dkpEvents: ensureArray(data?.dkpEvents),
+    dkpRecords: ensureArray(data?.dkpRecords),
+    dkpLedger: ensureArray(data?.dkpLedger),
     cpHistory: ensureArray(data?.cpHistory),
     cpExpenses: ensureArray(data?.cpExpenses),
     cpResetBackup: (data?.cpResetBackup && typeof data.cpResetBackup === "object") ? data.cpResetBackup : {},
@@ -1976,6 +1987,7 @@ export const getAllUsers = async () => {
     isActive: u.isActive !== undefined ? u.isActive : true,
     legacyAccess: u.legacyAccess === true,
     cpAccess: u.cpAccess === true,
+    dkpAdmin: u.dkpAdmin === true,
     loginMethod: u.loginMethod,
     createdAt: u.createdAt,
     lastSignedIn: u.lastSignedIn,
@@ -2020,6 +2032,7 @@ export const updateUserProfile = async (userId: number, data: {
   }
   if (data.raidClanId !== undefined) user.raidClanId = data.raidClanId;
   if (data.raidCpId !== undefined) {
+    if (Number(user.raidCpId) !== Number(data.raidCpId)) user.cpJoinedAt = data.raidCpId ? nowIso() : null;
     user.raidCpId = data.raidCpId;
     user.cpStatus = data.raidCpId ? 'confirmed' : null;
   }
@@ -2059,6 +2072,15 @@ export const setUserCpAccess = async (userId: number, cpAccess: boolean) => {
   const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
   if (userIndex === -1) return null;
   dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], cpAccess, updatedAt: new Date().toISOString() };
+  saveDb(dbInstance);
+  return dbInstance.users[userIndex];
+};
+
+// Permiso "Admin DKP": administra el menú DKP sin cambiar el rol del usuario.
+export const setUserDkpAdmin = async (userId: number, dkpAdmin: boolean) => {
+  const userIndex = dbInstance.users.findIndex((u: any) => Number(u.id) === Number(userId));
+  if (userIndex === -1) return null;
+  dbInstance.users[userIndex] = { ...dbInstance.users[userIndex], dkpAdmin, updatedAt: new Date().toISOString() };
   saveDb(dbInstance);
   return dbInstance.users[userIndex];
 };
@@ -2723,6 +2745,7 @@ export const reassignUserCp = async (
   const user = (dbInstance.users || []).find((u: any) => Number(u.id) === Number(userId));
   if (!user) throw new Error(`Usuario ${userId} no encontrado`);
   user.raidClanId = clanId;
+  if (Number(user.raidCpId) !== Number(cpId)) user.cpJoinedAt = cpId ? nowIso() : null;
   user.raidCpId = cpId;
   user.cpStatus = cpId ? 'pending' : null;
   user.updatedAt = nowIso();

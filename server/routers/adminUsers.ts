@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { hashPassword } from '../_core';
 import { router, protectedProcedure } from '../_core/trpc';
-import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, setUserCpAccess, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts, getInvitationCode, setInvitationCode, generateRandomInvitationCode } from '../db';
+import { getAllUsers, setUserActive, setUserRole, setUserLegacyAccess, setUserCpAccess, setUserDkpAdmin, getUserById, deleteUser, createAuditLog, updateUserPassword, listUserRaidAccess, updateUserProfile, getClans, getCommandParties, getAvailableClasses, addWarehouseCPMember, removeWarehouseCPMember, getWarehouseCPMembers, resetLoginAttempts, getInvitationCode, setInvitationCode, generateRandomInvitationCode } from '../db';
 
 // Middleware de Super Admin: solo permite acceso a usuarios con rol 'super_admin'
 const superAdminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -324,6 +324,49 @@ export const adminUsersRouter = router({
           role: updatedUser.role,
           isActive: updatedUser.isActive,
           cpAccess: updatedUser.cpAccess,
+        },
+      };
+    }),
+
+  toggleDkpAdmin: superAdminProcedure
+    .input(z.object({
+      userId: z.number(),
+      dkpAdmin: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const targetUser = await getUserById(input.userId);
+      if (!targetUser) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuario no encontrado.' });
+      }
+      if (targetUser.role === 'super_admin') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'El Administrador del Sistema ya administra DKP.',
+        });
+      }
+
+      const updatedUser = await setUserDkpAdmin(input.userId, input.dkpAdmin);
+
+      const targetLabel = targetUser.characterName || targetUser.name || targetUser.email;
+      await createAuditLog({
+        userId: ctx.user.id,
+        action: input.dkpAdmin ? 'DKP_ADMIN_ENABLED' : 'DKP_ADMIN_DISABLED',
+        detail: input.dkpAdmin
+          ? `Activó el permiso Admin DKP para ${targetLabel}.`
+          : `Quitó el permiso Admin DKP a ${targetLabel}.`,
+        details: {
+          targetUserId: input.userId,
+          targetEmail: targetUser.email,
+          performedBy: ctx.user.email || ctx.user.openId,
+        },
+      });
+
+      return {
+        success: true,
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.characterName || updatedUser.name || 'Usuario',
+          dkpAdmin: updatedUser.dkpAdmin === true,
         },
       };
     }),

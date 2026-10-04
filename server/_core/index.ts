@@ -7,6 +7,7 @@ import path from "path";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { photoDir as dkpPhotoDir, PHOTO_ROUTE as DKP_PHOTO_ROUTE } from "../routers/dkp";
 import {
   DEFAULT_SUPER_ADMIN_EMAIL,
   DEFAULT_SUPER_ADMIN_NAME,
@@ -253,6 +254,7 @@ async function startServer() {
           isActive: user.isActive !== false,
           legacyAccess: user.role === 'super_admin' ? true : (user.legacyAccess === true),
           cpAccess: user.cpAccess === true,
+          dkpAdmin: user.dkpAdmin === true,
           emailVerified: user.emailVerified !== false,
           twoFactorEnabled: Boolean(user.twoFactorEnabled),
         },
@@ -507,6 +509,7 @@ async function startServer() {
           isActive: user.isActive !== undefined ? user.isActive : true,
           legacyAccess: user.role === 'super_admin' ? true : (user.legacyAccess === true),
           cpAccess: user.cpAccess === true,
+          dkpAdmin: user.dkpAdmin === true,
           emailVerified: user.emailVerified !== false,
           twoFactorEnabled: Boolean(user.twoFactorEnabled),
         }
@@ -638,6 +641,7 @@ async function startServer() {
           isActive: user.isActive !== false,
           legacyAccess: user.role === 'super_admin' ? true : (user.legacyAccess === true),
           cpAccess: user.cpAccess === true,
+          dkpAdmin: user.dkpAdmin === true,
           emailVerified: user.emailVerified !== false,
           twoFactorEnabled: true,
         },
@@ -1290,6 +1294,7 @@ async function startServer() {
   // Servir imágenes de evidencia del clan fund
   const evidencePath = path.resolve(process.env.UPLOADS_DIR || path.join(process.cwd(), "uploads"), "clan-evidence");
   app.use("/api/clan-evidence", express.static(evidencePath));
+  app.use(DKP_PHOTO_ROUTE, express.static(dkpPhotoDir()));
 
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
