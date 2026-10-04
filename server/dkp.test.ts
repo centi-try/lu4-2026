@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { canViewPhoto, dkpRouter } from './routers/dkp';
+import { canViewPhoto, dkpRouter, settleAuctions } from './routers/dkp';
 
 const db = vi.hoisted(() => ({
   dbInstance: {} as any,
@@ -228,5 +228,73 @@ describe('dkp router', () => {
     await caller(admin).archiveEventType({ id });
     expect(await caller(admin).eventTypes()).toEqual([]);
     await expect(caller(admin).createEvent({ typeId: id, name: 'Boss épico', date: `${MONTH}-04`, points: 3 })).rejects.toThrow('no existe');
+  });
+
+  it('los tipos aceptan medios puntos y el evento toma nombre y puntos del tipo', async () => {
+    await expect(caller(admin).saveEventType({ name: 'Raro', points: 0.3 })).rejects.toThrow('medios puntos');
+    const { id: typeId } = await caller(admin).saveEventType({ name: 'Siege', points: 1.5 });
+    const { id: ev } = await caller(admin).createEvent({ typeId, date: `${MONTH}-05` });
+    await register(leaderA, ev, 100, [10, 11, 12]);
+    await caller(admin).closeEvent({ eventId: ev, confirm: 'CERRAR' });
+    expect((await caller(admin).eventDetail({ eventId: ev })).event).toMatchObject({ name: 'Siege', points: 1.5 });
+    expect((await caller(admin).overview({ month: MONTH })).cps.find((c) => c.id === 100)!.balance).toBe(4.5);
+    await expect(caller(admin).createEvent({ date: `${MONTH}-06` })).rejects.toThrow('Elige el tipo');
+  });
+
+  it('solo se eliminan eventos anulados, junto con sus registros y foto', async () => {
+    const ev = await newEvent();
+    await register(leaderA, ev, 100, [10]);
+    const file = path.join(process.env.UPLOADS_DIR!, 'dkp-evidence', path.basename(db.dbInstance.dkpRecords[0].photoUrl));
+    await expect(caller(admin).deleteEvent({ eventId: ev })).rejects.toThrow('anulados');
+    await caller(admin).cancelEvent({ eventId: ev, reason: 'duplicado' });
+    await expect(caller(leaderA).deleteEvent({ eventId: ev })).rejects.toThrow('Solo un Admin DKP');
+    await caller(dkpAdmin).deleteEvent({ eventId: ev });
+    expect(db.dbInstance.dkpEvents).toEqual([]);
+    expect(db.dbInstance.dkpRecords).toEqual([]);
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it('el admin edita una entrega sin dejar el saldo negativo', async () => {
+    const ev = await newEvent(`${MONTH}-05`, 2);
+    await register(leaderA, ev, 100, [10, 11]);
+    await caller(admin).closeEvent({ eventId: ev, confirm: 'CERRAR' });
+    const { id } = await caller(admin).addLedger({ cpId: 100, type: 'delivery', points: 1, itemName: 'Arma', comment: 'entrega', date: `${MONTH}-06` });
+    await expect(caller(leaderA).updateLedger({ id, points: 2, itemName: 'Arma', comment: 'entrega', date: `${MONTH}-06` })).rejects.toThrow('Solo un Admin DKP');
+    await expect(caller(admin).updateLedger({ id, points: 5, itemName: 'Arma', comment: 'entrega', date: `${MONTH}-06` })).rejects.toThrow('Saldo insuficiente');
+    await expect(caller(admin).updateLedger({ id, points: 4, itemName: 'Arco', comment: 'corregido', date: `${MONTH}-07` })).resolves.toMatchObject({ balance: 0 });
+    expect((await caller(admin).cpDetail({ cpId: 100, month: MONTH })).history[0]).toMatchObject({ title: 'Entrega: Arco', points: -4 });
+  });
+
+  it('subasta: solo líderes pujan (mín. 1, sin pasar su saldo) y al vencer gana la más alta', async () => {
+    const ev = await newEvent();
+    await register(leaderA, ev, 100, [10, 11, 12, 13, 14]);
+    await register(leaderB, ev, 200, [20, 31]);
+    await caller(admin).closeEvent({ eventId: ev, confirm: 'CERRAR' });
+    const endsAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    await expect(caller(leaderA).createAuction({ itemName: 'Espada', itemType: 'Arma', endsAt })).rejects.toThrow('Solo un Admin DKP');
+    await expect(caller(admin).createAuction({ itemName: 'Espada', itemType: 'Arma', endsAt: new Date().toISOString() })).rejects.toThrow('al menos 1 minuto');
+    const { id } = await caller(admin).createAuction({ itemName: 'Espada', itemType: 'Arma', endsAt });
+    const { id: other } = await caller(admin).createAuction({ itemName: 'Anillo', itemType: 'Joya', endsAt });
+
+    await expect(caller(admin).placeBid({ auctionId: id, cpId: 100, amount: 1 })).rejects.toThrow('Solo el líder');
+    await expect(caller(member(11, 100)).placeBid({ auctionId: id, cpId: 100, amount: 1 })).rejects.toThrow('Solo el líder');
+    await expect(caller(leaderA).placeBid({ auctionId: id, cpId: 200, amount: 1 })).rejects.toThrow('Solo el líder');
+    await expect(caller(leaderA).placeBid({ auctionId: id, cpId: 100, amount: 0 })).rejects.toThrow('mínima es 1');
+    await caller(leaderA).placeBid({ auctionId: id, cpId: 100, amount: 1 });
+    await expect(caller(leaderB).placeBid({ auctionId: id, cpId: 200, amount: 1 })).rejects.toThrow('superar 1');
+    await expect(caller(leaderB).placeBid({ auctionId: id, cpId: 200, amount: 3 })).rejects.toThrow('Saldo insuficiente');
+    await caller(leaderB).placeBid({ auctionId: id, cpId: 200, amount: 2 });
+    await caller(leaderA).placeBid({ auctionId: id, cpId: 100, amount: 4 });
+    await expect(caller(leaderA).placeBid({ auctionId: other, cpId: 100, amount: 2 })).rejects.toThrow('1 pt disponibles');
+    expect((await caller(leaderA).auctions()).myCps).toEqual([{ id: 100, name: 'Alfa', balance: 5, committed: 4, available: 1 }]);
+
+    settleAuctions(Date.now() + 6 * 60_000);
+    await expect(caller(leaderB).placeBid({ auctionId: other, cpId: 200, amount: 1 })).rejects.toThrow('ya cerró');
+    const list = await caller(member(31, 200)).auctions();
+    expect(list.open).toEqual([]);
+    expect(list.finished.find((a) => a.id === id)).toMatchObject({ status: 'closed', winner: { cpName: 'Alfa', amount: 4 } });
+    expect(list.finished.find((a) => a.id === other)).toMatchObject({ status: 'closed', winner: null });
+    const ov = await caller(admin).overview({ month: MONTH });
+    expect(ov.cps.map((c) => c.balance)).toEqual([1, 2]);
   });
 });

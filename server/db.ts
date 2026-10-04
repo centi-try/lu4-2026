@@ -219,6 +219,7 @@ interface DatabaseSchema {
   dkpRecords: any[];
   dkpLedger: any[];
   dkpEventTypes: any[];
+  dkpAuctions: any[];
   // ============================================================
   // Módulo Raid Boss (aislado, no interfiere con el sistema viejo)
   // ============================================================
@@ -309,6 +310,7 @@ const initialSchema: DatabaseSchema = {
   dkpRecords: [],
   dkpLedger: [],
   dkpEventTypes: [],
+  dkpAuctions: [],
   raidBosses: [],
   clans: [],
   raidCycles: [],
@@ -548,6 +550,7 @@ function ensureDefaultSuperAdmin(data: any): DatabaseSchema {
     dkpRecords: ensureArray(data?.dkpRecords),
     dkpLedger: ensureArray(data?.dkpLedger),
     dkpEventTypes: ensureArray(data?.dkpEventTypes),
+    dkpAuctions: ensureArray(data?.dkpAuctions),
     cpHistory: ensureArray(data?.cpHistory),
     cpExpenses: ensureArray(data?.cpExpenses),
     cpResetBackup: (data?.cpResetBackup && typeof data.cpResetBackup === "object") ? data.cpResetBackup : {},

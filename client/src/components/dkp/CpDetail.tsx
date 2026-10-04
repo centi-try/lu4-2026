@@ -1,20 +1,26 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Gift, ListOrdered, ShoppingCart, SlidersHorizontal, Swords, Trash2, Users, Wallet } from 'lucide-react';
+import { Gavel, Gift, ListOrdered, Pencil, ShoppingCart, SlidersHorizontal, Swords, Trash2, Users, Wallet } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Bar, Btn, C, ReasonDialog, dateLabel, fmtPts, inputCls, monthLabel, pctColor, todayIso } from './shared';
+import type { CpDetailData } from './shared';
 
 type LedgerType = 'purchase' | 'delivery' | 'adjust';
-const kindIcon = { event: Swords, purchase: ShoppingCart, delivery: Gift, adjust: SlidersHorizontal };
+type EditEntry = { id: number; type: LedgerType; itemName: string | null; comment: string; points: number; date: string; auction: boolean };
+const kindIcon = { event: Swords, auction: Gavel, purchase: ShoppingCart, delivery: Gift, adjust: SlidersHorizontal };
+
+const toEdit = (h: CpDetailData['history'][number]): EditEntry | null =>
+  h.ledger ? { ...h.ledger, points: h.points, date: h.date, auction: h.kind === 'auction' } : null;
 
 export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number; month: string; canAdmin: boolean; onOpenEvent: (id: number) => void }) {
   const q = trpc.dkp.cpDetail.useQuery({ cpId, month });
   const utils = trpc.useUtils();
-  const [ledgerType, setLedgerType] = useState<LedgerType | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<EditEntry | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const del = trpc.dkp.deleteLedger.useMutation({
     onSuccess: () => { toast.success('Movimiento eliminado.'); setDeleting(null); },
@@ -36,9 +42,7 @@ export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number;
         <span className="text-xs" style={{ color: C.muted }}>Movimiento de {monthLabel(month)}: <b style={{ color: d.monthPoints < 0 ? C.red : C.text }}>{fmtPts(d.monthPoints)}</b></span>
         {canAdmin && (
           <div className="ml-auto flex flex-wrap gap-2">
-            <Btn tone="gold" onClick={() => setLedgerType('purchase')}><ShoppingCart className="h-4 w-4" /> Compra con DKP</Btn>
-            <Btn tone="gold" onClick={() => setLedgerType('delivery')}><Gift className="h-4 w-4" /> Ítem entregado</Btn>
-            <Btn tone="muted" onClick={() => setLedgerType('adjust')}><SlidersHorizontal className="h-4 w-4" /> Ajuste</Btn>
+            <Btn tone="gold" onClick={() => setAdding(true)}><Gift className="h-4 w-4" /> Ítem entregado</Btn>
           </div>
         )}
       </div>
@@ -78,10 +82,15 @@ export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number;
                         <td className="py-2 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
                           <span className="flex items-start gap-2">
                             <span className="flex-1">{h.comment}</span>
-                            {canAdmin && h.ledgerId && (
-                              <button onClick={() => setDeleting(h.ledgerId!)} title="Eliminar movimiento" className="opacity-60 hover:opacity-100">
-                                <Trash2 className="h-3.5 w-3.5" style={{ color: C.red }} />
-                              </button>
+                            {canAdmin && h.ledger && (
+                              <>
+                                <button onClick={() => setEditing(toEdit(h))} title="Editar movimiento" className="opacity-60 hover:opacity-100">
+                                  <Pencil className="h-3.5 w-3.5" style={{ color: C.accent }} />
+                                </button>
+                                <button onClick={() => setDeleting(h.ledger!.id)} title="Eliminar movimiento" className="opacity-60 hover:opacity-100">
+                                  <Trash2 className="h-3.5 w-3.5" style={{ color: C.red }} />
+                                </button>
+                              </>
                             )}
                           </span>
                         </td>
@@ -114,7 +123,9 @@ export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number;
         </section>
       </div>
 
-      <LedgerDialog type={ledgerType} onClose={() => setLedgerType(null)} cpId={cpId} cpName={d.cp.name} balance={d.balance} />
+      {(adding || editing) && (
+        <LedgerDialog entry={editing} onClose={() => { setAdding(false); setEditing(null); }} cpId={cpId} cpName={d.cp.name} balance={d.balance} />
+      )}
       <ReasonDialog open={deleting != null} onOpenChange={(v) => !v && setDeleting(null)} tone="red"
         title="¿Eliminar este movimiento?" description="Se devuelve el efecto en el saldo de la CP. Queda registrado en la auditoría."
         confirmLabel="Eliminar" pending={del.isPending} onConfirm={(reason) => deleting != null && del.mutate({ id: deleting, reason })} />
@@ -122,40 +133,47 @@ export function CpDetail({ cpId, month, canAdmin, onOpenEvent }: { cpId: number;
   );
 }
 
-const ledgerCopy: Record<LedgerType, { title: string; desc: string; item: boolean }> = {
-  purchase: { title: 'Compra con DKP', desc: 'La CP compra un ítem con sus puntos. Se descuenta del saldo.', item: true },
-  delivery: { title: 'Ítem entregado', desc: 'Se le entregó un ítem a la CP a cambio de puntos. Se descuenta del saldo.', item: true },
-  adjust: { title: 'Ajuste manual', desc: 'Suma (número positivo) o resta (negativo) puntos al saldo, por ejemplo un bono o una penalización.', item: false },
-};
+const ledgerTitle = (e: EditEntry | null) =>
+  !e ? 'Ítem entregado' : e.auction ? 'Editar subasta ganada' : e.type === 'purchase' ? 'Editar compra' : e.type === 'delivery' ? 'Editar entrega' : 'Editar ajuste';
 
-function LedgerDialog({ type, onClose, cpId, cpName, balance }: { type: LedgerType | null; onClose: () => void; cpId: number; cpName: string; balance: number }) {
+function LedgerDialog({ entry, onClose, cpId, cpName, balance }: { entry: EditEntry | null; onClose: () => void; cpId: number; cpName: string; balance: number }) {
   const utils = trpc.useUtils();
-  const [itemName, setItemName] = useState('');
-  const [points, setPoints] = useState('');
-  const [comment, setComment] = useState('');
-  const [date, setDate] = useState(todayIso());
-  const reset = () => { setItemName(''); setPoints(''); setComment(''); setDate(todayIso()); };
-  const add = trpc.dkp.addLedger.useMutation({
-    onSuccess: (r) => { toast.success(`Registrado. Saldo de ${cpName}: ${r.balance} pt.`); reset(); onClose(); },
-    onError: (e) => toast.error(e.message),
+  const spend = !entry || entry.type !== 'adjust';
+  const [itemName, setItemName] = useState(entry?.itemName ?? '');
+  const [points, setPoints] = useState(entry ? String(spend ? -entry.points : entry.points) : '');
+  const [comment, setComment] = useState(entry?.comment ?? '');
+  const [date, setDate] = useState(entry?.date ?? todayIso());
+  const opts = {
+    onSuccess: (r: { balance: number }) => { toast.success(`Guardado. Saldo de ${cpName}: ${r.balance.toLocaleString('es-CL')} pt.`); onClose(); },
+    onError: (e: { message: string }) => toast.error(e.message),
     onSettled: () => utils.dkp.invalidate(),
-  });
-  if (!type) return null;
-  const copy = ledgerCopy[type];
-  const pts = Number(points);
-  const spend = type !== 'adjust';
-  const over = spend && pts > balance;
-  const valid = Number.isInteger(pts) && (spend ? pts > 0 : pts !== 0) && comment.trim().length >= 2 && (!copy.item || itemName.trim().length > 0) && !over;
+  };
+  const add = trpc.dkp.addLedger.useMutation(opts);
+  const update = trpc.dkp.updateLedger.useMutation(opts);
+  const available = entry ? balance - entry.points : balance;
+  const pts = Number(points.replace(',', '.'));
+  const over = spend && pts > available;
+  const valid = Number.isFinite(pts) && Number.isInteger(pts * 2) && (spend ? pts > 0 : pts !== 0)
+    && comment.trim().length >= 2 && (!spend || itemName.trim().length > 0) && !over;
+  const pending = add.isPending || update.isPending;
+  function save() {
+    const base = { points: pts, itemName: itemName.trim() || undefined, comment: comment.trim(), date };
+    if (entry) update.mutate({ id: entry.id, ...base });
+    else add.mutate({ cpId, type: 'delivery', ...base });
+  }
 
   return (
-    <AlertDialog open onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}>
-      <AlertDialogContent>
+    <AlertDialog open onOpenChange={(v) => { if (!v) onClose(); }}>
+      <AlertDialogContent style={C.modal}>
         <AlertDialogHeader>
-          <AlertDialogTitle>{copy.title} · {cpName}</AlertDialogTitle>
-          <AlertDialogDescription>{copy.desc} Saldo actual: <b style={{ color: C.gold }}>{balance} pt</b>.</AlertDialogDescription>
+          <AlertDialogTitle style={{ color: C.text }}>{ledgerTitle(entry)} · {cpName}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {spend ? 'Los puntos se descuentan del saldo de la CP.' : 'Suma (positivo) o resta (negativo) puntos al saldo.'}{' '}
+            Saldo {entry ? 'sin este movimiento' : 'actual'}: <b style={{ color: C.gold }}>{available.toLocaleString('es-CL')} pt</b>.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-3">
-          {copy.item && (
+          {spend && (
             <label className="block space-y-1 text-xs" style={{ color: C.muted }}>
               Ítem
               <input autoFocus value={itemName} onChange={(e) => setItemName(e.target.value)} maxLength={120} placeholder="Ej: Blue Soul Crystal - Stage 12" className={inputCls} />
@@ -164,14 +182,14 @@ function LedgerDialog({ type, onClose, cpId, cpName, balance }: { type: LedgerTy
           <div className="grid grid-cols-2 gap-3">
             <label className="block space-y-1 text-xs" style={{ color: C.muted }}>
               {spend ? 'Puntos a descontar' : 'Puntos (+ o −)'}
-              <input type="number" step={1} min={spend ? 1 : undefined} value={points} onChange={(e) => setPoints(e.target.value)} className={inputCls} />
+              <input type="number" step={0.5} min={spend ? 0.5 : undefined} value={points} onChange={(e) => setPoints(e.target.value)} className={inputCls} />
             </label>
             <label className="block space-y-1 text-xs" style={{ color: C.muted }}>
               Fecha
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
             </label>
           </div>
-          {over && <p className="text-xs" style={{ color: C.red }}>Saldo insuficiente: {cpName} tiene {balance} pt.</p>}
+          {over && <p className="text-xs" style={{ color: C.red }}>Saldo insuficiente: {cpName} tiene {available.toLocaleString('es-CL')} pt.</p>}
           <label className="block space-y-1 text-xs" style={{ color: C.muted }}>
             Comentario
             <input value={comment} onChange={(e) => setComment(e.target.value)} maxLength={300} placeholder="Ej: acordado en la reunión del clan" className={inputCls} />
@@ -179,10 +197,7 @@ function LedgerDialog({ type, onClose, cpId, cpName, balance }: { type: LedgerTy
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <Btn solid tone="gold" disabled={!valid || add.isPending}
-            onClick={() => add.mutate({ cpId, type, points: pts, itemName: itemName.trim() || undefined, comment: comment.trim(), date })}>
-            Registrar
-          </Btn>
+          <Btn solid tone="gold" disabled={!valid || pending} onClick={save}>{entry ? 'Guardar cambios' : 'Registrar'}</Btn>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

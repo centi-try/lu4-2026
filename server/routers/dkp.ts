@@ -66,12 +66,36 @@ type LedgerEntry = {
   date: string;
   createdBy: string;
   createdAt: string;
+  auctionId?: number;
 };
+type AuctionStatus = "open" | "closed" | "cancelled";
+type Bid = { id: number; cpId: number; cpName: string; amount: number; by: string; byUserId: number; at: string };
+type DkpAuction = {
+  id: number;
+  itemName: string;
+  itemType: string;
+  notes: string | null;
+  endsAt: string;
+  status: AuctionStatus;
+  bids: Bid[];
+  winnerCpId: number | null;
+  winningBid: number | null;
+  ledgerId: number | null;
+  cancelReason: string | null;
+  createdBy: string;
+  createdAt: string;
+  closedAt: string | null;
+};
+
+export const AUCTION_ITEM_TYPES = ["Arma", "Armadura", "Joya", "Accesorio", "Libro / Skill", "Material", "Receta", "Consumible", "Otro"] as const;
+const MIN_AUCTION_MS = 60_000;
+const MAX_AUCTION_MS = 30 * 24 * 3600_000;
 
 const events = (): DkpEvent[] => (dbInstance.dkpEvents ??= []);
 const records = (): DkpRecord[] => (dbInstance.dkpRecords ??= []);
 const ledger = (): LedgerEntry[] => (dbInstance.dkpLedger ??= []);
 const eventTypes = (): DkpEventType[] => (dbInstance.dkpEventTypes ??= []);
+const auctions = (): DkpAuction[] => (dbInstance.dkpAuctions ??= []);
 const activeTypes = () =>
   eventTypes()
     .filter((t) => t.active)
@@ -238,18 +262,96 @@ function detectImage(buf: Buffer): { ext: string } | null {
   return null;
 }
 
+const topBid = (a: DkpAuction): Bid | null => a.bids.reduce<Bid | null>((t, b) => (!t || b.amount > t.amount ? b : t), null);
+const isLive = (a: DkpAuction, now = Date.now()) => a.status === "open" && Date.parse(a.endsAt) > now;
+
+/** Puntos que la CP tiene comprometidos por ir ganando otras subastas abiertas. */
+function committedPoints(cpId: number, exceptAuctionId?: number) {
+  return auctions()
+    .filter((a) => a.id !== exceptAuctionId && isLive(a))
+    .reduce((s, a) => {
+      const t = topBid(a);
+      return s + (t && t.cpId === cpId ? t.amount : 0);
+    }, 0);
+}
+
+const localDate = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: process.env.DKP_TZ || "America/Santiago" }).format(new Date(iso));
+
+/** Cierra las subastas vencidas: la puja más alta gana y se descuenta del saldo de su CP. */
+export function settleAuctions(now = Date.now()) {
+  let changed = false;
+  for (const a of auctions()) {
+    if (a.status !== "open" || Date.parse(a.endsAt) > now) continue;
+    a.status = "closed";
+    a.closedAt = new Date(now).toISOString();
+    const top = topBid(a);
+    if (top) {
+      const entry: LedgerEntry = {
+        id: nextId(ledger()),
+        cpId: top.cpId,
+        type: "purchase",
+        points: -top.amount,
+        itemName: a.itemName,
+        comment: `Ganó la subasta #${a.id} (${a.itemType}) con ${top.amount} pt`,
+        date: localDate(a.endsAt),
+        createdBy: "Subasta",
+        createdAt: a.closedAt,
+        auctionId: a.id,
+      };
+      ledger().push(entry);
+      Object.assign(a, { winnerCpId: top.cpId, winningBid: top.amount, ledgerId: entry.id });
+    }
+    changed = true;
+  }
+  if (changed) saveDbToDisk();
+}
+
+const auctionView = (a: DkpAuction) => {
+  const top = topBid(a);
+  return {
+    id: a.id,
+    itemName: a.itemName,
+    itemType: a.itemType,
+    notes: a.notes,
+    endsAt: a.endsAt,
+    status: a.status,
+    createdBy: a.createdBy,
+    createdAt: a.createdAt,
+    closedAt: a.closedAt,
+    cancelReason: a.cancelReason,
+    topBid: top ? { cpId: top.cpId, cpName: top.cpName, amount: top.amount, by: top.by, at: top.at } : null,
+    winner: a.winnerCpId != null ? { cpId: a.winnerCpId, cpName: a.bids.find((b) => b.cpId === a.winnerCpId)?.cpName ?? "CP", amount: a.winningBid ?? 0 } : null,
+    bidCount: a.bids.length,
+    bids: [...a.bids].sort((x, y) => y.amount - x.amount).slice(0, 15).map((b) => ({ id: b.id, cpName: b.cpName, amount: b.amount, by: b.by, at: b.at })),
+  };
+};
+
+function findAuction(id: number) {
+  const a = auctions().find((x) => x.id === id);
+  if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "La subasta no existe." });
+  return a;
+}
+
 const dkpProcedure = protectedProcedure.use(({ ctx, next }) => {
   const u = freshUser(ctx.user);
   if (!hasDkpAccess(u)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "No tienes acceso a DKP." });
   }
+  settleAuctions();
   return next({ ctx: { ...ctx, user: u } });
 });
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const dateInput = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.");
 const reasonInput = z.string().trim().min(3, "Escribe un motivo.").max(300);
-const pointsInput = z.number().int().min(0).max(100);
+const pointsInput = z.number().min(0).max(100).refine((v) => Number.isInteger(v * 2), "Usa enteros o medios puntos (0,5).");
+const eventInput = z.object({
+  typeId: z.number().int().nullish(),
+  name: z.string().trim().min(2).max(80).optional(),
+  date: dateInput,
+  points: pointsInput.optional(),
+});
 const recordKey = z.object({ eventId: z.number().int(), cpId: z.number().int() });
 
 const eventSummary = (ev: DkpEvent, u: any) => ({
@@ -293,7 +395,16 @@ export const dkpRouter = router({
 
   cpDetail: dkpProcedure.input(z.object({ cpId: z.number().int(), month: monthInput })).query(({ input }) => {
     const cp = findCp(input.cpId);
-    type Row = { key: string; date: string; kind: "event" | LedgerType; title: string; points: number; comment: string; eventId?: number; ledgerId?: number };
+    type Row = {
+      key: string;
+      date: string;
+      kind: "event" | "auction" | LedgerType;
+      title: string;
+      points: number;
+      comment: string;
+      eventId?: number;
+      ledger?: { id: number; type: LedgerType; itemName: string | null; comment: string };
+    };
     const rows: Row[] = closedInMonth(input.month).map((e) => {
       const r = recordOf(e.id, cp.id);
       const n = counts(r) ? r.attendees.length : 0;
@@ -304,15 +415,15 @@ export const dkpRouter = router({
       return { key: `e${e.id}`, date: e.date, kind: "event", title: e.name, points: n * e.points, comment, eventId: e.id };
     });
     for (const l of ledger().filter((x) => x.cpId === cp.id && monthOf(x.date) === input.month)) {
-      const label = l.type === "purchase" ? "Compra" : l.type === "delivery" ? "Entrega" : "Ajuste";
+      const label = l.auctionId ? "Subasta" : l.type === "purchase" ? "Compra" : l.type === "delivery" ? "Entrega" : "Ajuste";
       rows.push({
         key: `l${l.id}`,
         date: l.date,
-        kind: l.type,
+        kind: l.auctionId ? "auction" : l.type,
         title: l.itemName ? `${label}: ${l.itemName}` : label,
         points: l.points,
         comment: `${l.comment} · registrado por ${l.createdBy}`,
-        ledgerId: l.id,
+        ledger: { id: l.id, type: l.type, itemName: l.itemName, comment: l.comment },
       });
     }
     rows.sort((a, b) => b.date.localeCompare(a.date) || b.key.localeCompare(a.key));
@@ -400,23 +511,26 @@ export const dkpRouter = router({
   }),
 
   createEvent: dkpProcedure
-    .input(z.object({ typeId: z.number().int().nullish(), name: z.string().trim().min(2).max(80), date: dateInput, points: pointsInput }))
+    .input(eventInput)
     .mutation(async ({ ctx, input }) => {
       requireAdmin(ctx.user);
-      const typeId = input.typeId != null ? findType(input.typeId, true).id : null;
+      const t = input.typeId != null ? findType(input.typeId, true) : null;
+      const name = t?.name ?? input.name;
+      const points = t?.points ?? input.points;
+      if (!name || points == null) throw new TRPCError({ code: "BAD_REQUEST", message: "Elige el tipo de evento." });
       const ev: DkpEvent = {
         id: nextId(events()),
-        typeId,
-        name: input.name,
+        typeId: t?.id ?? null,
+        name,
         date: input.date,
-        points: input.points,
+        points,
         status: "open",
         createdBy: nameOf(ctx.user),
         createdAt: nowIso(),
         updatedAt: nowIso(),
         log: [],
       };
-      pushLog(ev, ctx.user, "created", `Creó el evento (${input.points} pt por asistente).`);
+      pushLog(ev, ctx.user, "created", `Creó el evento (${points} pt por asistente).`);
       events().push(ev);
       saveDbToDisk();
       await audit(ctx.user, "DKP_EVENT_CREATED", `Creó el evento DKP "${ev.name}" del ${ev.date}.`);
@@ -424,18 +538,25 @@ export const dkpRouter = router({
     }),
 
   updateEvent: dkpProcedure
-    .input(z.object({ eventId: z.number().int(), typeId: z.number().int().nullish(), name: z.string().trim().min(2).max(80), date: dateInput, points: pointsInput }))
+    .input(eventInput.extend({ eventId: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
       requireAdmin(ctx.user);
       const ev = findEvent(input.eventId);
-      if (input.typeId != null && input.typeId !== ev.typeId) findType(input.typeId, true);
-      if (input.typeId !== undefined) ev.typeId = input.typeId ?? null;
+      const t = input.typeId != null ? eventTypes().find((x) => x.id === input.typeId && (x.active || x.id === ev.typeId)) : null;
+      if (input.typeId != null && !t) throw new TRPCError({ code: "NOT_FOUND", message: "Ese tipo de evento no existe." });
+      const keep = t && t.id === ev.typeId && !t.active;
+      const name = keep ? ev.name : t?.name ?? input.name ?? ev.name;
+      const points = keep ? ev.points : t?.points ?? input.points ?? ev.points;
+      if (input.typeId !== undefined) ev.typeId = t?.id ?? null;
       const changes: string[] = [];
-      if (ev.name !== input.name) changes.push(`nombre "${ev.name}" → "${input.name}"`);
+      if (ev.name !== name) changes.push(`nombre "${ev.name}" → "${name}"`);
       if (ev.date !== input.date) changes.push(`fecha ${ev.date} → ${input.date}`);
-      if (ev.points !== input.points) changes.push(`puntos ${ev.points} → ${input.points}`);
-      if (!changes.length) return { ok: true };
-      Object.assign(ev, { name: input.name, date: input.date, points: input.points });
+      if (ev.points !== points) changes.push(`puntos ${ev.points} → ${points}`);
+      if (!changes.length) {
+        saveDbToDisk();
+        return { ok: true };
+      }
+      Object.assign(ev, { name, date: input.date, points });
       pushLog(ev, ctx.user, "updated", `Editó ${changes.join(", ")}.`);
       saveDbToDisk();
       await audit(ctx.user, "DKP_EVENT_UPDATED", `Editó el evento DKP "${ev.name}": ${changes.join(", ")}.`);
@@ -486,6 +607,25 @@ export const dkpRouter = router({
       await audit(ctx.user, "DKP_EVENT_CANCELLED", `Anuló el evento DKP "${ev.name}": ${input.reason}`);
       return { ok: true };
     }),
+
+  deleteEvent: dkpProcedure.input(z.object({ eventId: z.number().int() })).mutation(async ({ ctx, input }) => {
+    requireAdmin(ctx.user);
+    const ev = findEvent(input.eventId);
+    if (ev.status !== "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "Solo se pueden eliminar eventos anulados." });
+    for (const r of records().filter((x) => x.eventId === ev.id)) {
+      if (!r.photoUrl) continue;
+      try {
+        fs.unlinkSync(path.join(photoDir(), path.basename(r.photoUrl)));
+      } catch {
+        // la foto ya no existe
+      }
+    }
+    dbInstance.dkpRecords = records().filter((x) => x.eventId !== ev.id);
+    dbInstance.dkpEvents = events().filter((x) => x.id !== ev.id);
+    saveDbToDisk();
+    await audit(ctx.user, "DKP_EVENT_DELETED", `Eliminó el evento DKP anulado "${ev.name}" del ${ev.date}.`);
+    return { ok: true };
+  }),
 
   setPhoto: dkpProcedure
     .input(recordKey.extend({ dataBase64: z.string().min(10).max(Math.ceil((MAX_PHOTO_BYTES * 4) / 3) + 8), reason: reasonInput.optional() }))
@@ -645,4 +785,126 @@ export const dkpRouter = router({
       await audit(ctx.user, "DKP_LEDGER_DELETED", `Eliminó el movimiento DKP de ${entry.points} pt (${entry.itemName || entry.type}): ${input.reason}`);
       return { ok: true };
     }),
+  updateLedger: dkpProcedure
+    .input(z.object({
+      id: z.number().int(),
+      points: z.number().min(-100000).max(100000).refine((v) => Number.isInteger(v * 2), "Usa enteros o medios puntos (0,5)."),
+      itemName: z.string().trim().max(120).optional(),
+      comment: z.string().trim().min(2, "Escribe un comentario.").max(300),
+      date: dateInput,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx.user);
+      const entry = ledger().find((l) => l.id === input.id);
+      if (!entry) throw new TRPCError({ code: "NOT_FOUND", message: "El movimiento no existe." });
+      const cp = findCp(entry.cpId);
+      let points = input.points;
+      if (entry.type !== "adjust") {
+        if (!input.itemName) throw new TRPCError({ code: "BAD_REQUEST", message: "Indica el ítem." });
+        if (points <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Los puntos deben ser positivos." });
+        const available = cpBalance(cp.id) - entry.points;
+        if (points > available) throw new TRPCError({ code: "BAD_REQUEST", message: `Saldo insuficiente: ${cp.name} tendría ${available} pt.` });
+        points = -points;
+      } else if (points === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "El ajuste no puede ser 0." });
+      }
+      const before = `${entry.points} pt${entry.itemName ? ` (${entry.itemName})` : ""}`;
+      Object.assign(entry, { points, itemName: input.itemName || null, comment: input.comment, date: input.date, updatedBy: nameOf(ctx.user), updatedAt: nowIso() });
+      saveDbToDisk();
+      await audit(ctx.user, "DKP_LEDGER_UPDATED", `Editó el movimiento DKP de ${cp.name}: ${before} → ${points} pt${entry.itemName ? ` (${entry.itemName})` : ""}.`);
+      return { ok: true, balance: cpBalance(cp.id) };
+    }),
+
+  auctions: dkpProcedure.query(({ ctx }) => {
+    const list = [...auctions()].sort((a, b) =>
+      a.status === "open" && b.status === "open" ? a.endsAt.localeCompare(b.endsAt) : (b.closedAt || b.createdAt).localeCompare(a.closedAt || a.createdAt),
+    );
+    const myCps = commandParties()
+      .filter((cp) => isLeader(ctx.user, cp))
+      .map((cp) => {
+        const balance = cpBalance(cp.id);
+        const committed = committedPoints(cp.id);
+        return { id: cp.id, name: cp.name, balance, committed, available: balance - committed };
+      });
+    return {
+      now: nowIso(),
+      canAdmin: isDkpAdmin(ctx.user),
+      itemTypes: AUCTION_ITEM_TYPES,
+      myCps,
+      open: list.filter((a) => a.status === "open").map(auctionView),
+      finished: list.filter((a) => a.status !== "open").slice(0, 200).map(auctionView),
+    };
+  }),
+
+  createAuction: dkpProcedure
+    .input(z.object({
+      itemName: z.string().trim().min(2, "Escribe el nombre del ítem.").max(120),
+      itemType: z.enum(AUCTION_ITEM_TYPES),
+      notes: z.string().trim().max(300).optional(),
+      endsAt: z.string().datetime({ offset: true }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx.user);
+      const ends = Date.parse(input.endsAt);
+      const now = Date.now();
+      if (ends - now < MIN_AUCTION_MS) throw new TRPCError({ code: "BAD_REQUEST", message: "La subasta debe durar al menos 1 minuto." });
+      if (ends - now > MAX_AUCTION_MS) throw new TRPCError({ code: "BAD_REQUEST", message: "La subasta puede durar como máximo 30 días." });
+      const a: DkpAuction = {
+        id: nextId(auctions()),
+        itemName: input.itemName,
+        itemType: input.itemType,
+        notes: input.notes || null,
+        endsAt: new Date(ends).toISOString(),
+        status: "open",
+        bids: [],
+        winnerCpId: null,
+        winningBid: null,
+        ledgerId: null,
+        cancelReason: null,
+        createdBy: nameOf(ctx.user),
+        createdAt: nowIso(),
+        closedAt: null,
+      };
+      auctions().push(a);
+      saveDbToDisk();
+      await audit(ctx.user, "DKP_AUCTION_CREATED", `Abrió la subasta DKP #${a.id}: ${a.itemName} (${a.itemType}), cierra ${a.endsAt}.`);
+      return { id: a.id };
+    }),
+
+  placeBid: dkpProcedure
+    .input(z.object({ auctionId: z.number().int(), cpId: z.number().int(), amount: z.number().int("La puja debe ser un número entero.").min(1, "La puja mínima es 1 punto.") }))
+    .mutation(async ({ ctx, input }) => {
+      const a = findAuction(input.auctionId);
+      const cp = findCp(input.cpId);
+      if (!isLeader(ctx.user, cp)) throw new TRPCError({ code: "FORBIDDEN", message: "Solo el líder de la CP puede pujar con sus puntos." });
+      if (!isLive(a)) throw new TRPCError({ code: "BAD_REQUEST", message: "La subasta ya cerró." });
+      const top = topBid(a);
+      if (top && input.amount <= top.amount) throw new TRPCError({ code: "BAD_REQUEST", message: `La puja debe superar ${top.amount} pt.` });
+      const available = cpBalance(cp.id) - committedPoints(cp.id, a.id);
+      if (input.amount > available) throw new TRPCError({ code: "BAD_REQUEST", message: `Saldo insuficiente: ${cp.name} tiene ${available} pt disponibles.` });
+      a.bids.push({ id: nextId(a.bids), cpId: cp.id, cpName: cp.name, amount: input.amount, by: nameOf(ctx.user), byUserId: Number(ctx.user.id), at: nowIso() });
+      saveDbToDisk();
+      await audit(ctx.user, "DKP_AUCTION_BID", `Pujó ${input.amount} pt por ${cp.name} en la subasta #${a.id} (${a.itemName}).`);
+      return { ok: true };
+    }),
+
+  cancelAuction: dkpProcedure.input(z.object({ id: z.number().int(), reason: reasonInput })).mutation(async ({ ctx, input }) => {
+    requireAdmin(ctx.user);
+    const a = findAuction(input.id);
+    if (a.status !== "open") throw new TRPCError({ code: "BAD_REQUEST", message: "La subasta ya cerró." });
+    Object.assign(a, { status: "cancelled", cancelReason: input.reason, closedAt: nowIso() });
+    saveDbToDisk();
+    await audit(ctx.user, "DKP_AUCTION_CANCELLED", `Anuló la subasta DKP #${a.id} (${a.itemName}): ${input.reason}`);
+    return { ok: true };
+  }),
+
+  deleteAuction: dkpProcedure.input(z.object({ id: z.number().int() })).mutation(async ({ ctx, input }) => {
+    requireAdmin(ctx.user);
+    const a = findAuction(input.id);
+    if (a.status !== "cancelled") throw new TRPCError({ code: "BAD_REQUEST", message: "Solo se pueden eliminar subastas anuladas." });
+    dbInstance.dkpAuctions = auctions().filter((x) => x.id !== a.id);
+    saveDbToDisk();
+    await audit(ctx.user, "DKP_AUCTION_DELETED", `Eliminó la subasta DKP anulada #${a.id} (${a.itemName}).`);
+    return { ok: true };
+  }),
 });

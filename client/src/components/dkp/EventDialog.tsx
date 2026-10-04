@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Camera, CheckCircle2, ChevronDown, Crown, History, ImageOff, Lock, Pencil, RotateCcw, Send, ShieldCheck, Undo2, XCircle } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronDown, Crown, History, ImageOff, Lock, Pencil, RotateCcw, Send, ShieldCheck, Trash2, Undo2, XCircle } from 'lucide-react';
 import { trpc } from '../../lib/trpc';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import {
@@ -49,18 +49,18 @@ export function EventDialog({ eventId, onClose }: { eventId: number | null; onCl
   const data = q.data;
   return (
     <Dialog open={eventId != null} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl" style={{ background: '#0a0e16', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl" style={C.modal}>
         {!data ? (
           <div className="py-16 text-center text-sm" style={{ color: C.muted }}>{q.error?.message ?? 'Cargando…'}</div>
         ) : (
-          <EventBody data={data} />
+          <EventBody data={data} onDeleted={onClose} />
         )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function EventBody({ data }: { data: EventDetailData }) {
+function EventBody({ data, onDeleted }: { data: EventDetailData; onDeleted: () => void }) {
   const { event: ev, canAdmin } = data;
   const utils = trpc.useUtils();
   const refresh = () => utils.dkp.invalidate();
@@ -69,10 +69,12 @@ function EventBody({ data }: { data: EventDetailData }) {
   const [word, setWord] = useState('');
   const [reasonFor, setReasonFor] = useState<'cancel' | 'reopen' | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const onError = (e: { message: string }) => toast.error(e.message);
 
   const close = trpc.dkp.closeEvent.useMutation({ onSuccess: () => { toast.success('Evento cerrado. Los puntos ya están en el historial.'); setClosing(false); }, onError, onSettled: refresh });
   const cancel = trpc.dkp.cancelEvent.useMutation({ onSuccess: () => { toast.success('Evento anulado.'); setReasonFor(null); }, onError, onSettled: refresh });
+  const remove = trpc.dkp.deleteEvent.useMutation({ onSuccess: () => { toast.success('Evento eliminado.'); setDeleting(false); onDeleted(); }, onError, onSettled: refresh });
   const reopen = trpc.dkp.reopenEvent.useMutation({ onSuccess: () => { toast.success('Evento reabierto.'); setReasonFor(null); }, onError, onSettled: refresh });
 
   const cps = useMemo(() => [...data.cps].sort((a, b) => Number(b.isMine) - Number(a.isMine)), [data.cps]);
@@ -88,7 +90,7 @@ function EventBody({ data }: { data: EventDetailData }) {
           <Badge tone={st.tone}>{st.label}</Badge>
         </div>
         <DialogDescription>
-          {dateLabel(ev.date)} · {ev.points} pt por cada asistente marcado · {data.submittedCps} de {data.totalCps} CP enviaron su registro
+          {dateLabel(ev.date)} · {ev.points.toLocaleString('es-CL')} pt por cada asistente marcado · {data.submittedCps} de {data.totalCps} CP enviaron su registro
         </DialogDescription>
       </DialogHeader>
 
@@ -100,6 +102,7 @@ function EventBody({ data }: { data: EventDetailData }) {
           <Btn tone="muted" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Editar evento</Btn>
           {ev.status !== 'cancelled' && <Btn tone="red" onClick={() => setReasonFor('cancel')}><XCircle className="h-4 w-4" /> Anular</Btn>}
           {ev.status !== 'open' && <Btn tone="gold" onClick={() => setReasonFor('reopen')}><RotateCcw className="h-4 w-4" /> Reabrir</Btn>}
+          {ev.status === 'cancelled' && <Btn tone="red" solid onClick={() => setDeleting(true)}><Trash2 className="h-4 w-4" /> Eliminar evento</Btn>}
           {ev.status === 'open' && <Btn tone="accent" solid onClick={() => { setWord(''); setClosing(true); }}><Lock className="h-4 w-4" /> Cerrar evento</Btn>}
         </div>
       )}
@@ -147,16 +150,31 @@ function EventBody({ data }: { data: EventDetailData }) {
       <EventFormDialog open={editing} onOpenChange={setEditing} event={ev} />
 
       <ReasonDialog open={reasonFor === 'cancel'} onOpenChange={(v) => !v && setReasonFor(null)} tone="red"
-        title="¿Anular este evento?" description="No sumará puntos ni contará para el % del mes. Puedes reabrirlo después."
+        title="¿Anular este evento?" description="No sumará puntos ni contará para el % del mes. Puedes reabrirlo o eliminarlo después."
         confirmLabel="Anular evento" pending={cancel.isPending} onConfirm={(reason) => cancel.mutate({ eventId: ev.id, reason })} />
       <ReasonDialog open={reasonFor === 'reopen'} onOpenChange={(v) => !v && setReasonFor(null)} tone="gold"
         title="¿Reabrir el evento?" description="Mientras esté abierto no cuenta en el historial ni en el %. Los líderes que no enviaron podrán registrar."
         confirmLabel="Reabrir" pending={reopen.isPending} onConfirm={(reason) => reopen.mutate({ eventId: ev.id, reason })} />
 
-      <AlertDialog open={closing} onOpenChange={setClosing}>
-        <AlertDialogContent>
+      <AlertDialog open={deleting} onOpenChange={setDeleting}>
+        <AlertDialogContent style={C.modal}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cerrar "{ev.name}"</AlertDialogTitle>
+            <AlertDialogTitle style={{ color: C.text }}>¿Eliminar "{ev.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se borra el evento anulado con sus registros y fotos, y deja de aparecer en DKP. No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Btn tone="red" solid disabled={remove.isPending} onClick={() => remove.mutate({ eventId: ev.id })}><Trash2 className="h-4 w-4" /> Eliminar definitivamente</Btn>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={closing} onOpenChange={setClosing}>
+        <AlertDialogContent style={C.modal}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ color: C.text }}>Cerrar "{ev.name}"</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>Al cerrar, ningún líder podrá registrar ni modificar, y los puntos pasan al historial.</p>
@@ -353,7 +371,7 @@ function RecordPanel({ cp, data, defaultOpen }: { cp: EventCp; data: EventDetail
       )}
 
       <AlertDialog open={confirmSubmit} onOpenChange={setConfirmSubmit}>
-        <AlertDialogContent>
+        <AlertDialogContent style={C.modal}>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Enviar el registro de {cp.cpName}?</AlertDialogTitle>
             <AlertDialogDescription>

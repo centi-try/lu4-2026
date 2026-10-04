@@ -1,26 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Crown, Plus, Trophy, Users, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Crown, Gavel, Plus, Search, Trophy, Users, Wallet, X } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { CpDetail } from '../components/dkp/CpDetail';
 import { EventDialog } from '../components/dkp/EventDialog';
 import { EventFormDialog } from '../components/dkp/EventFormDialog';
+import { AuctionsTab } from '../components/dkp/AuctionsTab';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge, Btn, C, PctRing, currentMonth, dateLabel, eventStatus, monthLabel, shiftMonth } from '../components/dkp/shared';
 import type { Overview, OverviewCp, OverviewEvent } from '../components/dkp/shared';
 
 export default function Dkp() {
-  const [month, setMonth] = useState(currentMonth());
-  const [openCp, setOpenCp] = useState<number | null>(null);
-  const [eventId, setEventId] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
-  const detailRef = useRef<HTMLDivElement>(null);
-  const q = trpc.dkp.overview.useQuery({ month }, { refetchInterval: 30_000 });
-  const data = q.data;
-
-  useEffect(() => {
-    if (openCp != null) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [openCp]);
-
+  const [tab, setTab] = useState('points');
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl space-y-5 p-5">
@@ -30,8 +21,35 @@ export default function Dkp() {
           </div>
           <div className="flex-1">
             <h1 className="text-lg font-bold" style={{ color: C.text }}>DKP</h1>
-            <p className="text-xs" style={{ color: C.muted }}>Puntos por asistencia de cada CP. El % de participación se mide por mes.</p>
+            <p className="text-xs" style={{ color: C.muted }}>Puntos por asistencia de cada CP y subastas de ítems con esos puntos.</p>
           </div>
+        </div>
+        <Tabs value={tab} onValueChange={setTab} className="gap-5">
+          <TabsList className="h-11 w-full max-w-md p-1" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <TabsTrigger value="points" className="gap-2 data-[state=active]:!bg-amber-300/15 data-[state=active]:!text-amber-300"><Coins className="h-4 w-4" /> Puntos DKP</TabsTrigger>
+            <TabsTrigger value="auctions" className="gap-2 data-[state=active]:!bg-amber-300/15 data-[state=active]:!text-amber-300"><Gavel className="h-4 w-4" /> Subastas</TabsTrigger>
+          </TabsList>
+          <TabsContent value="points"><PointsTab /></TabsContent>
+          <TabsContent value="auctions"><AuctionsTab /></TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
+  );
+}
+
+function PointsTab() {
+  const [month, setMonth] = useState(currentMonth());
+  const [openCp, setOpenCp] = useState<number | null>(null);
+  const [eventId, setEventId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
+  const q = trpc.dkp.overview.useQuery({ month }, { refetchInterval: 30_000 });
+  const data = q.data;
+
+  return (
+    <>
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="flex-1 text-xs" style={{ color: C.muted }}>El % de participación se mide por mes.</p>
           <div className="flex items-center gap-1 rounded-xl px-1 py-1" style={C.soft}>
             <button onClick={() => setMonth((m) => shiftMonth(m, -1))} className="rounded-lg p-1.5 hover:bg-white/5" aria-label="Mes anterior"><ChevronLeft className="h-4 w-4" style={{ color: C.muted }} /></button>
             <span className="min-w-[130px] text-center text-sm font-semibold capitalize" style={{ color: C.text }}>{monthLabel(month)}</span>
@@ -62,10 +80,10 @@ export default function Dkp() {
             </section>
 
             {openCp != null && data.cps.some((c) => c.id === openCp) && (
-              <div ref={detailRef} className="scroll-mt-4 space-y-3 rounded-2xl p-5" style={{ ...C.panel, borderColor: 'rgba(123,241,214,0.25)' }}>
+              <div className="space-y-3 rounded-2xl p-5" style={{ ...C.panel, borderColor: 'rgba(123,241,214,0.25)' }}>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold" style={{ color: C.text }}>{data.cps.find((c) => c.id === openCp)!.name}</h2>
-                  <button onClick={() => setOpenCp(null)} className="ml-auto text-xs hover:underline" style={{ color: C.muted }}>Cerrar detalle</button>
+                  <Btn tone="red" className="ml-auto" onClick={() => setOpenCp(null)}><X className="h-4 w-4" /> Cerrar detalle</Btn>
                 </div>
                 <CpDetail cpId={openCp} month={month} canAdmin={data.canAdmin} onOpenEvent={setEventId} />
               </div>
@@ -76,7 +94,7 @@ export default function Dkp() {
 
       <EventDialog eventId={eventId} onClose={() => setEventId(null)} />
       <EventFormDialog open={creating} onOpenChange={setCreating} onCreated={setEventId} />
-    </AppShell>
+    </>
   );
 }
 
@@ -93,7 +111,7 @@ function PointsInfo({ types, canAdmin, onManage }: { types: Overview['eventTypes
         types.map((t) => (
           <span key={t.id} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
             <span style={{ color: C.text }}>{t.name}</span>
-            <b style={{ color: C.gold }}>{t.points} pt</b>
+            <b style={{ color: C.gold }}>{t.points.toLocaleString('es-CL')} pt</b>
           </span>
         ))
       )}
@@ -138,26 +156,76 @@ function Stat({ icon, label, value, gold }: { icon: React.ReactNode; label: stri
   );
 }
 
+type EventFilter = 'open' | 'closed' | 'cancelled';
+const PAGE = { open: 6, closed: 10, cancelled: 10 };
+
 function EventsStrip({ data, onOpen }: { data: Overview; onOpen: (id: number) => void }) {
   const myCps = new Set(data.cps.filter((c) => c.isMine).map((c) => c.id));
-  const open = data.events.filter((e) => e.status === 'open');
-  const past = data.events.filter((e) => e.status !== 'open');
+  const groups = useMemo(() => ({
+    open: data.events.filter((e) => e.status === 'open'),
+    closed: data.events.filter((e) => e.status === 'closed'),
+    cancelled: data.events.filter((e) => e.status === 'cancelled'),
+  }), [data.events]);
+  const [filter, setFilter] = useState<EventFilter>('open');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setFilter((f) => (groups[f].length ? f : groups.open.length ? 'open' : groups.closed.length ? 'closed' : f));
+  }, [groups]);
+  useEffect(() => setPage(0), [filter, search, data.month]);
+
+  const term = search.trim().toLowerCase();
+  const list = groups[filter].filter((e) => !term || e.name.toLowerCase().includes(term) || e.date.includes(term));
+  const size = PAGE[filter];
+  const pages = Math.max(1, Math.ceil(list.length / size));
+  const shown = list.slice(page * size, page * size + size);
+  const tabs: { key: EventFilter; label: string; tone: string }[] = [
+    { key: 'open', label: 'Activos', tone: C.green },
+    { key: 'closed', label: 'Cerrados', tone: C.accent },
+    { key: 'cancelled', label: 'Anulados', tone: C.red },
+  ];
+
   return (
-    <section className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Eventos</h2>
-      {open.length === 0 && past.length === 0 && (
-        <p className="rounded-xl p-5 text-center text-sm" style={{ ...C.panel, color: C.muted }}>
-          No hay eventos en {monthLabel(data.month)}.{data.canAdmin ? ' Crea uno con "Nuevo evento".' : ''}
-        </p>
-      )}
-      {open.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {open.map((ev) => <EventCard key={ev.id} ev={ev} myCps={myCps} onOpen={onOpen} highlight />)}
+    <section className="space-y-3 rounded-2xl p-4" style={C.panel}>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="mr-2 text-xs font-semibold uppercase tracking-widest" style={{ color: C.muted }}>Eventos de {monthLabel(data.month)}</h2>
+        <div className="flex gap-1 rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          {tabs.map((t) => (
+            <button key={t.key} onClick={() => setFilter(t.key)} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+              style={filter === t.key ? { background: `${t.tone}22`, color: t.tone } : { color: C.muted }}>
+              {t.label}
+              <span className="rounded-full px-1.5 text-[10px]" style={{ background: 'rgba(255,255,255,0.08)' }}>{groups[t.key].length}</span>
+            </button>
+          ))}
         </div>
+        <label className="ml-auto flex items-center gap-2 rounded-lg px-2.5 py-1.5" style={C.soft}>
+          <Search className="h-3.5 w-3.5" style={{ color: C.muted }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar evento" className="w-36 bg-transparent text-xs outline-none" style={{ color: C.text }} />
+        </label>
+      </div>
+
+      {list.length === 0 ? (
+        <p className="py-6 text-center text-sm" style={{ color: C.muted }}>
+          {term ? 'Ningún evento coincide con la búsqueda.' : filter === 'open'
+            ? `No hay eventos activos.${data.canAdmin ? ' Crea uno con "Nuevo evento".' : ''}`
+            : filter === 'closed' ? `No hay eventos cerrados en ${monthLabel(data.month)}.` : `No hay eventos anulados en ${monthLabel(data.month)}.`}
+        </p>
+      ) : filter === 'open' ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {shown.map((ev) => <EventCard key={ev.id} ev={ev} myCps={myCps} onOpen={onOpen} highlight />)}
+        </div>
+      ) : (
+        <ul className="divide-y overflow-hidden rounded-xl" style={{ ...C.soft, borderColor: 'rgba(255,255,255,0.05)' }}>
+          {shown.map((ev) => <EventCard key={ev.id} ev={ev} myCps={myCps} onOpen={onOpen} />)}
+        </ul>
       )}
-      {past.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {past.map((ev) => <EventCard key={ev.id} ev={ev} myCps={myCps} onOpen={onOpen} />)}
+
+      {pages > 1 && (
+        <div className="flex items-center justify-end gap-2 text-xs" style={{ color: C.muted }}>
+          <span>{page * size + 1}–{Math.min(list.length, (page + 1) * size)} de {list.length}</span>
+          <button onClick={() => setPage((p) => p - 1)} disabled={page === 0} className="rounded-lg p-1.5 hover:bg-white/5 disabled:opacity-30" aria-label="Página anterior"><ChevronLeft className="h-4 w-4" /></button>
+          <span>{page + 1}/{pages}</span>
+          <button onClick={() => setPage((p) => p + 1)} disabled={page >= pages - 1} className="rounded-lg p-1.5 hover:bg-white/5 disabled:opacity-30" aria-label="Página siguiente"><ChevronRight className="h-4 w-4" /></button>
         </div>
       )}
     </section>
@@ -170,11 +238,16 @@ function EventCard({ ev, myCps, onOpen, highlight }: { ev: OverviewEvent; myCps:
   const st = eventStatus[ev.status];
   if (!highlight) {
     return (
-      <button onClick={() => onOpen(ev.id)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs hover:bg-white/5" style={C.soft}>
-        <span style={{ color: C.muted }}>{dateLabel(ev.date)}</span>
-        <span className={`font-semibold ${ev.status === 'cancelled' ? 'line-through' : ''}`} style={{ color: C.text }}>{ev.name}</span>
-        <Badge tone={st.tone}>{st.label}</Badge>
-      </button>
+      <li style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+        <button onClick={() => onOpen(ev.id)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-white/5">
+          <span className="w-20 shrink-0 text-xs" style={{ color: C.muted }}>{dateLabel(ev.date)}</span>
+          <span className={`flex-1 truncate font-semibold ${ev.status === 'cancelled' ? 'line-through opacity-70' : ''}`} style={{ color: C.text }}>{ev.name}</span>
+          <span className="hidden text-xs sm:inline" style={{ color: C.muted }}>{sent}/{ev.records.length} CP</span>
+          <span className="w-16 text-right text-xs font-semibold" style={{ color: C.gold }}>{ev.points.toLocaleString('es-CL')} pt</span>
+          <Badge tone={st.tone}>{st.label}</Badge>
+          <ChevronRight className="h-4 w-4 shrink-0" style={{ color: C.muted }} />
+        </button>
+      </li>
     );
   }
   return (
@@ -184,7 +257,7 @@ function EventCard({ ev, myCps, onOpen, highlight }: { ev: OverviewEvent; myCps:
         <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: C.green }} />
         <span className="font-bold" style={{ color: C.text }}>{ev.name}</span>
         <Badge tone="green">{st.label}</Badge>
-        <span className="ml-auto text-xs" style={{ color: C.muted }}>{dateLabel(ev.date)} · {ev.points} pt/asistente</span>
+        <span className="ml-auto text-xs" style={{ color: C.muted }}>{dateLabel(ev.date)} · {ev.points.toLocaleString('es-CL')} pt/asistente</span>
       </div>
       <div className="flex items-center gap-2 text-xs" style={{ color: C.muted }}>
         {sent} de {ev.records.length} CP enviaron su registro

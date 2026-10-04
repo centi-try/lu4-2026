@@ -14,6 +14,8 @@ export type OverviewEvent = Overview['events'][number];
 export type CpDetailData = Out['cpDetail'];
 export type EventDetailData = Out['eventDetail'];
 export type EventCp = EventDetailData['cps'][number];
+export type AuctionsData = Out['auctions'];
+export type Auction = AuctionsData['open'][number];
 
 export const C = {
   panel: { background: 'rgba(10,14,22,0.85)', border: '1px solid rgba(255,255,255,0.08)' } as CSSProperties,
@@ -24,6 +26,7 @@ export const C = {
   gold: '#fbbf24',
   red: '#f87171',
   green: '#34d399',
+  modal: { background: '#1a1a2e', border: '1px solid rgba(123,241,214,0.18)', borderRadius: 16 } as CSSProperties,
 };
 
 export const pad = (n: number) => String(n).padStart(2, '0');
@@ -147,7 +150,7 @@ export function ReasonDialog({ open, onOpenChange, title, description, confirmLa
   const [reason, setReason] = useState('');
   return (
     <AlertDialog open={open} onOpenChange={(v) => { if (!v) setReason(''); onOpenChange(v); }}>
-      <AlertDialogContent>
+      <AlertDialogContent style={C.modal}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
