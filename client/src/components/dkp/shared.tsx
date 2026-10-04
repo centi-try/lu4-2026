@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { inferRouterOutputs } from '@trpc/server';
 import type { AppRouter } from '../../../../server/routers';
@@ -97,6 +97,38 @@ export function Bar({ value }: { value: number | null }) {
     <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
       <div className="h-full rounded-full transition-all" style={{ width: `${value ?? 0}%`, background: pctColor(value) }} />
     </div>
+  );
+}
+
+const ZOOM = 2.8;
+const LENS = 220;
+
+/** Foto con lupa: al pasar el cursor muestra esa zona ampliada; clic abre el original. */
+export function ZoomImage({ src, alt }: { src: string; alt: string }) {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [lens, setLens] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  function move(e: React.MouseEvent) {
+    const r = imgRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setLens({ x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height });
+  }
+  return (
+    <a href={src} target="_blank" rel="noreferrer" title="Pasa el cursor para hacer zoom · clic para abrir en tamaño completo"
+      className="relative block cursor-zoom-in overflow-hidden rounded-lg" style={{ background: '#000' }}
+      onMouseMove={move} onMouseLeave={() => setLens(null)}>
+      <img ref={imgRef} src={src} alt={alt} className="max-h-[26rem] w-full object-contain" />
+      {lens && (
+        <span className="pointer-events-none absolute rounded-full shadow-2xl"
+          style={{
+            width: LENS, height: LENS, left: lens.x - LENS / 2, top: lens.y - LENS / 2,
+            border: `2px solid ${C.accent}`,
+            backgroundImage: `url("${src}")`, backgroundRepeat: 'no-repeat',
+            backgroundSize: `${lens.w * ZOOM}px ${lens.h * ZOOM}px`,
+            backgroundPosition: `${LENS / 2 - lens.x * ZOOM}px ${LENS / 2 - lens.y * ZOOM}px`,
+            backgroundColor: '#000',
+          }} />
+      )}
+    </a>
   );
 }
 

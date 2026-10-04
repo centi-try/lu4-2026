@@ -8,7 +8,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { Checkbox } from '../ui/checkbox';
-import { Badge, Btn, C, ReasonDialog, dateLabel, dateTimeLabel, eventStatus, inputCls, recordBadge } from './shared';
+import { Badge, Btn, C, ReasonDialog, ZoomImage, dateLabel, dateTimeLabel, eventStatus, inputCls, recordBadge } from './shared';
 import type { EventCp, EventDetailData } from './shared';
 import { EventFormDialog } from './EventFormDialog';
 
@@ -88,7 +88,7 @@ function EventBody({ data }: { data: EventDetailData }) {
           <Badge tone={st.tone}>{st.label}</Badge>
         </div>
         <DialogDescription>
-          {dateLabel(ev.date)} · {ev.points} pt por cada asistente marcado · {sent.length} de {cps.length} CP enviaron su registro
+          {dateLabel(ev.date)} · {ev.points} pt por cada asistente marcado · {data.submittedCps} de {data.totalCps} CP enviaron su registro
         </DialogDescription>
       </DialogHeader>
 
@@ -115,8 +115,16 @@ function EventBody({ data }: { data: EventDetailData }) {
         </p>
       )}
 
+      {data.hiddenCps > 0 && (
+        <p className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(123,241,214,0.06)', color: 'rgba(255,255,255,0.7)' }}>
+          <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: C.accent }} />
+          {cps.length ? 'Solo ves el registro de tu CP.' : 'La evidencia de las CP es privada mientras el evento no esté cerrado.'}
+          {' '}Los registros de {cps.length ? 'las demás CP' : 'todas las CP'} se publican cuando un Admin DKP cierre el evento.
+        </p>
+      )}
+
       <div className="space-y-3">
-        {cps.length === 0 && <p className="text-sm" style={{ color: C.muted }}>No hay CPs creadas en "Clanes &amp; CPs".</p>}
+        {data.totalCps === 0 && <p className="text-sm" style={{ color: C.muted }}>No hay CPs creadas en "Clanes &amp; CPs".</p>}
         {cps.map((cp) => (
           <RecordPanel key={cp.cpId} cp={cp} data={data} defaultOpen={cp.isMine || canAdmin || cps.length === 1} />
         ))}
@@ -259,12 +267,10 @@ function RecordPanel({ cp, data, defaultOpen }: { cp: EventCp; data: EventDetail
               placeholder="Motivo de la corrección (obligatorio para cambiar asistencia o foto)" />
           )}
 
-          <div className="grid gap-4 md:grid-cols-[minmax(0,320px)_1fr]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,420px)_1fr]">
             <div className="space-y-2">
               {r?.photoUrl ? (
-                <a href={r.photoUrl} target="_blank" rel="noreferrer" title="Abrir en tamaño completo">
-                  <img src={r.photoUrl} alt={`Evidencia ${cp.cpName}`} className="max-h-72 w-full rounded-lg object-contain" style={{ background: '#000' }} />
-                </a>
+                <ZoomImage src={r.photoUrl} alt={`Evidencia ${cp.cpName}`} />
               ) : (
                 <div className="flex h-44 flex-col items-center justify-center gap-2 rounded-lg text-xs" style={{ background: 'rgba(0,0,0,0.3)', color: C.muted, border: '1px dashed rgba(255,255,255,0.12)' }}>
                   <ImageOff className="h-6 w-6" /> Sin foto de evidencia

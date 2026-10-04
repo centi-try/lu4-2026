@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { dkpRouter } from './routers/dkp';
+import { canViewPhoto, dkpRouter } from './routers/dkp';
 
 const db = vi.hoisted(() => ({
   dbInstance: {} as any,
@@ -189,5 +189,44 @@ describe('dkp router', () => {
     await caller(admin).cancelEvent({ eventId: ev, reason: 'se suspendió' });
     await expect(caller(leaderA).saveAttendance({ eventId: ev, cpId: 100, userIds: [10] })).rejects.toThrow('anulado');
     expect((await caller(admin).overview({ month: MONTH })).cps[0]).toMatchObject({ closedEvents: 0, percent: null });
+  });
+
+  it('con el evento abierto cada líder solo ve su CP (y su foto); al cerrar lo ven todos', async () => {
+    const ev = await newEvent();
+    await register(leaderA, ev, 100, [10, 11]);
+    const photo = db.dbInstance.dkpRecords.find((r: any) => r.cpId === 100).photoUrl.split('/').pop();
+
+    const asB = await caller(leaderB).eventDetail({ eventId: ev });
+    expect(asB.cps.map((c) => c.cpName)).toEqual(['Beta']);
+    expect(asB).toMatchObject({ hiddenCps: 1, totalCps: 2, submittedCps: 1 });
+    expect((await caller(member(11, 100)).eventDetail({ eventId: ev })).cps).toEqual([]);
+    expect((await caller(dkpAdmin).eventDetail({ eventId: ev })).cps).toHaveLength(2);
+    const alfaForB = (await caller(leaderB).overview({ month: MONTH })).events[0].records.find((r) => r.cpId === 100);
+    expect(alfaForB).toMatchObject({ status: 'submitted', attendeeCount: 0, hasPhoto: false });
+
+    expect(canViewPhoto(leaderB, photo)).toBe(false);
+    expect(canViewPhoto(member(11, 100), photo)).toBe(false);
+    expect(canViewPhoto(leaderA, photo)).toBe(true);
+    expect(canViewPhoto(dkpAdmin, photo)).toBe(true);
+    expect(canViewPhoto({ id: 50, role: 'user' }, photo)).toBe(false);
+
+    await caller(admin).closeEvent({ eventId: ev, confirm: 'CERRAR' });
+    expect((await caller(member(31, 200)).eventDetail({ eventId: ev })).cps).toHaveLength(2);
+    expect(canViewPhoto(leaderB, photo)).toBe(true);
+  });
+
+  it('el admin gestiona tipos de evento con sus puntos y los usa al crear eventos', async () => {
+    await expect(caller(leaderA).saveEventType({ name: 'Boss épico', points: 2 })).rejects.toThrow('Solo un Admin DKP');
+    const { id } = await caller(dkpAdmin).saveEventType({ name: 'Boss épico', points: 2 });
+    await expect(caller(admin).saveEventType({ name: 'boss ÉPICO', points: 3 })).rejects.toThrow('Ya existe');
+    await caller(admin).saveEventType({ id, name: 'Boss épico', points: 3 });
+    expect((await caller(leaderA).overview({ month: MONTH })).eventTypes).toEqual([{ id, name: 'Boss épico', points: 3 }]);
+
+    const { id: ev } = await caller(admin).createEvent({ typeId: id, name: 'Boss épico', date: `${MONTH}-03`, points: 3 });
+    expect((await caller(admin).eventDetail({ eventId: ev })).event).toMatchObject({ typeId: id, points: 3 });
+
+    await caller(admin).archiveEventType({ id });
+    expect(await caller(admin).eventTypes()).toEqual([]);
+    await expect(caller(admin).createEvent({ typeId: id, name: 'Boss épico', date: `${MONTH}-04`, points: 3 })).rejects.toThrow('no existe');
   });
 });

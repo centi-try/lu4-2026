@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Crown, Plus, Trophy, Users, Wallet } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Coins, Crown, Plus, Trophy, Users, Wallet } from 'lucide-react';
 import { AppShell } from '../components/layout/AppShell';
 import { trpc } from '../lib/trpc';
 import { CpDetail } from '../components/dkp/CpDetail';
@@ -40,6 +40,8 @@ export default function Dkp() {
           {data?.canAdmin && <Btn solid onClick={() => setCreating(true)}><Plus className="h-4 w-4" /> Nuevo evento</Btn>}
         </div>
 
+        {data && <PointsInfo types={data.eventTypes} canAdmin={data.canAdmin} onManage={() => setCreating(true)} />}
+
         {!data ? (
           <div className="py-16 text-center text-sm" style={{ color: C.muted }}>{q.error?.message ?? 'Cargando…'}</div>
         ) : (
@@ -75,6 +77,28 @@ export default function Dkp() {
       <EventDialog eventId={eventId} onClose={() => setEventId(null)} />
       <EventFormDialog open={creating} onOpenChange={setCreating} onCreated={setEventId} />
     </AppShell>
+  );
+}
+
+function PointsInfo({ types, canAdmin, onManage }: { types: Overview['eventTypes']; canAdmin: boolean; onManage: () => void }) {
+  if (types.length === 0 && !canAdmin) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5" style={C.soft}>
+      <span className="mr-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
+        <Coins className="h-3.5 w-3.5" style={{ color: C.gold }} /> Puntos por evento
+      </span>
+      {types.length === 0 ? (
+        <button onClick={onManage} className="text-xs hover:underline" style={{ color: C.accent }}>Aún no hay tipos de evento: agrégalos en "Nuevo evento" → "Tipos de evento"</button>
+      ) : (
+        types.map((t) => (
+          <span key={t.id} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+            <span style={{ color: C.text }}>{t.name}</span>
+            <b style={{ color: C.gold }}>{t.points} pt</b>
+          </span>
+        ))
+      )}
+      <span className="ml-auto text-[11px]" style={{ color: C.muted }}>por cada asistente marcado</span>
+    </div>
   );
 }
 

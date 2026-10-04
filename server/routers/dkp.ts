@@ -24,8 +24,10 @@ export const photoDir = () =>
 
 type EventStatus = "open" | "closed" | "cancelled";
 type LogEntry = { at: string; by: string; action: string; detail: string };
+type DkpEventType = { id: number; name: string; points: number; active: boolean; createdAt: string; updatedAt: string };
 type DkpEvent = {
   id: number;
+  typeId?: number | null;
   name: string;
   date: string;
   points: number;
@@ -69,6 +71,12 @@ type LedgerEntry = {
 const events = (): DkpEvent[] => (dbInstance.dkpEvents ??= []);
 const records = (): DkpRecord[] => (dbInstance.dkpRecords ??= []);
 const ledger = (): LedgerEntry[] => (dbInstance.dkpLedger ??= []);
+const eventTypes = (): DkpEventType[] => (dbInstance.dkpEventTypes ??= []);
+const activeTypes = () =>
+  eventTypes()
+    .filter((t) => t.active)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"))
+    .map((t) => ({ id: t.id, name: t.name, points: t.points }));
 
 const nowIso = () => new Date().toISOString();
 const monthOf = (date: string) => date.slice(0, 7);
@@ -109,6 +117,11 @@ function findEvent(eventId: number): DkpEvent {
   const ev = events().find((e) => e.id === eventId);
   if (!ev) throw new TRPCError({ code: "NOT_FOUND", message: "El evento no existe." });
   return ev;
+}
+function findType(id: number, mustBeActive = false): DkpEventType {
+  const t = eventTypes().find((x) => x.id === id);
+  if (!t || (mustBeActive && !t.active)) throw new TRPCError({ code: "NOT_FOUND", message: "Ese tipo de evento no existe." });
+  return t;
 }
 const recordOf = (eventId: number, cpId: number) => records().find((r) => r.eventId === eventId && r.cpId === cpId);
 const counts = (r: DkpRecord | undefined): r is DkpRecord => !!r && r.status !== "draft";
@@ -154,6 +167,26 @@ async function audit(user: any, action: string, detail: string) {
 
 function requireAdmin(u: any) {
   if (!isDkpAdmin(u)) throw new TRPCError({ code: "FORBIDDEN", message: "Solo un Admin DKP o el Super Admin puede hacer esto." });
+}
+
+/** Mientras el evento no esté cerrado, cada líder solo ve el registro de su CP. */
+function canSeeRecord(u: any, ev: DkpEvent, cp: Cp) {
+  return ev.status === "closed" || isDkpAdmin(u) || isLeader(u, cp);
+}
+
+export function hasDkpAccess(u: any) {
+  return isDkpAdmin(u) || u?.legacyAccess === true || u?.cpAccess === true || commandParties().some((cp) => isLeader(u, cp));
+}
+
+/** Autoriza la descarga de una foto de evidencia (`/api/dkp-evidence/<archivo>`). */
+export function canViewPhoto(user: any, file: string) {
+  const u = freshUser(user);
+  if (!hasDkpAccess(u)) return false;
+  const r = records().find((x) => x.photoUrl === `${PHOTO_ROUTE}/${file}`);
+  if (!r) return isDkpAdmin(u);
+  const ev = events().find((e) => e.id === r.eventId);
+  const cp = commandParties().find((c) => c.id === r.cpId);
+  return !!ev && !!cp && canSeeRecord(u, ev, cp);
 }
 
 function canEditRecord(u: any, ev: DkpEvent, cp: Cp, r: DkpRecord | undefined) {
@@ -207,8 +240,7 @@ function detectImage(buf: Buffer): { ext: string } | null {
 
 const dkpProcedure = protectedProcedure.use(({ ctx, next }) => {
   const u = freshUser(ctx.user);
-  const leader = commandParties().some((cp) => isLeader(u, cp));
-  if (!isDkpAdmin(u) && u?.legacyAccess !== true && u?.cpAccess !== true && !leader) {
+  if (!hasDkpAccess(u)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "No tienes acceso a DKP." });
   }
   return next({ ctx: { ...ctx, user: u } });
@@ -217,9 +249,10 @@ const dkpProcedure = protectedProcedure.use(({ ctx, next }) => {
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const dateInput = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida.");
 const reasonInput = z.string().trim().min(3, "Escribe un motivo.").max(300);
+const pointsInput = z.number().int().min(0).max(100);
 const recordKey = z.object({ eventId: z.number().int(), cpId: z.number().int() });
 
-const eventSummary = (ev: DkpEvent) => ({
+const eventSummary = (ev: DkpEvent, u: any) => ({
   id: ev.id,
   name: ev.name,
   date: ev.date,
@@ -227,7 +260,13 @@ const eventSummary = (ev: DkpEvent) => ({
   status: ev.status,
   records: commandParties().map((cp) => {
     const r = recordOf(ev.id, cp.id);
-    return { cpId: cp.id, status: r?.status ?? null, attendeeCount: r?.attendees.length ?? 0, hasPhoto: !!r?.photoUrl };
+    const visible = canSeeRecord(u, ev, cp);
+    return {
+      cpId: cp.id,
+      status: r?.status ?? null,
+      attendeeCount: visible ? r?.attendees.length ?? 0 : 0,
+      hasPhoto: visible && !!r?.photoUrl,
+    };
   }),
 });
 
@@ -248,8 +287,8 @@ export const dkpRouter = router({
     const list = events()
       .filter((e) => e.status === "open" || monthOf(e.date) === input.month)
       .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
-      .map(eventSummary);
-    return { month: input.month, canAdmin: isDkpAdmin(ctx.user), maxAttendees: MAX_ATTENDEES, cps, events: list };
+      .map((ev) => eventSummary(ev, ctx.user));
+    return { month: input.month, canAdmin: isDkpAdmin(ctx.user), maxAttendees: MAX_ATTENDEES, cps, events: list, eventTypes: activeTypes() };
   }),
 
   cpDetail: dkpProcedure.input(z.object({ cpId: z.number().int(), month: monthInput })).query(({ input }) => {
@@ -292,7 +331,9 @@ export const dkpRouter = router({
   eventDetail: dkpProcedure.input(z.object({ eventId: z.number().int() })).query(({ ctx, input }) => {
     const ev = findEvent(input.eventId);
     const users = new Map((dbInstance.users || []).map((u: any) => [Number(u.id), nameOf(u)]));
-    const cps = commandParties().map((cp) => {
+    const all = commandParties();
+    const visible = all.filter((cp) => canSeeRecord(ctx.user, ev, cp));
+    const cps = visible.map((cp) => {
       const r = recordOf(ev.id, cp.id);
       const current = members(cp.id);
       const extra = (r?.attendees ?? []).filter((a) => !current.some((m) => m.userId === a.userId));
@@ -309,15 +350,63 @@ export const dkpRouter = router({
         record: r ?? null,
       };
     });
-    return { event: ev, canAdmin: isDkpAdmin(ctx.user), maxAttendees: MAX_ATTENDEES, closeWord: CLOSE_WORD, cps };
+    const submitted = all.filter((cp) => {
+      const r = recordOf(ev.id, cp.id);
+      return !!r && r.status !== "draft";
+    }).length;
+    return {
+      event: ev,
+      canAdmin: isDkpAdmin(ctx.user),
+      maxAttendees: MAX_ATTENDEES,
+      closeWord: CLOSE_WORD,
+      cps,
+      totalCps: all.length,
+      submittedCps: submitted,
+      hiddenCps: all.length - visible.length,
+    };
+  }),
+
+  eventTypes: dkpProcedure.query(() => activeTypes()),
+
+  saveEventType: dkpProcedure
+    .input(z.object({ id: z.number().int().optional(), name: z.string().trim().min(2).max(80), points: pointsInput }))
+    .mutation(async ({ ctx, input }) => {
+      requireAdmin(ctx.user);
+      const dup = eventTypes().find((t) => t.active && t.id !== input.id && t.name.toLowerCase() === input.name.toLowerCase());
+      if (dup) throw new TRPCError({ code: "CONFLICT", message: `Ya existe el tipo "${dup.name}".` });
+      if (input.id != null) {
+        const t = findType(input.id, true);
+        const before = `${t.name} (${t.points} pt)`;
+        Object.assign(t, { name: input.name, points: input.points, updatedAt: nowIso() });
+        saveDbToDisk();
+        await audit(ctx.user, "DKP_TYPE_UPDATED", `Editó el tipo de evento DKP ${before} → ${t.name} (${t.points} pt).`);
+        return { id: t.id };
+      }
+      const t: DkpEventType = { id: nextId(eventTypes()), name: input.name, points: input.points, active: true, createdAt: nowIso(), updatedAt: nowIso() };
+      eventTypes().push(t);
+      saveDbToDisk();
+      await audit(ctx.user, "DKP_TYPE_CREATED", `Creó el tipo de evento DKP ${t.name} (${t.points} pt).`);
+      return { id: t.id };
+    }),
+
+  archiveEventType: dkpProcedure.input(z.object({ id: z.number().int() })).mutation(async ({ ctx, input }) => {
+    requireAdmin(ctx.user);
+    const t = findType(input.id, true);
+    t.active = false;
+    t.updatedAt = nowIso();
+    saveDbToDisk();
+    await audit(ctx.user, "DKP_TYPE_ARCHIVED", `Quitó el tipo de evento DKP ${t.name}.`);
+    return { ok: true };
   }),
 
   createEvent: dkpProcedure
-    .input(z.object({ name: z.string().trim().min(2).max(80), date: dateInput, points: z.number().int().min(0).max(100) }))
+    .input(z.object({ typeId: z.number().int().nullish(), name: z.string().trim().min(2).max(80), date: dateInput, points: pointsInput }))
     .mutation(async ({ ctx, input }) => {
       requireAdmin(ctx.user);
+      const typeId = input.typeId != null ? findType(input.typeId, true).id : null;
       const ev: DkpEvent = {
         id: nextId(events()),
+        typeId,
         name: input.name,
         date: input.date,
         points: input.points,
@@ -335,10 +424,12 @@ export const dkpRouter = router({
     }),
 
   updateEvent: dkpProcedure
-    .input(z.object({ eventId: z.number().int(), name: z.string().trim().min(2).max(80), date: dateInput, points: z.number().int().min(0).max(100) }))
+    .input(z.object({ eventId: z.number().int(), typeId: z.number().int().nullish(), name: z.string().trim().min(2).max(80), date: dateInput, points: pointsInput }))
     .mutation(async ({ ctx, input }) => {
       requireAdmin(ctx.user);
       const ev = findEvent(input.eventId);
+      if (input.typeId != null && input.typeId !== ev.typeId) findType(input.typeId, true);
+      if (input.typeId !== undefined) ev.typeId = input.typeId ?? null;
       const changes: string[] = [];
       if (ev.name !== input.name) changes.push(`nombre "${ev.name}" → "${input.name}"`);
       if (ev.date !== input.date) changes.push(`fecha ${ev.date} → ${input.date}`);
