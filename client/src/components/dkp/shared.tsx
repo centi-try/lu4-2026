@@ -7,7 +7,7 @@ import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../ui/alert-dialog';
-import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/dialog';
 import { ImageHoverPreview } from '../ui/ImageHoverPreview';
 
 type Out = inferRouterOutputs<AppRouter>['dkp'];
@@ -124,6 +124,7 @@ export function ZoomImage({ src, alt }: { src: string; alt: string }) {
       <Dialog open={full} onOpenChange={setFull}>
         <DialogContent className="max-w-[96vw] p-3 sm:max-w-[96vw]" style={C.modal}>
           <DialogTitle className="sr-only">{alt}</DialogTitle>
+          <DialogDescription className="sr-only">Foto de evidencia a pantalla completa.</DialogDescription>
           <img src={src} alt={alt} className="mx-auto max-h-[86vh] w-auto max-w-full rounded-lg object-contain" />
         </DialogContent>
       </Dialog>

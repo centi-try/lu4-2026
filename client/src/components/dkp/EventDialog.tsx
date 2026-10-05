@@ -51,7 +51,11 @@ export function EventDialog({ eventId, onClose }: { eventId: number | null; onCl
     <Dialog open={eventId != null} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl" style={C.modal}>
         {!data ? (
-          <div className="py-16 text-center text-sm" style={{ color: C.muted }}>{q.error?.message ?? 'Cargando…'}</div>
+          <>
+            <DialogTitle className="sr-only">Evento DKP</DialogTitle>
+            <DialogDescription className="sr-only">Cargando el detalle del evento.</DialogDescription>
+            <div className="py-16 text-center text-sm" style={{ color: C.muted }}>{q.error?.message ?? 'Cargando…'}</div>
+          </>
         ) : (
           <EventBody data={data} onDeleted={onClose} />
         )}
