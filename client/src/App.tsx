@@ -39,6 +39,7 @@ const WarehouseClan = lazy(() => import("./pages/WarehouseClan"));
 const ClansAndCps = lazy(() => import("./pages/ClansAndCps"));
 const CpSplit = lazy(() => import("./pages/CpSplit"));
 const Cameras = lazy(() => import("./pages/Cameras"));
+const Dkp = lazy(() => import("./pages/Dkp"));
 
 function Router() {
   return (
@@ -60,6 +61,7 @@ function Router() {
       <Route path="/clans" component={() => <ProtectedRoute component={ClansAndCps} />} />
       <Route path="/cp-split" component={() => <ProtectedRoute component={CpSplit} allowedRoles={["super_admin"]} allowCpAccess />} />
       <Route path="/cameras" component={() => <ProtectedRoute component={Cameras} allowCpAccess />} />
+      <Route path="/dkp" component={() => <ProtectedRoute component={Dkp} allowCpAccess />} />
       <Route path="/admin/backups" component={() => <ProtectedRoute component={Backups} allowedRoles={["super_admin"]} />} />
       <Route path="/raids" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidDashboard} required="view" />} />} />
       <Route path="/raids/inventory" component={() => <ProtectedRoute component={() => <RaidProtectedRoute component={RaidInventory} required="interact" />} />} />

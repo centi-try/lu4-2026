@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import L2Splash from '../L2Splash';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse, Split, Cctv } from 'lucide-react';
+import { LayoutDashboard, Package, Clock, Settings, Menu, X, ChevronDown, Shield, User, BarChart3, Users, LogOut, ShoppingBag, Skull, Swords, Flag, Crown, Database, Warehouse, Split, Cctv, Trophy } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { trpc } from '../../lib/trpc';
@@ -31,6 +31,7 @@ const navItems: Array<{
   { href: '/clans', label: 'Clanes & CPs', icon: Shield, desc: 'Clanes y Command Parties' },
   { href: '/cp-split', label: 'Reparticiones CP', icon: Split, desc: 'Reparto equitativo entre CPs', allowedRoles: ['super_admin'] },
   { href: '/cameras', label: 'Cámaras', icon: Cctv, desc: 'Pantallas compartidas en vivo' },
+  { href: '/dkp', label: 'DKP', icon: Trophy, desc: 'Puntos y % de participación por CP' },
 ];
 
 // Ambos ítems son solo-super-admin y pertenecen a la configuración global del
@@ -143,8 +144,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {navItems.filter(item => {
             // Toggle cpAccess: solo ve el menú Reparticiones CP, nada más.
-            if (effectiveIsCp) return item.href === '/cp-split' || item.href === '/cameras';
-            if (!effectiveLegacyAccess) return false;
+            if (effectiveIsCp) return item.href === '/cp-split' || item.href === '/cameras' || item.href === '/dkp';
+            if (!effectiveLegacyAccess) return item.href === '/dkp' && !isImpersonating && authUser?.dkpAdmin === true;
             if (!item.allowedRoles) return true;
             return item.allowedRoles.includes(effectiveRole as any);
           }).map(item => {

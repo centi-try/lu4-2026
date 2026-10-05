@@ -15,6 +15,7 @@ interface AdminUser {
   isActive: boolean;
   legacyAccess?: boolean;
   cpAccess?: boolean;
+  dkpAdmin?: boolean;
   loginMethod?: string;
   createdAt?: string;
   lastSignedIn?: string;
@@ -430,6 +431,20 @@ export default function AdminUsers() {
     },
   });
 
+  const toggleDkpMutation = trpc.adminUsers.toggleDkpAdmin.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        data.user.dkpAdmin
+          ? `Permiso Admin DKP activado para ${data.user.name}.`
+          : `Permiso Admin DKP quitado a ${data.user.name}.`
+      );
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || 'Error al cambiar el permiso Admin DKP.');
+    },
+  });
+
   const handleToggleActive = (userId: number, _nextState: boolean) => {
     const user = (users || []).find(u => u.id === userId);
     if (user) setToggleModalUser(user);
@@ -677,7 +692,7 @@ export default function AdminUsers() {
             <>
             {/* Table Header */}
             <div
-              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
+              className="hidden md:grid grid-cols-[1fr_140px_130px_60px_60px_80px_70px_80px_80px] gap-3 border-b px-6 py-3 text-xs font-semibold uppercase tracking-widest"
               style={{ borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}
             >
                 <span>Usuario</span>
@@ -686,6 +701,7 @@ export default function AdminUsers() {
                 <span className="text-center">Estado</span>
                 <span className="text-center" style={{ fontSize: '9px' }}>Menú Antiguo</span>
                 <span className="text-center" style={{ fontSize: '9px' }}>Repartición CP</span>
+                <span className="text-center" style={{ fontSize: '9px' }}>Admin DKP</span>
                 <span className="text-center">Bloqueo</span>
                 <span className="text-center">Acciones</span>
               </div>
@@ -703,7 +719,7 @@ export default function AdminUsers() {
                   return (
                     <div
                       key={user.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
+                      className="grid grid-cols-1 md:grid-cols-[1fr_140px_130px_60px_60px_80px_70px_80px_80px] gap-3 px-6 py-4 transition-all hover:bg-white/[0.02]"
                       style={{ opacity: isPending || isDeleting ? 0.7 : 1 }}
                     >
                       {/* User Info */}
@@ -806,6 +822,25 @@ export default function AdminUsers() {
                             />
                             <span className="text-xs md:hidden" style={{ color: user.cpAccess === true ? '#34d399' : 'rgba(255,255,255,0.35)' }}>
                               {user.cpAccess === true ? 'Sí' : 'No'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Admin DKP Toggle */}
+                      <div className="flex items-center gap-3 justify-start md:justify-center" title="Puede crear y cerrar eventos DKP, corregir asistencias y registrar compras">
+                        {isCurrentUserSuperAdmin ? (
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Siempre</span>
+                        ) : (
+                          <>
+                            <ActiveToggle
+                              userId={user.id}
+                              isActive={user.dkpAdmin === true}
+                              onToggle={(uid) => toggleDkpMutation.mutate({ userId: uid, dkpAdmin: !(user.dkpAdmin === true) })}
+                              disabled={isPending || toggleDkpMutation.isPending}
+                            />
+                            <span className="text-xs md:hidden" style={{ color: user.dkpAdmin === true ? '#34d399' : 'rgba(255,255,255,0.35)' }}>
+                              Admin DKP: {user.dkpAdmin === true ? 'Sí' : 'No'}
                             </span>
                           </>
                         )}
