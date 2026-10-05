@@ -83,7 +83,6 @@ function EventBody({ data, onDeleted }: { data: EventDetailData; onDeleted: () =
       toast.success('Evento eliminado.');
       setDeleting(false);
       onDeleted();
-      utils.dkp.eventDetail.reset({ eventId: ev.id });
       void utils.dkp.overview.invalidate();
       void utils.dkp.cpDetail.invalidate();
     },
