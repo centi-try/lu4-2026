@@ -78,7 +78,17 @@ function EventBody({ data, onDeleted }: { data: EventDetailData; onDeleted: () =
 
   const close = trpc.dkp.closeEvent.useMutation({ onSuccess: () => { toast.success('Evento cerrado. Los puntos ya están en el historial.'); setClosing(false); }, onError, onSettled: refresh });
   const cancel = trpc.dkp.cancelEvent.useMutation({ onSuccess: () => { toast.success('Evento anulado.'); setReasonFor(null); }, onError, onSettled: refresh });
-  const remove = trpc.dkp.deleteEvent.useMutation({ onSuccess: () => { toast.success('Evento eliminado.'); setDeleting(false); onDeleted(); }, onError, onSettled: refresh });
+  const remove = trpc.dkp.deleteEvent.useMutation({
+    onSuccess: () => {
+      toast.success('Evento eliminado.');
+      setDeleting(false);
+      onDeleted();
+      utils.dkp.eventDetail.reset({ eventId: ev.id });
+      void utils.dkp.overview.invalidate();
+      void utils.dkp.cpDetail.invalidate();
+    },
+    onError,
+  });
   const reopen = trpc.dkp.reopenEvent.useMutation({ onSuccess: () => { toast.success('Evento reabierto.'); setReasonFor(null); }, onError, onSettled: refresh });
 
   const cps = useMemo(() => [...data.cps].sort((a, b) => Number(b.isMine) - Number(a.isMine)), [data.cps]);
